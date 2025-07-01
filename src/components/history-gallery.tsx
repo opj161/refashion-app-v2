@@ -88,42 +88,15 @@ export default function HistoryGallery() {
   };
 
   const handleReloadConfig = (item: HistoryItem) => {
-    // Navigate to /create and pass item params.
-    // This requires careful construction of query parameters
-    // based on whether it's an image or video item.
-    const params = new URLSearchParams();
-    if (item.videoGenerationParams) { // It's a video item
-        params.set('sourceImageUrl', item.videoGenerationParams.sourceImageUrl || item.originalClothingUrl || '');
-        params.set('prompt', item.videoGenerationParams.prompt || ''); // Or construct from parts
-        params.set('resolution', item.videoGenerationParams.resolution || '480p');
-        params.set('duration', item.videoGenerationParams.duration || '5');
-        params.set('seed', item.videoGenerationParams.seed?.toString() || '-1');
-        params.set('cameraFixed', item.videoGenerationParams.cameraFixed?.toString() || 'false');
-        // Add structured prompt params if they exist
-        if(item.videoGenerationParams.modelMovement) params.set('modelMovement', item.videoGenerationParams.modelMovement);
-        if(item.videoGenerationParams.fabricMotion) params.set('fabricMotion', item.videoGenerationParams.fabricMotion);
-        if(item.videoGenerationParams.cameraAction) params.set('cameraAction', item.videoGenerationParams.cameraAction);
-        if(item.videoGenerationParams.aestheticVibe) params.set('aestheticVibe', item.videoGenerationParams.aestheticVibe);
-        // Ensure the tab defaults to video
-        params.set('defaultTab', 'video');
+    if (!item) return;
 
-    } else { // Assume it's an image item
-        params.set('sourceImageUrl', item.originalClothingUrl || '');
-        // For image items, we might need to reconstruct the settings from item.attributes
-        // This is a simplified version; a more robust way would be to store all relevant settings.
-        if (item.attributes) {
-            Object.entries(item.attributes).forEach(([key, value]) => {
-                if (value !== undefined && value !== null) {
-                     params.set(key, String(value));
-                }
-            });
-        }
-        if (item.constructedPrompt) {
-            // Potentially also pass the raw prompt if that's useful for the image parameters component
-            // params.set('rawPrompt', item.constructedPrompt);
-        }
-         // Ensure the tab defaults to image
-        params.set('defaultTab', 'image');
+    const params = new URLSearchParams();
+    params.set('historyItemId', item.id);
+    
+    if (item.videoGenerationParams) {
+      params.set('defaultTab', 'video');
+    } else {
+      params.set('defaultTab', 'image');
     }
 
     router.push(`/create?${params.toString()}`);

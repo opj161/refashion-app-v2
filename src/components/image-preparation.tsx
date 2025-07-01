@@ -18,8 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 
 // Server Actions
 import { removeBackgroundAction, isBackgroundRemovalAvailable as checkBgAvailable } from "@/ai/actions/remove-background";
-import { upscaleImageAction, isUpscalingAvailable as checkUpscaleAvailable } from "@/ai/actions/upscale-image";
-import { faceDetailerAction, isFaceDetailerAvailable as checkFaceDetailerAvailable } from "@/ai/actions/face-detailer";
+import { upscaleImageAction, isUpscaleServiceAvailable as checkUpscaleAvailable, faceDetailerAction, isFaceDetailerAvailable as checkFaceDetailerAvailable } from "@/ai/actions/upscale-image";
 
 // Utilities & Icons
 import { getDisplayableImageUrl } from "@/lib/utils";
@@ -36,6 +35,7 @@ const SERVER_IMAGE_PATH_PREFIX = '/uploads/';
 
 interface ImagePreparationProps {
   onImageReady: (imageDataUri: string | null) => void;
+  sourceImageUrl?: string | null;
 }
 
 type ProcessingStep = 'crop' | 'bg' | 'upscale' | 'face' | 'confirm' | null;
@@ -73,7 +73,7 @@ const getProcessingMessage = (step: ProcessingStep): string => {
 };
 
 // --- Main Component ---
-export default function ImagePreparation({ onImageReady }: ImagePreparationProps) {
+export default function ImagePreparation({ onImageReady, sourceImageUrl }: ImagePreparationProps) {
   const { toast } = useToast();
 
   // --- State Management ---
@@ -110,6 +110,57 @@ export default function ImagePreparation({ onImageReady }: ImagePreparationProps
     checkUpscaleAvailable().then(setIsUpscalingAvailable);
     checkFaceDetailerAvailable().then(setIsFaceDetailerAvailable);
   }, []);
+
+  // Load image from sourceImageUrl when provided (for history restoration)
+  useEffect(() => {
+    if (sourceImageUrl && !originalImageDataUri) {
+      const loadImageFromUrl = async () => {
+        try {
+          const displayUrl = getDisplayableImageUrl(sourceImageUrl);
+          if (!displayUrl) {
+            console.warn('Could not generate displayable URL for:', sourceImageUrl);
+            return;
+          }
+
+          const response = await fetch(displayUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.statusText}`);
+          }
+
+          const blob = await response.blob();
+          const dataUri = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+
+          // Create a fake File object for consistency
+          const file = new File([blob], 'loaded-image.jpg', { type: blob.type });
+          
+          setOriginalFile(file);
+          setOriginalImageDataUri(dataUri);
+          setWorkingImageDataUri(dataUri);
+          // Note: We don't have the hash for loaded images, but that's okay for history restoration
+          setOriginalImageHash(null);
+          
+          toast({ 
+            title: "Image Loaded", 
+            description: "Original image loaded from history." 
+          });
+        } catch (error) {
+          console.error('Error loading image from sourceImageUrl:', error);
+          toast({ 
+            title: "Load Error", 
+            description: "Failed to load the original image from history.", 
+            variant: "destructive" 
+          });
+        }
+      };
+
+      loadImageFromUrl();
+    }
+  }, [sourceImageUrl, originalImageDataUri, toast]);
 
   // --- Handlers ---
   const resetAllState = useCallback(() => {

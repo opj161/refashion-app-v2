@@ -17,7 +17,7 @@ async function ensureHistoryDir() {
 
 export async function updateHistoryItem(
   historyItemId: string,
-  updates: Partial<Pick<HistoryItem, 'editedImageUrls' | 'constructedPrompt'>>
+  updates: Partial<Pick<HistoryItem, 'editedImageUrls' | 'originalImageUrls' | 'constructedPrompt'>>
 ): Promise<{ success: boolean; error?: string }> {
   const user = await getCurrentUser();
   if (!user) {
@@ -477,4 +477,25 @@ export async function getHistoryPaginated(
     hasMore,
     currentPage: page,
   };
+}
+
+export async function getHistoryItemById(historyItemId: string): Promise<{ success: boolean; item?: HistoryItem; error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { success: false, error: 'User not authenticated.' };
+  }
+
+  try {
+    const history = await readUserHistory(user.username);
+    const item = history.find(h => h.id === historyItemId);
+
+    if (!item) {
+      return { success: false, error: 'History item not found.' };
+    }
+
+    return { success: true, item };
+  } catch (error) {
+    console.error(`Error fetching history item ${historyItemId} for user ${user.username}:`, error);
+    return { success: false, error: 'Failed to read history file.' };
+  }
 }

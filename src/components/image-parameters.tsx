@@ -10,14 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon } from 'lucide-react';
+import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck } from 'lucide-react';
 import { generateImageEdit, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
-import { addHistoryItem, updateHistoryItem } from "@/actions/historyActions";
+import { faceDetailerAction } from "@/ai/actions/upscale-image";
+import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ModelAttributes, HistoryItem } from "@/lib/types";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import Image from "next/image";
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertTriangle } from 'lucide-react';
@@ -45,6 +46,7 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // State for parameters
   const [gender, setGender] = useState<string>(GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value);
@@ -71,9 +73,12 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
 
   // State for generation results
   const [outputImageUrls, setOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+  const [originalOutputImageUrls, setOriginalOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
   const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isReRollingSlot, setIsReRollingSlot] = useState<number | null>(null);
+  const [isFaceDetailingSlot, setIsFaceDetailingSlot] = useState<number | null>(null);
+  const [comparingSlotIndex, setComparingSlotIndex] = useState<number | null>(null);
   const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
 
   const commonFormDisabled = !preparedImageUrl || isLoading;
@@ -232,6 +237,7 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
     }
     setIsLoading(true);
     setOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+    setOriginalOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
     setGenerationErrors(Array(NUM_IMAGES_TO_GENERATE).fill(null));
 
     const finalPromptToUse = currentPrompt;
@@ -291,13 +297,64 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
         setGenerationErrors(updatedErrors);
 
         if (activeHistoryItemId && newImageUrl) {
-            await updateHistoryItem(activeHistoryItemId, { editedImageUrls: updatedUrls });
+            await updateHistoryItem(activeHistoryItemId, { 
+              editedImageUrls: updatedUrls,
+              originalImageUrls: originalOutputImageUrls 
+            });
         }
         toast({title: `Image ${slotIndex + 1} Re-rolled`});
     } catch (error) {
         toast({title: `Re-roll Failed (Slot ${slotIndex+1})`, description: (error as Error).message, variant: "destructive"});
     } finally {
         setIsReRollingSlot(null);
+    }
+  };
+
+  const handleFaceDetailer = async (slotIndex: number) => {
+    const imageUrl = outputImageUrls[slotIndex];
+    if (!imageUrl) {
+      toast({ title: "Image Not Available", variant: "destructive" });
+      return;
+    }
+    setIsFaceDetailingSlot(slotIndex);
+    try {
+      // Store the current URL as the "original" before enhancing
+      const currentOriginals = [...originalOutputImageUrls];
+      currentOriginals[slotIndex] = imageUrl;
+      setOriginalOutputImageUrls(currentOriginals);
+
+      // Convert local URL to data URI for the action
+      const absoluteUrl = `${window.location.origin}${imageUrl}`;
+      const response = await fetch(absoluteUrl);
+      if (!response.ok) throw new Error("Failed to fetch image for processing.");
+      const blob = await response.blob();
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      // We pass undefined for hash and filename as this is a generated image, not the original upload
+      const { savedPath } = await faceDetailerAction(dataUri, undefined, `generated_image_${slotIndex}.png`);
+
+      const updatedUrls = [...outputImageUrls];
+      updatedUrls[slotIndex] = savedPath;
+      setOutputImageUrls(updatedUrls);
+
+      if (activeHistoryItemId) {
+        await updateHistoryItem(activeHistoryItemId, { 
+          editedImageUrls: updatedUrls,
+          originalImageUrls: originalOutputImageUrls 
+        });
+      }
+      toast({ title: `Face Details Improved for Image ${slotIndex + 1}` });
+    } catch (error) {
+      console.error(`Error applying face detailer to image ${slotIndex}:`, error);
+      const errorMessage = (error as Error).message || "Unexpected error during face detailing.";
+      toast({ title: "Face Detailer Failed", description: errorMessage, variant: "destructive" });
+    } finally {
+      setIsFaceDetailingSlot(null);
     }
   };
 
@@ -325,9 +382,62 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
   const handleSendToVideoPage = (imageUrl: string | null) => {
     if (!imageUrl) return;
     const params = new URLSearchParams();
-    params.set('imageUrl', imageUrl);
-    router.push(`/video-generation?${params.toString()}`);
+    // The 'create' page expects 'sourceImageUrl' to load an image
+    // and 'defaultTab' to select the correct tab.
+    params.set('sourceImageUrl', imageUrl);
+    params.set('defaultTab', 'video');
+    router.push(`/create?${params.toString()}`);
   };
+
+  // Effect to load configuration from historyItemId in URL
+  useEffect(() => {
+    const historyItemId = searchParams.get('historyItemId');
+    if (historyItemId && currentUser && !activeHistoryItemId) {
+      const loadData = async () => {
+        setIsLoading(true);
+        try {
+          const { success, item, error } = await getHistoryItemById(historyItemId);
+          if (success && item) {
+            // Set all parameters from the loaded history item
+            if (item.attributes) {
+              Object.entries(item.attributes).forEach(([key, value]) => {
+                const config = PARAMETER_CONFIG[key as keyof ModelAttributes];
+                if (config && typeof value === 'string') {
+                  config.setter(value);
+                }
+              });
+            }
+            if (item.settingsMode) {
+              setSettingsMode(item.settingsMode);
+            }
+            if (item.constructedPrompt) {
+              handlePromptChange(item.constructedPrompt);
+            }
+            if (item.editedImageUrls) {
+              setOutputImageUrls(item.editedImageUrls);
+            }
+            if (item.originalImageUrls) {
+              setOriginalOutputImageUrls(item.originalImageUrls);
+            }
+            setActiveHistoryItemId(item.id);
+            toast({ title: "History Loaded", description: "Configuration and images have been restored." });
+          } else {
+            toast({ title: "Failed to Load History", description: error || "Unknown error", variant: "destructive" });
+            // Optionally, clear the invalid historyItemId from URL
+            router.replace('/create', { scroll: false });
+          }
+        } catch (error) {
+          console.error('Error loading history:', error);
+          toast({ title: "Failed to Load History", description: "An error occurred while loading history.", variant: "destructive" });
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      loadData();
+    }
+    // Intentionally run only when historyItemId is detected on load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, currentUser, activeHistoryItemId]);
 
   // Helper to render select components
   const renderSelect = ({ id, label, value, onChange, options, disabled }: {
@@ -524,17 +634,45 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
               {outputImageUrls.map((uri, index) => {
                 const error = generationErrors[index];
                 const isCurrentlyReRollingThisSlot = isReRollingSlot === index;
+                const isCurrentlyFaceDetailingThisSlot = isFaceDetailingSlot === index;
+                const isProcessingThisSlot = isCurrentlyReRollingThisSlot || isCurrentlyFaceDetailingThisSlot;
+                const originalUri = originalOutputImageUrls[index];
+                const displayUri = comparingSlotIndex === index ? originalUri : uri;
                 return (
                   <div key={index} className="relative group">
                     {uri ? (
                       <>
-                        <div className="aspect-[3/4] overflow-hidden rounded-md border">
-                          <Image src={getDisplayableImageUrl(uri) || ''} alt={`Generated image ${index + 1}`} width={300} height={400} className="w-full h-full object-cover" />
+                        <div className="aspect-[3/4] overflow-hidden rounded-md border relative">
+                          <Image src={getDisplayableImageUrl(displayUri) || ''} alt={`Generated image ${index + 1}`} width={300} height={400} className="w-full h-full object-cover" />
+                          {isCurrentlyFaceDetailingThisSlot && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                              <div className="text-white text-center">
+                                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                                <p className="text-sm">Enhancing...</p>
+                              </div>
+                            </div>
+                          )}
+                          {originalUri && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm"
+                              onMouseDown={() => setComparingSlotIndex(index)}
+                              onMouseUp={() => setComparingSlotIndex(null)}
+                              onMouseLeave={() => setComparingSlotIndex(null)}
+                              onTouchStart={() => setComparingSlotIndex(index)}
+                              onTouchEnd={() => setComparingSlotIndex(null)}
+                              title="Hold to see original"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                         <div className="mt-2 flex gap-1">
-                            <Button onClick={() => handleDownloadOutput(uri, index)} className="flex-1" variant="outline" size="sm" disabled={isCurrentlyReRollingThisSlot || isLoading}><Download className="h-3 w-3 mr-1" /> <span className="text-xs">DL</span></Button>
-                            <Button onClick={() => handleReRollImage(index)} className="flex-1" variant="ghost" size="sm" disabled={isCurrentlyReRollingThisSlot || isLoading}><RefreshCw className="h-3 w-3 mr-1" /> <span className="text-xs">Re-roll</span></Button>
-                            <Button onClick={() => handleSendToVideoPage(uri)} className="flex-1" variant="ghost" size="sm" disabled={isCurrentlyReRollingThisSlot || isLoading}><VideoIcon className="h-3 w-3 mr-1" /> <span className="text-xs">Video</span></Button>
+                            <Button onClick={() => handleDownloadOutput(uri, index)} className="flex-1" variant="outline" size="sm" disabled={isProcessingThisSlot || isLoading}><Download className="h-3 w-3 mr-1" /> <span className="text-xs">DL</span></Button>
+                            <Button onClick={() => handleReRollImage(index)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><RefreshCw className="h-3 w-3 mr-1" /> <span className="text-xs">Re-roll</span></Button>
+                            <Button onClick={() => handleFaceDetailer(index)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><UserCheck className="h-3 w-3 mr-1" /> <span className="text-xs">Face+</span></Button>
+                            <Button onClick={() => handleSendToVideoPage(uri)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><VideoIcon className="h-3 w-3 mr-1" /> <span className="text-xs">Video</span></Button>
                         </div>
                       </>
                     ) : isCurrentlyReRollingThisSlot ? (
@@ -543,11 +681,11 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
                       </div>
                     ) : error ? (
                       <div className="aspect-[3/4] flex flex-col items-center justify-center text-center text-xs text-destructive p-2 bg-destructive/10">
-                        Failed. <Button onClick={() => handleReRollImage(index)} variant="link" size="sm" className="text-xs p-0 h-auto mt-1" disabled={isCurrentlyReRollingThisSlot || isLoading}>Retry</Button>
+                        Failed. <Button onClick={() => handleReRollImage(index)} variant="link" size="sm" className="text-xs p-0 h-auto mt-1" disabled={isProcessingThisSlot || isLoading}>Retry</Button>
                       </div>
                     ) : (
                       <div className="aspect-[3/4] flex flex-col items-center justify-center text-center text-xs text-muted-foreground p-2 bg-muted/50">
-                        Not generated. <Button onClick={() => handleReRollImage(index)} variant="link" size="sm" className="text-xs p-0 h-auto mt-1" disabled={isCurrentlyReRollingThisSlot || isLoading}>Generate</Button>
+                        Not generated. <Button onClick={() => handleReRollImage(index)} variant="link" size="sm" className="text-xs p-0 h-auto mt-1" disabled={isProcessingThisSlot || isLoading}>Generate</Button>
                       </div>
                     )}
                   </div>

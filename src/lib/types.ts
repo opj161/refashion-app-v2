@@ -24,6 +24,7 @@ export interface HistoryItem {
   constructedPrompt: string;
   originalClothingUrl: string;
   editedImageUrls: (string | null)[];
+  originalImageUrls?: (string | null)[]; // Store pre-face-detailed versions for comparison
   username: string;
   settingsMode?: 'basic' | 'advanced';
   generatedVideoUrls?: (string | null)[];

@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { uploadUserImageAction } from "@/ai/actions/upload-user-image";
 import { removeBackgroundAction, isBackgroundRemovalAvailable as checkBackgroundRemovalAvailable } from "@/ai/actions/remove-background";
-import { upscaleImageAction, isUpscalingAvailable as checkUpscalingAvailable } from "@/ai/actions/upscale-image";
+import { upscaleImageAction, isUpscaleServiceAvailable as checkUpscalingAvailable } from "@/ai/actions/upscale-image";
 import styles from "./comparison-slider.module.css"; // Assuming this path is correct or will be created
 
 import {
