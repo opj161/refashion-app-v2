@@ -63,12 +63,12 @@ export default function CreationHub() {
         </TabsList>
 
         <TabsContent value="image" className="space-y-6">
-          <ImagePreparation onImageReady={setPreparedImageDataUri} sourceImageUrl={sourceImageUrl} />
+          <ImagePreparation onImageReady={setPreparedImageDataUri} sourceImageUrl={sourceImageUrl} preparationMode="image" />
           <ImageParameters preparedImageUrl={preparedImageDataUri} />
         </TabsContent>
 
         <TabsContent value="video" className="space-y-6">
-          <ImagePreparation onImageReady={setPreparedImageDataUri} sourceImageUrl={sourceImageUrl} />
+          <ImagePreparation onImageReady={setPreparedImageDataUri} sourceImageUrl={sourceImageUrl} preparationMode="video" />
           <VideoParameters preparedImageUrl={preparedImageDataUri} />
         </TabsContent>
       </Tabs>
