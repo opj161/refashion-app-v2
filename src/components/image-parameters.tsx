@@ -12,7 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck } from 'lucide-react';
 import { generateImageEdit, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
-import { faceDetailerAction } from "@/ai/actions/upscale-image";
+import { upscaleImageAction } from "@/ai/actions/upscale-image";
 import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ModelAttributes, HistoryItem } from "@/lib/types";
@@ -77,7 +77,7 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
   const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isReRollingSlot, setIsReRollingSlot] = useState<number | null>(null);
-  const [isFaceDetailingSlot, setIsFaceDetailingSlot] = useState<number | null>(null);
+  const [isUpscalingSlot, setIsUpscalingSlot] = useState<number | null>(null);
   const [comparingSlotIndex, setComparingSlotIndex] = useState<number | null>(null);
   const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
 
@@ -310,13 +310,13 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
     }
   };
 
-  const handleFaceDetailer = async (slotIndex: number) => {
+  const handleUpscale = async (slotIndex: number) => {
     const imageUrl = outputImageUrls[slotIndex];
     if (!imageUrl) {
       toast({ title: "Image Not Available", variant: "destructive" });
       return;
     }
-    setIsFaceDetailingSlot(slotIndex);
+    setIsUpscalingSlot(slotIndex);
     try {
       // Store the current URL as the "original" before enhancing
       const currentOriginals = [...originalOutputImageUrls];
@@ -336,7 +336,7 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
       });
 
       // We pass undefined for hash and filename as this is a generated image, not the original upload
-      const { savedPath } = await faceDetailerAction(dataUri, undefined, `generated_image_${slotIndex}.png`);
+      const { savedPath } = await upscaleImageAction(dataUri, undefined, `generated_image_${slotIndex}.png`);
 
       const updatedUrls = [...outputImageUrls];
       updatedUrls[slotIndex] = savedPath;
@@ -348,13 +348,13 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
           originalImageUrls: originalOutputImageUrls 
         });
       }
-      toast({ title: `Face Details Improved for Image ${slotIndex + 1}` });
+      toast({ title: `Image ${slotIndex + 1} Upscaled Successfully` });
     } catch (error) {
-      console.error(`Error applying face detailer to image ${slotIndex}:`, error);
-      const errorMessage = (error as Error).message || "Unexpected error during face detailing.";
-      toast({ title: "Face Detailer Failed", description: errorMessage, variant: "destructive" });
+      console.error(`Error upscaling image ${slotIndex}:`, error);
+      const errorMessage = (error as Error).message || "Unexpected error during upscaling.";
+      toast({ title: "Upscaling Failed", description: errorMessage, variant: "destructive" });
     } finally {
-      setIsFaceDetailingSlot(null);
+      setIsUpscalingSlot(null);
     }
   };
 
@@ -634,8 +634,8 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
               {outputImageUrls.map((uri, index) => {
                 const error = generationErrors[index];
                 const isCurrentlyReRollingThisSlot = isReRollingSlot === index;
-                const isCurrentlyFaceDetailingThisSlot = isFaceDetailingSlot === index;
-                const isProcessingThisSlot = isCurrentlyReRollingThisSlot || isCurrentlyFaceDetailingThisSlot;
+                const isCurrentlyUpscalingThisSlot = isUpscalingSlot === index;
+                const isProcessingThisSlot = isCurrentlyReRollingThisSlot || isCurrentlyUpscalingThisSlot;
                 const originalUri = originalOutputImageUrls[index];
                 const displayUri = comparingSlotIndex === index ? originalUri : uri;
                 return (
@@ -644,11 +644,11 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
                       <>
                         <div className="aspect-[3/4] overflow-hidden rounded-md border relative">
                           <Image src={getDisplayableImageUrl(displayUri) || ''} alt={`Generated image ${index + 1}`} width={300} height={400} className="w-full h-full object-cover" />
-                          {isCurrentlyFaceDetailingThisSlot && (
+                          {isCurrentlyUpscalingThisSlot && (
                             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                               <div className="text-white text-center">
                                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                                <p className="text-sm">Enhancing...</p>
+                                <p className="text-sm">Upscaling...</p>
                               </div>
                             </div>
                           )}
@@ -671,7 +671,7 @@ export default function ImageParameters({ preparedImageUrl }: ImageParametersPro
                         <div className="mt-2 flex gap-1">
                             <Button onClick={() => handleDownloadOutput(uri, index)} className="flex-1" variant="outline" size="sm" disabled={isProcessingThisSlot || isLoading}><Download className="h-3 w-3 mr-1" /> <span className="text-xs">DL</span></Button>
                             <Button onClick={() => handleReRollImage(index)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><RefreshCw className="h-3 w-3 mr-1" /> <span className="text-xs">Re-roll</span></Button>
-                            <Button onClick={() => handleFaceDetailer(index)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><UserCheck className="h-3 w-3 mr-1" /> <span className="text-xs">Face+</span></Button>
+                            <Button onClick={() => handleUpscale(index)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><Sparkles className="h-3 w-3 mr-1" /> <span className="text-xs">Upscale</span></Button>
                             <Button onClick={() => handleSendToVideoPage(uri)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><VideoIcon className="h-3 w-3 mr-1" /> <span className="text-xs">Video</span></Button>
                         </div>
                       </>
