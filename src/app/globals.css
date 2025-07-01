@@ -1,0 +1,109 @@
+/* globals.css - Alternative 1: Deep Ocean Elegance */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme initialization - prevent flash */
+:root {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+  }
+}
+
+/* Ensure theme transitions are smooth when hydrated */
+html.light,
+html.dark {
+  transition: none;
+}
+
+html, body {
+  width: 100%;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 190 0% 96%; /* #F3F7F7 - Very light, cool off-white */
+    --foreground: 190 15% 20%; /* #2A3434 - Dark, desaturated petrol for text */
+
+    --card: 0 0% 99%; /* #FFFFFF - Pure white cards */
+    --card-foreground: 190 15% 20%; /* Matches foreground */
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 190 15% 20%;
+
+    --primary: 190 45% 35%; /* #317873 - Deep Petrol */
+    --primary-foreground: 190 20% 95%; /* #EEF6F6 - Light, cool off-white for text on primary */
+
+    --secondary: 190 30% 88%; /* #D6E6E5 - Lighter, desaturated petrol */
+    --secondary-foreground: 190 25% 30%; /* #3A504F - Darker petrol for text on secondary */
+
+    --muted: 190 20% 94%; /* #EBF1F1 - Very light, muted petrol-grey */
+    --muted-foreground: 190 15% 45%; /* #627474 - Softer petrol text for muted */
+
+    --accent: 338, 100%, 68%; /* #C49A57 - Muted Bronze/Gold */
+    --accent-foreground: 319°, 100%, 15%; /* #3A2F22 - Dark brown for text on accent */
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 190 20% 82%; /* #C8DADC - Desaturated petrol border */
+    --input: 190 20% 90%; /* #E2EDED - Light petrol input background */
+    --ring: 190 45% 45%; /* #499A94 - Slightly lighter Deep Petrol for ring */
+
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 195 25% 5%; /* #0F1616 - Very dark, desaturated petrol */
+    --foreground: 195 15% 90%; /* #DCE2E2 - Light cool grey for text */
+
+    --card: 195 20% 15%; /* #161E1E - Dark petrol, slightly lighter than background */
+    --card-foreground: 195 15% 95%;
+
+    --popover: 195 20% 12%;
+    --popover-foreground: 195 15% 90%;
+
+    --primary: 190 55% 50%; /* #3AB7AD - Brighter Petrol for dark mode */
+    --primary-foreground: 190 20% 91%; /* #141A1A - Very dark petrol for text on primary */
+
+    --secondary: 195 20% 25%; /* #334141 - Medium-dark desaturated petrol */
+    --secondary-foreground: 195 15% 85%; /* #D2D9D9 - Lighter grey text */
+
+    --muted: 195 15% 18%; /* #232B2B - Dark grey petrol for muted */
+    --muted-foreground: 195 10% 75%; /* #9BA3A3 - Muted grey text */
+
+    --accent: 35 60% 65%; /* #DCA969 - Brighter Bronze/Gold */
+    --accent-foreground: 35 30% 10%; /* #2D241A - Very dark brown for text */
+
+    --destructive: 0 70% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 195 15% 22%; /* #2D3636 - Subtle dark petrol border */
+    --input: 195 15% 32%;
+    --ring: 190 55% 60%; /* #5BC7BE - Brighter Petrol ring */
+    
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+}

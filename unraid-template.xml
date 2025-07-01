@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>refashion</Name>
+  <Repository>jay2323/refashion:latest</Repository>
+  <Registry/>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support/>
+  <Project/>
+  <Overview>Refashion AI - Fashion Model Image Generation with Multi-User Support</Overview>
+  <Category>ProductivityTools:</Category>
+  <WebUI>http://[IP]:[PORT:3000]</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/your-repo/refashion-app/main/public/favicon.ico</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  
+  <!-- Environment Variables -->
+  <Config Name="NODE_ENV" Target="NODE_ENV" Default="production" Mode="" Description="Node environment" Type="Variable" Display="always" Required="true" Mask="false">production</Config>
+  <Config Name="PORT" Target="PORT" Default="3000" Mode="" Description="Application port" Type="Variable" Display="always" Required="true" Mask="false">3000</Config>
+  <Config Name="STORAGE_PROVIDER" Target="STORAGE_PROVIDER" Default="local" Mode="" Description="Storage provider for images" Type="Variable" Display="always" Required="true" Mask="false">local</Config>
+  <Config Name="ALLOWED_ORIGINS" Target="ALLOWED_ORIGINS" Default="*" Mode="" Description="Allowed CORS origins" Type="Variable" Display="always" Required="false" Mask="false">*</Config>
+  
+  <!-- AI API Keys -->
+  <Config Name="GEMINI_API_KEY_1" Target="GEMINI_API_KEY_1" Default="" Mode="" Description="Primary Gemini API Key" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="GEMINI_API_KEY_2" Target="GEMINI_API_KEY_2" Default="" Mode="" Description="Secondary Gemini API Key" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="GEMINI_API_KEY_3" Target="GEMINI_API_KEY_3" Default="" Mode="" Description="Tertiary Gemini API Key" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  
+  <!-- User System Configuration -->
+  <Config Name="APP_USERS_CONFIG" Target="APP_USERS_CONFIG" Default="{&quot;admin&quot;:{&quot;password&quot;:&quot;your-admin-password&quot;,&quot;role&quot;:&quot;admin&quot;},&quot;user1&quot;:{&quot;password&quot;:&quot;user1-password&quot;,&quot;role&quot;:&quot;user&quot;}}" Mode="" Description="JSON configuration for users and their roles" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="SESSION_SECRET" Target="SESSION_SECRET" Default="your-very-strong-secret-password-for-cookies-at-least-32-characters-long-make-it-random-and-secure" Mode="" Description="Secret key for session encryption (must be at least 32 characters)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  
+  <!-- User and Group IDs -->
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID for file permissions" Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID for file permissions" Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  
+  <!-- Proxy Settings (if needed) -->
+  <Config Name="HTTP_PROXY" Target="HTTP_PROXY" Default="" Mode="" Description="HTTP proxy URL" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="HTTPS_PROXY" Target="HTTPS_PROXY" Default="" Mode="" Description="HTTPS proxy URL" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="NO_PROXY" Target="NO_PROXY" Default="localhost,127.0.0.1" Mode="" Description="No proxy hosts" Type="Variable" Display="advanced" Required="false" Mask="false">localhost,127.0.0.1</Config>
+  
+  <!-- Volume Mappings -->
+  <Config Name="App Data" Target="/app/public/uploads" Default="/mnt/user/appdata/refashion-app/uploads" Mode="rw" Description="Directory for uploaded and generated images" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/refashion-app/uploads</Config>
+  <Config Name="User Data" Target="/app/user_data" Default="/mnt/user/appdata/refashion-app/user_data" Mode="rw" Description="Directory for user-specific data including history files" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/refashion-app/user_data</Config>
+  
+  <!-- Port Mapping -->
+  <Config Name="Web Port" Target="3000" Default="3000" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">3000</Config>
+  
+</Container>

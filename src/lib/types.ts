@@ -1,0 +1,69 @@
+export interface SessionUser {
+  username: string;
+  role: 'admin' | 'user';
+  isLoggedIn: boolean;
+}
+
+export interface SessionData {
+  user?: SessionUser;
+}
+
+export interface UserConfig {
+  password: string;
+  role: 'admin' | 'user';
+}
+
+export interface UsersConfig {
+  [username: string]: UserConfig;
+}
+
+export interface HistoryItem {
+  id: string;
+  timestamp: number;
+  attributes: ModelAttributes;
+  constructedPrompt: string;
+  originalClothingUrl: string;
+  editedImageUrls: (string | null)[];
+  username: string;
+  settingsMode?: 'basic' | 'advanced';
+  generatedVideoUrls?: (string | null)[];
+  videoGenerationParams?: {
+    prompt: string;
+    resolution: string;
+    duration: string;
+    seed: number;
+    sourceImageUrl: string;
+    // NEW structured fields
+    modelMovement: string;
+    fabricMotion: string;
+    cameraAction: string;
+    aestheticVibe: string;
+    cameraFixed: boolean;
+    // Webhook-related fields
+    localVideoUrl?: string | null;
+    status?: 'processing' | 'completed' | 'failed';
+    error?: string;
+    taskId?: string;
+  };
+}
+
+export interface ModelAttributes {
+  gender: string;
+  bodyType: string;
+  bodySize: string;
+  ageRange: string;
+  ethnicity: string;
+  poseStyle: string;
+  background: string;
+  fashionStyle: string;
+  hairStyle: string;
+  modelExpression: string;
+  lightingType: string;
+  lightQuality: string;
+  cameraAngle: string;
+  lensEffect: string;
+  depthOfField: string;
+  timeOfDay: string;
+  overallMood: string;
+  fabricRendering: string;
+}
