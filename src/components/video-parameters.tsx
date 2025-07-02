@@ -3,23 +3,25 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea"; // Added for prompt editing
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Settings2, Shuffle, Video, AlertTriangle, CheckCircle, Download, PencilLine, Palette as PaletteIcon } from "lucide-react"; // PaletteIcon for Animation & Style section
-import { getDisplayableImageUrl } from "@/lib/utils";
-import Image from "next/image"; // For displaying prepared image
-import { usePromptManager } from '@/hooks/usePromptManager'; // Import the hook
 import { uploadToFalStorage } from '@/ai/actions/generate-video.action';
 import { useActiveImage } from "@/stores/imageStore";
 import {
     PREDEFINED_PROMPTS, MODEL_MOVEMENT_OPTIONS, FABRIC_MOTION_OPTIONS_VIDEO, // Use FABRIC_MOTION_OPTIONS_VIDEO
-    CAMERA_ACTION_OPTIONS, AESTHETIC_VIBE_OPTIONS, OptionWithPromptSegment
-} from '@/lib/prompt-builder'; // Import all option constants
+    CAMERA_ACTION_OPTIONS, AESTHETIC_VIBE_OPTIONS as AESTHETIC_STYLE_OPTIONS
+} from "@/lib/prompt-builder";
+import { AlertTriangle, CheckCircle, Download, Info, Loader2, PaletteIcon, Settings2, Shuffle, Video } from "lucide-react";
+import { OptionWithPromptSegment } from "@/lib/prompt-builder";
+import { usePromptManager } from "@/hooks/usePromptManager";
+import { getDisplayableImageUrl } from "@/lib/utils";
 
 // Type for video generation parameters
 interface VideoGenerationParams {
@@ -111,7 +113,7 @@ export default function VideoParameters() {
   const [modelMovement, setModelMovement] = useState<string>(MODEL_MOVEMENT_OPTIONS[0].value);
   const [fabricMotion, setFabricMotion] = useState<string>(FABRIC_MOTION_OPTIONS_VIDEO[0].value);
   const [cameraAction, setCameraAction] = useState<string>(CAMERA_ACTION_OPTIONS[0].value);
-  const [aestheticVibe, setAestheticVibe] = useState<string>(AESTHETIC_VIBE_OPTIONS[0].value);
+  const [aestheticVibe, setAestheticVibe] = useState<string>(AESTHETIC_STYLE_OPTIONS[0].value);
 
   // Generation states
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -246,47 +248,65 @@ export default function VideoParameters() {
   }, [toast]);
 
 
-  // Polling for webhook completion (copied from video-generation/page.tsx and simplified)
+  // Efficient video status polling using dedicated endpoint
   useEffect(() => {
     if (!historyItemId || !isGenerating) return;
 
-    const interval = setInterval(async () => {
+    let isCancelled = false;
+    const poll = async () => {
+      if (isCancelled) return;
+
       try {
-        const historyResponse = await fetch('/api/history', { cache: 'no-store' }); // Assuming /api/history fetches all history types
-        if (!historyResponse.ok) return;
+        // Call the new, specific endpoint
+        const response = await fetch(`/api/history/${historyItemId}/status`, { cache: 'no-store' });
 
-        const historyData = await historyResponse.json();
-        // The history item might be in `videoHistory` or a general list depending on your history structure.
-        // Let's assume videoHistory is the primary place, but adapt if needed.
-        const targetItem = historyData.videoHistory?.find((item: any) => item.id === historyItemId);
+        if (!response.ok) {
+          // Stop polling on server errors like 404 or 500
+          console.error(`Status check failed: ${response.status}`);
+          setGenerationError(`Status check failed: ${response.statusText}`);
+          setIsGenerating(false);
+          return;
+        }
 
-        if (targetItem?.videoGenerationParams?.status === 'completed') {
-          clearInterval(interval);
-          const finalLocalVideoUrl = targetItem.videoGenerationParams?.localVideoUrl;
-          const finalRemoteVideoUrl = targetItem.generatedVideoUrls?.[0] || null;
-          setGeneratedVideoUrl(finalLocalVideoUrl || finalRemoteVideoUrl || null);
-          setGeneratedSeedValue(targetItem.videoGenerationParams?.seed || null);
+        const data: import('@/services/database.service').VideoStatusPayload = await response.json();
+
+        if (data.status === 'completed') {
+          setGeneratedVideoUrl(data.videoUrl || null);
+          setGeneratedSeedValue(data.seed || null);
           setIsGenerating(false);
           toast({ title: "Video Generated!", description: "Video is ready." });
-        } else if (targetItem?.videoGenerationParams?.status === 'failed') {
-          clearInterval(interval);
-          const errorMessage = targetItem.videoGenerationParams?.error || 'Video generation failed';
-          setGenerationError(errorMessage);
+        } else if (data.status === 'failed') {
+          setGenerationError(data.error || 'Video generation failed');
           setIsGenerating(false);
-          toast({ title: "Generation Failed", description: errorMessage, variant: "destructive" });
+          toast({ title: "Generation Failed", description: data.error || 'An unknown error occurred.', variant: "destructive" });
+        } else {
+          // Still processing, schedule the next poll
+          setTimeout(poll, 5000); 
         }
-      } catch (error) { console.error("Error checking history:", error); }
-    }, 5000); // Check every 5 seconds
 
+      } catch (error) {
+        console.error("Error checking video status:", error);
+        // Don't stop polling on network errors, just try again
+        setTimeout(poll, 5000);
+      }
+    };
+
+    // Start the first poll
+    poll();
+
+    // Safety timeout
     const timeout = setTimeout(() => {
-      clearInterval(interval);
       if (isGenerating) {
-        setIsGenerating(false);
-        toast({title: "Generation Timed Out", description: "Taking too long. Check history later.", variant: "default"});
+          isCancelled = true;
+          setIsGenerating(false);
+          toast({ title: "Generation Timed Out", description: "Taking too long. Check history later." });
       }
     }, 10 * 60 * 1000); // 10 min timeout
 
-    return () => { clearInterval(interval); clearTimeout(timeout); };
+    return () => {
+      isCancelled = true;
+      clearTimeout(timeout);
+    };
   }, [historyItemId, isGenerating, toast]);
 
 
@@ -304,23 +324,30 @@ export default function VideoParameters() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {!preparedImageUrl && (
-            <div className="md:col-span-2 mb-2 p-3 border rounded-md bg-amber-50 border-amber-200 text-amber-700">
-                <p className="text-sm font-medium">Please prepare an image in the previous step to enable video generation.</p>
+            <div className="md:col-span-2 flex items-center space-x-4 rounded-md border border-dashed p-4 bg-background/20">
+              <Info className="h-8 w-8 text-muted-foreground flex-shrink-0" />
+              <div className="space-y-1">
+                <h4 className="font-semibold text-foreground">Image Required</h4>
+                <p className="text-sm text-muted-foreground">
+                  Please prepare an image in the previous step to enable video generation.
+                </p>
+              </div>
             </div>
           )}
 
           <div className="md:col-span-2">
             <RenderSelectComponent
-              id="predefinedPrompt" label="Predefined Animation"
+              id="predefined-animation"
+              label="Predefined Animation"
               value={selectedPredefinedPrompt} onChange={setSelectedPredefinedPrompt}
               options={PREDEFINED_PROMPTS}
               disabled={commonFormDisabled}
             />
           </div>
-          <RenderSelectComponent id="modelMovement" label="Model Movement" value={modelMovement} onChange={setModelMovement} options={MODEL_MOVEMENT_OPTIONS} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
-          <RenderSelectComponent id="fabricMotion" label="Fabric Motion" value={fabricMotion} onChange={setFabricMotion} options={FABRIC_MOTION_OPTIONS_VIDEO} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
-          <RenderSelectComponent id="cameraAction" label="Camera Action" value={cameraAction} onChange={setCameraAction} options={CAMERA_ACTION_OPTIONS} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
-          <RenderSelectComponent id="aestheticVibe" label="Aesthetic Vibe" value={aestheticVibe} onChange={setAestheticVibe} options={AESTHETIC_VIBE_OPTIONS} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
+          <RenderSelectComponent id="model-movement" label="Model Movement" value={modelMovement} onChange={setModelMovement} options={MODEL_MOVEMENT_OPTIONS} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
+          <RenderSelectComponent id="fabric-motion" label="Fabric Motion" value={fabricMotion} onChange={setFabricMotion} options={FABRIC_MOTION_OPTIONS_VIDEO} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
+          <RenderSelectComponent id="camera-action" label="Camera Action" value={cameraAction} onChange={setCameraAction} options={CAMERA_ACTION_OPTIONS} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
+          <RenderSelectComponent id="aesthetic-vibe" label="Aesthetic Vibe" value={aestheticVibe} onChange={setAestheticVibe} options={AESTHETIC_STYLE_OPTIONS} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
 
           <div className="md:col-span-2 pt-2 space-y-2">
             <div className="flex justify-between items-center">

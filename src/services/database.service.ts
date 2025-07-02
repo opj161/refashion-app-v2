@@ -3,6 +3,14 @@ import path from 'path';
 import fs from 'fs';
 import type { HistoryItem, ModelAttributes } from '@/lib/types';
 
+// Video status payload type for efficient polling
+export interface VideoStatusPayload {
+  status: 'processing' | 'completed' | 'failed' | 'unknown';
+  videoUrl?: string | null;
+  error?: string;
+  seed?: number;
+}
+
 const DB_DIR = path.join(process.cwd(), 'user_data', 'history');
 const DB_PATH = path.join(DB_DIR, 'history.db');
 
@@ -105,13 +113,11 @@ function getPreparedStatements() {
     
     preparedStatements.findHistoryById = db.prepare(`
       SELECT h.*, 
-             GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
-             GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
-             GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
       FROM history h
-      LEFT JOIN history_images hi ON h.id = hi.history_id
       WHERE h.id = ?
-      GROUP BY h.id
     `);
     
     preparedStatements.updateHistory = db.prepare(`
@@ -127,13 +133,11 @@ function getPreparedStatements() {
     
     preparedStatements.findHistoryByUsername = db.prepare(`
       SELECT h.*, 
-             GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
-             GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
-             GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
       FROM history h
-      LEFT JOIN history_images hi ON h.id = hi.history_id
       WHERE h.username = ?
-      GROUP BY h.id
       ORDER BY h.timestamp DESC
     `);
     
@@ -143,39 +147,33 @@ function getPreparedStatements() {
     
     preparedStatements.findHistoryPaginated = db.prepare(`
       SELECT h.*, 
-             GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
-             GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
-             GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
       FROM history h
-      LEFT JOIN history_images hi ON h.id = hi.history_id
       WHERE h.username = ?
-      GROUP BY h.id
       ORDER BY h.timestamp DESC
       LIMIT ? OFFSET ?
     `);
     
     preparedStatements.findHistoryPaginatedWithVideoFilter = db.prepare(`
       SELECT h.*, 
-             GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
-             GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
-             GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
       FROM history h
-      LEFT JOIN history_images hi ON h.id = hi.history_id
       WHERE h.username = ? AND h.videoGenerationParams IS NOT NULL
-      GROUP BY h.id
       ORDER BY h.timestamp DESC
       LIMIT ? OFFSET ?
     `);
     
     preparedStatements.findHistoryPaginatedWithImageFilter = db.prepare(`
       SELECT h.*, 
-             GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
-             GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
-             GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
       FROM history h
-      LEFT JOIN history_images hi ON h.id = hi.history_id
       WHERE h.username = ? AND h.videoGenerationParams IS NULL
-      GROUP BY h.id
       ORDER BY h.timestamp DESC
       LIMIT ? OFFSET ?
     `);
@@ -185,9 +183,9 @@ function getPreparedStatements() {
 }
 
 function rowToHistoryItem(row: any): HistoryItem {
-  const editedImageUrls = row.edited_images ? row.edited_images.split(',').filter(Boolean) : [];
-  const originalImageUrls = row.original_images ? row.original_images.split(',').filter(Boolean) : undefined;
-  const generatedVideoUrls = row.video_urls ? row.video_urls.split(',').filter(Boolean) : undefined;
+  const editedImageUrls = row.edited_images ? JSON.parse(row.edited_images).filter(Boolean) : [];
+  const originalImageUrls = row.original_images ? JSON.parse(row.original_images).filter(Boolean) : undefined;
+  const generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls).filter(Boolean) : undefined;
   
   // Ensure arrays have proper null padding to match expected interface
   const paddedEditedUrls = new Array(4).fill(null);
@@ -387,11 +385,10 @@ export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10
   
   const rows = db.prepare(`
     SELECT h.*, 
-           GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
-           GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
-           GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
+           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
+           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
     FROM history h
-    LEFT JOIN history_images hi ON h.id = hi.history_id
     GROUP BY h.id
     ORDER BY h.timestamp DESC
     LIMIT ? OFFSET ?
@@ -405,6 +402,36 @@ export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10
     totalCount: totalCount.count,
     hasMore,
     currentPage: page
+  };
+}
+
+export function getHistoryItemStatus(id: string, username: string): VideoStatusPayload | null {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT videoGenerationParams, 
+           (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' LIMIT 1) as video_url
+    FROM history h
+    WHERE h.id = ? AND h.username = ?
+  `);
+
+  const row: any = stmt.get(id, username);
+
+  if (!row) {
+    return null; // Item not found or does not belong to the user
+  }
+  
+  if (!row.videoGenerationParams) {
+    // This is an image-only item or something is wrong
+    return { status: 'unknown' };
+  }
+
+  const params = JSON.parse(row.videoGenerationParams);
+
+  return {
+    status: params.status || 'processing', // Default to processing if status not set
+    videoUrl: row.video_url || params.localVideoUrl || null,
+    error: params.error,
+    seed: params.seed,
   };
 }
 
