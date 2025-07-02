@@ -22,6 +22,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertTriangle } from 'lucide-react';
+import { useActiveImage } from "@/stores/imageStore";
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
     BODY_TYPE_OPTIONS, BODY_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
@@ -38,15 +39,16 @@ interface ImageGenerationParams extends ModelAttributes {
 // Constants
 const NUM_IMAGES_TO_GENERATE = 3;
 
-interface ImageParametersProps {
-  preparedImageUrl: string | null;
-}
-
-export default function ImageParameters({ preparedImageUrl }: ImageParametersProps) {
+// Component is now prop-less - gets prepared image from Zustand store
+export default function ImageParameters() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Get prepared image from store instead of props
+  const activeImage = useActiveImage();
+  const preparedImageUrl = activeImage?.dataUri || null;
 
   // State for parameters
   const [gender, setGender] = useState<string>(GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value);

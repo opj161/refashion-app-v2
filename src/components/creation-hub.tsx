@@ -4,20 +4,26 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import ImagePreparation from "./image-preparation";
+import ImagePreparationContainer from "./ImagePreparationContainer";
 import ImageParameters from "./image-parameters";
 import VideoParameters from "./video-parameters";
 import { getHistoryItemById } from "@/actions/historyActions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useImageStore } from "@/stores/imageStore";
 
 export default function CreationHub() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const [preparedImageDataUri, setPreparedImageDataUri] = useState<string | null>(null);
   const [defaultTab, setDefaultTab] = useState<string>("image");
   const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null);
+  
+  // Store state for prepared image
+  const [preparedImageDataUri, setPreparedImageDataUri] = useState<string | null>(null);
+  
+  // Access store for debugging/monitoring
+  const { reset } = useImageStore();
 
   // Handle URL parameters on component mount
   useEffect(() => {
@@ -63,13 +69,21 @@ export default function CreationHub() {
         </TabsList>
 
         <TabsContent value="image" className="space-y-6">
-          <ImagePreparation onImageReady={setPreparedImageDataUri} sourceImageUrl={sourceImageUrl} preparationMode="image" />
-          <ImageParameters preparedImageUrl={preparedImageDataUri} />
+          <ImagePreparationContainer 
+            onImageReady={setPreparedImageDataUri} 
+            sourceImageUrl={sourceImageUrl} 
+            preparationMode="image" 
+          />
+          <ImageParameters />
         </TabsContent>
 
         <TabsContent value="video" className="space-y-6">
-          <ImagePreparation onImageReady={setPreparedImageDataUri} sourceImageUrl={sourceImageUrl} preparationMode="video" />
-          <VideoParameters preparedImageUrl={preparedImageDataUri} />
+          <ImagePreparationContainer 
+            onImageReady={setPreparedImageDataUri} 
+            sourceImageUrl={sourceImageUrl} 
+            preparationMode="video" 
+          />
+          <VideoParameters />
         </TabsContent>
       </Tabs>
     </div>

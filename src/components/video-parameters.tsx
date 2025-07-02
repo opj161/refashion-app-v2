@@ -15,6 +15,7 @@ import { getDisplayableImageUrl } from "@/lib/utils";
 import Image from "next/image"; // For displaying prepared image
 import { usePromptManager } from '@/hooks/usePromptManager'; // Import the hook
 import { uploadToFalStorage } from '@/ai/actions/generate-video.action';
+import { useActiveImage } from "@/stores/imageStore";
 import {
     PREDEFINED_PROMPTS, MODEL_MOVEMENT_OPTIONS, FABRIC_MOTION_OPTIONS_VIDEO, // Use FABRIC_MOTION_OPTIONS_VIDEO
     CAMERA_ACTION_OPTIONS, AESTHETIC_VIBE_OPTIONS, OptionWithPromptSegment
@@ -91,12 +92,13 @@ const RenderSelectComponent: React.FC<RenderSelectProps> = ({ id, label, value, 
 };
 
 
-interface VideoParametersProps {
-  preparedImageUrl: string | null; // This is now a data URI
-}
-
-export default function VideoParameters({ preparedImageUrl }: VideoParametersProps) {
+// Component is now prop-less - gets prepared image from Zustand store
+export default function VideoParameters() {
   const { toast } = useToast();
+  
+  // Get prepared image from store instead of props
+  const activeImage = useActiveImage();
+  const preparedImageUrl = activeImage?.dataUri || null;
 
   // State for video parameters
   const [resolution, setResolution] = useState<'480p' | '720p'>('480p');
