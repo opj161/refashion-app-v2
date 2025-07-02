@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { startVideoGenerationAndCreateHistory } from '@/ai/actions/generate-video';
+import { startVideoGenerationAndCreateHistory } from '@/ai/actions/generate-video.action';
 
 export async function POST(request: NextRequest) {
   try {

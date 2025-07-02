@@ -21,8 +21,8 @@ import ImageVersionStack from "./ImageVersionStack";
 import ComparisonSlider from "./ComparisonSlider";
 
 // Server Actions
-import { removeBackgroundAction, isBackgroundRemovalAvailable as checkBgAvailable } from "@/ai/actions/remove-background";
-import { upscaleImageAction, isUpscaleServiceAvailable as checkUpscaleAvailable, faceDetailerAction, isFaceDetailerAvailable as checkFaceDetailerAvailable } from "@/ai/actions/upscale-image";
+import { removeBackgroundAction, isBackgroundRemovalAvailable as checkBgAvailable } from "@/ai/actions/remove-background.action";
+import { upscaleImageAction, isUpscaleServiceAvailable as checkUpscaleAvailable, faceDetailerAction, isFaceDetailerAvailable as checkFaceDetailerAvailable } from "@/ai/actions/upscale-image.action";
 
 // Utilities & Icons
 import { getDisplayableImageUrl } from "@/lib/utils";

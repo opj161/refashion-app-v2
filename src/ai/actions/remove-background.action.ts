@@ -73,5 +73,5 @@ export async function removeBackgroundAction(
  * @returns {Promise<boolean>} True if the service is available, otherwise false.
  */
 export async function isBackgroundRemovalAvailable(): Promise<boolean> {
-  return falImageService.isServiceAvailable();
+  return await falImageService.isServiceAvailable();
 }

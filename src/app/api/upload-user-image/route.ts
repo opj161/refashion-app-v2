@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video';
+import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
 import { Buffer } from 'buffer';
 
 // Helper function to convert Data URI to Blob

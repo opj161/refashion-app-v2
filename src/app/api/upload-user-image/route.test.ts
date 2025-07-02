@@ -1,10 +1,10 @@
 // @ts-nocheck
 import { POST } from './route'; // Assuming route.ts is in the same directory
 import { NextRequest } from 'next/server';
-import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video';
+import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
 
 // Mock dependencies
-jest.mock('@/ai/actions/generate-video', () => ({
+jest.mock('@/ai/actions/generate-video.action', () => ({
   uploadToFalStorage: jest.fn(),
   isFalVideoGenerationAvailable: jest.fn(),
 }));

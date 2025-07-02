@@ -1,10 +1,7 @@
 'use server';
 
+import * as videoService from '@/services/fal-api/video.service';
 import { fal } from '@fal-ai/client';
-import { Buffer } from 'buffer'; // Needed if we use fal.storage.upload with Buffers
-import { promises as fs } from 'fs';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from '@/actions/authActions';
 import { addStandaloneVideoHistoryItem, updateVideoHistoryItem } from '@/actions/historyActions';
 
@@ -388,59 +385,18 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
   // 2. Prepare the webhook URL for fal_webhook query parameter
   const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/video/webhook?historyItemId=${historyItemId}&username=${encodeURIComponent(user.username)}`;
 
-  // 3. Submit the job to fal.ai using the webhook-specific approach
-  // According to Fal.ai docs, we need to use the direct API with fal_webhook query parameter
+  // 3. Submit the job using the new service function
   try {
-    // Start with minimal required parameters
-    const falInput: any = {
+    const videoServiceInput = {
       prompt: input.prompt,
       image_url: input.image_url,
+      resolution: input.resolution,
+      duration: input.duration,
+      camera_fixed: input.camera_fixed,
+      seed: input.seed,
     };
-    
-    // Only add optional parameters if they have values
-    if (input.resolution) {
-      falInput.resolution = input.resolution;
-    }
-    if (input.duration) {
-      falInput.duration = input.duration;
-    }
-    if (typeof input.camera_fixed === 'boolean') {
-      falInput.camera_fixed = input.camera_fixed;
-    }
-    if (typeof input.seed === 'number' && input.seed !== undefined) {
-      falInput.seed = input.seed;
-    }
-    
-    console.log('Fal.ai input parameters for webhook submission:', JSON.stringify(falInput, null, 2));
-    console.log('Webhook URL:', webhookUrl);
-    
-    // Use direct HTTP request to queue.fal.run with fal_webhook parameter
-    const webhookResponse = await fetch(`https://queue.fal.run/fal-ai/bytedance/seedance/v1/lite/image-to-video?fal_webhook=${encodeURIComponent(webhookUrl)}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${process.env.FAL_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(falInput),
-    });
 
-    if (!webhookResponse.ok) {
-      const errorText = await webhookResponse.text();
-      console.error('Webhook submission failed:', {
-        status: webhookResponse.status,
-        statusText: webhookResponse.statusText,
-        body: errorText
-      });
-      throw new Error(`Webhook submission failed: ${webhookResponse.status} ${errorText}`);
-    }
-
-    const webhookResult = await webhookResponse.json();
-    console.log('Webhook submission successful:', webhookResult);
-    const request_id = webhookResult.request_id || webhookResult.gateway_request_id;
-
-    if (!request_id) {
-      throw new Error('No request_id returned from webhook submission');
-    }
+    const taskId = await videoService.startVideoGenerationWithWebhook(videoServiceInput, webhookUrl);
 
     // Update the history item with the taskId for tracking
     await updateVideoHistoryItem({ 
@@ -450,25 +406,11 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
       localVideoUrl: null,
       seedUsed: null,
       status: 'processing',
-      // Store taskId in the params for potential client-side polling
     });
 
-    return { taskId: request_id, historyItemId: historyItemId };
+    return { taskId, historyItemId };
   } catch (error: any) {
     console.error('Fal.ai submission error:', error);
-    console.error('Error details:', {
-      message: error?.message,
-      status: error?.status,
-      body: error?.body,
-      name: error?.name,
-      stack: error?.stack,
-      cause: error?.cause
-    });
-    
-    // Try to get more specific error information
-    if (error?.body) {
-      console.error('Fal.ai error body:', JSON.stringify(error.body, null, 2));
-    }
     
     // If submission fails, mark the history item as failed
     await updateVideoHistoryItem({ 

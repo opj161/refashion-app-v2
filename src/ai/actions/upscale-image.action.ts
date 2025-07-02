@@ -89,7 +89,7 @@ export async function faceDetailerAction(
  * @returns {Promise<boolean>} True if the service is available, otherwise false.
  */
 export async function isUpscaleServiceAvailable(): Promise<boolean> {
-  return falImageService.isServiceAvailable();
+  return await falImageService.isServiceAvailable();
 }
 
 /**

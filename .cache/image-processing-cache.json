@@ -6,5 +6,9 @@
   "e8edcf4f5da97a4dd90a914674fac08bbd8637c5021fae00b037db0a6ea3946b": {
     "faceDetailed": "/uploads/processed_images/RefashionAI_face_detailed_fd116281-cc12-4d6b-ab17-3d4865706bb3.png",
     "timestamp": 1751399790025
+  },
+  "0fa38f39308708d66e3c5a124abb6b6fad9cebe640e6bf2f94ede4783727a750": {
+    "bgRemoved": "/uploads/processed_images/RefashionAI_bg_removed_be0102bf-eb88-47ed-b422-254a97b636b3.png",
+    "timestamp": 1751413606068
   }
 }

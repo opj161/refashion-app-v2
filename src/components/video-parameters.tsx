@@ -14,7 +14,7 @@ import { Loader2, Settings2, Shuffle, Video, AlertTriangle, CheckCircle, Downloa
 import { getDisplayableImageUrl } from "@/lib/utils";
 import Image from "next/image"; // For displaying prepared image
 import { usePromptManager } from '@/hooks/usePromptManager'; // Import the hook
-import { uploadToFalStorage } from '@/ai/actions/generate-video';
+import { uploadToFalStorage } from '@/ai/actions/generate-video.action';
 import {
     PREDEFINED_PROMPTS, MODEL_MOVEMENT_OPTIONS, FABRIC_MOTION_OPTIONS_VIDEO, // Use FABRIC_MOTION_OPTIONS_VIDEO
     CAMERA_ACTION_OPTIONS, AESTHETIC_VIBE_OPTIONS, OptionWithPromptSegment

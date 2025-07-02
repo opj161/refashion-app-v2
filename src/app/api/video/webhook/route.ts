@@ -1,27 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
 import { updateVideoHistoryItem } from '@/actions/historyActions';
 import { verifyWebhookSignature, extractWebhookHeaders } from '@/lib/webhook-verification';
-
-// Helper function to download and save the video locally
-async function saveVideoLocally(videoUrl: string): Promise<string> {
-  const videoDir = path.join(process.cwd(), 'public', 'uploads', 'generated_videos');
-  await fs.mkdir(videoDir, { recursive: true });
-
-  const response = await fetch(videoUrl);
-  if (!response.ok) throw new Error(`Failed to download video: ${response.statusText}`);
-  
-  const videoBuffer = Buffer.from(await response.arrayBuffer());
-  const fileName = `RefashionAI_video_${crypto.randomUUID()}.mp4`;
-  const filePath = path.join(videoDir, fileName);
-  
-  await fs.writeFile(filePath, videoBuffer);
-  
-  const localUrl = `/uploads/generated_videos/${fileName}`;
-  console.log(`Video saved locally to ${localUrl}`);
-  return localUrl;
-}
+import { saveFileFromUrl } from '@/services/storage.service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -134,7 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Download the video from the temporary fal.ai URL and save it locally
-    const localVideoUrl = await saveVideoLocally(falVideoUrl);
+    const localVideoUrl = await saveFileFromUrl(falVideoUrl, 'RefashionAI_video', 'generated_videos', 'mp4');
     
     // 6. Update the history item with the final details
     await updateVideoHistoryItem({
