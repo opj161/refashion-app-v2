@@ -1,0 +1,421 @@
+import Database from 'better-sqlite3';
+import path from 'path';
+import fs from 'fs';
+import type { HistoryItem, ModelAttributes } from '@/lib/types';
+
+const DB_DIR = path.join(process.cwd(), 'user_data', 'history');
+const DB_PATH = path.join(DB_DIR, 'history.db');
+
+let db: Database.Database;
+
+// Singleton pattern to ensure only one DB connection
+export function getDb(): Database.Database {
+  if (db) {
+    return db;
+  }
+
+  // Ensure directory exists
+  fs.mkdirSync(DB_DIR, { recursive: true });
+
+  db = new Database(DB_PATH, { verbose: process.env.NODE_ENV === 'development' ? console.log : undefined });
+  console.log('SQLite database connected at', DB_PATH);
+  
+  // Enable Write-Ahead Logging for better concurrency
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
+  db.pragma('foreign_keys = ON');
+
+  // Initialize schema on first connect
+  initSchema(db);
+
+  return db;
+}
+
+function initSchema(db: Database.Database) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS history (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      constructedPrompt TEXT,
+      originalClothingUrl TEXT,
+      settingsMode TEXT,
+      attributes TEXT,
+      videoGenerationParams TEXT
+    );
+    
+    CREATE TABLE IF NOT EXISTS history_images (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      history_id TEXT NOT NULL,
+      url TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('edited', 'original_for_comparison', 'generated_video')),
+      slot_index INTEGER NOT NULL,
+      FOREIGN KEY (history_id) REFERENCES history (id) ON DELETE CASCADE
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history (username, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images (history_id);
+  `);
+  console.log('Database schema initialized.');
+}
+
+// Database operations
+export interface PaginationOptions {
+  username: string;
+  page: number;
+  limit: number;
+  filter?: 'video' | 'image';
+}
+
+export interface PaginationResult {
+  items: HistoryItem[];
+  totalCount: number;
+  hasMore: boolean;
+  currentPage: number;
+}
+
+// Prepared statements
+let preparedStatements: {
+  insertHistory?: Database.Statement;
+  insertImage?: Database.Statement;
+  findHistoryById?: Database.Statement;
+  updateHistory?: Database.Statement;
+  deleteImagesByHistoryId?: Database.Statement;
+  findHistoryByUsername?: Database.Statement;
+  countHistoryByUsername?: Database.Statement;
+  findHistoryPaginated?: Database.Statement;
+  findHistoryPaginatedWithVideoFilter?: Database.Statement;
+  findHistoryPaginatedWithImageFilter?: Database.Statement;
+} = {};
+
+function getPreparedStatements() {
+  if (!preparedStatements.insertHistory) {
+    const db = getDb();
+    
+    preparedStatements.insertHistory = db.prepare(`
+      INSERT OR REPLACE INTO history 
+      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    preparedStatements.insertImage = db.prepare(`
+      INSERT INTO history_images (history_id, url, type, slot_index)
+      VALUES (?, ?, ?, ?)
+    `);
+    
+    preparedStatements.findHistoryById = db.prepare(`
+      SELECT h.*, 
+             GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
+             GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
+             GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+      FROM history h
+      LEFT JOIN history_images hi ON h.id = hi.history_id
+      WHERE h.id = ?
+      GROUP BY h.id
+    `);
+    
+    preparedStatements.updateHistory = db.prepare(`
+      UPDATE history 
+      SET constructedPrompt = COALESCE(?, constructedPrompt),
+          videoGenerationParams = COALESCE(?, videoGenerationParams)
+      WHERE id = ?
+    `);
+    
+    preparedStatements.deleteImagesByHistoryId = db.prepare(`
+      DELETE FROM history_images WHERE history_id = ?
+    `);
+    
+    preparedStatements.findHistoryByUsername = db.prepare(`
+      SELECT h.*, 
+             GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
+             GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
+             GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+      FROM history h
+      LEFT JOIN history_images hi ON h.id = hi.history_id
+      WHERE h.username = ?
+      GROUP BY h.id
+      ORDER BY h.timestamp DESC
+    `);
+    
+    preparedStatements.countHistoryByUsername = db.prepare(`
+      SELECT COUNT(*) as count FROM history WHERE username = ?
+    `);
+    
+    preparedStatements.findHistoryPaginated = db.prepare(`
+      SELECT h.*, 
+             GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
+             GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
+             GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+      FROM history h
+      LEFT JOIN history_images hi ON h.id = hi.history_id
+      WHERE h.username = ?
+      GROUP BY h.id
+      ORDER BY h.timestamp DESC
+      LIMIT ? OFFSET ?
+    `);
+    
+    preparedStatements.findHistoryPaginatedWithVideoFilter = db.prepare(`
+      SELECT h.*, 
+             GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
+             GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
+             GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+      FROM history h
+      LEFT JOIN history_images hi ON h.id = hi.history_id
+      WHERE h.username = ? AND h.videoGenerationParams IS NOT NULL
+      GROUP BY h.id
+      ORDER BY h.timestamp DESC
+      LIMIT ? OFFSET ?
+    `);
+    
+    preparedStatements.findHistoryPaginatedWithImageFilter = db.prepare(`
+      SELECT h.*, 
+             GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
+             GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
+             GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+      FROM history h
+      LEFT JOIN history_images hi ON h.id = hi.history_id
+      WHERE h.username = ? AND h.videoGenerationParams IS NULL
+      GROUP BY h.id
+      ORDER BY h.timestamp DESC
+      LIMIT ? OFFSET ?
+    `);
+  }
+  
+  return preparedStatements;
+}
+
+function rowToHistoryItem(row: any): HistoryItem {
+  const editedImageUrls = row.edited_images ? row.edited_images.split(',').filter(Boolean) : [];
+  const originalImageUrls = row.original_images ? row.original_images.split(',').filter(Boolean) : undefined;
+  const generatedVideoUrls = row.video_urls ? row.video_urls.split(',').filter(Boolean) : undefined;
+  
+  // Ensure arrays have proper null padding to match expected interface
+  const paddedEditedUrls = new Array(4).fill(null);
+  editedImageUrls.forEach((url: string, index: number) => {
+    if (index < 4) paddedEditedUrls[index] = url;
+  });
+  
+  const paddedOriginalUrls = originalImageUrls ? new Array(4).fill(null) : undefined;
+  if (originalImageUrls && paddedOriginalUrls) {
+    originalImageUrls.forEach((url: string, index: number) => {
+      if (index < 4) paddedOriginalUrls[index] = url;
+    });
+  }
+  
+  const paddedVideoUrls = generatedVideoUrls ? new Array(4).fill(null) : undefined;
+  if (generatedVideoUrls && paddedVideoUrls) {
+    generatedVideoUrls.forEach((url: string, index: number) => {
+      if (index < 4) paddedVideoUrls[index] = url;
+    });
+  }
+
+  return {
+    id: row.id,
+    username: row.username,
+    timestamp: row.timestamp,
+    constructedPrompt: row.constructedPrompt,
+    originalClothingUrl: row.originalClothingUrl,
+    settingsMode: row.settingsMode as 'basic' | 'advanced',
+    attributes: row.attributes ? JSON.parse(row.attributes) : {} as ModelAttributes,
+    editedImageUrls: paddedEditedUrls,
+    originalImageUrls: paddedOriginalUrls,
+    generatedVideoUrls: paddedVideoUrls,
+    videoGenerationParams: row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined,
+  };
+}
+
+export function insertHistoryItem(item: HistoryItem): void {
+  const db = getDb();
+  const statements = getPreparedStatements();
+  
+  const insertTransaction = db.transaction(() => {
+    // Insert main history record
+    statements.insertHistory!.run(
+      item.id,
+      item.username,
+      item.timestamp,
+      item.constructedPrompt,
+      item.originalClothingUrl,
+      item.settingsMode,
+      JSON.stringify(item.attributes),
+      item.videoGenerationParams ? JSON.stringify(item.videoGenerationParams) : null
+    );
+    
+    // Insert edited images
+    item.editedImageUrls.forEach((url, index) => {
+      if (url) {
+        statements.insertImage!.run(item.id, url, 'edited', index);
+      }
+    });
+    
+    // Insert original images if they exist
+    if (item.originalImageUrls) {
+      item.originalImageUrls.forEach((url, index) => {
+        if (url) {
+          statements.insertImage!.run(item.id, url, 'original_for_comparison', index);
+        }
+      });
+    }
+    
+    // Insert video URLs if they exist
+    if (item.generatedVideoUrls) {
+      item.generatedVideoUrls.forEach((url, index) => {
+        if (url) {
+          statements.insertImage!.run(item.id, url, 'generated_video', index);
+        }
+      });
+    }
+  });
+  
+  insertTransaction();
+}
+
+export function findHistoryItemById(id: string): HistoryItem | null {
+  const statements = getPreparedStatements();
+  const row = statements.findHistoryById!.get(id);
+  return row ? rowToHistoryItem(row) : null;
+}
+
+export function updateHistoryItem(
+  id: string, 
+  updates: Partial<Pick<HistoryItem, 'editedImageUrls' | 'originalImageUrls' | 'constructedPrompt' | 'generatedVideoUrls' | 'videoGenerationParams'>>
+): void {
+  const db = getDb();
+  const statements = getPreparedStatements();
+  
+  const updateTransaction = db.transaction(() => {
+    // Update main record
+    statements.updateHistory!.run(
+      updates.constructedPrompt || null,
+      updates.videoGenerationParams ? JSON.stringify(updates.videoGenerationParams) : null,
+      id
+    );
+    
+    // If updating images/videos, delete existing and re-insert
+    if (updates.editedImageUrls || updates.originalImageUrls || updates.generatedVideoUrls) {
+      statements.deleteImagesByHistoryId!.run(id);
+      
+      if (updates.editedImageUrls) {
+        updates.editedImageUrls.forEach((url, index) => {
+          if (url) {
+            statements.insertImage!.run(id, url, 'edited', index);
+          }
+        });
+      }
+      
+      if (updates.originalImageUrls) {
+        updates.originalImageUrls.forEach((url, index) => {
+          if (url) {
+            statements.insertImage!.run(id, url, 'original_for_comparison', index);
+          }
+        });
+      }
+      
+      if (updates.generatedVideoUrls) {
+        updates.generatedVideoUrls.forEach((url, index) => {
+          if (url) {
+            statements.insertImage!.run(id, url, 'generated_video', index);
+          }
+        });
+      }
+    }
+  });
+  
+  updateTransaction();
+}
+
+export function findHistoryByUsername(username: string): HistoryItem[] {
+  const statements = getPreparedStatements();
+  const rows = statements.findHistoryByUsername!.all(username);
+  return rows.map(rowToHistoryItem);
+}
+
+export function getPaginatedHistoryForUser(options: PaginationOptions): PaginationResult {
+  const statements = getPreparedStatements();
+  const { username, page, limit, filter } = options;
+  
+  const offset = (page - 1) * limit;
+  
+  let countQuery: Database.Statement;
+  let dataQuery: Database.Statement;
+  
+  if (filter === 'video') {
+    countQuery = getDb().prepare('SELECT COUNT(*) as count FROM history WHERE username = ? AND videoGenerationParams IS NOT NULL');
+    dataQuery = statements.findHistoryPaginatedWithVideoFilter!;
+  } else if (filter === 'image') {
+    countQuery = getDb().prepare('SELECT COUNT(*) as count FROM history WHERE username = ? AND videoGenerationParams IS NULL');
+    dataQuery = statements.findHistoryPaginatedWithImageFilter!;
+  } else {
+    countQuery = statements.countHistoryByUsername!;
+    dataQuery = statements.findHistoryPaginated!;
+  }
+  
+  const countResult = countQuery.get(username) as { count: number };
+  const totalCount = countResult.count;
+  
+  const rows = dataQuery.all(username, limit, offset);
+  const items = rows.map(rowToHistoryItem);
+  
+  const hasMore = offset + limit < totalCount;
+  
+  return {
+    items,
+    totalCount,
+    hasMore,
+    currentPage: page
+  };
+}
+
+export function getAllUsersHistory(): { [username: string]: HistoryItem[] } {
+  const db = getDb();
+  const allUsers = db.prepare('SELECT DISTINCT username FROM history').all() as { username: string }[];
+  
+  const result: { [username: string]: HistoryItem[] } = {};
+  
+  for (const user of allUsers) {
+    result[user.username] = findHistoryByUsername(user.username);
+  }
+  
+  return result;
+}
+
+export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10): PaginationResult {
+  const db = getDb();
+  
+  const totalCount = db.prepare('SELECT COUNT(*) as count FROM history').get() as { count: number };
+  const offset = (page - 1) * limit;
+  
+  const rows = db.prepare(`
+    SELECT h.*, 
+           GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
+           GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
+           GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+    FROM history h
+    LEFT JOIN history_images hi ON h.id = hi.history_id
+    GROUP BY h.id
+    ORDER BY h.timestamp DESC
+    LIMIT ? OFFSET ?
+  `).all(limit, offset);
+  
+  const items = rows.map(rowToHistoryItem);
+  const hasMore = offset + limit < totalCount.count;
+  
+  return {
+    items,
+    totalCount: totalCount.count,
+    hasMore,
+    currentPage: page
+  };
+}
+
+// Cleanup function for graceful shutdown
+export function closeDb(): void {
+  if (db) {
+    db.close();
+  }
+}
+
+// Handle process termination
+process.on('exit', closeDb);
+process.on('SIGINT', closeDb);
+process.on('SIGTERM', closeDb);
