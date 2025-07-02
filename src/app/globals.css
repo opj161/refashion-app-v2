@@ -36,6 +36,7 @@ body {
 @layer base {
   :root {
     --background: 190 0% 96%; /* #F3F7F7 - Very light, cool off-white */
+    --background-accent: 190 15% 94%; /* ADD THIS LINE: Slightly bluer & darker for contrast */
     --foreground: 190 15% 20%; /* #2A3434 - Dark, desaturated petrol for text */
 
     --card: 0 0% 99%; /* #FFFFFF - Pure white cards */
@@ -73,6 +74,7 @@ body {
 
   .dark {
     --background: 195 25% 5%; /* #0F1616 - Very dark, desaturated petrol */
+    --background-accent: 180, 30%, 15%; /* ADD THIS LINE: Brighter & more saturated petrol */
     --foreground: 195 15% 90%; /* #DCE2E2 - Light cool grey for text */
 
     --card: 195 20% 15%; /* #161E1E - Dark petrol, slightly lighter than background */

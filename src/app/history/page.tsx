@@ -5,7 +5,7 @@ import { History } from "lucide-react"; // Using History as the icon from lucide
 
 export default function HistoryPage() {
   return (
-    <div className="container mx-auto py-10">
+    <div className="container mx-auto max-w-7xl px-4 py-10 space-y-8">
       <PageHeader
         icon={History}
         title="Creation History"

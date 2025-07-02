@@ -1,4 +1,4 @@
-// src/components/ui/page-header.tsx (New File)
+// src/components/ui/page-header.tsx
 import React from 'react';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';

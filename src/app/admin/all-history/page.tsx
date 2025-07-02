@@ -28,7 +28,7 @@ export default function AllHistoryPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto max-w-7xl px-4 py-10">
         <h1 className="text-3xl font-bold mb-6">All Users History (Admin)</h1>
         <div className="flex justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -39,7 +39,7 @@ export default function AllHistoryPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto max-w-7xl px-4 py-10">
         <h1 className="text-3xl font-bold mb-6">All Users History (Admin)</h1>
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           Error: {error}
@@ -51,7 +51,7 @@ export default function AllHistoryPage() {
   const usernames = Object.keys(allHistory);
 
   return (
-    <div className="container mx-auto p-6">
+    <main className="container mx-auto max-w-7xl px-4 py-10">
       <h1 className="text-3xl font-bold mb-6">All Users History (Admin)</h1>
       
       {usernames.length === 0 ? (
@@ -127,6 +127,6 @@ export default function AllHistoryPage() {
           Back to Home
         </Link>
       </div>
-    </div>
+    </main>
   );
 }

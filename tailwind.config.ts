@@ -11,6 +11,7 @@ export default {
   	extend: {
   		colors: {
   			background: 'hsl(var(--background))',
+            'background-accent': 'hsl(var(--background-accent))', // ADD THIS LINE
   			foreground: 'hsl(var(--foreground))',
   			card: {
   				DEFAULT: 'hsl(var(--card))',

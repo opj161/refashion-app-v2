@@ -1,7 +1,7 @@
 // src/components/HistoryCard.tsx
 "use client";
 
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ interface HistoryCardProps {
 }
 
 export default function HistoryCard({ item, onViewDetails, onReloadConfig }: HistoryCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const isVideoItem = !!(item.videoGenerationParams || (item.generatedVideoUrls && item.generatedVideoUrls.some(url => !!url)));
   const primaryImageUrl = item.editedImageUrls?.[0] || item.originalClothingUrl;
   const videoUrl = item.generatedVideoUrls?.[0];
@@ -38,10 +40,19 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig }: His
     // For completed images, we don't usually show a "Completed" badge unless it's a specific design choice.
     // statusText = "Completed";
   }
+
+  useEffect(() => {
+    if (isHovered && videoRef.current) {
+      videoRef.current.play().catch(error => console.error("Video autoplay failed:", error));
+    } else if (videoRef.current) {
+      videoRef.current.pause();
+    }
+  }, [isHovered]);
+
   // Add more sophisticated status detection if needed, e.g. for image processing steps
 
   return (
-    <Card className="flex flex-col overflow-hidden h-full group">
+    <Card className="flex flex-col h-full group shadow-sm hover:shadow-md transition-shadow duration-300">
       <CardHeader className="p-3 sm:p-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base sm:text-lg font-semibold truncate" title={item.constructedPrompt?.substring(0,100) || (isVideoItem ? "Video Generation" : "Image Generation")}>
@@ -61,16 +72,38 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig }: His
           {new Date(item.timestamp).toLocaleDateString()} {new Date(item.timestamp).toLocaleTimeString()}
         </CardDescription>
       </CardHeader>
-
       <CardContent className="p-3 sm:p-4 flex-grow relative">
-        <div className="aspect-[4/3] w-full bg-muted rounded-md overflow-hidden relative">
-          {primaryImageUrl ? (
+        <div 
+          className="aspect-[2/3] w-full bg-muted rounded-md overflow-hidden relative"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          {isVideoItem && videoUrl ? (
+            <>
+              <Image
+                src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
+                alt="Video thumbnail"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                className={`object-cover transition-opacity duration-300 ${isHovered ? 'opacity-0' : 'opacity-100'}`}
+              />
+              <video
+                ref={videoRef}
+                src={getDisplayableImageUrl(videoUrl) || undefined}
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                className={`w-full h-full object-cover absolute inset-0 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+              />
+            </>
+          ) : primaryImageUrl ? (
             <Image
               src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
               alt={isVideoItem ? "Video thumbnail" : "Generated image"}
-              layout="fill"
-              objectFit="cover"
-              className="group-hover:scale-105 transition-transform duration-300 ease-in-out"
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className={`object-cover ${!isVideoItem ? "group-hover:scale-105 transition-transform duration-300 ease-in-out" : ""}`}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -78,8 +111,8 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig }: His
               <p className="mt-2 text-sm">No preview available</p>
             </div>
           )}
-          {isVideoItem && videoUrl && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+          {!isHovered && isVideoItem && videoUrl && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:opacity-0 transition-opacity">
               <PlayCircle className="h-12 w-12 text-white/80" />
             </div>
           )}
@@ -113,12 +146,3 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig }: His
     </Card>
   );
 }
-
-// Placeholder for PREDEFINED_PROMPTS if needed directly in card, or pass specific values
-// For now, assuming it's mainly for display if a predefined prompt was used.
-const PREDEFINED_PROMPTS: {value: string, displayLabel: string}[] = [
-    // This is a simplified version, actual options should be imported or passed if complex logic is needed here
-    { value: 'custom', displayLabel: 'Custom' },
-    { value: '360_turn', displayLabel: '360° Turn'},
-    // ... other prompts
-];

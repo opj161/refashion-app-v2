@@ -1,22 +1,21 @@
 // src/components/history-gallery.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { getHistoryPaginated } from "@/actions/historyActions";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertTriangle } from "lucide-react";
-import HistoryCard from "./HistoryCard"; // Import the actual HistoryCard component
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"; // For details modal
-import { ScrollArea } from "@/components/ui/scroll-area"; // For modal content
-import { Separator } from "@/components/ui/separator"; // For modal content
-import Image from "next/image"; // For modal content
-import { getDisplayableImageUrl } from "@/lib/utils"; // For modal content
-import { Video, Download as DownloadIcon, CopyPlus } from "lucide-react"; // For modal content
-import { useRouter } from 'next/navigation'; // For reload config
+import { Loader2, AlertTriangle, History, Download, Copy } from "lucide-react";
+import HistoryCard from "./HistoryCard";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import Image from "next/image";
+import { getDisplayableImageUrl } from "@/lib/utils";
 
+type FilterType = 'all' | 'image' | 'video';
 
 export default function HistoryGallery() {
   const { toast } = useToast();
@@ -26,18 +25,20 @@ export default function HistoryGallery() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [currentFilter, setCurrentFilter] = useState<'all' | 'image' | 'video'>('all');
+  const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
   // State for details modal
   const [selectedHistoryItemForDetail, setSelectedHistoryItemForDetail] = useState<HistoryItem | null>(null);
   const [isHistoryDetailOpen, setIsHistoryDetailOpen] = useState(false);
-  const router = useRouter();
+
+  // Ref for the element that will trigger loading more items
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
 
   const itemsPerPage = 9; // Or any other number you prefer
 
-  const fetchHistory = useCallback(async (page: number, filter: 'all' | 'image' | 'video', append: boolean = false) => {
+  const fetchHistory = useCallback(async (page: number, filter: FilterType, append: boolean = false) => {
     if (!append) {
       setIsLoading(true);
       setHistoryItems([]); // Clear items for new filter/initial load
@@ -70,16 +71,42 @@ export default function HistoryGallery() {
     fetchHistory(1, currentFilter);
   }, [currentFilter, fetchHistory]);
 
-  const handleFilterChange = (newFilter: string) => {
-    setCurrentFilter(newFilter as 'all' | 'image' | 'video');
-    setCurrentPage(1); // Reset to first page on filter change
-    // useEffect will trigger fetchHistory
-  };
-
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     if (hasMore && !isLoadingMore) {
       fetchHistory(currentPage + 1, currentFilter, true);
     }
+  }, [hasMore, isLoadingMore, currentPage, currentFilter, fetchHistory]);
+
+  // Set up the IntersectionObserver to watch the loadMoreRef
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // If the trigger element is intersecting and we have more items to load
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          handleLoadMore();
+        }
+      },
+      { 
+        threshold: 1.0, // Trigger when 100% of the element is visible
+        rootMargin: '100px' // Start loading 100px before the element is visible
+      }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasMore, isLoadingMore, handleLoadMore]); // Dependencies updated
+
+  const handleFilterChange = (newFilter: string) => {
+    setCurrentFilter(newFilter as FilterType);
+    setCurrentPage(1); // Reset to first page on filter change
   };
 
   const handleViewDetails = (item: HistoryItem) => {
@@ -88,21 +115,10 @@ export default function HistoryGallery() {
   };
 
   const handleReloadConfig = (item: HistoryItem) => {
-    if (!item) return;
-
-    const params = new URLSearchParams();
-    params.set('historyItemId', item.id);
-    
-    if (item.videoGenerationParams) {
-      params.set('defaultTab', 'video');
-    } else {
-      params.set('defaultTab', 'image');
-    }
-
-    router.push(`/create?${params.toString()}`);
+    // TODO: Implement reload config functionality
     toast({
-      title: "Configuration Loaded",
-      description: "Settings applied to the creation hub. Adjust and generate!",
+      title: "Feature Coming Soon",
+      description: "Reload configuration functionality will be implemented soon.",
     });
   };
 
@@ -121,8 +137,8 @@ export default function HistoryGallery() {
 
 
   return (
-    <div className="space-y-6">
-      <Tabs defaultValue="all" onValueChange={handleFilterChange} className="w-full">
+    <>
+      <Tabs value={currentFilter} onValueChange={handleFilterChange} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="image">Images</TabsTrigger>
@@ -131,7 +147,7 @@ export default function HistoryGallery() {
       </Tabs>
 
       {isLoading && !isLoadingMore && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
           {Array.from({ length: itemsPerPage }).map((_, index) => (
             <div key={`skel-${index}`} className="p-4 border rounded-lg shadow-sm space-y-2 bg-muted/50">
               <div className="h-5 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
@@ -156,7 +172,7 @@ export default function HistoryGallery() {
       )}
 
       {!isLoading && !error && historyItems.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4">
           {historyItems.map((item) => (
             <HistoryCard
               key={item.id}
@@ -190,9 +206,9 @@ export default function HistoryGallery() {
                       <Image
                         src={getDisplayableImageUrl(selectedHistoryItemForDetail.videoGenerationParams?.sourceImageUrl || selectedHistoryItemForDetail.originalClothingUrl || '')!}
                         alt="Original/Source Item"
-                        layout="fill"
-                        objectFit="contain"
-                        className="rounded-md"
+                        fill
+                        sizes="(max-width: 768px) 90vw, 33vw"
+                        className="object-contain rounded-md"
                       />
                     </div>
                   </div>
@@ -205,9 +221,9 @@ export default function HistoryGallery() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {selectedHistoryItemForDetail.editedImageUrls.map((url, index) => url && (
                         <div key={`img-detail-${index}`} className="relative aspect-square border rounded-md bg-muted/30 overflow-hidden">
-                          <Image src={getDisplayableImageUrl(url)!} alt={`Generated ${index + 1}`} layout="fill" objectFit="contain" />
+                          <Image src={getDisplayableImageUrl(url)!} alt={`Generated ${index + 1}`} fill sizes="(max-width: 640px) 50vw, 33vw" className="object-contain" />
                            <a href={getDisplayableImageUrl(url)!} download={`Refashion_Image_${selectedHistoryItemForDetail.id.substring(0,6)}_${index}.png`} target="_blank" rel="noopener noreferrer" className="absolute bottom-1 right-1">
-                            <Button variant="outline" size="icon" className="h-6 w-6 bg-background/70 hover:bg-background/90"><DownloadIcon className="h-3 w-3" /></Button>
+                            <Button variant="outline" size="icon" className="h-6 w-6 bg-background/70 hover:bg-background/90"><Download className="h-3 w-3" /></Button>
                           </a>
                         </div>
                       ))}
@@ -225,7 +241,7 @@ export default function HistoryGallery() {
                           <video src={getDisplayableImageUrl(url)!} controls className="w-full h-full" />
                         </div>
                         <a href={getDisplayableImageUrl(url)!} download={`Refashion_Video_${selectedHistoryItemForDetail.id.substring(0,6)}_${index}.mp4`} target="_blank" rel="noopener noreferrer">
-                          <Button variant="outline" size="sm" className="w-full"><DownloadIcon className="mr-2 h-4 w-4" /> Download Video</Button>
+                          <Button variant="outline" size="sm" className="w-full"><Download className="mr-2 h-4 w-4" /> Download Video</Button>
                         </a>
                       </div>
                     ))}
@@ -275,7 +291,7 @@ export default function HistoryGallery() {
                     }}
                     className="w-full sm:w-auto"
                 >
-                    <CopyPlus className="mr-2 h-4 w-4"/> Use as Template
+                    <Copy className="mr-2 h-4 w-4"/> Use as Template
                 </Button>
                 <DialogClose asChild>
                     <Button type="button" variant="outline" className="w-full sm:w-auto mt-2 sm:mt-0">Close</Button>
@@ -285,18 +301,14 @@ export default function HistoryGallery() {
         </Dialog>
       )}
 
-      {hasMore && !isLoadingMore && (
-        <div className="text-center mt-8">
-          <Button onClick={handleLoadMore} variant="outline">
-            Load More ({totalCount - historyItems.length} remaining)
-          </Button>
-        </div>
-      )}
+      {/* Invisible trigger element for infinite scroll */}
+      {hasMore && <div ref={loadMoreRef} className="h-4" />}
+
       {isLoadingMore && (
         <div className="text-center mt-8 flex justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
-    </div>
+    </>
   );
 }

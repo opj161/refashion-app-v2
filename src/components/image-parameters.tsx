@@ -9,8 +9,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck } from 'lucide-react';
+import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle } from 'lucide-react';
 import { generateImageEdit, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
 import { upscaleImageAction } from "@/ai/actions/upscale-image.action";
 import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
@@ -21,7 +22,6 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertTriangle } from 'lucide-react';
 import { useActiveImage } from "@/stores/imageStore";
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
@@ -489,9 +489,13 @@ export default function ImageParameters() {
         </CardHeader>
         <CardContent className="space-y-4">
           {!preparedImageUrl && (
-            <div className="mb-4 p-3 border rounded-md bg-amber-50 border-amber-200 text-amber-700">
-                <p className="text-sm font-medium">Please prepare an image in the previous step to enable generation.</p>
-            </div>
+            <Alert className="mb-4">
+              <UploadCloud className="h-4 w-4" />
+              <AlertTitle>Image Required</AlertTitle>
+              <AlertDescription>
+                Please upload and prepare an image in the step above to enable these options.
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* Parameter Controls */}

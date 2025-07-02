@@ -23,25 +23,13 @@ export default function AspectRatioSelector({
   disabled = false 
 }: AspectRatioSelectorProps) {
   const aspectRatios = useMemo(() => {
-    const commonRatios = [
+    return [
       { name: "Free", value: "free", icon: <CropIcon /> },
       { name: "Square", value: (1 / 1).toString(), icon: <Square /> },
-    ];
-
-    if (preparationMode === 'video') {
-      return [
-        ...commonRatios,
-        { name: "Video (9:16)", value: (9 / 16).toString(), icon: <RectangleVertical /> },
-      ];
-    }
-    
-    // Default to image mode ratios
-    return [
-      ...commonRatios,
+      { name: "Video (9:16)", value: (9 / 16).toString(), icon: <RectangleVertical /> },
       { name: "Portrait (3:4)", value: (3 / 4).toString(), icon: <RectangleVertical /> },
-      { name: "Landscape (4:3)", value: (4 / 3).toString(), icon: <RectangleHorizontal /> },
     ];
-  }, [preparationMode]);
+  }, []);
 
   const handleValueChange = (value: string) => {
     const newAspect = value === 'free' ? undefined : Number(value);

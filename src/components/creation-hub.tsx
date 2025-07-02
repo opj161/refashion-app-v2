@@ -68,7 +68,7 @@ export default function CreationHub() {
           <TabsTrigger value="video">Video Generation</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="image" className="space-y-6">
+        <TabsContent value="image" className="space-y-6 mt-8">
           <ImagePreparationContainer 
             onImageReady={setPreparedImageDataUri} 
             sourceImageUrl={sourceImageUrl} 
@@ -77,7 +77,7 @@ export default function CreationHub() {
           <ImageParameters />
         </TabsContent>
 
-        <TabsContent value="video" className="space-y-6">
+        <TabsContent value="video" className="space-y-6 mt-8">
           <ImagePreparationContainer 
             onImageReady={setPreparedImageDataUri} 
             sourceImageUrl={sourceImageUrl} 
