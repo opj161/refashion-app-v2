@@ -231,8 +231,7 @@ export default function VideoParameters({ preparedImageUrl }: VideoParametersPro
       const errorMessage = error instanceof Error ? error.message : 'Unknown error.';
       setGenerationError(errorMessage);
       toast({ title: "Generation Error", description: errorMessage, variant: "destructive" });
-    } finally {
-      setIsGenerating(false);
+      setIsGenerating(false); // Set to false only on error
     }
   };
 

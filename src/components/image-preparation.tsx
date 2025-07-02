@@ -1,7 +1,7 @@
 // src/components/image-preparation.tsx
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, useReducer } from "react";
+import React, { useState, useEffect, useRef, useCallback, useReducer, useMemo } from "react";
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
@@ -36,6 +36,11 @@ const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'image/avif'];
 const SERVER_IMAGE_PATH_PREFIX = '/uploads/';
+
+// --- Helper function to get the default aspect based on mode ---
+const getDefaultAspect = (mode: 'image' | 'video') => {
+  return mode === 'video' ? 9 / 16 : 3 / 4;
+};
 
 interface ImagePreparationProps {
   onImageReady: (imageDataUri: string | null) => void;
@@ -214,7 +219,7 @@ export default function ImagePreparation({ onImageReady, sourceImageUrl, prepara
   const [imgRef, setImgRef] = useState<HTMLImageElement | null>(null);
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
-  const [aspect, setAspect] = useState<number | undefined>(3 / 4);
+  const [aspect, setAspect] = useState<number | undefined>(getDefaultAspect(preparationMode));
   
   // --- UI State ---
   const dragCounter = useRef(0);
@@ -343,6 +348,16 @@ export default function ImagePreparation({ onImageReady, sourceImageUrl, prepara
     checkUpscaleAvailable().then(setIsUpscalingAvailable);
     checkFaceDetailerAvailable().then(setIsFaceDetailerAvailable);
   }, []);
+
+  // Update aspect ratio when preparation mode changes
+  useEffect(() => {
+    const newDefaultAspect = getDefaultAspect(preparationMode);
+    setAspect(newDefaultAspect);
+    // Also trigger a recalculation of the crop box for the current image
+    if (imgRef) {
+      recalculateCrop(newDefaultAspect, imgRef);
+    }
+  }, [preparationMode, recalculateCrop, imgRef]);
 
   // Load image from sourceImageUrl when provided (for history restoration)
   useEffect(() => {
@@ -641,12 +656,26 @@ export default function ImagePreparation({ onImageReady, sourceImageUrl, prepara
     onImageReady(null);
   };
 
-  const aspectRatios = [
-    { name: "Free", value: "free", icon: <CropIcon /> },
-    { name: "Square", value: (1 / 1).toString(), icon: <Square /> },
-    { name: "Portrait", value: (3 / 4).toString(), icon: <RectangleVertical /> },
-    { name: "Landscape", value: (4 / 3).toString(), icon: <RectangleHorizontal /> },
-  ];
+  const aspectRatios = useMemo(() => {
+    const commonRatios = [
+      { name: "Free", value: "free", icon: <CropIcon /> },
+      { name: "Square", value: (1 / 1).toString(), icon: <Square /> },
+    ];
+
+    if (preparationMode === 'video') {
+      return [
+        ...commonRatios,
+        { name: "Video (9:16)", value: (9 / 16).toString(), icon: <RectangleVertical /> },
+      ];
+    }
+    
+    // Default to image mode ratios
+    return [
+      ...commonRatios,
+      { name: "Portrait (3:4)", value: (3 / 4).toString(), icon: <RectangleVertical /> },
+      { name: "Landscape (4:3)", value: (4 / 3).toString(), icon: <RectangleHorizontal /> },
+    ];
+  }, [preparationMode]);
 
   return (
     <div onDragEnter={(e) => handleDragAction(e, 'enter')} onDragLeave={(e) => handleDragAction(e, 'leave')} onDragOver={(e) => handleDragAction(e, 'over')} onDrop={(e) => handleDragAction(e, 'drop')}>
