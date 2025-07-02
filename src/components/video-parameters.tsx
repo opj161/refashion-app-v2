@@ -22,6 +22,8 @@ import { AlertTriangle, CheckCircle, Download, Info, Loader2, PaletteIcon, Setti
 import { OptionWithPromptSegment } from "@/lib/prompt-builder";
 import { usePromptManager } from "@/hooks/usePromptManager";
 import { getDisplayableImageUrl } from "@/lib/utils";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 
 // Type for video generation parameters
 interface VideoGenerationParams {
@@ -324,15 +326,13 @@ export default function VideoParameters() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {!preparedImageUrl && (
-            <div className="md:col-span-2 flex items-center space-x-4 rounded-md border border-dashed p-4 bg-background/20">
-              <Info className="h-8 w-8 text-muted-foreground flex-shrink-0" />
-              <div className="space-y-1">
-                <h4 className="font-semibold text-foreground">Image Required</h4>
-                <p className="text-sm text-muted-foreground">
-                  Please prepare an image in the previous step to enable video generation.
-                </p>
-              </div>
-            </div>
+            <Alert className="md:col-span-2">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Image Required</AlertTitle>
+              <AlertDescription>
+                Please prepare an image in the previous step to enable video generation.
+              </AlertDescription>
+            </Alert>
           )}
 
           <div className="md:col-span-2">
@@ -411,28 +411,24 @@ export default function VideoParameters() {
           </div>
         </CardContent>
         <CardFooter>
-          {!isGenerating ? (
-            <Button onClick={handleGenerateVideo} disabled={commonFormDisabled || !currentPrompt.trim()} className="w-full text-lg" size="lg">
-              <Video className="mr-2 h-5 w-5" /> Generate Video
-            </Button>
-          ) : (
-            <div className="w-full">
-                <div className="flex items-center justify-center text-center space-x-3 p-4 bg-muted rounded-md">
-                    <Loader2 className="h-6 w-6 text-primary animate-spin" />
-                    <div>
-                        <p className="text-sm font-medium text-foreground">
-                          {isUploadingToFal ? "Uploading Image..." : "Generating Video..."}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {isUploadingToFal ? "Uploading to Fal.ai storage..." : "This may take a minute. Check history for results."}
-                        </p>
-                    </div>
-                </div>
-                <Button variant="ghost" size="sm" onClick={handleCancelGeneration} className="w-full mt-2 text-muted-foreground hover:text-destructive">
-                    Cancel Generation
-                </Button>
-            </div>
-          )}
+          <Button
+            onClick={handleGenerateVideo}
+            disabled={commonFormDisabled || isGenerating || !currentPrompt.trim()}
+            className="w-full text-lg"
+            size="lg"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Video className="mr-2 h-5 w-5" />
+                Generate Video
+              </>
+            )}
+          </Button>
         </CardFooter>
       </Card>
 
@@ -452,14 +448,32 @@ export default function VideoParameters() {
 
       {isGenerating && !generatedVideoUrl && (
         <Card>
-            <CardHeader>
-                <CardTitle>Generating Video...</CardTitle>
-            </CardHeader>
-            <CardContent className="flex justify-center items-center py-10">
-                <div className="aspect-video w-full max-w-md bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse flex items-center justify-center">
-                    <Loader2 className="h-12 w-12 text-primary animate-spin" />
-                </div>
-            </CardContent>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Loader2 className="h-6 w-6 text-primary animate-spin" />
+              {isUploadingToFal ? "Uploading Image..." : "Generating Video..."}
+            </CardTitle>
+            <CardDescription>
+              {isUploadingToFal
+                ? "Your image is being prepared for generation."
+                : "Your video is being processed. This may take a minute."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center items-center py-10">
+            <div className="aspect-video w-full max-w-md bg-muted/50 rounded-md flex items-center justify-center">
+              <Video className="h-16 w-16 text-muted-foreground/50" />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancelGeneration}
+              className="w-full text-muted-foreground hover:text-destructive"
+            >
+              Cancel Generation
+            </Button>
+          </CardFooter>
         </Card>
       )}
 

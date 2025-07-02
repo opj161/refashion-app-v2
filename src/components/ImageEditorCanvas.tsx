@@ -17,27 +17,49 @@ interface ImageEditorCanvasProps {
 }
 
 // --- Helper Functions ---
-async function getCroppedImgDataUrl(image: HTMLImageElement, crop: PixelCrop): Promise<string> {
-  const canvas = document.createElement('canvas');
-  const scaleX = image.naturalWidth / image.width;
-  const scaleY = image.naturalHeight / image.height;
-  canvas.width = Math.floor(crop.width * scaleX);
-  canvas.height = Math.floor(crop.height * scaleY);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Failed to get canvas context');
+// The Definitive Cropping Helper Function
+// This function now correctly uses the full-resolution data URI for the source.
+async function getCroppedImgDataUrl(
+  displayedImage: HTMLImageElement, // The scaled-down image from the DOM (for scaling calculation)
+  crop: PixelCrop,
+  sourceDataUri: string // The full-resolution data URI from the store
+): Promise<string> {
+  // Create a new image object in memory to ensure we work with the original data.
+  const offscreenImage = new window.Image();
+  offscreenImage.src = sourceDataUri;
 
-  ctx.drawImage(
-    image,
-    crop.x * scaleX,
-    crop.y * scaleY,
-    crop.width * scaleX,
-    crop.height * scaleY,
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
-  return canvas.toDataURL('image/jpeg', 0.9);
+  // Wait for the full-res image to load before proceeding.
+  return new Promise((resolve, reject) => {
+    offscreenImage.onload = () => {
+      const canvas = document.createElement('canvas');
+      // The scaling factors correctly bridge the gap between the display size and the original file size.
+      const scaleX = offscreenImage.naturalWidth / displayedImage.width;
+      const scaleY = offscreenImage.naturalHeight / displayedImage.height;
+
+      // The final canvas should have the high-resolution dimensions.
+      canvas.width = Math.floor(crop.width * scaleX);
+      canvas.height = Math.floor(crop.height * scaleY);
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return reject(new Error('Failed to get canvas context'));
+      }
+
+      // Draw the cropped section from the full-resolution image onto the canvas.
+      ctx.drawImage(
+        offscreenImage,     // <-- THE CRITICAL FIX: Use the full-res image as the source.
+        crop.x * scaleX,
+        crop.y * scaleY,
+        crop.width * scaleX,
+        crop.height * scaleY,
+        0, 0, canvas.width, canvas.height
+      );
+
+      // Return the result as a high-quality JPEG data URL.
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
+    };
+    offscreenImage.onerror = (err) => reject(err);
+  });
 }
 
 export default function ImageEditorCanvas({ preparationMode, aspect, disabled = false }: ImageEditorCanvasProps) {
@@ -45,23 +67,22 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
   const { addVersion, isProcessing, processingStep } = useImageStore();
   const activeImage = useActiveImage();
   
-  // Local cropping state
-  const [imgRef, setImgRef] = useState<HTMLImageElement | null>(null);
+  // Use a ref for the displayed image element to avoid re-renders.
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
 
-  // --- Recalculation Logic ---
-  const recalculateCrop = useCallback((aspectRatio: number | undefined, imageElement: HTMLImageElement | null) => {
-    if (!imageElement) return;
-
+  // --- Recalculation logic when aspect ratio changes ---
+  const recalculateCrop = useCallback((aspectRatio: number | undefined, imageElement: HTMLImageElement) => {
     const { naturalWidth: imgWidth, naturalHeight: imgHeight } = imageElement;
+    let newCrop: Crop;
 
     if (aspectRatio) {
       // Check if a full-height crop with the target aspect ratio fits within the image width
       const requiredWidthForFullHeight = imgHeight * aspectRatio;
       if (requiredWidthForFullHeight <= imgWidth) {
         // It fits, so use full height
-        const newCrop = centerCrop(
+        newCrop = centerCrop(
           makeAspectCrop(
             {
               unit: '%',
@@ -74,18 +95,9 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
           imgWidth,
           imgHeight
         );
-        setCrop(newCrop as Crop);
-        // Also set the completedCrop so the "Apply" button is enabled immediately
-        setCompletedCrop({
-          unit: 'px',
-          x: (newCrop.x / 100) * imgWidth,
-          y: (newCrop.y / 100) * imgHeight,
-          width: (newCrop.width / 100) * imgWidth,
-          height: (newCrop.height / 100) * imgHeight,
-        });
       } else {
         // It doesn't fit (image is too narrow/tall), so use full width instead
-        const newCrop = centerCrop(
+        newCrop = centerCrop(
           makeAspectCrop(
             {
               unit: '%',
@@ -98,19 +110,10 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
           imgWidth,
           imgHeight
         );
-        setCrop(newCrop as Crop);
-        // Also set the completedCrop so the "Apply" button is enabled immediately
-        setCompletedCrop({
-          unit: 'px',
-          x: (newCrop.x / 100) * imgWidth,
-          y: (newCrop.y / 100) * imgHeight,
-          width: (newCrop.width / 100) * imgWidth,
-          height: (newCrop.height / 100) * imgHeight,
-        });
       }
     } else {
       // Fallback for "free" aspect ratio
-      const newCrop = centerCrop(
+      newCrop = centerCrop(
         makeAspectCrop(
           {
             unit: '%',
@@ -123,29 +126,36 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
         imgWidth,
         imgHeight
       );
-      setCrop(newCrop as Crop);
-      // Also set the completedCrop so the "Apply" button is enabled immediately
-      setCompletedCrop({
-        unit: 'px',
-        x: (newCrop.x / 100) * imgWidth,
-        y: (newCrop.y / 100) * imgHeight,
-        width: (newCrop.width / 100) * imgWidth,
-        height: (newCrop.height / 100) * imgHeight,
-      });
     }
+
+    // FIX: Set BOTH the preview crop and the completed crop.
+    // This makes the "Apply Crop" button immediately active after a preset is clicked.
+    setCrop(newCrop as Crop);
+    setCompletedCrop({
+      unit: 'px',
+      x: (newCrop.x / 100) * imgWidth,
+      y: (newCrop.y / 100) * imgHeight,
+      width: (newCrop.width / 100) * imgWidth,
+      height: (newCrop.height / 100) * imgHeight,
+    });
   }, []);
 
   // --- Event Handlers ---
   const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    setImgRef(e.currentTarget);
+    imgRef.current = e.currentTarget;
     recalculateCrop(aspect, e.currentTarget);
   }, [aspect, recalculateCrop]);
 
   const handleApplyCrop = useCallback(async () => {
-    if (!completedCrop || !imgRef || !activeImage) return;
+    if (!completedCrop || !imgRef.current || !activeImage) return;
     
     try {
-      const croppedDataUrl = await getCroppedImgDataUrl(imgRef, completedCrop);
+      // FIX: Pass the full-resolution data URI to the cropping function.
+      const croppedDataUrl = await getCroppedImgDataUrl(
+        imgRef.current,
+        completedCrop,
+        activeImage.dataUri
+      );
       
       // Add new version to the store
       addVersion({
@@ -154,27 +164,27 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
         sourceVersionId: activeImage.id,
       });
       
-      toast({ title: "Crop Applied", description: "Your image has been cropped successfully." });
+      toast({ title: "Crop Applied", description: "A new cropped version has been added to your history." });
     } catch (error) {
       console.error('Cropping failed:', error);
-      toast({ title: "Cropping Failed", description: "Failed to apply the crop.", variant: "destructive" });
+      toast({ title: "Cropping Failed", description: "Could not apply the crop.", variant: "destructive" });
     }
-  }, [completedCrop, imgRef, activeImage, addVersion, toast]);
+  }, [completedCrop, activeImage, addVersion, toast]);
 
   // --- Effects ---
   
   // Recalculate crop when aspect ratio changes
   useEffect(() => {
-    if (imgRef) {
-      recalculateCrop(aspect, imgRef);
+    if (imgRef.current) {
+      recalculateCrop(aspect, imgRef.current);
     }
-  }, [aspect, imgRef, recalculateCrop]);
+  }, [aspect, recalculateCrop]);
 
   // Reset crop when active image changes
   useEffect(() => {
     setCrop(undefined);
     setCompletedCrop(undefined);
-    setImgRef(null);
+    imgRef.current = null;
   }, [activeImage?.id]);
 
   // Don't render if no active image
@@ -217,8 +227,10 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
         className="max-h-[60vh]" 
         disabled={disabled || isProcessing}
       >
+        {/* Using a key ensures the img element is re-mounted when the active image changes. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img 
+          key={activeImage.id}
           src={imageUrl || ''} 
           alt="Editable image" 
           onLoad={onImageLoad} 

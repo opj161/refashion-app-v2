@@ -18,8 +18,9 @@ interface HistoryCardProps {
 }
 
 export default function HistoryCard({ item, onViewDetails, onReloadConfig }: HistoryCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
+  const [isInView, setIsInView] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const isVideoItem = !!(item.videoGenerationParams || (item.generatedVideoUrls && item.generatedVideoUrls.some(url => !!url)));
   const primaryImageUrl = item.editedImageUrls?.[0] || item.originalClothingUrl;
   const videoUrl = item.generatedVideoUrls?.[0];
@@ -41,18 +42,45 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig }: His
     // statusText = "Completed";
   }
 
+  // IntersectionObserver for autoplay-in-view
   useEffect(() => {
-    if (isHovered && videoRef.current) {
+    const currentCard = cardRef.current;
+    if (!currentCard || !isVideoItem || !videoUrl) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        setIsInView(entry.isIntersecting);
+      },
+      {
+        root: null, // viewport
+        rootMargin: '0px',
+        threshold: 0.5 // Play when 50% of the card is visible
+      }
+    );
+
+    observer.observe(currentCard);
+
+    return () => {
+      observer.unobserve(currentCard);
+    };
+  }, [isVideoItem, videoUrl]);
+
+  // Handle video play/pause based on visibility
+  useEffect(() => {
+    if (!videoRef.current || !isVideoItem || !videoUrl) return;
+
+    if (isInView) {
       videoRef.current.play().catch(error => console.error("Video autoplay failed:", error));
-    } else if (videoRef.current) {
+    } else {
       videoRef.current.pause();
     }
-  }, [isHovered]);
+  }, [isInView, isVideoItem, videoUrl]);
 
   // Add more sophisticated status detection if needed, e.g. for image processing steps
 
   return (
-    <Card className="flex flex-col h-full group shadow-sm hover:shadow-md transition-shadow duration-300">
+    <Card ref={cardRef} className="flex flex-col h-full group shadow-sm hover:shadow-md transition-shadow duration-300">
       <CardHeader className="p-3 sm:p-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base sm:text-lg font-semibold truncate" title={item.constructedPrompt?.substring(0,100) || (isVideoItem ? "Video Generation" : "Image Generation")}>
@@ -75,8 +103,6 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig }: His
       <CardContent className="p-3 sm:p-4 flex-grow relative">
         <div 
           className="aspect-[2/3] w-full bg-muted rounded-md overflow-hidden relative"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
         >
           {isVideoItem && videoUrl ? (
             <>
@@ -85,7 +111,7 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig }: His
                 alt="Video thumbnail"
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className={`object-cover transition-opacity duration-300 ${isHovered ? 'opacity-0' : 'opacity-100'}`}
+                className={`object-cover object-top transition-opacity duration-300 ${isInView ? 'opacity-0' : 'opacity-100'}`}
               />
               <video
                 ref={videoRef}
@@ -94,7 +120,7 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig }: His
                 muted
                 playsInline
                 preload="metadata"
-                className={`w-full h-full object-cover absolute inset-0 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+                className={`w-full h-full object-cover object-top absolute inset-0 transition-opacity duration-300 ${isInView ? 'opacity-100' : 'opacity-0'}`}
               />
             </>
           ) : primaryImageUrl ? (
@@ -103,7 +129,7 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig }: His
               alt={isVideoItem ? "Video thumbnail" : "Generated image"}
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className={`object-cover ${!isVideoItem ? "group-hover:scale-105 transition-transform duration-300 ease-in-out" : ""}`}
+              className={`object-cover object-top ${!isVideoItem ? "group-hover:scale-105 transition-transform duration-300 ease-in-out" : ""}`}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -111,8 +137,8 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig }: His
               <p className="mt-2 text-sm">No preview available</p>
             </div>
           )}
-          {!isHovered && isVideoItem && videoUrl && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:opacity-0 transition-opacity">
+          {!isInView && isVideoItem && videoUrl && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity">
               <PlayCircle className="h-12 w-12 text-white/80" />
             </div>
           )}
