@@ -15,15 +15,13 @@
 import fs from 'fs';
 import path from 'path';
 import type { HistoryItem } from '../src/lib/types';
+import * as dbService from '../src/services/database.service';
 
 const JSON_HISTORY_DIR = path.join(process.cwd(), 'user_data', 'history');
 const BACKUP_DIR = path.join(process.cwd(), 'user_data', 'history_json_backup');
 
 async function migrate() {
   console.log('🚀 Starting migration from JSON to SQLite...\n');
-  
-  // Dynamic import to handle the database service
-  const { insertHistoryItem, getDb, findHistoryByUsername } = await import('../src/services/database.service');
   
   try {
     // 1. Ensure directories exist
@@ -48,7 +46,7 @@ async function migrate() {
     console.log(`📊 Found ${files.length} user history files to migrate\n`);
     
     // 3. Initialize database connection
-    const db = getDb();
+    const db = dbService.getDb();
     console.log('✅ Database connection established\n');
     
     let totalItemsMigrated = 0;
@@ -95,7 +93,7 @@ async function migrate() {
               item.username = username; // Fix username mismatch
             }
             
-            insertHistoryItem(item);
+            dbService.insertHistoryItem(item);
             userItemsInserted++;
           } catch (insertError) {
             console.log(`  ⚠️  Failed to insert history item ${item.id}: ${insertError}`);
@@ -107,7 +105,7 @@ async function migrate() {
         totalUsers++;
         
         // Verify migration for this user
-        const migratedItems = findHistoryByUsername(username);
+        const migratedItems = dbService.findHistoryByUsername(username);
         if (migratedItems.length !== userItemsInserted) {
           console.log(`  ⚠️  Verification failed: Expected ${userItemsInserted}, found ${migratedItems.length}`);
         } else {
@@ -158,10 +156,8 @@ async function migrate() {
 async function verifyMigration() {
   console.log('\n🔍 Running post-migration verification...');
   
-  const { getAllUsersHistory } = await import('../src/services/database.service');
-  
   try {
-    const allHistory = getAllUsersHistory();
+    const allHistory = dbService.getAllUsersHistory();
     const usernames = Object.keys(allHistory);
     let totalItems = 0;
     

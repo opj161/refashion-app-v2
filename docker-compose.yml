@@ -1,5 +1,6 @@
 services:
   app:
+    image: refashion-app-app # Add this line
     build:
       context: .
       dockerfile: Dockerfile

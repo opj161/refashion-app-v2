@@ -30,11 +30,12 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy package.json for npm scripts
 COPY package.json ./
 # Copy configuration files
-COPY next.config.ts postcss.config.* tailwind.config.ts tsconfig.json ./
+COPY next.config.ts postcss.config.* tailwind.config.ts tsconfig.json tsconfig.scripts.json ./
 COPY components.json ./
 # Copy the source code
 COPY src ./src
 COPY public ./public
+COPY scripts ./scripts
 
 # Set NEXT_TELEMETRY_DISABLED before build
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -63,7 +64,13 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 # Copy the built application from the 'builder' stage
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/.next/static ./.next/static/
+
+# Copy package.json to be able to run npm scripts
+COPY --from=builder /app/package.json ./package.json
+# Copy the compiled migration scripts and its dependencies
+COPY --from=builder /app/dist/scripts ./dist/scripts
+COPY --from=builder /app/dist/src ./dist/src
 
 # Create directories for volumes. Ownership will be set by entrypoint.sh
 RUN mkdir -p /app/user_data/history && \

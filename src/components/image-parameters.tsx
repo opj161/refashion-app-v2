@@ -622,24 +622,25 @@ export default function ImageParameters() {
             <CardDescription>Your AI-generated fashion model images.</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading && !outputImageUrls.some(uri => uri !== null) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from({ length: NUM_IMAGES_TO_GENERATE }).map((_, index) => (
-                  <div key={index} className="aspect-[3/4] bg-muted/50 rounded-md border animate-pulse flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                ))}
-              </div>
-            )}
-            
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {outputImageUrls.map((uri, index) => {
+              {Array.from({ length: NUM_IMAGES_TO_GENERATE }).map((_, index) => {
+                const uri = outputImageUrls[index];
                 const error = generationErrors[index];
                 const isCurrentlyReRollingThisSlot = isReRollingSlot === index;
                 const isCurrentlyUpscalingThisSlot = isUpscalingSlot === index;
                 const isProcessingThisSlot = isCurrentlyReRollingThisSlot || isCurrentlyUpscalingThisSlot;
                 const originalUri = originalOutputImageUrls[index];
                 const displayUri = comparingSlotIndex === index ? originalUri : uri;
+
+                // Main loading state for initial generation
+                if (isLoading && !uri && !error) {
+                  return (
+                    <div key={`loader-${index}`} className="aspect-[3/4] bg-muted/50 rounded-md border animate-pulse flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  );
+                }
+
                 return (
                   <div key={index} className="relative group">
                     {uri ? (
