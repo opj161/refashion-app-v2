@@ -42,6 +42,14 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   const [isUpscalingAvailable, setIsUpscalingAvailable] = useState(false);
   const [isFaceDetailerAvailable, setIsFaceDetailerAvailable] = useState(false);
 
+  // --- Effects ---
+  useEffect(() => {
+    // Check service availability on mount
+    checkBgAvailable().then(setIsBgRemovalAvailable);
+    checkUpscaleAvailable().then(setIsUpscalingAvailable);
+    checkFaceDetailerAvailable().then(setIsFaceDetailerAvailable);
+  }, []);
+
   // Don't render if no active image
   if (!activeImage) {
     return null;
@@ -51,14 +59,6 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   const isBgRemoved = activeImage.label.includes('Background Removed');
   const isUpscaled = activeImage.label.includes('Upscaled');
   const isFaceDetailed = activeImage.label.includes('Face Enhanced');
-
-  // --- Effects ---
-  useEffect(() => {
-    // Check service availability on mount
-    checkBgAvailable().then(setIsBgRemovalAvailable);
-    checkUpscaleAvailable().then(setIsUpscalingAvailable);
-    checkFaceDetailerAvailable().then(setIsFaceDetailerAvailable);
-  }, []);
 
   // --- Event Handlers ---
   const handleToggleBackgroundRemoval = async (checked: boolean) => {

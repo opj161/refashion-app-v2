@@ -29,11 +29,6 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
   // Local UI state
   const [isDraggingOverPage, setIsDraggingOverPage] = useState(false);
 
-  // Don't render if we already have an image
-  if (original) {
-    return null;
-  }
-
   // --- File Processing ---
   const processFile = useCallback(async (file: File | null | undefined) => {
     if (!file) return;
@@ -77,7 +72,7 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     processFile(e.target.files?.[0]);
   };
-
+  
   const handleDragAction = useCallback((e: React.DragEvent, action: 'enter' | 'leave' | 'over' | 'drop') => {
     e.preventDefault();
     e.stopPropagation();
@@ -165,6 +160,11 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
       loadImageFromUrl();
     }
   }, [sourceImageUrl, original, toast]);
+
+  // Don't render if we already have an image
+  if (original) {
+    return null;
+  }
 
   return (
     <>

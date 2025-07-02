@@ -50,11 +50,6 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
 
-  // Don't render if no active image
-  if (!activeImage) {
-    return null;
-  }
-
   // --- Recalculation Logic ---
   const recalculateCrop = useCallback((aspectRatio: number | undefined, imageElement: HTMLImageElement | null) => {
     if (!imageElement) return;
@@ -180,7 +175,12 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
     setCrop(undefined);
     setCompletedCrop(undefined);
     setImgRef(null);
-  }, [activeImage.id]);
+  }, [activeImage?.id]);
+
+  // Don't render if no active image
+  if (!activeImage) {
+    return null;
+  }
 
   const imageUrl = getDisplayableImageUrl(activeImage.dataUri);
   const isCurrentlyProcessing = isProcessing && processingStep === 'crop';
