@@ -122,14 +122,8 @@ export default function HistoryGallery() {
   };
 
   const handleReloadConfig = (item: HistoryItem) => {
-    // Navigate to the create page with the history item ID
-    // This will load the original image and all configuration parameters
+    // Only navigate, do not show a toast here
     router.push(`/create?historyItemId=${item.id}`);
-    
-    toast({
-      title: "Configuration Loaded",
-      description: "Redirecting to creation page with saved settings.",
-    });
   };
 
   const handleDeleteRequest = (item: HistoryItem) => {

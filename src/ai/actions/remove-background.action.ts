@@ -13,17 +13,17 @@ import { getCachedImagePath, setCachedImagePath } from './cache-manager';
 
 /**
  * Remove background from a user-uploaded image
- * @param imageDataUri The original image as a data URI or public URL
+ * @param imageUrlOrDataUri The original image as a data URI or public URL
  * @param imageHash Optional hash of the original image for caching
  * @param originalFileName Optional original filename for reference
  * @returns Promise an object containing the local relative path of the background-removed image
  */
 export async function removeBackgroundAction(
-  imageDataUri: string,
+  imageUrlOrDataUri: string,
   imageHash?: string,
   originalFileName?: string
 ): Promise<{ savedPath: string }> {
-  if (!imageDataUri) {
+  if (!imageUrlOrDataUri) {
     throw new Error('Image data URI or URL is required for background removal');
   }
 
@@ -41,7 +41,7 @@ export async function removeBackgroundAction(
     console.log('Starting background removal process with Fal.ai...');
 
     // Remove background using Fal.ai service
-    const outputImageUrl = await falImageService.removeBackground(imageDataUri);
+    const outputImageUrl = await falImageService.removeBackground(imageUrlOrDataUri);
     
     console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
 

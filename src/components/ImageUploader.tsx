@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useImageStore, processFileAndSetOriginal } from "@/stores/imageStore";
+import { useImageStore } from "@/stores/imageStore";
 import { UploadCloud } from "lucide-react";
 
 // --- Constants ---
-const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_MB = 50;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'image/avif'];
 
@@ -24,7 +24,7 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
   const dragCounter = useRef(0);
   
   // Store state
-  const { original, isProcessing, reset } = useImageStore();
+  const { original, isProcessing, reset, uploadOriginalImage } = useImageStore();
   
   // Local UI state
   const [isDraggingOverPage, setIsDraggingOverPage] = useState(false);
@@ -53,20 +53,25 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
     }
 
     try {
-      await processFileAndSetOriginal(file);
+      const { resized, originalWidth, originalHeight } = await uploadOriginalImage(file);
+      let toastDescription = "Your image is ready for editing.";
+      if (resized) {
+        toastDescription = `Image was downscaled from ${originalWidth}x${originalHeight} and is ready for editing.`;
+      }
       toast({ 
         title: "Image Uploaded", 
-        description: "Your image is ready for editing." 
+        description: toastDescription
       });
     } catch (error) {
       console.error('Error processing file:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to process the uploaded image.";
       toast({ 
         title: "Upload Failed", 
-        description: "Failed to process the uploaded image.", 
+        description: errorMessage, 
         variant: "destructive" 
       });
     }
-  }, [toast]);
+  }, [toast, uploadOriginalImage]);
 
   // --- Event Handlers ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,13 +145,8 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
           
           // Create a File object from the blob
           const file = new File([blob], 'loaded-image.jpg', { type: blob.type });
-          
-          await processFileAndSetOriginal(file);
-          
-          toast({ 
-            title: "Image Loaded", 
-            description: "Original image loaded from history." 
-          });
+          await uploadOriginalImage(file);
+          // Removed toast for 'Image Loaded' here
         } catch (error) {
           console.error('Error loading image from sourceImageUrl:', error);
           toast({ 
@@ -198,7 +198,7 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
           >
             <UploadCloud className="w-16 h-16 mb-4" />
             <p className="font-semibold text-foreground">Click to upload or drag & drop</p>
-            <p className="text-sm">Max {MAX_FILE_SIZE_MB}MB • PNG, JPG, WEBP, etc.</p>
+            <p className="text-sm">PNG, JPG, WEBP, etc.</p>
             
             <Input 
               id="image-upload" 

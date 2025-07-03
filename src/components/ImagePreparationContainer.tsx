@@ -183,11 +183,19 @@ export default function ImagePreparationContainer({
   }, [activeImage, toast, setProcessing]);
 
   const handleChangeImage = () => {
+    toast({
+      title: "Image Cleared",
+      description: "You can now upload a new image to start over.",
+    });
     resetStore();
     setIsConfirmed(false);
   };
 
   const resetAllState = useCallback(() => {
+    toast({
+      title: "Image Cleared",
+      description: "You can now upload a new image to start over.",
+    });
     resetStore();
     setIsConfirmed(false);
   }, [resetStore]);

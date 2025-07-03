@@ -5,6 +5,7 @@ import { devtools } from 'zustand/middleware';
 // Server Actions
 import { removeBackgroundAction } from "@/ai/actions/remove-background.action";
 import { upscaleImageAction, faceDetailerAction } from "@/ai/actions/upscale-image.action";
+import { uploadAndResizeImageAction } from "@/ai/actions/upload-and-resize-image.action";
 
 // --- Types ---
 export interface ImageVersion {
@@ -28,7 +29,7 @@ export interface ImageState {
     right: string;
   } | null;
   isProcessing: boolean;
-  processingStep: 'crop' | 'bg' | 'upscale' | 'face' | 'confirm' | null;
+  processingStep: 'upload' | 'crop' | 'bg' | 'upscale' | 'face' | 'confirm' | null;
 }
 
 export interface ImageActions {
@@ -44,6 +45,8 @@ export interface ImageActions {
   removeBackground: () => Promise<void>;
   upscaleImage: () => Promise<void>;
   faceDetailer: () => Promise<void>;
+  uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
+
 }
 
 export type ImageStore = ImageState & ImageActions;
@@ -63,25 +66,15 @@ const generateHash = async (file: File): Promise<string> => {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
-// Helper function to convert local paths back to data URIs for Fal.ai API
-const pathToDataUri = async (path: string): Promise<string> => {
-  // Use the utility to get the proxied URL, then fetch it
-  const { getDisplayableImageUrl } = await import('@/lib/utils');
-  const displayUrl = getDisplayableImageUrl(path);
-  if (!displayUrl) throw new Error("Could not create displayable URL for path.");
-  
-  const absoluteUrl = `${window.location.origin}${displayUrl}`;
-  const response = await fetch(absoluteUrl);
-  if (!response.ok) throw new Error(`Failed to fetch local image: ${response.statusText}`);
-  
-  const blob = await response.blob();
-  
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+const dataUriToBlob = (dataUri: string): Blob => {
+  const byteString = atob(dataUri.split(',')[1]);
+  const mimeString = dataUri.split(',')[0].split(':')[1].split(';')[0];
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  return new Blob([ab], { type: mimeString });
 };
 
 // --- Initial State ---
@@ -172,16 +165,16 @@ export const useImageStore = create<ImageStore>()(
         set({ isProcessing: true, processingStep: 'bg' }, false, 'removeBackground:start');
 
         try {
-          let imageDataUriForAction = currentVersion.dataUri;
+          let imageUrlOrDataUri = currentVersion.dataUri;
 
-          // Check if the "dataUri" is actually a local path and convert it
-          if (imageDataUriForAction.startsWith('/uploads/')) {
-            console.log('Converting local path to data URI for Fal.ai...');
-            imageDataUriForAction = await pathToDataUri(imageDataUriForAction);
+          // If the image is a local path, convert it to an absolute URL for Fal.ai
+          if (imageUrlOrDataUri.startsWith('/uploads/')) {
+            console.log('Converting local path to absolute URL for Fal.ai...');
+            imageUrlOrDataUri = new URL(imageUrlOrDataUri, window.location.origin).href;
           }
 
           const { savedPath } = await removeBackgroundAction(
-            imageDataUriForAction, // Use the potentially converted data URI
+            imageUrlOrDataUri, // Pass the URL or data URI directly
             original?.hash
           );
 
@@ -211,16 +204,16 @@ export const useImageStore = create<ImageStore>()(
         set({ isProcessing: true, processingStep: 'upscale' }, false, 'upscaleImage:start');
 
         try {
-          let imageDataUriForAction = currentVersion.dataUri;
+          let imageUrlOrDataUri = currentVersion.dataUri;
 
-          // Check if the "dataUri" is actually a local path and convert it
-          if (imageDataUriForAction.startsWith('/uploads/')) {
-            console.log('Converting local path to data URI for Fal.ai...');
-            imageDataUriForAction = await pathToDataUri(imageDataUriForAction);
+          // If the image is a local path, convert it to an absolute URL for Fal.ai
+          if (imageUrlOrDataUri.startsWith('/uploads/')) {
+            console.log('Converting local path to absolute URL for Fal.ai...');
+            imageUrlOrDataUri = new URL(imageUrlOrDataUri, window.location.origin).href;
           }
 
           const { savedPath } = await upscaleImageAction(
-            imageDataUriForAction, // Use the potentially converted data URI
+            imageUrlOrDataUri,
             original?.hash,
             original?.file?.name
           );
@@ -243,7 +236,7 @@ export const useImageStore = create<ImageStore>()(
       faceDetailer: async () => {
         const { activeVersionId, versions, original } = get();
         if (!activeVersionId || !versions[activeVersionId]) {
-          console.warn('No active version for face detailing');
+          console.warn('No active version for face detailer');
           return;
         }
 
@@ -251,16 +244,16 @@ export const useImageStore = create<ImageStore>()(
         set({ isProcessing: true, processingStep: 'face' }, false, 'faceDetailer:start');
 
         try {
-          let imageDataUriForAction = currentVersion.dataUri;
+          let imageUrlOrDataUri = currentVersion.dataUri;
 
-          // Check if the "dataUri" is actually a local path and convert it
-          if (imageDataUriForAction.startsWith('/uploads/')) {
-            console.log('Converting local path to data URI for Fal.ai...');
-            imageDataUriForAction = await pathToDataUri(imageDataUriForAction);
+          // If the image is a local path, convert it to an absolute URL for Fal.ai
+          if (imageUrlOrDataUri.startsWith('/uploads/')) {
+            console.log('Converting local path to absolute URL for Fal.ai...');
+            imageUrlOrDataUri = new URL(imageUrlOrDataUri, window.location.origin).href;
           }
 
           const { savedPath } = await faceDetailerAction(
-            imageDataUriForAction, // Use the potentially converted data URI
+            imageUrlOrDataUri,
             original?.hash,
             original?.file?.name
           );
@@ -272,11 +265,33 @@ export const useImageStore = create<ImageStore>()(
             sourceVersionId: activeVersionId,
           });
 
-          console.log('Face details enhanced successfully');
+          console.log('Face enhancement completed successfully');
         } catch (error) {
           console.error('Face enhancement failed:', error);
           set({ isProcessing: false, processingStep: null }, false, 'faceDetailer:error');
           throw error;
+        }
+      },
+
+      uploadOriginalImage: async (file: File) => {
+        get().setProcessing(true, 'upload');
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const { dataUri, hash, resized, originalWidth, originalHeight } = await uploadAndResizeImageAction(formData);
+
+          const blob = dataUriToBlob(dataUri);
+          const resizedFile = new File([blob], file.name, { type: blob.type });
+
+          get().setOriginalImage(resizedFile, dataUri, hash);
+          return { resized, originalWidth, originalHeight };
+        } catch (error) {
+          console.error('Upload and resize failed in store action:', error);
+          get().setProcessing(false, null);
+          throw error;
+        } finally {
+          get().setProcessing(false, null);
         }
       },
     }),
@@ -296,13 +311,6 @@ export const useImageProcessingState = () => useImageStore((state) => ({
   isProcessing: state.isProcessing,
   processingStep: state.processingStep,
 }));
-
-// --- Utility Functions for Components ---
-export const processFileAndSetOriginal = async (file: File): Promise<void> => {
-  const dataUri = await fileToDataUri(file);
-  const hash = await generateHash(file);
-  useImageStore.getState().setOriginalImage(file, dataUri, hash);
-};
 
 // --- Debug Helpers ---
 export const getStoreSnapshot = () => {

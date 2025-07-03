@@ -184,9 +184,42 @@ function getPreparedStatements() {
 
 function rowToHistoryItem(row: any): HistoryItem {
   // Do NOT filter(Boolean) -- preserve nulls for correct slot mapping
-  const editedImageUrls = row.edited_images ? JSON.parse(row.edited_images) : [];
-  const originalImageUrls = row.original_images ? JSON.parse(row.original_images) : undefined;
-  const generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls) : undefined;
+  let editedImageUrls: any[] = [];
+  let originalImageUrls: any[] | undefined = undefined;
+  let generatedVideoUrls: any[] | undefined = undefined;
+  let attributes: ModelAttributes = {} as ModelAttributes;
+  let videoGenerationParams: any = undefined;
+
+  try {
+    editedImageUrls = row.edited_images ? JSON.parse(row.edited_images) : [];
+  } catch (e) {
+    console.error('Failed to parse edited_images JSON for row', row.id, e);
+    editedImageUrls = [];
+  }
+  try {
+    originalImageUrls = row.original_images ? JSON.parse(row.original_images) : undefined;
+  } catch (e) {
+    console.error('Failed to parse original_images JSON for row', row.id, e);
+    originalImageUrls = undefined;
+  }
+  try {
+    generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls) : undefined;
+  } catch (e) {
+    console.error('Failed to parse video_urls JSON for row', row.id, e);
+    generatedVideoUrls = undefined;
+  }
+  try {
+    attributes = row.attributes ? JSON.parse(row.attributes) : {} as ModelAttributes;
+  } catch (e) {
+    console.error('Failed to parse attributes JSON for row', row.id, e);
+    attributes = {} as ModelAttributes;
+  }
+  try {
+    videoGenerationParams = row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined;
+  } catch (e) {
+    console.error('Failed to parse videoGenerationParams JSON for row', row.id, e);
+    videoGenerationParams = undefined;
+  }
 
   // Ensure arrays have proper null padding to match expected interface
   const paddedEditedUrls = new Array(4).fill(null);
@@ -215,11 +248,11 @@ function rowToHistoryItem(row: any): HistoryItem {
     constructedPrompt: row.constructedPrompt,
     originalClothingUrl: row.originalClothingUrl,
     settingsMode: row.settingsMode as 'basic' | 'advanced',
-    attributes: row.attributes ? JSON.parse(row.attributes) : {} as ModelAttributes,
+    attributes,
     editedImageUrls: paddedEditedUrls,
     originalImageUrls: paddedOriginalUrls,
     generatedVideoUrls: paddedVideoUrls,
-    videoGenerationParams: row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined,
+    videoGenerationParams,
   };
 }
 
@@ -275,10 +308,20 @@ export function findHistoryItemById(id: string): HistoryItem | null {
   return row ? rowToHistoryItem(row) : null;
 }
 
+
+// WARNING: This function is deprecated due to N+1 query anti-pattern and poor scalability.
+// Use getAllUsersHistoryPaginated instead for admin/all-history and similar use cases.
+// This function may be removed in the future.
+export function getAllUsersHistory(): { [username: string]: HistoryItem[] } {
+  throw new Error('getAllUsersHistory is deprecated. Use getAllUsersHistoryPaginated instead.');
+}
+
 export function updateHistoryItem(
   id: string, 
   updates: Partial<Pick<HistoryItem, 'editedImageUrls' | 'originalImageUrls' | 'constructedPrompt' | 'generatedVideoUrls' | 'videoGenerationParams'>>
 ): void {
+  // NOTE: updateHistoryItem is subject to race conditions if called concurrently for the same id.
+  // For robust webhook handling, consider using an atomic SQL UPDATE with JSON patch/merge logic.
   const db = getDb();
   const statements = getPreparedStatements();
   
@@ -365,19 +408,6 @@ export function getPaginatedHistoryForUser(options: PaginationOptions): Paginati
   };
 }
 
-export function getAllUsersHistory(): { [username: string]: HistoryItem[] } {
-  const db = getDb();
-  const allUsers = db.prepare('SELECT DISTINCT username FROM history').all() as { username: string }[];
-  
-  const result: { [username: string]: HistoryItem[] } = {};
-  
-  for (const user of allUsers) {
-    result[user.username] = findHistoryByUsername(user.username);
-  }
-  
-  return result;
-}
-
 export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10): PaginationResult {
   const db = getDb();
   
@@ -426,7 +456,13 @@ export function getHistoryItemStatus(id: string, username: string): VideoStatusP
     return { status: 'unknown' };
   }
 
-  const params = JSON.parse(row.videoGenerationParams);
+  let params: any = {};
+  try {
+    params = JSON.parse(row.videoGenerationParams);
+  } catch (e) {
+    console.error('Failed to parse videoGenerationParams JSON for history item', id, e);
+    return { status: 'unknown' };
+  }
 
   return {
     status: params.status || 'processing', // Default to processing if status not set
@@ -447,3 +483,6 @@ export function closeDb(): void {
 process.on('exit', closeDb);
 process.on('SIGINT', closeDb);
 process.on('SIGTERM', closeDb);
+
+// TODO: For standalone video history items, ensure the source image is not placed in editedImageUrls.
+// Instead, store it in a dedicated field or originalImageUrls. See addStandaloneVideoHistoryItem in actions.

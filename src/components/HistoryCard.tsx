@@ -69,12 +69,22 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
 
   // Handle video play/pause based on visibility
   useEffect(() => {
-    if (!videoRef.current || !isVideoItem || !videoUrl) return;
+    const video = videoRef.current;
+    if (!video || !isVideoItem || !videoUrl) return;
 
     if (isInView) {
-      videoRef.current.play().catch(error => console.error("Video autoplay failed:", error));
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          // Autoplay was prevented or interrupted. This is expected.
+          // We can ignore the AbortError specifically.
+          if (error.name !== 'AbortError') {
+            console.error("Video play failed:", error);
+          }
+        });
+      }
     } else {
-      videoRef.current.pause();
+      video.pause();
     }
   }, [isInView, isVideoItem, videoUrl]);
 

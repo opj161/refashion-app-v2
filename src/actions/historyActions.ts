@@ -136,13 +136,15 @@ export async function addStandaloneVideoHistoryItem(
     throw new Error('User not authenticated');
   }
 
+  // For standalone video, store the source image in originalImageUrls, not editedImageUrls
   const newItem: HistoryItem = {
     id: crypto.randomUUID(),
     timestamp: Date.now(),
     attributes: {} as ModelAttributes, // Empty attributes for video-only items
     constructedPrompt: videoGenerationParams.prompt,
     originalClothingUrl: videoGenerationParams.sourceImageUrl,
-    editedImageUrls: [videoGenerationParams.sourceImageUrl],
+    editedImageUrls: [null, null, null, null], // No generated images for standalone video
+    originalImageUrls: [videoGenerationParams.sourceImageUrl, null, null, null],
     username: user.username,
     settingsMode: 'basic',
     generatedVideoUrls: videoUrls,
@@ -253,19 +255,28 @@ export async function updateVideoHistoryItem(params: {
     return;
   }
 
-  // Update the video parameters
-  const updatedVideoParams = existingItem.videoGenerationParams ? {
-    ...existingItem.videoGenerationParams,
-    seed: seedUsed ?? -1,
-    localVideoUrl: localVideoUrl,
-    status: status,
-    error: error
-  } : undefined;
+  // ATOMIC: Update videoGenerationParams JSON directly in the DB to avoid race conditions
+  // This uses a single SQL statement to patch the JSON object
+  const db = dbService.getDb();
+  db.prepare(`
+    UPDATE history
+    SET videoGenerationParams = json_patch(
+      COALESCE(videoGenerationParams, '{}'),
+      json(?))
+    WHERE id = ?
+  `).run(
+    JSON.stringify({
+      seed: seedUsed ?? -1,
+      localVideoUrl: localVideoUrl,
+      status: status,
+      error: error
+    }),
+    historyItemId
+  );
 
-  // Update the history item with video information
+  // Update the video URLs as well (images are in a separate table)
   dbService.updateHistoryItem(historyItemId, {
-    generatedVideoUrls: videoUrls,
-    videoGenerationParams: updatedVideoParams
+    generatedVideoUrls: videoUrls
   });
 }
 

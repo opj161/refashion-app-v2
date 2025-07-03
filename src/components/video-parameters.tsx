@@ -200,8 +200,8 @@ export default function VideoParameters({
       setLoadedHistoryItemId(historyItemToLoad.id);
       
       toast({
-        title: "Video Settings Loaded",
-        description: "Video generation parameters have been restored from your selected configuration.",
+        title: "History Restored",
+        description: "Source image and all video parameters have been successfully restored.",
       });
     }
   }, [historyItemToLoad, isLoadingHistory, loadedHistoryItemId, handlePromptChange, toast]);
@@ -231,19 +231,21 @@ export default function VideoParameters({
       // If we have a data URI, convert it to a Fal storage URL
       if (isDataUri) {
         setIsUploadingToFal(true);
-        toast({ title: "Uploading Image", description: "Uploading image to Fal.ai storage..." });
-        
+        // Use a single toast and update it after upload
+        const { update, dismiss, id: toastId } = toast({ 
+          title: "Uploading Image...", 
+          description: "Preparing your image for video generation." 
+        });
         try {
           // Convert data URI to Blob
           const imageBlob = dataUriToBlob(preparedImageUrl);
           const imageFile = new File([imageBlob], "prepared-image.jpg", { type: "image/jpeg" });
-          
           // Upload to Fal storage
           imageUrlForVideo = await uploadToFalStorage(imageFile);
-          toast({ title: "Image Uploaded", description: "Image uploaded successfully. Starting video generation..." });
+          update({ id: toastId, title: "Image Uploaded!", description: "Starting video generation..." });
         } catch (uploadError) {
           console.error("Error uploading to Fal storage:", uploadError);
-          toast({ title: "Upload Failed", description: "Failed to upload image to Fal.ai storage.", variant: "destructive" });
+          update({ id: toastId, title: "Upload Failed", description: "Failed to upload image to Fal.ai storage.", variant: "destructive" });
           setIsGenerating(false);
           setIsUploadingToFal(false);
           return;

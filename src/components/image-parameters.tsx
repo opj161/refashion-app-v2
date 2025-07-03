@@ -247,8 +247,8 @@ export default function ImageParameters({
       setLoadedHistoryItemId(historyItemToLoad.id);
       
       toast({
-        title: "Settings Loaded",
-        description: "All parameters have been restored from your selected configuration.",
+        title: "History Restored",
+        description: "Image and all generation parameters have been successfully restored.",
       });
     }
   }, [historyItemToLoad, isLoadingHistory, loadedHistoryItemId, handlePromptChange, toast]);
@@ -261,7 +261,10 @@ export default function ImageParameters({
       cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering,
     };
     window.localStorage.setItem('imageForgeDefaults', JSON.stringify(currentSettingsToSave));
-    toast({ title: "Defaults Saved" });
+    toast({ 
+      title: "Defaults Saved",
+      description: "Your current settings have been saved for future sessions."
+    });
   };
 
   const resetAllParametersToAppDefaults = useCallback(() => {
@@ -272,7 +275,10 @@ export default function ImageParameters({
     if (typeof window === 'undefined') return;
     window.localStorage.removeItem('imageForgeDefaults');
     resetAllParametersToAppDefaults();
-    toast({ title: "Defaults Cleared" });
+    toast({ 
+      title: "Defaults Cleared",
+      description: "All saved settings have been reset to application defaults."
+    });
   };
 
   const handleRandomizeConfiguration = () => {
@@ -363,7 +369,10 @@ export default function ImageParameters({
               originalImageUrls: currentOriginals 
             });
         }
-        toast({title: `Image ${slotIndex + 1} Re-rolled`});
+        toast({ 
+          title: `Image ${slotIndex + 1} Re-rolled`,
+          description: "A new version of the image has been generated."
+        });
     } catch (error) {
         toast({title: `Re-roll Failed (Slot ${slotIndex+1})`, description: (error as Error).message, variant: "destructive"});
         const updatedErrors = [...generationErrors];

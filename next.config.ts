@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb', // Increase limit for image uploads
+      bodySizeLimit: '50mb', // Increase limit for image uploads
     },  },images: {
     remotePatterns: [
       {
