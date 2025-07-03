@@ -335,11 +335,11 @@ export async function searchUserHistory(
   }
 
   const db = dbService.getDb();
-  
+
   // Search in constructed prompts and original clothing URLs
   const searchQuery = `%${searchTerm.toLowerCase()}%`;
   const offset = (page - 1) * limit;
-  
+
   const countStmt = db.prepare(`
     SELECT COUNT(*) as count 
     FROM history 
@@ -348,49 +348,49 @@ export async function searchUserHistory(
       LOWER(originalClothingUrl) LIKE ?
     )
   `);
-  
+
+  // Use robust JSON_GROUP_ARRAY for all image arrays
   const dataStmt = db.prepare(`
-    SELECT h.*, 
-           GROUP_CONCAT(CASE WHEN hi.type = 'edited' THEN hi.url END ORDER BY hi.slot_index) as edited_images,
-           GROUP_CONCAT(CASE WHEN hi.type = 'original_for_comparison' THEN hi.url END ORDER BY hi.slot_index) as original_images,
-           GROUP_CONCAT(CASE WHEN hi.type = 'generated_video' THEN hi.url END ORDER BY hi.slot_index) as video_urls
+    SELECT h.*,
+           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
+           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
+           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
     FROM history h
-    LEFT JOIN history_images hi ON h.id = hi.history_id
     WHERE h.username = ? AND (
       LOWER(h.constructedPrompt) LIKE ? OR 
       LOWER(h.originalClothingUrl) LIKE ?
     )
-    GROUP BY h.id
     ORDER BY h.timestamp DESC
     LIMIT ? OFFSET ?
   `);
 
   const countResult = countStmt.get(user.username, searchQuery, searchQuery) as { count: number };
   const totalCount = countResult.count;
-  
+
   const rows = dataStmt.all(user.username, searchQuery, searchQuery, limit, offset);
-  
+
   // Use the same row mapping function from database service
   const items: HistoryItem[] = rows.map((row: any) => {
-    const editedImageUrls = row.edited_images ? row.edited_images.split(',').filter(Boolean) : [];
-    const originalImageUrls = row.original_images ? row.original_images.split(',').filter(Boolean) : undefined;
-    const generatedVideoUrls = row.video_urls ? row.video_urls.split(',').filter(Boolean) : undefined;
-    
+    // Use the same logic as rowToHistoryItem
+    const editedImageUrls = row.edited_images ? JSON.parse(row.edited_images) : [];
+    const originalImageUrls = row.original_images ? JSON.parse(row.original_images) : undefined;
+    const generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls) : undefined;
+
     const paddedEditedUrls = new Array(4).fill(null);
-    editedImageUrls.forEach((url: string, index: number) => {
+    editedImageUrls.forEach((url: string | null, index: number) => {
       if (index < 4) paddedEditedUrls[index] = url;
     });
-    
+
     const paddedOriginalUrls = originalImageUrls ? new Array(4).fill(null) : undefined;
     if (originalImageUrls && paddedOriginalUrls) {
-      originalImageUrls.forEach((url: string, index: number) => {
+      originalImageUrls.forEach((url: string | null, index: number) => {
         if (index < 4) paddedOriginalUrls[index] = url;
       });
     }
-    
+
     const paddedVideoUrls = generatedVideoUrls ? new Array(4).fill(null) : undefined;
     if (generatedVideoUrls && paddedVideoUrls) {
-      generatedVideoUrls.forEach((url: string, index: number) => {
+      generatedVideoUrls.forEach((url: string | null, index: number) => {
         if (index < 4) paddedVideoUrls[index] = url;
       });
     }
@@ -409,9 +409,9 @@ export async function searchUserHistory(
       videoGenerationParams: row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined,
     };
   });
-  
+
   const hasMore = offset + limit < totalCount;
-  
+
   return {
     items,
     totalCount,

@@ -14,6 +14,7 @@ import {
   UserCheck, 
   Clock
 } from "lucide-react";
+import { useImageStore } from "@/stores/imageStore";
 
 interface ImageVersion {
   id: string;
@@ -26,7 +27,6 @@ interface ImageVersion {
 interface ImageVersionStackProps {
   versions: Record<string, ImageVersion>;
   activeVersionId: string | null;
-  onSetActiveVersion: (versionId: string) => void;
   isProcessing: boolean;
 }
 
@@ -57,9 +57,9 @@ const formatTime = (timestamp: number) => {
 export default function ImageVersionStack({ 
   versions, 
   activeVersionId, 
-  onSetActiveVersion, 
   isProcessing 
 }: ImageVersionStackProps) {
+  const { setActiveVersion } = useImageStore();
   // Sort versions by creation time, with original first
   const sortedVersions = Object.values(versions).sort((a, b) => {
     if (a.id === 'original') return -1;
@@ -95,7 +95,7 @@ export default function ImageVersionStack({
                 }
                 ${isProcessing ? 'opacity-50' : 'cursor-pointer'}
               `}
-              onClick={() => !isProcessing && onSetActiveVersion(version.id)}
+              onClick={() => !isProcessing && setActiveVersion(version.id)}
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className={`

@@ -12,7 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle } from 'lucide-react';
-import { generateImageEdit, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
+import { generateImageEdit, regenerateSingleImage, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
 import { upscaleImageAction } from "@/ai/actions/upscale-image.action";
 import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,7 +22,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
-import { useActiveImage } from "@/stores/imageStore";
+import { useActiveImage, useImageStore } from "@/stores/imageStore";
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
     BODY_TYPE_OPTIONS, BODY_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
@@ -57,6 +57,7 @@ export default function ImageParameters({
   
   // Get prepared image from store instead of props
   const activeImage = useActiveImage();
+  const resetImageState = useImageStore((state) => state.reset);
   const preparedImageUrl = activeImage?.dataUri || null;
 
   // State for parameters
@@ -339,27 +340,35 @@ export default function ImageParameters({
     
     try {
         const inputForReroll: GenerateImageEditInput = { prompt: currentPrompt, imageDataUriOrUrl: preparedImageUrl };
-        const result: GenerateMultipleImagesOutput = await generateImageEdit(inputForReroll);
+        const result = await regenerateSingleImage(inputForReroll, slotIndex);
 
         const updatedUrls = [...outputImageUrls];
-        const newImageUrl = result.editedImageUrls[0];
+        const newImageUrl = result.editedImageUrl;
         updatedUrls[slotIndex] = newImageUrl;
         setOutputImageUrls(updatedUrls);
 
         const updatedErrors = [...generationErrors];
-        const newError = result.errors?.[0] || null;
-        updatedErrors[slotIndex] = newError;
+        updatedErrors[slotIndex] = null; // Clear previous error on success
         setGenerationErrors(updatedErrors);
+
+        // After re-rolling, the original for comparison might be gone.
+        // We should clear the original URL for this slot.
+        const currentOriginals = [...originalOutputImageUrls];
+        currentOriginals[slotIndex] = null;
+        setOriginalOutputImageUrls(currentOriginals);
 
         if (activeHistoryItemId && newImageUrl) {
             await updateHistoryItem(activeHistoryItemId, { 
               editedImageUrls: updatedUrls,
-              originalImageUrls: originalOutputImageUrls 
+              originalImageUrls: currentOriginals 
             });
         }
         toast({title: `Image ${slotIndex + 1} Re-rolled`});
     } catch (error) {
         toast({title: `Re-roll Failed (Slot ${slotIndex+1})`, description: (error as Error).message, variant: "destructive"});
+        const updatedErrors = [...generationErrors];
+        updatedErrors[slotIndex] = (error as Error).message || "Unknown re-roll error";
+        setGenerationErrors(updatedErrors);
     } finally {
         setIsReRollingSlot(null);
     }
@@ -449,6 +458,11 @@ export default function ImageParameters({
 
   const handleSendToVideoPage = (imageUrl: string | null) => {
     if (!imageUrl) return;
+    
+    // 1. Reset the image store to clear the current session.
+    resetImageState();
+
+    // 2. Prepare and navigate to the create page for video generation.
     const params = new URLSearchParams();
     // The 'create' page expects 'sourceImageUrl' to load an image
     // and 'defaultTab' to select the correct tab.

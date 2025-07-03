@@ -18,71 +18,57 @@ export default function CreationHub() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const [defaultTab, setDefaultTab] = useState<string>("image");
+  const [processedContextId, setProcessedContextId] = useState<string | null>(null);
   const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null);
   const [historyItemToLoad, setHistoryItemToLoad] = useState<HistoryItem | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
-  
-  // Store state for prepared image
-  const [preparedImageDataUri, setPreparedImageDataUri] = useState<string | null>(null);
-  
-  // Access store for debugging/monitoring
   const { reset } = useImageStore();
 
-  // Handle URL parameters on component mount
+  // Handle URL parameters and state synchronization on component mount
   useEffect(() => {
     const historyItemId = searchParams.get('historyItemId');
     const defaultTabParam = searchParams.get('defaultTab');
     const sourceImageUrlParam = searchParams.get('sourceImageUrl');
+    const currentContextId = historyItemId || sourceImageUrlParam;
 
     // Set default tab from URL parameter
     if (defaultTabParam && (defaultTabParam === 'image' || defaultTabParam === 'video')) {
       setDefaultTab(defaultTabParam);
     }
 
-    // Set source image URL from URL parameter (for video navigation)
-    if (sourceImageUrlParam) {
-      setSourceImageUrl(sourceImageUrlParam);
-    }
-
-    // Load history item if historyItemId is present
-    if (historyItemId && currentUser) {
-      const loadHistoryData = async () => {
-        setIsLoadingHistory(true);
-        try {
-          const { success, item, error } = await getHistoryItemById(historyItemId);
-          if (success && item) {
-            setHistoryItemToLoad(item);
-            // Set the source image URL for the ImagePreparationContainer
-            if (item.originalClothingUrl) {
-              setSourceImageUrl(item.originalClothingUrl);
+    // Reset and load history item or source image URL based on URL parameters
+    if (currentContextId && currentContextId !== processedContextId) {
+      reset();
+      setHistoryItemToLoad(null);
+      if (historyItemId) {
+        const loadHistoryData = async () => {
+          setIsLoadingHistory(true);
+          try {
+            const { success, item, error } = await getHistoryItemById(historyItemId);
+            if (success && item) {
+              setHistoryItemToLoad(item);
+              setSourceImageUrl(item.originalClothingUrl || item.videoGenerationParams?.sourceImageUrl || null);
+            } else if (!success && error) {
+              toast({ title: "Error Loading Configuration", description: error, variant: "destructive" });
             }
-            
-            toast({
-              title: "Configuration Loaded",
-              description: "Previous settings have been restored successfully.",
-            });
-          } else if (!success && error) {
-            console.warn('Failed to load history item:', error);
-            toast({
-              title: "Error Loading Configuration",
-              description: "Failed to load the selected configuration.",
-              variant: "destructive"
-            });
+          } catch (e) {
+            toast({ title: "Error Loading Configuration", description: "An unexpected error occurred.", variant: "destructive" });
+          } finally {
+            setIsLoadingHistory(false);
           }
-        } catch (error) {
-          console.error('Error loading history item:', error);
-          toast({
-            title: "Error Loading Configuration", 
-            description: "An unexpected error occurred while loading the configuration.",
-            variant: "destructive"
-          });
-        } finally {
-          setIsLoadingHistory(false);
-        }
-      };
-      loadHistoryData();
+        };
+        loadHistoryData();
+      } else if (sourceImageUrlParam) {
+        setSourceImageUrl(sourceImageUrlParam);
+      }
+      setProcessedContextId(currentContextId);
+    } else if (!currentContextId && processedContextId) {
+      reset();
+      setSourceImageUrl(null);
+      setHistoryItemToLoad(null);
+      setProcessedContextId(null);
     }
-  }, [searchParams, currentUser, toast]);
+  }, [searchParams, currentUser, toast, reset, processedContextId]);
 
   return (
     <div className="space-y-8">
@@ -95,7 +81,6 @@ export default function CreationHub() {
 
         <TabsContent value="image" className="space-y-6 mt-8">
           <ImagePreparationContainer 
-            onImageReady={setPreparedImageDataUri} 
             sourceImageUrl={sourceImageUrl} 
             preparationMode="image" 
           />
@@ -107,7 +92,6 @@ export default function CreationHub() {
 
         <TabsContent value="video" className="space-y-6 mt-8">
           <ImagePreparationContainer 
-            onImageReady={setPreparedImageDataUri} 
             sourceImageUrl={sourceImageUrl} 
             preparationMode="video" 
           />

@@ -183,26 +183,27 @@ function getPreparedStatements() {
 }
 
 function rowToHistoryItem(row: any): HistoryItem {
-  const editedImageUrls = row.edited_images ? JSON.parse(row.edited_images).filter(Boolean) : [];
-  const originalImageUrls = row.original_images ? JSON.parse(row.original_images).filter(Boolean) : undefined;
-  const generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls).filter(Boolean) : undefined;
-  
+  // Do NOT filter(Boolean) -- preserve nulls for correct slot mapping
+  const editedImageUrls = row.edited_images ? JSON.parse(row.edited_images) : [];
+  const originalImageUrls = row.original_images ? JSON.parse(row.original_images) : undefined;
+  const generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls) : undefined;
+
   // Ensure arrays have proper null padding to match expected interface
   const paddedEditedUrls = new Array(4).fill(null);
-  editedImageUrls.forEach((url: string, index: number) => {
+  editedImageUrls.forEach((url: string | null, index: number) => {
     if (index < 4) paddedEditedUrls[index] = url;
   });
-  
+
   const paddedOriginalUrls = originalImageUrls ? new Array(4).fill(null) : undefined;
   if (originalImageUrls && paddedOriginalUrls) {
-    originalImageUrls.forEach((url: string, index: number) => {
+    originalImageUrls.forEach((url: string | null, index: number) => {
       if (index < 4) paddedOriginalUrls[index] = url;
     });
   }
-  
+
   const paddedVideoUrls = generatedVideoUrls ? new Array(4).fill(null) : undefined;
   if (generatedVideoUrls && paddedVideoUrls) {
-    generatedVideoUrls.forEach((url: string, index: number) => {
+    generatedVideoUrls.forEach((url: string | null, index: number) => {
       if (index < 4) paddedVideoUrls[index] = url;
     });
   }

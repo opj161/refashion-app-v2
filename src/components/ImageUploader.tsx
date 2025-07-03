@@ -159,7 +159,7 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
 
       loadImageFromUrl();
     }
-  }, [sourceImageUrl, original, toast]);
+  }, [sourceImageUrl, original, toast, reset]);
 
   // Don't render if we already have an image
   if (original) {

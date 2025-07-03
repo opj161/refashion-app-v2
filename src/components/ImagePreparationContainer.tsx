@@ -68,13 +68,11 @@ async function getCroppedImgDataUrl(
 }
 
 interface ImagePreparationContainerProps {
-  onImageReady: (imageDataUri: string | null) => void;
   sourceImageUrl?: string | null;
   preparationMode: 'image' | 'video';
 }
 
 export default function ImagePreparationContainer({ 
-  onImageReady, 
   sourceImageUrl, 
   preparationMode 
 }: ImagePreparationContainerProps) {
@@ -153,10 +151,6 @@ export default function ImagePreparationContainer({
 
   // --- Handlers ---
   
-  const handleSetActiveVersion = useCallback((versionId: string) => {
-    setActiveVersion(versionId);
-  }, [setActiveVersion]);
-
   const handleConfirmForGeneration = useCallback(async () => {
     if (!activeImage) return;
     
@@ -183,23 +177,20 @@ export default function ImagePreparationContainer({
       }
     }
     
-    onImageReady(finalDataUri);
     setIsConfirmed(true);
     setProcessing(false, null);
     toast({ title: "Image Confirmed", description: "Proceed to generation parameters." });
-  }, [activeImage, onImageReady, toast, setProcessing]);
+  }, [activeImage, toast, setProcessing]);
 
   const handleChangeImage = () => {
     resetStore();
     setIsConfirmed(false);
-    onImageReady(null);
   };
 
   const resetAllState = useCallback(() => {
     resetStore();
     setIsConfirmed(false);
-    onImageReady(null);
-  }, [resetStore, onImageReady]);
+  }, [resetStore]);
 
   // --- Render Logic ---
   
@@ -361,7 +352,6 @@ export default function ImagePreparationContainer({
           <ImageVersionStack
             versions={versions}
             activeVersionId={activeVersionId}
-            onSetActiveVersion={handleSetActiveVersion}
             isProcessing={isProcessing}
           />
         )}
