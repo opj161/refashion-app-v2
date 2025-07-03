@@ -54,16 +54,17 @@ export default function ImagePreparationContainer({
   
   const activeImage = useActiveImage();
 
-  // Local UI state
-  const [aspect, setAspect] = useState<number | undefined>(getDefaultAspect(preparationMode));
+  // Local UI state - Start with no crop active for better UX
+  const [aspect, setAspect] = useState<number | undefined>(undefined);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
   // --- Effects ---
   
-  // Update aspect ratio when preparation mode changes
+  // Reset aspect ratio when preparation mode changes to ensure clean slate
   useEffect(() => {
-    const newDefaultAspect = getDefaultAspect(preparationMode);
-    setAspect(newDefaultAspect);
+    // When the preparation mode (Image/Video) changes, reset the aspect ratio to ensure
+    // no crop is active from the previous mode. The user must explicitly select one.
+    setAspect(undefined);
   }, [preparationMode]);
 
   // --- Handlers ---
@@ -159,6 +160,7 @@ export default function ImagePreparationContainer({
               preparationMode={preparationMode}
               aspect={aspect}
               disabled={isConfirmed}
+              onAspectChange={setAspect}
             />
           </div>
 

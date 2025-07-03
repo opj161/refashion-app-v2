@@ -5,6 +5,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useImageStore, useActiveImage } from "@/stores/imageStore";
 import { useToast } from "@/hooks/use-toast";
 import { getDisplayableImageUrl } from "@/lib/utils";
@@ -14,6 +15,7 @@ interface ImageEditorCanvasProps {
   preparationMode: 'image' | 'video';
   aspect?: number;
   disabled?: boolean;
+  onAspectChange: (aspect: number | undefined) => void; // ADD THIS PROP
 }
 
 // --- Helper Functions ---
@@ -62,7 +64,7 @@ async function getCroppedImgDataUrl(
   });
 }
 
-export default function ImageEditorCanvas({ preparationMode, aspect, disabled = false }: ImageEditorCanvasProps) {
+export default function ImageEditorCanvas({ preparationMode, aspect, disabled = false, onAspectChange }: ImageEditorCanvasProps) {
   const { toast } = useToast();
   const { addVersion, isProcessing, processingStep, versions } = useImageStore();
   const activeImage = useActiveImage();
@@ -144,8 +146,8 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
   // --- Event Handlers ---
   const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     imgRef.current = e.currentTarget;
-    recalculateCrop(aspect, e.currentTarget);
-  }, [aspect, recalculateCrop]);
+    // No longer automatically calculates crop here - only when aspect changes
+  }, []);
 
   const handleApplyCrop = useCallback(async () => {
     if (!completedCrop || !imgRef.current || !activeImage) return;
@@ -166,18 +168,26 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
       });
       
       toast({ title: "Crop Applied", description: "A new cropped version has been added to your history." });
+
+      // Reset the UI to a non-cropping state after successfully applying
+      onAspectChange(undefined);
     } catch (error) {
       console.error('Cropping failed:', error);
       toast({ title: "Cropping Failed", description: "Could not apply the crop.", variant: "destructive" });
     }
-  }, [completedCrop, activeImage, addVersion, toast]);
+  }, [completedCrop, activeImage, addVersion, toast, onAspectChange]); // Add onAspectChange to dependency array
 
   // --- Effects ---
   
-  // Recalculate crop when aspect ratio changes
+  // Handle crop activation and deactivation based on aspect ratio
   useEffect(() => {
-    if (imgRef.current) {
+    if (imgRef.current && aspect !== undefined) {
+      // Activate cropping mode: calculate and set the crop
       recalculateCrop(aspect, imgRef.current);
+    } else if (aspect === undefined) {
+      // Deactivate cropping mode: clear the crop states
+      setCrop(undefined);
+      setCompletedCrop(undefined);
     }
   }, [aspect, recalculateCrop]);
 
@@ -214,39 +224,53 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
         </div>
       )}
 
-      {/* Hold-to-compare button */}
+      {/* Hold-to-compare button - Enhanced for better visibility */}
       {sourceImageUri && !disabled && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute top-4 right-4 z-20 h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm"
-          onMouseDown={() => setIsComparing(true)}
-          onMouseUp={() => setIsComparing(false)}
-          onMouseLeave={() => setIsComparing(false)}
-          onTouchStart={(e) => { e.preventDefault(); setIsComparing(true); }}
-          onTouchEnd={() => setIsComparing(false)}
-          title="Hold to see 'before' version"
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  className="bg-background/80 hover:bg-background/95 backdrop-blur-sm shadow-lg border border-border/50"
+                  onMouseDown={() => setIsComparing(true)}
+                  onMouseUp={() => setIsComparing(false)}
+                  onMouseLeave={() => setIsComparing(false)}
+                  onTouchStart={(e) => { e.preventDefault(); setIsComparing(true); }}
+                  onTouchEnd={() => setIsComparing(false)}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Hold to Compare
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Hold down to see the previous version</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       )}
 
-      {/* Crop controls */}
-      <div className="w-full flex justify-center mb-4">
-        <Button 
-          onClick={handleApplyCrop} 
-          disabled={isProcessing || !completedCrop || disabled}
-          size="sm"
-          variant="default"
-        >
-          <CropIcon className="mr-2 h-4 w-4" />
-          Apply Crop
-        </Button>
-      </div>
+      {/* Crop controls - Positioned absolutely to prevent layout shift */}
+      {completedCrop && !disabled && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+          <Button 
+            onClick={handleApplyCrop} 
+            disabled={isProcessing}
+            size="sm"
+            variant="default"
+            className="shadow-lg"
+          >
+            <CropIcon className="mr-2 h-4 w-4" />
+            Apply Crop
+          </Button>
+        </div>
+      )}
 
       {/* Image with crop overlay */}
       <ReactCrop 
-        crop={crop} 
+        // Conditionally pass the crop object. If it's undefined, the crop UI is not shown.
+        crop={crop}
         onChange={(_, percentCrop) => setCrop(percentCrop)} 
         onComplete={(c) => setCompletedCrop(c)} 
         aspect={aspect} 

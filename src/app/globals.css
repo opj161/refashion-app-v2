@@ -74,7 +74,7 @@ body {
 
   .dark {
     --background: 195 25% 5%; /* #0F1616 - Very dark, desaturated petrol */
-    --background-accent: 180, 30%, 15%; /* ADD THIS LINE: Brighter & more saturated petrol */
+    --background-accent: 180, 40%, 6%; /* ADD THIS LINE: Brighter & more saturated petrol */
     --foreground: 195 15% 90%; /* #DCE2E2 - Light cool grey for text */
 
     --card: 195 20% 15%; /* #161E1E - Dark petrol, slightly lighter than background */

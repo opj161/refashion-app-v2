@@ -54,7 +54,7 @@ export default function LoginPage() {
   };
   // ... rest of your component
   return (
-    <div className="flex justify-center items-center min-h-[calc(100vh-var(--header-height,80px))] p-4 bg-gradient-to-br from-background to-background-accent">
+    <div className="flex justify-center items-center min-h-[calc(100vh-var(--header-height,80px))] p-4 bg-gradient-to-br from-background-accent to-background">
       <Card className="w-full max-w-md shadow-2xl">
         <form onSubmit={handleSubmit}>
           <CardHeader className="text-center">

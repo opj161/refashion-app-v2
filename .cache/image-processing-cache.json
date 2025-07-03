@@ -17,7 +17,8 @@
   },
   "fc1284a3013e5e9baa2070b62cd46722f15d127450d9988deaecbc56f826e9f4": {
     "upscaled": "/uploads/processed_images/RefashionAI_upscaled_d449030e-9018-49fc-8867-f364346e6eeb.png",
-    "timestamp": 1751476213096
+    "timestamp": 1751550322971,
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_48107cf9-2fbb-4093-9e34-3f9095123163.png"
   },
   "e64e6d0f938a54a65b949c434c43ac635e2873d28781cea9a60d354233037fec": {
     "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_e1e5b771-0ec1-47a6-8205-9843be9944cc.png",
@@ -46,5 +47,14 @@
   "7694a985ab09315946ad4735c21d70975b4544fe240ccd940feedd66c0cf80e2": {
     "upscaled": "/uploads/processed_images/RefashionAI_upscaled_1e967239-dec7-45ec-893d-bbbabc1022a5.png",
     "timestamp": 1751549898197
+  },
+  "3ece487b9b965cbfb1dba8d5d4686098911b356f1b9a1d7b195e1eb84802597e": {
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_3437047a-6936-45d3-a057-b7a87e02d117.png",
+    "timestamp": 1751550636362,
+    "upscaled": "/uploads/processed_images/RefashionAI_upscaled_d9e06ce6-b8bc-45ee-addf-c5e2fbf6f9cc.png"
+  },
+  "c5cee8ed8fb2de05e472e880f68e4471a8e6ae3b9129714ca9113c4dc3dc4171": {
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_47fc3fc8-1227-41c2-acc6-23ca4a54cd48.png",
+    "timestamp": 1751552050930
   }
 }
