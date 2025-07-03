@@ -1,79 +1,50 @@
 // src/components/ImageEditorCanvas.tsx
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useImageStore, useActiveImage } from "@/stores/imageStore";
 import { useToast } from "@/hooks/use-toast";
 import { getDisplayableImageUrl } from "@/lib/utils";
-import { Crop as CropIcon, Loader2, Eye } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface ImageEditorCanvasProps {
   preparationMode: 'image' | 'video';
   aspect?: number;
   disabled?: boolean;
-  onAspectChange: (aspect: number | undefined) => void; // ADD THIS PROP
+  onAspectChange: (aspect: number | undefined) => void;
+  crop?: Crop;
+  onCropChange?: (crop: Crop) => void;
+  onCropComplete?: (crop: PixelCrop) => void;
+  onImageLoad?: (img: HTMLImageElement) => void;
 }
 
 // --- Helper Functions ---
-// The Definitive Cropping Helper Function
-// This function now correctly uses the full-resolution data URI for the source.
-async function getCroppedImgDataUrl(
-  displayedImage: HTMLImageElement, // The scaled-down image from the DOM (for scaling calculation)
-  crop: PixelCrop,
-  sourceDataUri: string // The full-resolution data URI from the store
-): Promise<string> {
-  // Create a new image object in memory to ensure we work with the original data.
-  const offscreenImage = new window.Image();
-  offscreenImage.src = sourceDataUri;
+// The getCroppedImgDataUrl function has been moved to the parent component
 
-  // Wait for the full-res image to load before proceeding.
-  return new Promise((resolve, reject) => {
-    offscreenImage.onload = () => {
-      const canvas = document.createElement('canvas');
-      // The scaling factors correctly bridge the gap between the display size and the original file size.
-      const scaleX = offscreenImage.naturalWidth / displayedImage.width;
-      const scaleY = offscreenImage.naturalHeight / displayedImage.height;
-
-      // The final canvas should have the high-resolution dimensions.
-      canvas.width = Math.floor(crop.width * scaleX);
-      canvas.height = Math.floor(crop.height * scaleY);
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        return reject(new Error('Failed to get canvas context'));
-      }
-
-      // Draw the cropped section from the full-resolution image onto the canvas.
-      ctx.drawImage(
-        offscreenImage,     // <-- THE CRITICAL FIX: Use the full-res image as the source.
-        crop.x * scaleX,
-        crop.y * scaleY,
-        crop.width * scaleX,
-        crop.height * scaleY,
-        0, 0, canvas.width, canvas.height
-      );
-
-      // Return the result as a high-quality JPEG data URL.
-      resolve(canvas.toDataURL('image/jpeg', 0.9));
-    };
-    offscreenImage.onerror = (err) => reject(err);
-  });
-}
-
-export default function ImageEditorCanvas({ preparationMode, aspect, disabled = false, onAspectChange }: ImageEditorCanvasProps) {
+export default function ImageEditorCanvas({ 
+  preparationMode, 
+  aspect, 
+  disabled = false, 
+  onAspectChange,
+  crop,
+  onCropChange,
+  onCropComplete,
+  onImageLoad
+}: ImageEditorCanvasProps) {
   const { toast } = useToast();
-  const { addVersion, isProcessing, processingStep, versions } = useImageStore();
+  const { isProcessing, processingStep } = useImageStore();
   const activeImage = useActiveImage();
   
   // Use a ref for the displayed image element to avoid re-renders.
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const [crop, setCrop] = useState<Crop>();
-  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
-  const [isComparing, setIsComparing] = useState(false);
+  
+  // Use passed crop state or fallback to local state
+  const currentCrop = crop;
+  const handleCropChange = useMemo(() => onCropChange || (() => {}), [onCropChange]);
+  const handleCropComplete = useMemo(() => onCropComplete || (() => {}), [onCropComplete]);
 
   // --- Recalculation logic when aspect ratio changes ---
   const recalculateCrop = useCallback((aspectRatio: number | undefined, imageElement: HTMLImageElement) => {
@@ -131,51 +102,26 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
       );
     }
 
-    // FIX: Set BOTH the preview crop and the completed crop.
-    // This makes the "Apply Crop" button immediately active after a preset is clicked.
-    setCrop(newCrop as Crop);
-    setCompletedCrop({
+    // Set crop through the callback
+    handleCropChange(newCrop as Crop);
+    handleCropComplete({
       unit: 'px',
       x: (newCrop.x / 100) * imgWidth,
       y: (newCrop.y / 100) * imgHeight,
       width: (newCrop.width / 100) * imgWidth,
       height: (newCrop.height / 100) * imgHeight,
     });
-  }, []);
+  }, [handleCropChange, handleCropComplete]);
 
   // --- Event Handlers ---
-  const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    imgRef.current = e.currentTarget;
-    // No longer automatically calculates crop here - only when aspect changes
-  }, []);
-
-  const handleApplyCrop = useCallback(async () => {
-    if (!completedCrop || !imgRef.current || !activeImage) return;
-    
-    try {
-      // FIX: Pass the full-resolution data URI to the cropping function.
-      const croppedDataUrl = await getCroppedImgDataUrl(
-        imgRef.current,
-        completedCrop,
-        activeImage.dataUri
-      );
-      
-      // Add new version to the store
-      addVersion({
-        dataUri: croppedDataUrl,
-        label: 'Cropped',
-        sourceVersionId: activeImage.id,
-      });
-      
-      toast({ title: "Crop Applied", description: "A new cropped version has been added to your history." });
-
-      // Reset the UI to a non-cropping state after successfully applying
-      onAspectChange(undefined);
-    } catch (error) {
-      console.error('Cropping failed:', error);
-      toast({ title: "Cropping Failed", description: "Could not apply the crop.", variant: "destructive" });
+  const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    imgRef.current = img;
+    if (onImageLoad) {
+      onImageLoad(img);
     }
-  }, [completedCrop, activeImage, addVersion, toast, onAspectChange]); // Add onAspectChange to dependency array
+    // No longer automatically calculates crop here - only when aspect changes
+  }, [onImageLoad]);
 
   // --- Effects ---
   
@@ -184,35 +130,22 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
     if (imgRef.current && aspect !== undefined) {
       // Activate cropping mode: calculate and set the crop
       recalculateCrop(aspect, imgRef.current);
-    } else if (aspect === undefined) {
-      // Deactivate cropping mode: clear the crop states
-      setCrop(undefined);
-      setCompletedCrop(undefined);
     }
+    // No need to clear crop states here - handled by parent
   }, [aspect, recalculateCrop]);
 
-  // Reset crop when active image changes
+  // Reset imgRef when active image changes
   useEffect(() => {
-    setCrop(undefined);
-    setCompletedCrop(undefined);
     imgRef.current = null;
   }, [activeImage?.id]);
 
-  // Find the source image for comparison
-  const sourceVersion = activeImage?.sourceVersionId ? versions[activeImage.sourceVersionId] : null;
-  const sourceImageUri = sourceVersion ? sourceVersion.dataUri : null;
-
-  // Determine which image to display
-  const imageUrlToDisplay = isComparing && sourceImageUri 
-    ? getDisplayableImageUrl(sourceImageUri) 
-    : activeImage ? getDisplayableImageUrl(activeImage.dataUri) : null;
-  
   // Don't render if no active image
   if (!activeImage) {
     return null;
   }
 
   const isCurrentlyProcessing = isProcessing && processingStep === 'crop';
+  const imageUrlToDisplay = activeImage ? getDisplayableImageUrl(activeImage.dataUri) : null;
 
   return (
     <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border min-h-[400px]">
@@ -224,55 +157,12 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
         </div>
       )}
 
-      {/* Hold-to-compare button - Enhanced for better visibility */}
-      {sourceImageUri && !disabled && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  className="bg-background/80 hover:bg-background/95 backdrop-blur-sm shadow-lg border border-border/50"
-                  onMouseDown={() => setIsComparing(true)}
-                  onMouseUp={() => setIsComparing(false)}
-                  onMouseLeave={() => setIsComparing(false)}
-                  onTouchStart={(e) => { e.preventDefault(); setIsComparing(true); }}
-                  onTouchEnd={() => setIsComparing(false)}
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  Hold to Compare
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Hold down to see the previous version</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      )}
-
-      {/* Crop controls - Positioned absolutely to prevent layout shift */}
-      {completedCrop && !disabled && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-          <Button 
-            onClick={handleApplyCrop} 
-            disabled={isProcessing}
-            size="sm"
-            variant="default"
-            className="shadow-lg"
-          >
-            <CropIcon className="mr-2 h-4 w-4" />
-            Apply Crop
-          </Button>
-        </div>
-      )}
-
       {/* Image with crop overlay */}
       <ReactCrop 
         // Conditionally pass the crop object. If it's undefined, the crop UI is not shown.
-        crop={crop}
-        onChange={(_, percentCrop) => setCrop(percentCrop)} 
-        onComplete={(c) => setCompletedCrop(c)} 
+        crop={currentCrop}
+        onChange={(_, percentCrop) => handleCropChange(percentCrop)} 
+        onComplete={(c) => handleCropComplete(c)} 
         aspect={aspect} 
         className="max-h-[60vh]" 
         disabled={disabled || isProcessing}
@@ -283,7 +173,7 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
           key={activeImage.id}
           src={imageUrlToDisplay || ''} 
           alt="Editable image" 
-          onLoad={onImageLoad} 
+          onLoad={handleImageLoad} 
           className="max-h-[60vh] object-contain" 
         />
       </ReactCrop>

@@ -56,5 +56,10 @@
   "c5cee8ed8fb2de05e472e880f68e4471a8e6ae3b9129714ca9113c4dc3dc4171": {
     "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_47fc3fc8-1227-41c2-acc6-23ca4a54cd48.png",
     "timestamp": 1751552050930
+  },
+  "ffe42499c1c612a85e851accc2af350e4948ec16bb3a2c9d5f03faabb863b198": {
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_d55c87ff-8b4b-4c4a-9ef0-34719298dc05.png",
+    "timestamp": 1751566787278,
+    "bgRemoved": "/uploads/processed_images/RefashionAI_bg_removed_e252fd9d-4d06-46b6-9521-224124b5f347.png"
   }
 }

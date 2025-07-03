@@ -55,7 +55,7 @@
     "node-fetch": "^3.3.2",
     "patch-package": "^8.1.0-canary.1",
     "react": "^18.3.1",
-    "react-compare-image": "^3.5.4",
+    "react-compare-image": "^3.5.6",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.54.2",
@@ -64,10 +64,10 @@
     "sharp": "^0.34.2",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.19.4",
     "uuid": "^10.0.0",
     "zod": "^3.24.2",
-    "zustand": "^5.0.6",
-    "tsx": "^4.19.4"
+    "zustand": "^5.0.6"
   },
   "devDependencies": {
     "@babel/core": "^7.27.4",
