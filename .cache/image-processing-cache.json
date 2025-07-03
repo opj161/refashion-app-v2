@@ -14,5 +14,37 @@
   "9631ef00e5f96454055b463b35ef8e5683803aa22942e28b4a4d2d275818fad5": {
     "bgRemoved": "/uploads/processed_images/RefashionAI_bg_removed_fa6c9b37-5729-43c6-bfc3-48292aba78c4.png",
     "timestamp": 1751419443172
+  },
+  "fc1284a3013e5e9baa2070b62cd46722f15d127450d9988deaecbc56f826e9f4": {
+    "upscaled": "/uploads/processed_images/RefashionAI_upscaled_d449030e-9018-49fc-8867-f364346e6eeb.png",
+    "timestamp": 1751476213096
+  },
+  "e64e6d0f938a54a65b949c434c43ac635e2873d28781cea9a60d354233037fec": {
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_e1e5b771-0ec1-47a6-8205-9843be9944cc.png",
+    "timestamp": 1751479302351
+  },
+  "fd4d08d3db7bd5f3930a9ad3dbf5fd80407efa7ef5c365026c311fe3c2109e67": {
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_202ea77c-a6fd-4e78-8f72-76eb96d06a30.png",
+    "timestamp": 1751479784150
+  },
+  "1f179ed3d9b949ec607f31a329cd5aa518aff3f981d0f8d4a6a3180f3760780f": {
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_9eb7fe2b-14e3-490d-b08a-14f4c27b130e.png",
+    "timestamp": 1751480116862
+  },
+  "48668cb5e2cd0e325ce3b7cbf547643235cfcc8a1653f3b10275e821f53d612b": {
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_3db9f6c9-fa85-48f5-b399-84c4c0079251.png",
+    "timestamp": 1751487839750
+  },
+  "73be13d187b4d0224f8dfc2aa9521ec0177944216d86c983f6e282b1ec38dc13": {
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_d172cfff-775f-4ae0-bec1-8841a8e261f1.png",
+    "timestamp": 1751490364579
+  },
+  "2bee433659b54fe5762c1bf287aff79f2171f9a8c3bd5a99be692607c3a8f5b8": {
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_edd185f3-8dfd-42bc-ac67-777dbce19ac7.png",
+    "timestamp": 1751549806653
+  },
+  "7694a985ab09315946ad4735c21d70975b4544fe240ccd940feedd66c0cf80e2": {
+    "upscaled": "/uploads/processed_images/RefashionAI_upscaled_1e967239-dec7-45ec-893d-bbbabc1022a5.png",
+    "timestamp": 1751549898197
   }
 }

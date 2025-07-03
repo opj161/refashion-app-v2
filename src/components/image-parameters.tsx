@@ -36,11 +36,20 @@ interface ImageGenerationParams extends ModelAttributes {
   settingsMode: 'basic' | 'advanced';
 }
 
+// Props interface for the component
+interface ImageParametersProps {
+  historyItemToLoad?: HistoryItem | null;
+  isLoadingHistory?: boolean;
+}
+
 // Constants
 const NUM_IMAGES_TO_GENERATE = 3;
 
-// Component is now prop-less - gets prepared image from Zustand store
-export default function ImageParameters() {
+// Component now accepts props for loading configuration
+export default function ImageParameters({ 
+  historyItemToLoad = null, 
+  isLoadingHistory = false 
+}: ImageParametersProps) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
@@ -72,6 +81,7 @@ export default function ImageParameters() {
 
   const [settingsMode, setSettingsMode] = useState<'basic' | 'advanced'>('basic');
   const [showAdvancedSettingsActiveMessage, setShowAdvancedSettingsActiveMessage] = useState<boolean>(false);
+  const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
 
   // State for generation results
   const [outputImageUrls, setOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
@@ -199,6 +209,49 @@ export default function ImageParameters() {
     generationParams: currentImageGenParams,
   });
 
+  // Effect to populate state when a history item is loaded
+  useEffect(() => {
+    if (historyItemToLoad && !isLoadingHistory && historyItemToLoad.id !== loadedHistoryItemId) {
+      const { attributes, constructedPrompt, settingsMode } = historyItemToLoad;
+      
+      // Set all attribute states from the loaded history item
+      setGender(attributes.gender || GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value);
+      setBodyType(attributes.bodyType || BODY_TYPE_OPTIONS[0].value);
+      setBodySize(attributes.bodySize || BODY_SIZE_OPTIONS[0].value);
+      setAgeRange(attributes.ageRange || AGE_RANGE_OPTIONS[0].value);
+      setEthnicity(attributes.ethnicity || ETHNICITY_OPTIONS[0].value);
+      setPoseStyle(attributes.poseStyle || POSE_STYLE_OPTIONS.find(o => o.value === "natural_relaxed_pose")?.value || POSE_STYLE_OPTIONS[0].value);
+      setBackground(attributes.background || BACKGROUND_OPTIONS.find(o => o.value === "outdoor_nature_elements")?.value || BACKGROUND_OPTIONS[0].value);
+      setFashionStyle(attributes.fashionStyle || FASHION_STYLE_OPTIONS[0].value);
+      setHairStyle(attributes.hairStyle || HAIR_STYLE_OPTIONS[0].value);
+      setModelExpression(attributes.modelExpression || MODEL_EXPRESSION_OPTIONS[0].value);
+      setLightingType(attributes.lightingType || LIGHTING_TYPE_OPTIONS[0].value);
+      setLightQuality(attributes.lightQuality || LIGHT_QUALITY_OPTIONS[0].value);
+      setCameraAngle(attributes.cameraAngle || CAMERA_ANGLE_OPTIONS[0].value);
+      setLensEffect(attributes.lensEffect || LENS_EFFECT_OPTIONS[0].value);
+      setDepthOfField(attributes.depthOfField || DEPTH_OF_FIELD_OPTIONS[0].value);
+      setTimeOfDay(attributes.timeOfDay || TIME_OF_DAY_OPTIONS[0].value);
+      setOverallMood(attributes.overallMood || OVERALL_MOOD_OPTIONS[0].value);
+      setFabricRendering(attributes.fabricRendering || FABRIC_RENDERING_OPTIONS[0].value);
+      
+      // Set settings mode
+      setSettingsMode(settingsMode || 'basic');
+      
+      // Set the prompt and mark it as manually edited to prevent auto-generation
+      if (constructedPrompt) {
+        handlePromptChange(constructedPrompt);
+      }
+      
+      // Mark this history item as loaded to prevent reloading
+      setLoadedHistoryItemId(historyItemToLoad.id);
+      
+      toast({
+        title: "Settings Loaded",
+        description: "All parameters have been restored from your selected configuration.",
+      });
+    }
+  }, [historyItemToLoad, isLoadingHistory, loadedHistoryItemId, handlePromptChange, toast]);
+
   const handleSaveDefaults = () => {
     if (typeof window === 'undefined') return;
     const currentSettingsToSave: ModelAttributes = {
@@ -325,20 +378,33 @@ export default function ImageParameters() {
       currentOriginals[slotIndex] = imageUrl;
       setOriginalOutputImageUrls(currentOriginals);
 
-      // Convert local URL to data URI for the action
-      const absoluteUrl = `${window.location.origin}${imageUrl}`;
-      const response = await fetch(absoluteUrl);
-      if (!response.ok) throw new Error("Failed to fetch image for processing.");
-      const blob = await response.blob();
-      const dataUri = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      let imageDataUriForAction: string;
+
+      // Check if the imageUrl is a local path or already a data URI
+      if (imageUrl.startsWith('/uploads/')) {
+        // It's a local path, convert to data URI
+        const displayUrl = getDisplayableImageUrl(imageUrl);
+        if (!displayUrl) throw new Error("Could not create displayable URL.");
+        
+        const absoluteUrl = `${window.location.origin}${displayUrl}`;
+        const response = await fetch(absoluteUrl);
+        if (!response.ok) throw new Error(`Failed to fetch image for processing: ${response.statusText}`);
+        
+        const blob = await response.blob();
+        
+        imageDataUriForAction = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        // It's already a data URI or a public URL, use it directly
+        imageDataUriForAction = imageUrl;
+      }
 
       // We pass undefined for hash and filename as this is a generated image, not the original upload
-      const { savedPath } = await upscaleImageAction(dataUri, undefined, `generated_image_${slotIndex}.png`);
+      const { savedPath } = await upscaleImageAction(imageDataUriForAction, undefined, `generated_image_${slotIndex}.png`);
 
       const updatedUrls = [...outputImageUrls];
       updatedUrls[slotIndex] = savedPath;
@@ -347,7 +413,7 @@ export default function ImageParameters() {
       if (activeHistoryItemId) {
         await updateHistoryItem(activeHistoryItemId, { 
           editedImageUrls: updatedUrls,
-          originalImageUrls: originalOutputImageUrls 
+          originalImageUrls: currentOriginals // Use the updated originals array
         });
       }
       toast({ title: `Image ${slotIndex + 1} Upscaled Successfully` });

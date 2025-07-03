@@ -12,7 +12,6 @@ import {
   Wand2, 
   Sparkles, 
   UserCheck, 
-  Eye,
   Clock
 } from "lucide-react";
 
@@ -28,7 +27,6 @@ interface ImageVersionStackProps {
   versions: Record<string, ImageVersion>;
   activeVersionId: string | null;
   onSetActiveVersion: (versionId: string) => void;
-  onShowComparison: (versionId: string, sourceVersionId: string) => void;
   isProcessing: boolean;
 }
 
@@ -60,7 +58,6 @@ export default function ImageVersionStack({
   versions, 
   activeVersionId, 
   onSetActiveVersion, 
-  onShowComparison,
   isProcessing 
 }: ImageVersionStackProps) {
   // Sort versions by creation time, with original first
@@ -86,7 +83,6 @@ export default function ImageVersionStack({
         {sortedVersions.map((version, index) => {
           const isActive = version.id === activeVersionId;
           const sourceVersion = version.sourceVersionId ? versions[version.sourceVersionId] : null;
-          const canCompare = sourceVersion && version.id !== 'original';
           
           return (
             <div
@@ -129,32 +125,6 @@ export default function ImageVersionStack({
                   </div>
                 </div>
               </div>
-
-              {canCompare && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 ml-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!isProcessing) {
-                            onShowComparison(version.id, version.sourceVersionId);
-                          }
-                        }}
-                        disabled={isProcessing}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Compare with {sourceVersion.label}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
             </div>
           );
         })}

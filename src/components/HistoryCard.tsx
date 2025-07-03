@@ -8,16 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { HistoryItem } from "@/lib/types";
 import { getDisplayableImageUrl } from "@/lib/utils";
-import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle } from "lucide-react";
+import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle, MoreVertical, Trash2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface HistoryCardProps {
   item: HistoryItem;
   onViewDetails: (item: HistoryItem) => void;
   onReloadConfig: (item: HistoryItem) => void;
-  // Add other action handlers as needed, e.g., onPlayVideo
+  onDeleteItem: (item: HistoryItem) => void;
 }
 
-export default function HistoryCard({ item, onViewDetails, onReloadConfig }: HistoryCardProps) {
+export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDeleteItem }: HistoryCardProps) {
   const [isInView, setIsInView] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -168,6 +169,27 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig }: His
         <Button variant="secondary" size="sm" onClick={() => onReloadConfig(item)} className="flex-1">
           <RefreshCw className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Reload Config</span>
         </Button>
+
+        {/* Options Menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem 
+              className="text-destructive focus:text-destructive focus:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click events
+                onDeleteItem(item);
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              <span>Delete</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardFooter>
     </Card>
   );

@@ -4,21 +4,24 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { getHistoryPaginated } from "@/actions/historyActions";
+import { getHistoryPaginated, deleteHistoryItem } from "@/actions/historyActions";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertTriangle, History, Download, Copy } from "lucide-react";
 import HistoryCard from "./HistoryCard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 import { getDisplayableImageUrl } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 type FilterType = 'all' | 'image' | 'video';
 
 export default function HistoryGallery() {
   const { toast } = useToast();
+  const router = useRouter();
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +34,10 @@ export default function HistoryGallery() {
   // State for details modal
   const [selectedHistoryItemForDetail, setSelectedHistoryItemForDetail] = useState<HistoryItem | null>(null);
   const [isHistoryDetailOpen, setIsHistoryDetailOpen] = useState(false);
+
+  // State for delete confirmation
+  const [itemToDelete, setItemToDelete] = useState<HistoryItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Ref for the element that will trigger loading more items
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -115,11 +122,49 @@ export default function HistoryGallery() {
   };
 
   const handleReloadConfig = (item: HistoryItem) => {
-    // TODO: Implement reload config functionality
+    // Navigate to the create page with the history item ID
+    // This will load the original image and all configuration parameters
+    router.push(`/create?historyItemId=${item.id}`);
+    
     toast({
-      title: "Feature Coming Soon",
-      description: "Reload configuration functionality will be implemented soon.",
+      title: "Configuration Loaded",
+      description: "Redirecting to creation page with saved settings.",
     });
+  };
+
+  const handleDeleteRequest = (item: HistoryItem) => {
+    setItemToDelete(item);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteHistoryItem(itemToDelete.id);
+
+      if (result.success) {
+        // Optimistic UI Update: Remove the item from the local state
+        setHistoryItems(prevItems => prevItems.filter(item => item.id !== itemToDelete.id));
+        setTotalCount(prevCount => prevCount - 1); // Decrement total count
+        toast({
+          title: "Item Deleted",
+          description: "The history item has been permanently removed.",
+        });
+      } else {
+        throw new Error(result.error || "Failed to delete the item.");
+      }
+    } catch (err) {
+      console.error("Deletion failed:", err);
+      toast({
+        title: "Deletion Failed",
+        description: err instanceof Error ? err.message : "An unknown error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setItemToDelete(null); // Close the dialog
+    }
   };
 
 
@@ -179,6 +224,7 @@ export default function HistoryGallery() {
               item={item}
               onViewDetails={handleViewDetails}
               onReloadConfig={handleReloadConfig}
+              onDeleteItem={handleDeleteRequest}
             />
           ))}
         </div>
@@ -309,6 +355,28 @@ export default function HistoryGallery() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!itemToDelete} onOpenChange={(isOpen) => !isOpen && setItemToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the history item and all associated images and videos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+              {isDeleting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...</>
+              ) : (
+                "Yes, delete it"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

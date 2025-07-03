@@ -69,7 +69,7 @@ export async function upscaleImageAction(
 }
 
 /**
- * Face detailer action - alias for upscaleImageAction since they now use the same enhanced API
+ * Face detailer action - now calls the dedicated face-detailer API
  * @param imageDataUri The original image as a data URI or public URL
  * @param imageHash Optional hash of the original image for caching
  * @param originalFileName Optional original filename for reference
@@ -80,8 +80,49 @@ export async function faceDetailerAction(
   imageHash?: string,
   originalFileName?: string
 ): Promise<{ savedPath: string }> {
-  // Delegate to the main upscaling action which now handles face enhancement too
-  return upscaleImageAction(imageDataUri, imageHash, originalFileName);
+  if (!imageDataUri) {
+    throw new Error('Image data URI or URL is required for face detailing');
+  }
+
+  // Check cache first if hash is provided
+  if (imageHash) {
+    const cachedPath = await getCachedImagePath(imageHash, 'faceDetailed');
+    if (cachedPath) {
+      console.log(`[Cache] HIT: Found face-enhanced image for hash ${imageHash}`);
+      return { savedPath: cachedPath };
+    }
+    console.log(`[Cache] MISS: No cached face-enhanced image for hash ${imageHash}`);
+  }
+
+  try {
+    console.log('Starting face enhancement process with Fal.ai...');
+
+    // Call the new, specific service function
+    const outputImageUrl = await falImageService.enhanceFaceDetails(imageDataUri);
+
+    console.log(`Fal.ai face-detailer processed image URL: ${outputImageUrl}`);
+
+    // Save the processed image locally
+    const savedPath = await saveFileFromUrl(
+      outputImageUrl, 
+      'RefashionAI_face_enhanced', // Use a different prefix
+      'processed_images', 
+      'png'
+    );
+
+    // Cache the result if hash is provided
+    if (imageHash) {
+      await setCachedImagePath(imageHash, 'faceDetailed', savedPath);
+      console.log(`[Cache] SET: Stored face-enhanced image for hash ${imageHash}`);
+    }
+
+    console.log('Face enhancement completed successfully using Fal.ai.');
+    return { savedPath };
+
+  } catch (error) {
+    console.error('Error in face detailer action (Fal.ai):', error);
+    throw new Error(`Face enhancement with Fal.ai failed: ${(error as Error).message}`);
+  }
 }
 
 /**
@@ -97,6 +138,6 @@ export async function isUpscaleServiceAvailable(): Promise<boolean> {
  * @returns {Promise<boolean>} True if the service is available, otherwise false.
  */
 export async function isFaceDetailerAvailable(): Promise<boolean> {
-  // Same availability check as upscaling since they use the same service
+  // Both services rely on the same FAL_KEY, so the availability check is the same.
   return isUpscaleServiceAvailable();
 }

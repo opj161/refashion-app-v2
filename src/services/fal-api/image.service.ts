@@ -6,8 +6,10 @@
  * This service handles low-level communication with Fal.ai APIs for image-related tasks:
  * - Background removal using rembg
  * - Image upscaling and face enhancement using sd-ultimateface
+ * - Detailed face enhancement using face-detailer
  * 
- * These functions return raw URLs from Fal.ai and do not handle local storage.
+ * These functions expect data URIs as input and return raw URLs from Fal.ai.
+ * They do not handle local storage.
  */
 
 import { fal } from '@fal-ai/client';
@@ -15,12 +17,16 @@ import { fal } from '@fal-ai/client';
 // Constants for upscaling and face enhancement
 const UPSCALE_PROMPT = "high quality photography, detailed natural skin, high-quality clothing";
 const NEGATIVE_UPSCALE_PROMPT = "low quality, ugly";
-const FACE_PROMPT = "photorealistic, detailed natural skin, relatable fashion model, Genuine beauty, high quality, 8k, sharp";
-const NEGATIVE_FACE_PROMPT = "weird, ugly, make-up, cartoon, anime";
+const UPSCALE_FACE_PROMPT = "photorealistic, detailed natural skin, relatable fashion model, Genuine beauty, high quality, 8k, sharp";
+const NEGATIVE_UPSCALE_FACE_PROMPT = "weird, ugly, make-up, cartoon, anime";
+
+// NEW: Constants for the dedicated Face Detailer endpoint
+const FACE_DETAILER_PROMPT = "photorealistic, ultra-detailed skin, high quality, 8k, detailed, sharp, natural, relatable fashion model, Genuine beauty";
+const NEGATIVE_FACE_DETAILER_PROMPT = "weird, ugly, make-up, cartoon, anime";
 
 /**
  * Removes background from an image using Fal.ai's rembg service
- * @param imageUrl The image URL or data URI to process
+ * @param imageUrl The image data URI to process
  * @returns Promise<string> The URL of the processed image from Fal.ai
  */
 export async function removeBackground(imageUrl: string): Promise<string> {
@@ -68,8 +74,8 @@ export async function upscaleAndEnhance(imageUrl: string): Promise<string> {
         loadimage_1: imageUrl,
         prompt_upscale: UPSCALE_PROMPT,
         negative_upscale: NEGATIVE_UPSCALE_PROMPT,
-        prompt_face: FACE_PROMPT,
-        negative_face: NEGATIVE_FACE_PROMPT,
+        prompt_face: UPSCALE_FACE_PROMPT,
+        negative_face: NEGATIVE_UPSCALE_FACE_PROMPT,
       },
       logs: process.env.NODE_ENV === 'development',
       onQueueUpdate: (update) => {
@@ -110,6 +116,56 @@ export async function upscaleAndEnhance(imageUrl: string): Promise<string> {
   } catch (error) {
     console.error('Error in Fal.ai upscaling and enhancement:', error);
     throw new Error(`Image upscaling failed: ${(error as Error).message}`);
+  }
+}
+
+/**
+ * NEW: Enhances face details using Fal.ai's dedicated face-detailer service
+ * @param imageUrl The image URL or data URI to process
+ * @returns Promise<string> The URL of the processed image from Fal.ai
+ */
+export async function enhanceFaceDetails(imageUrl: string): Promise<string> {
+  try {
+    console.log('Calling Fal.ai comfy/opj161/face-detailer service...');
+    
+    const result: any = await fal.subscribe("comfy/opj161/face-detailer", {
+      input: {
+        loadimage_1: imageUrl,
+        prompt_face: FACE_DETAILER_PROMPT,
+        negative_face: NEGATIVE_FACE_DETAILER_PROMPT,
+      },
+      logs: process.env.NODE_ENV === 'development',
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS" && process.env.NODE_ENV === 'development') {
+          update.logs.map((log) => log.message).forEach(console.log);
+        }
+      },
+    });
+
+    // The output extraction logic is the same as other ComfyUI workflows
+    let outputImageUrl: string | undefined;
+    if (result?.data?.outputs) {
+      for (const [nodeId, output] of Object.entries(result.data.outputs)) {
+        if (output && typeof output === 'object' && 'images' in output && Array.isArray(output.images) && output.images.length > 0) {
+          outputImageUrl = output.images[0]?.url;
+          if (outputImageUrl) break;
+        }
+      }
+    } else if (result?.data?.image?.url) {
+        outputImageUrl = result.data.image.url;
+    }
+
+    if (!outputImageUrl) {
+      console.error('Fal.ai face-detailer raw result:', JSON.stringify(result, null, 2));
+      throw new Error("Fal.ai (face-detailer) did not return a valid image URL.");
+    }
+    
+    console.log('Face enhancement completed successfully.');
+    return outputImageUrl;
+    
+  } catch (error) {
+    console.error('Error in Fal.ai face detailer:', error);
+    throw new Error(`Face enhancement failed: ${(error as Error).message}`);
   }
 }
 

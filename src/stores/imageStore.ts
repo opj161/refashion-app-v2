@@ -63,6 +63,27 @@ const generateHash = async (file: File): Promise<string> => {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
+// Helper function to convert local paths back to data URIs for Fal.ai API
+const pathToDataUri = async (path: string): Promise<string> => {
+  // Use the utility to get the proxied URL, then fetch it
+  const { getDisplayableImageUrl } = await import('@/lib/utils');
+  const displayUrl = getDisplayableImageUrl(path);
+  if (!displayUrl) throw new Error("Could not create displayable URL for path.");
+  
+  const absoluteUrl = `${window.location.origin}${displayUrl}`;
+  const response = await fetch(absoluteUrl);
+  if (!response.ok) throw new Error(`Failed to fetch local image: ${response.statusText}`);
+  
+  const blob = await response.blob();
+  
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
 // --- Initial State ---
 const initialState: ImageState = {
   original: null,
@@ -151,22 +172,24 @@ export const useImageStore = create<ImageStore>()(
         set({ isProcessing: true, processingStep: 'bg' }, false, 'removeBackground:start');
 
         try {
+          let imageDataUriForAction = currentVersion.dataUri;
+
+          // Check if the "dataUri" is actually a local path and convert it
+          if (imageDataUriForAction.startsWith('/uploads/')) {
+            console.log('Converting local path to data URI for Fal.ai...');
+            imageDataUriForAction = await pathToDataUri(imageDataUriForAction);
+          }
+
           const { savedPath } = await removeBackgroundAction(
-            currentVersion.dataUri,
+            imageDataUriForAction, // Use the potentially converted data URI
             original?.hash
           );
 
-          // Add new version
-          const newVersionId = get().addVersion({
+          // Add new version and set it active
+          get().addVersion({
             dataUri: savedPath,
             label: 'Background Removed',
             sourceVersionId: activeVersionId,
-          });
-
-          // Set up comparison
-          get().setComparison({
-            left: currentVersion.dataUri,
-            right: savedPath,
           });
 
           console.log('Background removed successfully');
@@ -188,23 +211,25 @@ export const useImageStore = create<ImageStore>()(
         set({ isProcessing: true, processingStep: 'upscale' }, false, 'upscaleImage:start');
 
         try {
+          let imageDataUriForAction = currentVersion.dataUri;
+
+          // Check if the "dataUri" is actually a local path and convert it
+          if (imageDataUriForAction.startsWith('/uploads/')) {
+            console.log('Converting local path to data URI for Fal.ai...');
+            imageDataUriForAction = await pathToDataUri(imageDataUriForAction);
+          }
+
           const { savedPath } = await upscaleImageAction(
-            currentVersion.dataUri,
+            imageDataUriForAction, // Use the potentially converted data URI
             original?.hash,
             original?.file?.name
           );
 
-          // Add new version
-          const newVersionId = get().addVersion({
+          // Add new version and set it active
+          get().addVersion({
             dataUri: savedPath,
             label: 'Upscaled',
             sourceVersionId: activeVersionId,
-          });
-
-          // Set up comparison
-          get().setComparison({
-            left: currentVersion.dataUri,
-            right: savedPath,
           });
 
           console.log('Image upscaled successfully');
@@ -226,23 +251,25 @@ export const useImageStore = create<ImageStore>()(
         set({ isProcessing: true, processingStep: 'face' }, false, 'faceDetailer:start');
 
         try {
+          let imageDataUriForAction = currentVersion.dataUri;
+
+          // Check if the "dataUri" is actually a local path and convert it
+          if (imageDataUriForAction.startsWith('/uploads/')) {
+            console.log('Converting local path to data URI for Fal.ai...');
+            imageDataUriForAction = await pathToDataUri(imageDataUriForAction);
+          }
+
           const { savedPath } = await faceDetailerAction(
-            currentVersion.dataUri,
+            imageDataUriForAction, // Use the potentially converted data URI
             original?.hash,
             original?.file?.name
           );
 
-          // Add new version
-          const newVersionId = get().addVersion({
+          // Add new version and set it active
+          get().addVersion({
             dataUri: savedPath,
             label: 'Face Enhanced',
             sourceVersionId: activeVersionId,
-          });
-
-          // Set up comparison
-          get().setComparison({
-            left: currentVersion.dataUri,
-            right: savedPath,
           });
 
           console.log('Face details enhanced successfully');

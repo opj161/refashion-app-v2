@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useImageStore, useActiveImage } from "@/stores/imageStore";
 import { useToast } from "@/hooks/use-toast";
 import { getDisplayableImageUrl } from "@/lib/utils";
-import { Crop as CropIcon, Loader2 } from "lucide-react";
+import { Crop as CropIcon, Loader2, Eye } from "lucide-react";
 
 interface ImageEditorCanvasProps {
   preparationMode: 'image' | 'video';
@@ -64,13 +64,14 @@ async function getCroppedImgDataUrl(
 
 export default function ImageEditorCanvas({ preparationMode, aspect, disabled = false }: ImageEditorCanvasProps) {
   const { toast } = useToast();
-  const { addVersion, isProcessing, processingStep } = useImageStore();
+  const { addVersion, isProcessing, processingStep, versions } = useImageStore();
   const activeImage = useActiveImage();
   
   // Use a ref for the displayed image element to avoid re-renders.
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const [isComparing, setIsComparing] = useState(false);
 
   // --- Recalculation logic when aspect ratio changes ---
   const recalculateCrop = useCallback((aspectRatio: number | undefined, imageElement: HTMLImageElement) => {
@@ -187,22 +188,47 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
     imgRef.current = null;
   }, [activeImage?.id]);
 
+  // Find the source image for comparison
+  const sourceVersion = activeImage?.sourceVersionId ? versions[activeImage.sourceVersionId] : null;
+  const sourceImageUri = sourceVersion ? sourceVersion.dataUri : null;
+
+  // Determine which image to display
+  const imageUrlToDisplay = isComparing && sourceImageUri 
+    ? getDisplayableImageUrl(sourceImageUri) 
+    : activeImage ? getDisplayableImageUrl(activeImage.dataUri) : null;
+  
   // Don't render if no active image
   if (!activeImage) {
     return null;
   }
 
-  const imageUrl = getDisplayableImageUrl(activeImage.dataUri);
   const isCurrentlyProcessing = isProcessing && processingStep === 'crop';
 
   return (
     <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border min-h-[400px]">
       {/* Processing overlay */}
       {isCurrentlyProcessing && (
-        <div className="absolute inset-0 bg-background/70 z-20 flex flex-col items-center justify-center">
+        <div className="absolute inset-0 bg-background/70 z-30 flex flex-col items-center justify-center">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="mt-2 text-sm font-semibold">Cropping...</p>
         </div>
+      )}
+
+      {/* Hold-to-compare button */}
+      {sourceImageUri && !disabled && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-4 right-4 z-20 h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm"
+          onMouseDown={() => setIsComparing(true)}
+          onMouseUp={() => setIsComparing(false)}
+          onMouseLeave={() => setIsComparing(false)}
+          onTouchStart={(e) => { e.preventDefault(); setIsComparing(true); }}
+          onTouchEnd={() => setIsComparing(false)}
+          title="Hold to see 'before' version"
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
       )}
 
       {/* Crop controls */}
@@ -211,7 +237,7 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
           onClick={handleApplyCrop} 
           disabled={isProcessing || !completedCrop || disabled}
           size="sm"
-          variant="outline"
+          variant="default"
         >
           <CropIcon className="mr-2 h-4 w-4" />
           Apply Crop
@@ -231,7 +257,7 @@ export default function ImageEditorCanvas({ preparationMode, aspect, disabled = 
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img 
           key={activeImage.id}
-          src={imageUrl || ''} 
+          src={imageUrlToDisplay || ''} 
           alt="Editable image" 
           onLoad={onImageLoad} 
           className="max-h-[60vh] object-contain" 

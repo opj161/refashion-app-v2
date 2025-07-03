@@ -14,7 +14,6 @@ import ImageEditorCanvas from "./ImageEditorCanvas";
 import ImageProcessingTools from "./ImageProcessingTools";
 import AspectRatioSelector from "./AspectRatioSelector";
 import ImageVersionStack from "./ImageVersionStack";
-import ComparisonSlider from "./ComparisonSlider";
 
 import { 
   UploadCloud, CheckCircle, RefreshCw, Loader2, Trash2 
@@ -46,11 +45,9 @@ export default function ImagePreparationContainer({
     original, 
     versions, 
     activeVersionId, 
-    comparison, 
     isProcessing, 
     processingStep,
     setActiveVersion,
-    setComparison,
     reset: resetStore,
     setProcessing
   } = useImageStore();
@@ -74,22 +71,6 @@ export default function ImagePreparationContainer({
   const handleSetActiveVersion = useCallback((versionId: string) => {
     setActiveVersion(versionId);
   }, [setActiveVersion]);
-  
-  const handleShowComparison = useCallback((versionId: string, sourceVersionId: string) => {
-    const version = versions[versionId];
-    const sourceVersion = versions[sourceVersionId];
-    
-    if (version && sourceVersion) {
-      setComparison({
-        left: sourceVersion.dataUri,
-        right: version.dataUri
-      });
-    }
-  }, [versions, setComparison]);
-  
-  const handleCloseComparison = useCallback(() => {
-    setComparison(null);
-  }, [setComparison]);
 
   const handleConfirmForGeneration = useCallback(async () => {
     if (!activeImage) return;
@@ -140,45 +121,6 @@ export default function ImagePreparationContainer({
   // Show uploader if no image
   if (!original) {
     return <ImageUploader sourceImageUrl={sourceImageUrl} />;
-  }
-
-  // Show comparison slider if active
-  if (comparison) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl flex items-center gap-2">
-            <UploadCloud className="h-6 w-6 text-primary" />
-            Compare Versions
-          </CardTitle>
-          <CardDescription>
-            Compare the before and after versions of your image processing.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ComparisonSlider
-            leftImage={comparison.left}
-            rightImage={comparison.right}
-            leftLabel="Before"
-            rightLabel="After"
-            onClose={handleCloseComparison}
-          />
-          
-          {/* Version Stack - Always visible when there are images */}
-          {Object.keys(versions).length > 0 && (
-            <div className="mt-6">
-              <ImageVersionStack
-                versions={versions}
-                activeVersionId={activeVersionId}
-                onSetActiveVersion={handleSetActiveVersion}
-                onShowComparison={handleShowComparison}
-                isProcessing={isProcessing}
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
   }
 
   // Main editor interface
@@ -272,7 +214,6 @@ export default function ImagePreparationContainer({
             versions={versions}
             activeVersionId={activeVersionId}
             onSetActiveVersion={handleSetActiveVersion}
-            onShowComparison={handleShowComparison}
             isProcessing={isProcessing}
           />
         )}

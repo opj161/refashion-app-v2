@@ -23,6 +23,7 @@ import { OptionWithPromptSegment } from "@/lib/prompt-builder";
 import { usePromptManager } from "@/hooks/usePromptManager";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import type { HistoryItem } from "@/lib/types";
 
 
 // Type for video generation parameters
@@ -97,7 +98,16 @@ const RenderSelectComponent: React.FC<RenderSelectProps> = ({ id, label, value, 
 
 
 // Component is now prop-less - gets prepared image from Zustand store
-export default function VideoParameters() {
+// Props interface for the component
+interface VideoParametersProps {
+  historyItemToLoad?: HistoryItem | null;
+  isLoadingHistory?: boolean;
+}
+
+export default function VideoParameters({ 
+  historyItemToLoad = null, 
+  isLoadingHistory = false 
+}: VideoParametersProps) {
   const { toast } = useToast();
   
   // Get prepared image from store instead of props
@@ -127,6 +137,7 @@ export default function VideoParameters() {
   // For webhook-based flow
   const [generationTaskId, setGenerationTaskId] = useState<string | null>(null);
   const [historyItemId, setHistoryItemId] = useState<string | null>(null);
+  const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
 
   // Check if data URI is provided (not a server URL)
   const isDataUri = preparedImageUrl?.startsWith('data:') || false;
@@ -150,6 +161,50 @@ export default function VideoParameters() {
     generationType: 'video',
     generationParams: currentVideoGenParams,
   });
+
+  // Effect to populate state when a history item with video parameters is loaded
+  useEffect(() => {
+    if (historyItemToLoad && !isLoadingHistory && historyItemToLoad.videoGenerationParams && historyItemToLoad.id !== loadedHistoryItemId) {
+      const { videoGenerationParams } = historyItemToLoad;
+      
+      // Set video-specific parameters if they exist
+      if (videoGenerationParams.prompt) {
+        handlePromptChange(videoGenerationParams.prompt);
+      }
+      if (videoGenerationParams.resolution) {
+        setResolution(videoGenerationParams.resolution as '480p' | '720p');
+      }
+      if (videoGenerationParams.duration) {
+        setDuration(videoGenerationParams.duration as '5' | '10');
+      }
+      if (videoGenerationParams.seed !== undefined) {
+        setSeed(videoGenerationParams.seed.toString());
+      }
+      if (videoGenerationParams.cameraFixed !== undefined) {
+        setCameraFixed(videoGenerationParams.cameraFixed);
+      }
+      if (videoGenerationParams.modelMovement) {
+        setModelMovement(videoGenerationParams.modelMovement);
+      }
+      if (videoGenerationParams.fabricMotion) {
+        setFabricMotion(videoGenerationParams.fabricMotion);
+      }
+      if (videoGenerationParams.cameraAction) {
+        setCameraAction(videoGenerationParams.cameraAction);
+      }
+      if (videoGenerationParams.aestheticVibe) {
+        setAestheticVibe(videoGenerationParams.aestheticVibe);
+      }
+      
+      // Mark this history item as loaded to prevent reloading
+      setLoadedHistoryItemId(historyItemToLoad.id);
+      
+      toast({
+        title: "Video Settings Loaded",
+        description: "Video generation parameters have been restored from your selected configuration.",
+      });
+    }
+  }, [historyItemToLoad, isLoadingHistory, loadedHistoryItemId, handlePromptChange, toast]);
 
   const handleRandomSeed = () => setSeed("-1");
 
