@@ -473,6 +473,38 @@ export default function VideoParameters({
           <RenderSelectComponent id="camera-action" label="Camera Action" value={cameraAction} onChange={setCameraAction} options={CAMERA_ACTION_OPTIONS} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
           <RenderSelectComponent id="aesthetic-vibe" label="Aesthetic Vibe" value={aestheticVibe} onChange={setAestheticVibe} options={AESTHETIC_STYLE_OPTIONS} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
 
+          {/* Camera Position Control - moved here from Technical Parameters */}
+          <div className="md:col-span-2 pt-2 border-t">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="cameraFixed" 
+                  checked={cameraFixed} 
+                  onCheckedChange={setCameraFixed} 
+                  disabled={commonFormDisabled} 
+                />
+                <Label htmlFor="cameraFixed" className="text-sm cursor-pointer">
+                  Fix Camera Position
+                </Label>
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-auto p-1 text-muted-foreground">
+                      <Info className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">
+                      When enabled, prevents camera movement and keeps the shot static, 
+                      focusing only on model and fabric motion.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+
           <div className="md:col-span-2 pt-2 space-y-2">
             <div className="flex justify-between items-center">
               <Label htmlFor="fullVideoPrompt" className="text-sm">Full Prompt</Label>
@@ -545,12 +577,7 @@ export default function VideoParameters({
               </div>
             </div>
           </div>
-          <div className="pt-2">
-            <div className="flex items-center space-x-2">
-              <Switch id="cameraFixed" checked={cameraFixed} onCheckedChange={setCameraFixed} disabled={commonFormDisabled} />
-              <Label htmlFor="cameraFixed" className="text-sm cursor-pointer">Fix Camera Position</Label>
-            </div>
-          </div>
+          {/* Removed camera position switch from here */}
         </CardContent>
         <CardFooter>
           <Button

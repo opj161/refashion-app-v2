@@ -63,12 +63,6 @@ body {
     --border: 190 20% 82%; /* #C8DADC - Desaturated petrol border */
     --input: 190 20% 90%; /* #E2EDED - Light petrol input background */
     --ring: 190 45% 45%; /* #499A94 - Slightly lighter Deep Petrol for ring */
-
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
 
@@ -101,11 +95,6 @@ body {
     --border: 195 15% 22%; /* #2D3636 - Subtle dark petrol border */
     --input: 195 15% 32%;
     --ring: 190 55% 60%; /* #5BC7BE - Brighter Petrol ring */
-    
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
   }
 }

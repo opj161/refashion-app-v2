@@ -103,49 +103,6 @@ export async function getVideoGenerationResult(taskId: string): Promise<VideoGen
 }
 
 /**
- * Submits a video generation request and waits for completion (polling-based)
- * This is an alternative to the webhook-based approach
- * @param input The video generation parameters
- * @returns Promise<VideoGenerationResult> The completed video generation result
- */
-export async function generateVideoSync(input: VideoGenerationInput): Promise<VideoGenerationResult> {
-  try {
-    console.log('Starting synchronous video generation with Fal.ai...');
-    
-    const falInput: any = {
-      prompt: input.prompt,
-      image_url: input.image_url,
-    };
-    
-    if (input.resolution) falInput.resolution = input.resolution;
-    if (input.duration) falInput.duration = input.duration;
-    if (typeof input.camera_fixed === 'boolean') falInput.camera_fixed = input.camera_fixed;
-    if (typeof input.seed === 'number' && input.seed !== undefined) falInput.seed = input.seed;
-    
-    // Use fal.subscribe for polling-based completion
-    const result: any = await fal.subscribe('fal-ai/bytedance/seedance/v1/lite/image-to-video', {
-      input: falInput,
-      logs: process.env.NODE_ENV === 'development',
-      onQueueUpdate: (update) => {
-        if (update.status === "IN_PROGRESS" && process.env.NODE_ENV === 'development') {
-          console.log(`Video generation progress: ${update.status}`);
-          if (update.logs) {
-            update.logs.forEach(log => console.log(`[Fal.ai]: ${log.message}`));
-          }
-        }
-      },
-    });
-    
-    console.log('Synchronous video generation completed');
-    return result.data as VideoGenerationResult;
-    
-  } catch (error) {
-    console.error('Error in synchronous video generation:', error);
-    throw new Error(`Synchronous video generation failed: ${(error as Error).message}`);
-  }
-}
-
-/**
  * Starts a video generation task using a webhook for completion notification
  * @param input The video generation parameters
  * @param webhookUrl The URL that fal.ai will call upon completion

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateVideoHistoryItem } from '@/actions/historyActions';
-import { verifyWebhookSignature, extractWebhookHeaders } from '@/lib/webhook-verification';
 import { saveFileFromUrl } from '@/services/storage.service';
 
 export async function POST(request: NextRequest) {
@@ -21,33 +20,9 @@ export async function POST(request: NextRequest) {
     const url = new URL(request.url);
     console.log('Webhook received:', JSON.stringify(result, null, 2));
 
-    // Temporarily disable signature verification due to timestamp sync issues
-    // const webhookHeaders = extractWebhookHeaders(request);
-    
-    // if (webhookHeaders) {
-    //   // Verify the webhook signature if headers are present
-    //   console.log('Verifying webhook signature...');
-    //   
-    //   const isValid = await verifyWebhookSignature(
-    //     webhookHeaders.requestId,
-    //     webhookHeaders.userId,
-    //     webhookHeaders.timestamp,
-    //     webhookHeaders.signature,
-    //     bodyBuffer
-    //   );
-
-    //   if (!isValid) {
-    //     console.error('Webhook signature verification failed');
-    //     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    //   }
-    //   
-    //   console.log('Webhook signature verified successfully');
-    // } else {
-    //   // Log warning but continue (for development/testing)
-    //   console.warn('Webhook verification headers missing - continuing without verification');
-    // }
-
-    // WARNING: Signature verification disabled - security risk!
+    // WARNING: Signature verification is not implemented.
+    // For production, it's highly recommended to implement webhook signature verification
+    // to ensure requests are genuinely from Fal.ai.
     console.warn('Webhook signature verification disabled - processing request without verification');
 
     // Extract our custom payload from query parameters
