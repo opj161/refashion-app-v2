@@ -16,9 +16,10 @@ interface HistoryCardProps {
   onViewDetails: (item: HistoryItem) => void;
   onReloadConfig: (item: HistoryItem) => void;
   onDeleteItem: (item: HistoryItem) => void;
+  username?: string; // Add optional username prop
 }
 
-export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDeleteItem }: HistoryCardProps) {
+export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDeleteItem, username }: HistoryCardProps) {
   const [isInView, setIsInView] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -94,7 +95,7 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
     <Card ref={cardRef} className="flex flex-col h-full group shadow-sm hover:shadow-md transition-shadow duration-300">
       <CardHeader className="p-3 sm:p-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base sm:text-lg font-semibold truncate" title={item.constructedPrompt?.substring(0,100) || (isVideoItem ? "Video Generation" : "Image Generation")}>
+          <CardTitle className="text-base sm:text-lg font-semibold truncate" title={item.constructedPrompt?.substring(0,100) || (isVideoItem ? "Video Generation" : "Image Generation")}> 
             {item.constructedPrompt?.substring(0, 40) || (isVideoItem ? "Video Generation" : "Image Generation")}
             {item.constructedPrompt && item.constructedPrompt.length > 40 ? "..." : ""}
           </CardTitle>
@@ -106,6 +107,10 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
             {isVideoItem ? <Video className="h-3 w-3 mr-1.5" /> : <ImageIcon className="h-3 w-3 mr-1.5" />}
             {isVideoItem ? "Video" : "Image"}
           </Badge>
+          {/* Render username badge if provided */}
+          {username && (
+            <Badge variant="secondary" className="ml-2 text-xs font-medium">{username}</Badge>
+          )}
         </div>
         <CardDescription className="text-xs text-muted-foreground mt-1">
           {new Date(item.timestamp).toLocaleDateString()} {new Date(item.timestamp).toLocaleTimeString()}

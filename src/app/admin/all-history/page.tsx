@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAllUsersHistoryPaginatedForAdmin } from '@/actions/historyActions';
 import type { HistoryItem } from '@/lib/types';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, AlertTriangle } from 'lucide-react';
@@ -16,39 +15,52 @@ export default function AllHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const loadInitialHistory = async () => {
+  const fetchHistory = useCallback(async (pageNum: number, append: boolean) => {
+    if (!append) {
       setLoading(true);
-      try {
-        const result = await getAllUsersHistoryPaginatedForAdmin(1, 9);
-        setItems(result.items);
-        setHasMore(result.hasMore);
-        setPage(1);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load history');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadInitialHistory();
-  }, []);
-
-  const handleLoadMore = async () => {
-    if (!hasMore || loadingMore) return;
-    setLoadingMore(true);
+    } else {
+      setLoadingMore(true);
+    }
     try {
-      const nextPage = page + 1;
-      const result = await getAllUsersHistoryPaginatedForAdmin(nextPage, 9);
-      setItems(prev => [...prev, ...result.items]);
+      const result = await getAllUsersHistoryPaginatedForAdmin(pageNum, 9);
+      setItems(prev => append ? [...prev, ...result.items] : result.items);
       setHasMore(result.hasMore);
-      setPage(nextPage);
+      setPage(pageNum);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load more history');
+      setError(err instanceof Error ? err.message : 'Failed to load history');
     } finally {
+      setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchHistory(1, false);
+  }, [fetchHistory]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          fetchHistory(page + 1, true);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [hasMore, loading, loadingMore, page, fetchHistory]);
 
   if (loading) {
     return (
@@ -86,25 +98,23 @@ export default function AllHistoryPage() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {items.map((item) => (
-              <div key={item.id} className="relative">
-                <HistoryCard
-                  item={item}
-                  onViewDetails={() => {}}
-                  onReloadConfig={() => {}}
-                  onDeleteItem={() => {}}
-                />
-                <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-full z-10">
-                  {item.username}
-                </div>
-              </div>
+              <HistoryCard
+                key={item.id}
+                item={item}
+                onViewDetails={() => {}}
+                onReloadConfig={() => {}}
+                onDeleteItem={() => {}}
+                username={item.username}
+              />
             ))}
           </div>
-          {hasMore && (
-            <div className="mt-8 text-center">
-              <Button onClick={handleLoadMore} disabled={loadingMore}>
-                {loadingMore ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...</> : 'Load More'}
-              </Button>
-            </div>
+          {/* Infinite scroll trigger */}
+          <div ref={loadMoreRef} className="h-10" />
+
+          {loadingMore && (
+             <div className="flex justify-center mt-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+             </div>
           )}
         </>
       )}

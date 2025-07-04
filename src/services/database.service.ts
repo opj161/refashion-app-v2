@@ -67,9 +67,23 @@ function initSchema(db: Database.Database) {
       FOREIGN KEY (history_id) REFERENCES history (id) ON DELETE CASCADE
     );
     
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history (username, timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images (history_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username);
+  `);
+
+  // Insert default values for feature flags if they don't exist
+  db.exec(`
+    INSERT OR IGNORE INTO settings (key, value) VALUES 
+      ('feature_video_generation', 'true'),
+      ('feature_background_removal', 'true'),
+      ('feature_image_upscaling', 'true'),
+      ('feature_face_detailer', 'true')
   `);
   console.log('Database schema initialized.');
 }
