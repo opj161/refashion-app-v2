@@ -4,10 +4,11 @@
 import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache'; // Keep this
+import { revalidatePath } from 'next/cache';
 import { sessionOptions } from '@/lib/session';
 import type { SessionUser, SessionData } from '@/lib/types';
-import { getUsersConfig } from '@/lib/authConfig';
+import * as dbService from '@/services/database.service';
+import bcrypt from 'bcrypt';
 // ... other imports
 
 export async function loginUser(formData: FormData): Promise<{ error: string } | undefined> {
@@ -16,14 +17,13 @@ export async function loginUser(formData: FormData): Promise<{ error: string } |
   const submittedPassword = formData.get('password') as string;
 
   try {
-    const usersConfig = getUsersConfig(); // This will throw if config is bad
-    const userConfig = usersConfig[username];
+    const user = dbService.findUserByUsername(username);
 
-    if (userConfig && submittedPassword === userConfig.password) {
+    if (user && await bcrypt.compare(submittedPassword, user.passwordHash)) {
       // Save session and prepare for redirect
       session.user = {
         username: username,
-        role: userConfig.role,
+        role: user.role,
         isLoggedIn: true,
       };
       await session.save();
@@ -44,8 +44,8 @@ export async function loginUser(formData: FormData): Promise<{ error: string } |
     }
     
     // Handle actual errors
-    console.error("Login action error:", error);
-    return { error: 'A server configuration error occurred.' };
+    console.error("Login action error:", error instanceof Error ? error.message : String(error));
+    return { error: 'An unexpected server error occurred.' };
   }
 }
 

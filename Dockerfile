@@ -40,10 +40,6 @@ COPY scripts ./scripts
 # Set NEXT_TELEMETRY_DISABLED before build
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Provide a dummy user configuration to satisfy the build-time check
-# This will be overridden by the runtime environment variables
-ENV APP_USERS_CONFIG='{"build_user":{"password":"build_pass","role":"user"}}'
-
 RUN npm run build
 
 # 4. ---- Runner Stage (Final Image) ----

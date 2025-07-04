@@ -33,7 +33,6 @@
   <Config Name="GEMINI_API_KEY_3" Target="GEMINI_API_KEY_3" Default="" Mode="" Description="Tertiary Gemini API Key" Type="Variable" Display="always" Required="false" Mask="true"></Config>
   
   <!-- User System Configuration -->
-  <Config Name="APP_USERS_CONFIG" Target="APP_USERS_CONFIG" Default="{&quot;admin&quot;:{&quot;password&quot;:&quot;your-admin-password&quot;,&quot;role&quot;:&quot;admin&quot;},&quot;user1&quot;:{&quot;password&quot;:&quot;user1-password&quot;,&quot;role&quot;:&quot;user&quot;}}" Mode="" Description="JSON configuration for users and their roles" Type="Variable" Display="always" Required="true" Mask="true"></Config>
   <Config Name="SESSION_SECRET" Target="SESSION_SECRET" Default="your-very-strong-secret-password-for-cookies-at-least-32-characters-long-make-it-random-and-secure" Mode="" Description="Secret key for session encryption (must be at least 32 characters)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
   
   <!-- User and Group IDs -->

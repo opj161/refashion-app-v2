@@ -2,6 +2,11 @@
 # Exit on error
 set -e
 
+# Run the user migration
+echo "--- Running user migration ---"
+node /app/dist/scripts/migrate-users-to-sqlite.js || echo "User migration completed or skipped"
+echo "--- User migration check complete ---"
+
 # Run the database migration
 echo "--- Running database migration ---"
 node /app/dist/scripts/migrate-json-to-sqlite.js || echo "Migration completed or skipped"

@@ -8,15 +8,6 @@ export interface SessionData {
   user?: SessionUser;
 }
 
-export interface UserConfig {
-  password: string;
-  role: 'admin' | 'user';
-}
-
-export interface UsersConfig {
-  [username: string]: UserConfig;
-}
-
 export interface HistoryItem {
   id: string;
   timestamp: number;

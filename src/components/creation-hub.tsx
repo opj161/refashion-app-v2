@@ -24,6 +24,15 @@ export default function CreationHub() {
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
   const { reset } = useImageStore();
 
+  // Cleanup effect: Reset the store when the component unmounts.
+  // This ensures that navigating away and back to the create page starts a fresh session.
+  useEffect(() => {
+    // The returned function is the cleanup function, which runs on unmount.
+    return () => {
+      reset();
+    };
+  }, [reset]); // Dependency on `reset` is stable and ensures effect runs once.
+
   // Handle URL parameters and state synchronization on component mount
   useEffect(() => {
     const historyItemId = searchParams.get('historyItemId');

@@ -111,9 +111,12 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
           {new Date(item.timestamp).toLocaleDateString()} {new Date(item.timestamp).toLocaleTimeString()}
         </CardDescription>
       </CardHeader>
-      <CardContent className="p-3 sm:p-4 flex-grow relative">
+      <CardContent 
+        className="p-3 sm:p-4 flex-grow relative cursor-pointer active:scale-[0.98] transition-transform duration-100 ease-out"
+        onClick={() => onViewDetails(item)}
+      >
         <div 
-          className="aspect-[2/3] w-full bg-muted rounded-md overflow-hidden relative"
+          className="aspect-[2/3] w-full bg-muted rounded-md overflow-hidden relative pointer-events-none"
         >
           {isVideoItem && videoUrl ? (
             <>

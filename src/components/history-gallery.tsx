@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { getHistoryPaginated, deleteHistoryItem } from "@/actions/historyActions";
@@ -41,6 +42,26 @@ export default function HistoryGallery() {
 
   // Ref for the element that will trigger loading more items
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Animation variants for the gallery
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+    },
+    exit: { y: -20, opacity: 0, transition: { duration: 0.2 } },
+  };
 
 
   const itemsPerPage = 9; // Or any other number you prefer
@@ -211,17 +232,26 @@ export default function HistoryGallery() {
       )}
 
       {!isLoading && !error && historyItems.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4">
-          {historyItems.map((item) => (
-            <HistoryCard
-              key={item.id}
-              item={item}
-              onViewDetails={handleViewDetails}
-              onReloadConfig={handleReloadConfig}
-              onDeleteItem={handleDeleteRequest}
-            />
-          ))}
-        </div>
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          layout
+        >
+          <AnimatePresence>
+            {historyItems.map((item) => (
+              <motion.div key={item.id} variants={itemVariants} layout>
+                <HistoryCard
+                  item={item}
+                  onViewDetails={handleViewDetails}
+                  onReloadConfig={handleReloadConfig}
+                  onDeleteItem={handleDeleteRequest}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       )}
 
       {/* Modal for History Item Details */}

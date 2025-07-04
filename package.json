@@ -11,7 +11,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "migrate:json-to-sqlite": "node dist/scripts/migrate-json-to-sqlite.js"
+    "migrate:json-to-sqlite": "node dist/scripts/migrate-json-to-sqlite.js",
+    "migrate:users-to-sqlite": "node dist/scripts/migrate-users-to-sqlite.js"
   },
   "dependencies": {
     "@fal-ai/client": "^1.5.0",
@@ -40,12 +41,14 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/mime-types": "^3.0.0",
     "axios": "^1.9.0",
+    "bcrypt": "^5.1.1",
     "better-sqlite3": "^12.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "dotenv": "^16.5.0",
     "form-data": "^4.0.2",
+    "framer-motion": "^11.3.19",
     "https-proxy-agent": "^7.0.6",
     "iron-session": "^8.0.4",
     "lucide-react": "^0.475.0",
@@ -71,6 +74,7 @@
     "@babel/preset-react": "^7.27.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.0",
+    "@types/bcrypt": "^5.0.2",
     "@types/form-data": "^2.2.1",
     "@types/jest": "^29.5.14",
     "@types/node": "^20",

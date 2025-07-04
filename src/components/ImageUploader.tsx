@@ -161,11 +161,6 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
     }
   }, [sourceImageUrl, original, toast, reset, uploadOriginalImage]);
 
-  // Don't render if we already have an image
-  if (original) {
-    return null;
-  }
-
   return (
     <>
       {/* Global drag overlay */}

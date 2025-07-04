@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import type { HistoryItem, ModelAttributes } from '@/lib/types';
+import type { HistoryItem, ModelAttributes, SessionUser } from '@/lib/types';
 
 // Video status payload type for efficient polling
 export interface VideoStatusPayload {
@@ -51,6 +51,12 @@ function initSchema(db: Database.Database) {
       attributes TEXT,
       videoGenerationParams TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS users (
+      username TEXT PRIMARY KEY,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('admin', 'user'))
+    );
     
     CREATE TABLE IF NOT EXISTS history_images (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +69,7 @@ function initSchema(db: Database.Database) {
     
     CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history (username, timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images (history_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username);
   `);
   console.log('Database schema initialized.');
 }
@@ -483,6 +490,22 @@ export function getHistoryItemStatus(id: string, username: string): VideoStatusP
     videoUrl: row.video_url || params.localVideoUrl || null,
     error: params.error,
     seed: params.seed,
+  };
+}
+
+export function findUserByUsername(username: string): (SessionUser & { passwordHash: string }) | null {
+  const db = getDb();
+  const stmt = db.prepare('SELECT username, password_hash, role FROM users WHERE username = ?');
+  const row: any = stmt.get(username);
+
+  if (!row) {
+    return null;
+  }
+  return {
+    username: row.username,
+    passwordHash: row.password_hash,
+    role: row.role as 'admin' | 'user',
+    isLoggedIn: true // This is for session compatibility, not stored in DB
   };
 }
 

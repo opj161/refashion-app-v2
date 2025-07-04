@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -173,6 +174,7 @@ export default function VideoParameters({
   const [generationTaskId, setGenerationTaskId] = useState<string | null>(null);
   const [historyItemId, setHistoryItemId] = useState<string | null>(null);
   const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
+  const [progressValue, setProgressValue] = useState(0);
 
   // Check if data URI is provided (not a server URL)
   const isDataUri = preparedImageUrl?.startsWith('data:') || false;
@@ -435,6 +437,26 @@ export default function VideoParameters({
     };
   }, [historyItemId, isGenerating, toast]);
 
+  // Effect to simulate progress during generation
+  useEffect(() => {
+    let progressInterval: NodeJS.Timeout | undefined;
+    if (isGenerating && !generatedVideoUrl) {
+      setProgressValue(10); // Start with a small amount
+      progressInterval = setInterval(() => {
+        setProgressValue(prev => {
+          if (prev >= 95) { // Cap progress before completion
+            clearInterval(progressInterval);
+            return 95;
+          }
+          return prev + Math.floor(Math.random() * 3) + 1; // Increment slowly and randomly
+        });
+      }, 800);
+    } else {
+      setProgressValue(0);
+    }
+    return () => clearInterval(progressInterval);
+  }, [isGenerating, generatedVideoUrl]);
+
 
   return (
     <div className="space-y-6">
@@ -628,14 +650,19 @@ export default function VideoParameters({
               {isUploadingToFal ? "Uploading Image..." : "Generating Video..."}
             </CardTitle>
             <CardDescription>
-              {isUploadingToFal
-                ? "Your image is being prepared for generation."
-                : "Your video is being processed. This may take a minute."}
+              Your video is being processed. This may take a minute. Please wait.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center items-center py-10">
-            <div className="aspect-video w-full max-w-md bg-muted/50 rounded-md flex items-center justify-center">
-              <Video className="h-16 w-16 text-muted-foreground/50" />
+            <div className="w-full max-w-md space-y-4">
+              <div className="aspect-video bg-muted/50 rounded-md flex items-center justify-center relative overflow-hidden">
+                <Video className="h-16 w-16 text-muted-foreground/50" />
+              </div>
+              <Progress 
+                value={progressValue}
+                isEstimating={true}
+                className="h-2"
+              />
             </div>
           </CardContent>
           <CardFooter>
