@@ -8,9 +8,15 @@ import { Separator } from '@/components/ui/separator';
 import { ThemeToggleImproved } from '@/components/ui/ThemeToggleImproved';
 import { UserAuthStatus } from '@/contexts/AuthContext';
 import { Home, History as HistoryIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   return (
     <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-50">
@@ -31,24 +37,28 @@ export function SiteHeader() {
         <div className="flex items-center gap-2">
           {/* Add Navigation Links */}
           <nav className="flex items-center gap-1">
-            {/* Conditionally render the "Create" button */}
-            {pathname.startsWith('/history') && (
-              <Button asChild variant="ghost" size="sm" className="px-2">
-                <Link href="/create">
-                  <Home className="h-5 w-5 md:mr-2" />
-                  <span className="hidden md:inline">Create</span>
-                </Link>
-              </Button>
-            )}
-            
-            {/* Conditionally render the "History" button */}
-            {pathname.startsWith('/create') && (
-              <Button asChild variant="ghost" size="sm" className="px-2">
-                <Link href="/history">
-                  <HistoryIcon className="h-5 w-5 md:mr-2" />
-                  <span className="hidden md:inline">History</span>
-                </Link>
-              </Button>
+            {/* Only render the navigation buttons on the client to avoid hydration mismatch */}
+            {isClient && (
+              <>
+                {/* Conditionally render the "Create" button */}
+                {pathname.startsWith('/history') && (
+                  <Button asChild variant="ghost" size="sm" className="px-2">
+                    <Link href="/create">
+                      <Home className="h-5 w-5 md:mr-2" />
+                      <span className="hidden md:inline">Create</span>
+                    </Link>
+                  </Button>
+                )}
+                {/* Conditionally render the "History" button */}
+                {pathname.startsWith('/create') && (
+                  <Button asChild variant="ghost" size="sm" className="px-2">
+                    <Link href="/history">
+                      <HistoryIcon className="h-5 w-5 md:mr-2" />
+                      <span className="hidden md:inline">History</span>
+                    </Link>
+                  </Button>
+                )}
+              </>
             )}
           </nav>
           <Separator orientation="vertical" className="h-6 hidden md:block" />
