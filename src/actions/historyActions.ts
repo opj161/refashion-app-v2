@@ -221,51 +221,34 @@ export async function getHistoryItem(historyItemId: string): Promise<HistoryItem
 export async function updateVideoHistoryItem(params: {
   username: string;
   historyItemId: string;
-  videoUrls: (string | null)[];
-  localVideoUrl: string | null;
-  seedUsed: number | null;
-  status: 'processing' | 'completed' | 'failed';
+  videoUrls?: (string | null)[];
+  localVideoUrl?: string | null;
+  seedUsed?: number | null;
+  status?: 'processing' | 'completed' | 'failed';
   error?: string;
   videoModel?: 'lite' | 'pro';
 }): Promise<void> {
-  const { username, historyItemId, videoUrls, localVideoUrl, seedUsed, status, error } = params;
-  
-  // Verify the item exists and belongs to the user
+  const { username, historyItemId, videoUrls, localVideoUrl, seedUsed, status, error, videoModel } = params;
+  // Authorization check
   const existingItem = dbService.findHistoryItemById(historyItemId);
-  if (!existingItem) {
-    console.warn(`History item ${historyItemId} not found for user ${username}.`);
+  if (!existingItem || existingItem.username !== username) {
+    console.warn(`History item ${historyItemId} not found or user ${username} is not authorized.`);
     return;
   }
-  
-  if (existingItem.username !== username) {
-    console.warn(`History item ${historyItemId} does not belong to user ${username}.`);
-    return;
+  // Construct the partial update object
+  const updatePayload: Partial<HistoryItem> = {};
+  // Only include videoGenerationParams if patch fields are present
+  const videoGenPatch: Record<string, unknown> = {};
+  if (videoModel !== undefined) videoGenPatch.videoModel = videoModel;
+  if (seedUsed !== undefined) videoGenPatch.seed = seedUsed;
+  if (localVideoUrl !== undefined) videoGenPatch.localVideoUrl = localVideoUrl;
+  if (status !== undefined) videoGenPatch.status = status;
+  if (error !== undefined) videoGenPatch.error = error;
+  if (Object.keys(videoGenPatch).length > 0) {
+    updatePayload.videoGenerationParams = videoGenPatch as any;
   }
-
-  // ATOMIC: Update videoGenerationParams JSON directly in the DB to avoid race conditions
-  // This uses a single SQL statement to patch the JSON object
-  const db = dbService.getDb();
-  db.prepare(`
-    UPDATE history
-    SET videoGenerationParams = json_patch(
-      COALESCE(videoGenerationParams, '{}'),
-      json(?))
-    WHERE id = ?
-  `).run(
-    JSON.stringify({
-      videoModel: params.videoModel || 'lite',
-      seed: seedUsed ?? -1,
-      localVideoUrl: localVideoUrl,
-      status: status,
-      error: error
-    }),
-    historyItemId
-  );
-
-  // Update the video URLs as well (images are in a separate table)
-  dbService.updateHistoryItem(historyItemId, {
-    generatedVideoUrls: videoUrls
-  });
+  if (videoUrls) updatePayload.generatedVideoUrls = videoUrls;
+  dbService.updateHistoryItem(historyItemId, updatePayload);
 }
 
 export async function getHistoryPaginated(
@@ -305,116 +288,16 @@ export async function getVideoHistoryPaginated(
 }
 
 export async function getHistoryItemById(historyItemId: string): Promise<{ success: boolean; item?: HistoryItem; error?: string }> {
-  try {
-    const item = await getHistoryItem(historyItemId);
-    if (item) {
-      return { success: true, item };
-    } else {
-      return { success: false, error: 'History item not found.' };
-    }
-  } catch (error: any) {
-    return { success: false, error: error.message || 'Failed to fetch history item.' };
-  }
-}
-
-// Utility function for advanced filtering/searching
-export async function searchUserHistory(
-  searchTerm: string,
-  page: number = 1,
-  limit: number = 10
-): Promise<{
-  items: HistoryItem[];
-  totalCount: number;
-  hasMore: boolean;
-  currentPage: number;
-}> {
   const user = await getCurrentUser();
   if (!user) {
-    throw new Error('User not authenticated');
+    return { success: false, error: 'User not authenticated' };
   }
-
-  const db = dbService.getDb();
-
-  // Search in constructed prompts and original clothing URLs
-  const searchQuery = `%${searchTerm.toLowerCase()}%`;
-  const offset = (page - 1) * limit;
-
-  const countStmt = db.prepare(`
-    SELECT COUNT(*) as count 
-    FROM history 
-    WHERE username = ? AND (
-      LOWER(constructedPrompt) LIKE ? OR 
-      LOWER(originalClothingUrl) LIKE ?
-    )
-  `);
-
-  // Use robust JSON_GROUP_ARRAY for all image arrays
-  const dataStmt = db.prepare(`
-    SELECT h.*,
-           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
-           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
-           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
-    FROM history h
-    WHERE h.username = ? AND (
-      LOWER(h.constructedPrompt) LIKE ? OR 
-      LOWER(h.originalClothingUrl) LIKE ?
-    )
-    ORDER BY h.timestamp DESC
-    LIMIT ? OFFSET ?
-  `);
-
-  const countResult = countStmt.get(user.username, searchQuery, searchQuery) as { count: number };
-  const totalCount = countResult.count;
-
-  const rows = dataStmt.all(user.username, searchQuery, searchQuery, limit, offset);
-
-  // Use the same row mapping function from database service
-  const items: HistoryItem[] = rows.map((row: any) => {
-    // Use the same logic as rowToHistoryItem
-    const editedImageUrls = row.edited_images ? JSON.parse(row.edited_images) : [];
-    const originalImageUrls = row.original_images ? JSON.parse(row.original_images) : undefined;
-    const generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls) : undefined;
-
-    const paddedEditedUrls = new Array(4).fill(null);
-    editedImageUrls.forEach((url: string | null, index: number) => {
-      if (index < 4) paddedEditedUrls[index] = url;
-    });
-
-    const paddedOriginalUrls = originalImageUrls ? new Array(4).fill(null) : undefined;
-    if (originalImageUrls && paddedOriginalUrls) {
-      originalImageUrls.forEach((url: string | null, index: number) => {
-        if (index < 4) paddedOriginalUrls[index] = url;
-      });
-    }
-
-    const paddedVideoUrls = generatedVideoUrls ? new Array(4).fill(null) : undefined;
-    if (generatedVideoUrls && paddedVideoUrls) {
-      generatedVideoUrls.forEach((url: string | null, index: number) => {
-        if (index < 4) paddedVideoUrls[index] = url;
-      });
-    }
-
-    return {
-      id: row.id,
-      username: row.username,
-      timestamp: row.timestamp,
-      constructedPrompt: row.constructedPrompt,
-      originalClothingUrl: row.originalClothingUrl,
-      settingsMode: row.settingsMode as 'basic' | 'advanced',
-      attributes: row.attributes ? JSON.parse(row.attributes) : {} as ModelAttributes,
-      editedImageUrls: paddedEditedUrls,
-      originalImageUrls: paddedOriginalUrls,
-      generatedVideoUrls: paddedVideoUrls,
-      videoGenerationParams: row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined,
-    };
-  });
-
-  const hasMore = offset + limit < totalCount;
-
-  return {
-    items,
-    totalCount,
-    hasMore,
-    currentPage: page
-  };
+  const item = dbService.findHistoryItemById(historyItemId);
+  if (!item) {
+    return { success: false, error: 'History item not found' };
+  }
+  if (item.username !== user.username) {
+    return { success: false, error: 'Unauthorized access to history item' };
+  }
+  return { success: true, item };
 }

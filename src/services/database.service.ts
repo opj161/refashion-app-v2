@@ -182,7 +182,7 @@ function getPreparedStatements() {
   return preparedStatements;
 }
 
-function rowToHistoryItem(row: any): HistoryItem {
+export function rowToHistoryItem(row: any): HistoryItem { // Export for use in actions
   // Do NOT filter(Boolean) -- preserve nulls for correct slot mapping
   let editedImageUrls: any[] = [];
   let originalImageUrls: any[] | undefined = undefined;
@@ -192,54 +192,19 @@ function rowToHistoryItem(row: any): HistoryItem {
 
   try {
     editedImageUrls = row.edited_images ? JSON.parse(row.edited_images) : [];
-  } catch (e) {
-    console.error('Failed to parse edited_images JSON for row', row.id, e);
-    editedImageUrls = [];
-  }
+  } catch (e) { editedImageUrls = []; }
   try {
     originalImageUrls = row.original_images ? JSON.parse(row.original_images) : undefined;
-  } catch (e) {
-    console.error('Failed to parse original_images JSON for row', row.id, e);
-    originalImageUrls = undefined;
-  }
+  } catch (e) { originalImageUrls = undefined; }
   try {
     generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls) : undefined;
-  } catch (e) {
-    console.error('Failed to parse video_urls JSON for row', row.id, e);
-    generatedVideoUrls = undefined;
-  }
+  } catch (e) { generatedVideoUrls = undefined; }
   try {
     attributes = row.attributes ? JSON.parse(row.attributes) : {} as ModelAttributes;
-  } catch (e) {
-    console.error('Failed to parse attributes JSON for row', row.id, e);
-    attributes = {} as ModelAttributes;
-  }
+  } catch (e) { attributes = {} as ModelAttributes; }
   try {
     videoGenerationParams = row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined;
-  } catch (e) {
-    console.error('Failed to parse videoGenerationParams JSON for row', row.id, e);
-    videoGenerationParams = undefined;
-  }
-
-  // Ensure arrays have proper null padding to match expected interface
-  const paddedEditedUrls = new Array(4).fill(null);
-  editedImageUrls.forEach((url: string | null, index: number) => {
-    if (index < 4) paddedEditedUrls[index] = url;
-  });
-
-  const paddedOriginalUrls = originalImageUrls ? new Array(4).fill(null) : undefined;
-  if (originalImageUrls && paddedOriginalUrls) {
-    originalImageUrls.forEach((url: string | null, index: number) => {
-      if (index < 4) paddedOriginalUrls[index] = url;
-    });
-  }
-
-  const paddedVideoUrls = generatedVideoUrls ? new Array(4).fill(null) : undefined;
-  if (generatedVideoUrls && paddedVideoUrls) {
-    generatedVideoUrls.forEach((url: string | null, index: number) => {
-      if (index < 4) paddedVideoUrls[index] = url;
-    });
-  }
+  } catch (e) { videoGenerationParams = undefined; }
 
   return {
     id: row.id,
@@ -249,9 +214,9 @@ function rowToHistoryItem(row: any): HistoryItem {
     originalClothingUrl: row.originalClothingUrl,
     settingsMode: row.settingsMode as 'basic' | 'advanced',
     attributes,
-    editedImageUrls: paddedEditedUrls,
-    originalImageUrls: paddedOriginalUrls,
-    generatedVideoUrls: paddedVideoUrls,
+    editedImageUrls: editedImageUrls || [], // Return arrays as-is
+    originalImageUrls,
+    generatedVideoUrls,
     videoGenerationParams,
   };
 }
@@ -308,8 +273,65 @@ export function findHistoryItemById(id: string): HistoryItem | null {
   return row ? rowToHistoryItem(row) : null;
 }
 
-export function updateHistoryItem(
-  id: string, 
+/**
+ * Atomically updates a history item and its related images/videos.
+ * This function is safe from race conditions.
+ * @param id The ID of the history item to update.
+ * @param updates A partial HistoryItem object. For arrays, you can provide the full array to replace it.
+ */
+export function updateHistoryItem(id: string, updates: Partial<HistoryItem>): void {
+  const db = getDb();
+
+  const updateTransaction = db.transaction(() => {
+    // Update simple text fields if provided
+    if (updates.constructedPrompt !== undefined || updates.settingsMode !== undefined) {
+      const updateMainStmt = db.prepare(`
+        UPDATE history
+        SET constructedPrompt = COALESCE(?, constructedPrompt),
+            settingsMode = COALESCE(?, settingsMode)
+        WHERE id = ?
+      `);
+      updateMainStmt.run(updates.constructedPrompt, updates.settingsMode, id);
+    }
+
+    // Atomically patch JSON fields
+    if (updates.attributes) {
+      db.prepare(`UPDATE history SET attributes = json_patch(attributes, ?) WHERE id = ?`)
+        .run(JSON.stringify(updates.attributes), id);
+    }
+    if (updates.videoGenerationParams) {
+      db.prepare(`UPDATE history SET videoGenerationParams = json_patch(COALESCE(videoGenerationParams, '{}'), ?) WHERE id = ?`)
+        .run(JSON.stringify(updates.videoGenerationParams), id);
+    }
+
+    // Helper to replace an image/video array
+    const replaceUrls = (urls: (string | null)[] | undefined, type: 'edited' | 'original_for_comparison' | 'generated_video') => {
+      if (!urls) return;
+      const deleteStmt = db.prepare(`DELETE FROM history_images WHERE history_id = ? AND type = ?`);
+      const insertStmt = db.prepare(`INSERT INTO history_images (history_id, url, type, slot_index) VALUES (?, ?, ?, ?)`);
+
+      deleteStmt.run(id, type);
+      urls.forEach((url, index) => {
+        if (url) {
+          insertStmt.run(id, url, type, index);
+        }
+      });
+    };
+
+    // Replace image/video arrays if they are provided in the updates
+    replaceUrls(updates.editedImageUrls, 'edited');
+    replaceUrls(updates.originalImageUrls, 'original_for_comparison');
+    replaceUrls(updates.generatedVideoUrls, 'generated_video');
+  });
+
+  updateTransaction();
+}
+
+/**
+ * @deprecated Use the new atomic `updateHistoryItem` function instead. This function is not safe from race conditions for complex updates.
+ */
+export function _dangerouslyUpdateHistoryItem(
+  id: string,
   updates: Partial<Pick<HistoryItem, 'editedImageUrls' | 'originalImageUrls' | 'constructedPrompt' | 'generatedVideoUrls' | 'videoGenerationParams'>>
 ): void {
   // NOTE: updateHistoryItem is subject to race conditions if called concurrently for the same id.

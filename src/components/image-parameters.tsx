@@ -505,7 +505,12 @@ export default function ImageParameters({
               handlePromptChange(item.constructedPrompt);
             }
             if (item.editedImageUrls) {
-              setOutputImageUrls(item.editedImageUrls);
+              // Pad the incoming array to the expected length for the UI
+              const paddedUrls = new Array(NUM_IMAGES_TO_GENERATE).fill(null);
+              item.editedImageUrls.forEach((url, i) => {
+                if (i < NUM_IMAGES_TO_GENERATE) paddedUrls[i] = url;
+              });
+              setOutputImageUrls(paddedUrls);
             }
             if (item.originalImageUrls) {
               setOriginalOutputImageUrls(item.originalImageUrls);
@@ -716,77 +721,72 @@ export default function ImageParameters({
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: NUM_IMAGES_TO_GENERATE }).map((_, index) => {
-                const uri = outputImageUrls[index];
-                const error = generationErrors[index];
-                const isCurrentlyReRollingThisSlot = isReRollingSlot === index;
-                const isCurrentlyUpscalingThisSlot = isUpscalingSlot === index;
-                const isProcessingThisSlot = isCurrentlyReRollingThisSlot || isCurrentlyUpscalingThisSlot;
-                const originalUri = originalOutputImageUrls[index];
-                const displayUri = comparingSlotIndex === index ? originalUri : uri;
-
-                // Main loading state for initial generation
-                if (isLoading && !uri && !error) {
+              {/* If loading, render placeholders. Otherwise, map over results. */}
+              {isLoading ? (
+                Array.from({ length: NUM_IMAGES_TO_GENERATE }).map((_, index) => (
+                  <div key={`loader-${index}`} className="aspect-[3/4] bg-muted/50 rounded-md border animate-pulse flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ))
+              ) : (
+                outputImageUrls.map((uri, index) => {
+                  if (index >= NUM_IMAGES_TO_GENERATE) return null;
+                  const error = generationErrors[index];
+                  const isCurrentlyReRollingThisSlot = isReRollingSlot === index;
+                  const isCurrentlyUpscalingThisSlot = isUpscalingSlot === index;
+                  const isProcessingThisSlot = isCurrentlyReRollingThisSlot || isCurrentlyUpscalingThisSlot;
+                  const originalUri = originalOutputImageUrls[index];
+                  const displayUri = comparingSlotIndex === index ? originalUri : uri;
                   return (
-                    <div key={`loader-${index}`} className="aspect-[3/4] bg-muted/50 rounded-md border animate-pulse flex items-center justify-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <div key={index} className="relative group">
+                      {uri ? (
+                        <>
+                          <div className="aspect-[3/4] overflow-hidden rounded-md border relative">
+                            <Image src={getDisplayableImageUrl(displayUri) || ''} alt={`Generated image ${index + 1}`} width={300} height={400} className="w-full h-full object-cover" />
+                            {isCurrentlyUpscalingThisSlot && (
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                <div className="text-white text-center">
+                                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                                  <p className="text-sm">Upscaling...</p>
+                                </div>
+                              </div>
+                            )}
+                            {originalUri && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm"
+                                onMouseDown={() => setComparingSlotIndex(index)}
+                                onMouseUp={() => setComparingSlotIndex(null)}
+                                onMouseLeave={() => setComparingSlotIndex(null)}
+                                onTouchStart={() => setComparingSlotIndex(index)}
+                                onTouchEnd={() => setComparingSlotIndex(null)}
+                                title="Hold to see original"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                          <div className="mt-2 flex gap-1">
+                              <Button onClick={() => handleDownloadOutput(uri, index)} className="flex-1" variant="outline" size="sm" disabled={isProcessingThisSlot || isLoading}><Download className="h-3 w-3 mr-1" /> <span className="text-xs">DL</span></Button>
+                              <Button onClick={() => handleReRollImage(index)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><RefreshCw className="h-3 w-3 mr-1" /> <span className="text-xs">Re-roll</span></Button>
+                              <Button onClick={() => handleUpscale(index)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><Sparkles className="h-3 w-3 mr-1" /> <span className="text-xs">Upscale</span></Button>
+                              <Button onClick={() => handleSendToVideoPage(uri)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><VideoIcon className="h-3 w-3 mr-1" /> <span className="text-xs">Video</span></Button>
+                          </div>
+                        </>
+                      ) : isCurrentlyReRollingThisSlot ? (
+                        <div className="aspect-[3/4] flex items-center justify-center bg-muted/50 rounded-md border">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : error ? (
+                        <div className="aspect-[3/4] flex flex-col items-center justify-center text-center text-xs text-destructive p-2 bg-destructive/10">
+                          Failed. <Button onClick={() => handleReRollImage(index)} variant="link" size="sm" className="text-xs p-0 h-auto mt-1" disabled={isProcessingThisSlot || isLoading}>Retry</Button>
+                        </div>
+                      ) : null}
                     </div>
                   );
-                }
-
-                return (
-                  <div key={index} className="relative group">
-                    {uri ? (
-                      <>
-                        <div className="aspect-[3/4] overflow-hidden rounded-md border relative">
-                          <Image src={getDisplayableImageUrl(displayUri) || ''} alt={`Generated image ${index + 1}`} width={300} height={400} className="w-full h-full object-cover" />
-                          {isCurrentlyUpscalingThisSlot && (
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                              <div className="text-white text-center">
-                                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                                <p className="text-sm">Upscaling...</p>
-                              </div>
-                            </div>
-                          )}
-                          {originalUri && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm"
-                              onMouseDown={() => setComparingSlotIndex(index)}
-                              onMouseUp={() => setComparingSlotIndex(null)}
-                              onMouseLeave={() => setComparingSlotIndex(null)}
-                              onTouchStart={() => setComparingSlotIndex(index)}
-                              onTouchEnd={() => setComparingSlotIndex(null)}
-                              title="Hold to see original"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        <div className="mt-2 flex gap-1">
-                            <Button onClick={() => handleDownloadOutput(uri, index)} className="flex-1" variant="outline" size="sm" disabled={isProcessingThisSlot || isLoading}><Download className="h-3 w-3 mr-1" /> <span className="text-xs">DL</span></Button>
-                            <Button onClick={() => handleReRollImage(index)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><RefreshCw className="h-3 w-3 mr-1" /> <span className="text-xs">Re-roll</span></Button>
-                            <Button onClick={() => handleUpscale(index)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><Sparkles className="h-3 w-3 mr-1" /> <span className="text-xs">Upscale</span></Button>
-                            <Button onClick={() => handleSendToVideoPage(uri)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><VideoIcon className="h-3 w-3 mr-1" /> <span className="text-xs">Video</span></Button>
-                        </div>
-                      </>
-                    ) : isCurrentlyReRollingThisSlot ? (
-                      <div className="aspect-[3/4] flex items-center justify-center bg-muted/50 rounded-md border">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : error ? (
-                      <div className="aspect-[3/4] flex flex-col items-center justify-center text-center text-xs text-destructive p-2 bg-destructive/10">
-                        Failed. <Button onClick={() => handleReRollImage(index)} variant="link" size="sm" className="text-xs p-0 h-auto mt-1" disabled={isProcessingThisSlot || isLoading}>Retry</Button>
-                      </div>
-                    ) : (
-                      <div className="aspect-[3/4] flex flex-col items-center justify-center text-center text-xs text-muted-foreground p-2 bg-muted/50">
-                        Not generated. <Button onClick={() => handleReRollImage(index)} variant="link" size="sm" className="text-xs p-0 h-auto mt-1" disabled={isProcessingThisSlot || isLoading}>Generate</Button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                })
+              )}
             </div>
           </CardContent>
         </Card>
