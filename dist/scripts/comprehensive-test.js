@@ -159,9 +159,8 @@ async function comprehensiveTest() {
         const historyActions = await Promise.resolve().then(() => __importStar(require('../src/actions/historyActions')));
         // This should work without authentication for testing
         try {
-            const allHistory = dbService.getAllUsersHistory();
-            const firstUser = Object.keys(allHistory)[0];
-            const firstItem = allHistory[firstUser][0];
+            const paginatedHistory = dbService.getAllUsersHistoryPaginated(1, 100);
+            const firstItem = paginatedHistory.items[0];
             // Test the compatibility function (this will fail auth but that's expected)
             try {
                 await historyActions.getHistoryItemById(firstItem.id);

@@ -15,6 +15,7 @@ import { Buffer } from 'buffer';
 import fetch from 'node-fetch'; // For fetching image from URL
 import fs from 'fs';
 import path from 'path';
+import { saveDataUriLocally } from '@/services/storage.service';
 
 // NEW: Import Axios and HttpsProxyAgent for explicit proxy control
 import axios, { AxiosError } from 'axios';
@@ -138,62 +139,6 @@ const SingleImageOutputSchema = z.object({
     .describe('The URL or local path of the generated or edited image.'),
 });
 export type SingleImageOutput = z.infer<typeof SingleImageOutputSchema>;
-
-
-async function storeGeneratedImage(imageDataUri: string, fileNamePrefix: string): Promise<string> {
-  console.log('Using local storage for generated image.');
-  const match = imageDataUri.match(/^data:(image\/\w+);base64,(.+)$/);
-  if (!match) {
-    throw new Error('Invalid image data URI format for local save of generated image.');
-  }
-  const mimeType = match[1];
-  const base64Data = match[2];
-  const buffer = Buffer.from(base64Data, 'base64');
-  const extension = mimeType.split('/')[1] || 'png';
-  const uniqueFileName = `${fileNamePrefix}_${uuidv4()}.${extension}`;
-  const subfolder = 'generated_images';
-  const uploadDir = path.join(process.cwd(), 'public', 'uploads', subfolder);  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true, mode: 0o777 });
-    
-    const puid = process.env.PUID;
-    const pgid = process.env.PGID;
-    if (puid && pgid) {
-      try {
-        fs.chownSync(uploadDir, parseInt(puid), parseInt(pgid));
-        console.log(`Set directory ownership to ${puid}:${pgid} for: ${uploadDir}`);
-      } catch (chownError: unknown) { // Changed to unknown
-        const knownChownError = chownError as Error;
-        console.warn(`Warning: Could not set directory ownership for ${uploadDir}:`, knownChownError);
-      }
-    }
-  }
-    const filePath = path.join(uploadDir, uniqueFileName);
-  fs.writeFileSync(filePath, buffer, { mode: 0o777 });
-  
-  try {
-    fs.chmodSync(filePath, 0o777);
-    console.log(`Set file permissions to 777 for: ${filePath}`);
-  } catch (chmodError: unknown) { // Changed to unknown
-    const knownChmodError = chmodError as Error;
-    console.warn(`Warning: Could not set file permissions for ${filePath}:`, knownChmodError);
-  }
-
-  const puid = process.env.PUID;
-  const pgid = process.env.PGID;
-  if (puid && pgid) {
-    try {
-      fs.chownSync(filePath, parseInt(puid), parseInt(pgid));
-      console.log(`Set file ownership to ${puid}:${pgid} for: ${filePath}`);
-    } catch (chownError: unknown) { // Changed to unknown
-      const knownChownError = chownError as Error;
-      console.warn(`Warning: Could not set file ownership for ${filePath}:`, knownChownError);
-    }
-  }
-  
-  const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
-  console.log(`Generated image saved locally to: ${filePath}, accessible at: ${relativeUrl}`);
-  return relativeUrl;
-}
 
 async function performSingleImageGeneration(
   input: GenerateImageEditInput,
@@ -338,7 +283,11 @@ async function performSingleImageGeneration(
       }      console.log(`🔍 Successfully generated image on attempt ${attempt}/${maxAttempts} for ${flowIdentifier}`);
       
       try {
-        const imageUrl = await storeGeneratedImage(generatedImageDataUri, `RefashionAI_generated_${flowIdentifier}`);
+        const { relativeUrl: imageUrl } = await saveDataUriLocally(
+          generatedImageDataUri,
+          `RefashionAI_generated_${flowIdentifier}`,
+          'generated_images'
+        );
         return { editedImageUrl: imageUrl };
       } catch (uploadError: unknown) { // Changed to unknown
         const knownUploadError = uploadError as Error;

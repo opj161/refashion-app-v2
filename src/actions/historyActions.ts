@@ -155,20 +155,6 @@ export async function addStandaloneVideoHistoryItem(
   return newItem.id;
 }
 
-export async function getAllUsersHistoryForAdmin(): Promise<{ [username: string]: HistoryItem[] }> {
-  const user = await getCurrentUser();
-  if (!user || user.role !== 'admin') {
-    throw new Error('Admin access required');
-  }
-  
-  try {
-    return dbService.getAllUsersHistory();
-  } catch (error) {
-    console.error('Error reading history from database:', error);
-    return {};
-  }
-}
-
 export async function getAllUsersHistoryPaginatedForAdmin(
   page: number = 1, 
   limit: number = 10

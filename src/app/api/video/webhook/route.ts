@@ -114,13 +114,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Download the video from the temporary fal.ai URL and save it locally
-    const localVideoUrl = await saveFileFromUrl(falVideoUrl, 'RefashionAI_video', 'generated_videos', 'mp4');
+    const { relativeUrl: localVideoUrl } = await saveFileFromUrl(falVideoUrl, 'RefashionAI_video', 'generated_videos', 'mp4');
     
     // 6. Update the history item with the final details
     await updateVideoHistoryItem({
       username,
       historyItemId,
-      videoUrls: [falVideoUrl], // Store both for potential future use
+      videoUrls: [falVideoUrl], // Store remote URL for potential future use
       localVideoUrl: localVideoUrl,
       seedUsed: seedUsed,
       status: 'completed'

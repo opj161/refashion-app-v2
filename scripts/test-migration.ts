@@ -13,18 +13,17 @@ async function testMigration() {
     const db = dbService.getDb();
     console.log('   ✅ Database connected successfully\n');
     
-    // Test 2: Get all users history
-    console.log('2. Testing getAllUsersHistory...');
-    const allHistory = dbService.getAllUsersHistory();
-    console.log(`   📊 Found ${Object.keys(allHistory).length} users:`);
-    for (const [username, items] of Object.entries(allHistory)) {
-      console.log(`      - ${username}: ${items.length} items`);
-    }
-    console.log('   ✅ getAllUsersHistory works\n');
+    // Test 2: Get all users history (paginated)
+    console.log('2. Testing getAllUsersHistoryPaginated...');
+    const paginatedHistory = dbService.getAllUsersHistoryPaginated(1, 100);
+    console.log(`   📊 Found ${paginatedHistory.totalCount} total items`);
+    console.log(`   📊 Current page has ${paginatedHistory.items.length} items`);
+    console.log(`   📊 Has more pages: ${paginatedHistory.hasMore}`);
+    console.log('   ✅ getAllUsersHistoryPaginated works\n');
     
     // Test 3: Test pagination for a specific user
     console.log('3. Testing pagination...');
-    const usernames = Object.keys(allHistory);
+    const usernames = [...new Set(paginatedHistory.items.map(item => item.username))];
     if (usernames.length > 0) {
       const testUser = usernames[0];
       const paginatedResult = dbService.getPaginatedHistoryForUser({
@@ -39,14 +38,11 @@ async function testMigration() {
     
     // Test 4: Test finding specific item
     console.log('4. Testing findHistoryItemById...');
-    if (usernames.length > 0) {
-      const firstUser = allHistory[usernames[0]];
-      if (firstUser.length > 0) {
-        const testId = firstUser[0].id;
-        const foundItem = dbService.findHistoryItemById(testId);
-        console.log(`   🔍 Found item: ${foundItem ? foundItem.id : 'null'}`);
-        console.log(`   ✅ findHistoryItemById works\n`);
-      }
+    if (paginatedHistory.items.length > 0) {
+      const testId = paginatedHistory.items[0].id;
+      const foundItem = dbService.findHistoryItemById(testId);
+      console.log(`   🔍 Found item: ${foundItem ? foundItem.id : 'null'}`);
+      console.log(`   ✅ findHistoryItemById works\n`);
     }
     
     // Test 5: Test filtering

@@ -157,18 +157,18 @@ async function verifyMigration() {
   console.log('\n🔍 Running post-migration verification...');
   
   try {
-    const allHistory = dbService.getAllUsersHistory();
-    const usernames = Object.keys(allHistory);
-    let totalItems = 0;
+    const paginatedHistory = dbService.getAllUsersHistoryPaginated(1, 1000);
+    const usernames = [...new Set(paginatedHistory.items.map(item => item.username))];
     
     console.log(`\n📊 Verification Results:`);
+    console.log(`   Total items: ${paginatedHistory.totalCount}`);
+    console.log(`   Total users: ${usernames.length}`);
     for (const username of usernames) {
-      const userItems = allHistory[username];
-      totalItems += userItems.length;
-      console.log(`   ${username}: ${userItems.length} items`);
+      const userItems = paginatedHistory.items.filter(item => item.username === username);
+      console.log(`   - ${username}: ${userItems.length} items`);
     }
     
-    console.log(`\n✅ Total verification: ${usernames.length} users, ${totalItems} items in database`);
+    console.log(`\n✅ Total verification: ${usernames.length} users, ${paginatedHistory.totalCount} items in database`);
     
   } catch (error) {
     console.error('❌ Verification failed:', error);

@@ -106,7 +106,8 @@ describe('ImageStore', () => {
       const newVersionData = {
         dataUri: 'data:cropped',
         label: 'Cropped',
-        sourceVersionId: 'original'
+        sourceVersionId: 'original',
+        hash: 'test-hash-123'
       };
 
       let newVersionId: string = '';
@@ -127,7 +128,8 @@ describe('ImageStore', () => {
         versionId = useImageStore.getState().addVersion({
           dataUri: 'data:cropped',
           label: 'Cropped', 
-          sourceVersionId: 'original'
+          sourceVersionId: 'original',
+          hash: 'test-hash-456'
         });
       });
 

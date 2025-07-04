@@ -308,14 +308,6 @@ export function findHistoryItemById(id: string): HistoryItem | null {
   return row ? rowToHistoryItem(row) : null;
 }
 
-
-// WARNING: This function is deprecated due to N+1 query anti-pattern and poor scalability.
-// Use getAllUsersHistoryPaginated instead for admin/all-history and similar use cases.
-// This function may be removed in the future.
-export function getAllUsersHistory(): { [username: string]: HistoryItem[] } {
-  throw new Error('getAllUsersHistory is deprecated. Use getAllUsersHistoryPaginated instead.');
-}
-
 export function updateHistoryItem(
   id: string, 
   updates: Partial<Pick<HistoryItem, 'editedImageUrls' | 'originalImageUrls' | 'constructedPrompt' | 'generatedVideoUrls' | 'videoGenerationParams'>>

@@ -29,6 +29,16 @@ const getDefaultAspect = (mode: 'image' | 'video') => {
   return mode === 'video' ? 9 / 16 : 3 / 4;
 };
 
+// --- Hashing Helper Function ---
+const generateDataUriHash = async (dataUri: string): Promise<string> => {
+  const base64 = dataUri.split(',')[1];
+  if (!base64) throw new Error('Invalid data URI for hashing');
+  const buffer = Uint8Array.from(atob(base64), c => c.charCodeAt(0)).buffer;
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
 // --- Cropping Helper Function ---
 async function getCroppedImgDataUrl(
   displayedImage: HTMLImageElement,
@@ -127,10 +137,13 @@ export default function ImagePreparationContainer({
         activeImage.dataUri
       );
       
+      const croppedHash = await generateDataUriHash(croppedDataUrl);
+
       addVersion({
         dataUri: croppedDataUrl,
         label: 'Cropped',
         sourceVersionId: activeImage.id,
+        hash: croppedHash,
       });
       
       toast({ title: "Crop Applied", description: "A new cropped version has been added to your history." });
