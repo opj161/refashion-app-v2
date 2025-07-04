@@ -31,19 +31,12 @@ export default function ImageComparator({
   className,
 }: ImageComparatorProps) {
   return (
-    <div className={cn("image-comparator-container w-full", className)}>
-      {/* This style block is crucial. It targets the img elements directly
-          within the react-compare-image component, forcing them to scale
-          correctly without stretching or overflowing. */}
-      <style>{`
-        .image-comparator-container > div {
-          max-height: 60vh;
-        }
-        .image-comparator-container img {
-          object-fit: contain !important;
-          max-height: 60vh !important;
-        }
-      `}</style>
+    <div
+      className={cn(
+        "image-comparator-container w-full [&>div]:max-h-[60vh] [&_img]:max-h-[60vh] [&_img]:object-contain",
+        className
+      )}
+    >
       <ReactCompareImage
         leftImage={getDisplayableImageUrl(leftImageUri) || ''}
         rightImage={getDisplayableImageUrl(rightImageUri) || ''}

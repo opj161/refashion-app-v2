@@ -66,11 +66,28 @@ export default {
   				to: {
   					height: '0'
   				}
-  			}
+  			},
+        'progress-ribbings': {
+          '0%': { backgroundPosition: '100% 0' },
+          '100%': { backgroundPosition: '0 0' }
+        },
+        'progress-pulsation': {
+          '0%': { boxShadow: '0 0 0 0 rgba(0, 123, 255, 0.4)' },
+          '70%': { boxShadow: '0 0 0 10px rgba(0, 123, 255, 0)' },
+          '100%': { boxShadow: '0 0 0 0 rgba(0, 123, 255, 0)' }
+        },
+        'progress-completion': {
+          '0%': { backgroundColor: 'hsl(var(--primary))' },
+          '50%': { backgroundColor: 'hsl(142, 76%, 36%)', boxShadow: '0 0 20px rgba(34, 197, 94, 0.5)' },
+          '100%': { backgroundColor: 'hsl(142, 76%, 36%)', boxShadow: '0 0 10px rgba(34, 197, 94, 0.3)' }
+        }
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+        'progress-ribbings': 'progress-ribbings 2s linear infinite',
+        'progress-pulsation': 'progress-pulsation 1.5s infinite',
+        'progress-completion': 'progress-completion 1s ease-in-out'
   		}
   	}
   },
