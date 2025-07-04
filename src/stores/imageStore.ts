@@ -43,9 +43,9 @@ export interface ImageActions {
   reset: () => void;
   
   // Async actions
-  removeBackground: () => Promise<void>;
-  upscaleImage: () => Promise<void>;
-  faceDetailer: () => Promise<void>;
+  removeBackground: (username: string) => Promise<void>;
+  upscaleImage: (username: string) => Promise<void>;
+  faceDetailer: (username: string) => Promise<void>;
   uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
 
 }
@@ -156,7 +156,7 @@ export const useImageStore = create<ImageStore>()(
       },
 
       // --- Async Actions ---
-      removeBackground: async () => {
+      removeBackground: async (username: string) => {
         const { activeVersionId, versions } = get();
         if (!activeVersionId || !versions[activeVersionId]) {
           console.warn('No active version for background removal');
@@ -172,22 +172,20 @@ export const useImageStore = create<ImageStore>()(
           const { savedPath, outputHash } = await removeBackgroundAction(
             imageUrlOrDataUri,
             currentVersion.hash
-          );
+          ); // username is now handled inside removeBackgroundAction
           get().addVersion({
             dataUri: savedPath,
             label: 'Background Removed',
             sourceVersionId: activeVersionId,
             hash: outputHash,
           });
-          console.log('Background removed successfully');
         } catch (error) {
-          console.error('Background removal failed:', error);
-          set({ isProcessing: false, processingStep: null }, false, 'removeBackground:error');
-          throw error;
+          console.error('Error removing background:', error);
+        } finally {
+          set({ isProcessing: false, processingStep: null }, false, 'removeBackground:end');
         }
       },
-
-      upscaleImage: async () => {
+      upscaleImage: async (username: string) => {
         const { activeVersionId, versions, original } = get();
         if (!activeVersionId || !versions[activeVersionId]) {
           console.warn('No active version for upscaling');
@@ -202,24 +200,21 @@ export const useImageStore = create<ImageStore>()(
           }
           const { savedPath, outputHash } = await upscaleImageAction(
             imageUrlOrDataUri,
-            currentVersion.hash,
-            original?.file?.name
-          );
+            currentVersion.hash
+          ); // username is now handled inside upscaleImageAction
           get().addVersion({
             dataUri: savedPath,
             label: 'Upscaled',
             sourceVersionId: activeVersionId,
             hash: outputHash,
           });
-          console.log('Image upscaled successfully');
         } catch (error) {
-          console.error('Image upscaling failed:', error);
-          set({ isProcessing: false, processingStep: null }, false, 'upscaleImage:error');
-          throw error;
+          console.error('Error upscaling image:', error);
+        } finally {
+          set({ isProcessing: false, processingStep: null }, false, 'upscaleImage:end');
         }
       },
-
-      faceDetailer: async () => {
+      faceDetailer: async (username: string) => {
         const { activeVersionId, versions, original } = get();
         if (!activeVersionId || !versions[activeVersionId]) {
           console.warn('No active version for face detailer');
@@ -234,20 +229,18 @@ export const useImageStore = create<ImageStore>()(
           }
           const { savedPath, outputHash } = await faceDetailerAction(
             imageUrlOrDataUri,
-            currentVersion.hash,
-            original?.file?.name
-          );
+            currentVersion.hash
+          ); // username is now handled inside faceDetailerAction
           get().addVersion({
             dataUri: savedPath,
             label: 'Face Enhanced',
             sourceVersionId: activeVersionId,
             hash: outputHash,
           });
-          console.log('Face enhancement completed successfully');
         } catch (error) {
-          console.error('Face enhancement failed:', error);
-          set({ isProcessing: false, processingStep: null }, false, 'faceDetailer:error');
-          throw error;
+          console.error('Error enhancing face details:', error);
+        } finally {
+          set({ isProcessing: false, processingStep: null }, false, 'faceDetailer:end');
         }
       },
 

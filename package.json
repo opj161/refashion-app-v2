@@ -12,7 +12,9 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "migrate:json-to-sqlite": "node dist/scripts/migrate-json-to-sqlite.js",
-    "migrate:users-to-sqlite": "node dist/scripts/migrate-users-to-sqlite.js"
+    "migrate:users-to-sqlite": "node dist/scripts/migrate-users-to-sqlite.js",
+    "migrate:granular-api-keys": "node dist/scripts/add-granular-api-key-columns.js",
+    "script": "tsx"
   },
   "dependencies": {
     "@fal-ai/client": "^1.5.0",

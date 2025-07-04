@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
 import { Buffer } from 'buffer';
+import { getCurrentUser } from '@/actions/authActions';
 
 // Helper function to convert Data URI to Blob
 function dataURItoBlob(dataURI: string): Blob {
@@ -16,6 +17,10 @@ function dataURItoBlob(dataURI: string): Blob {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
     if (!await isFalVideoGenerationAvailable()) {
       return NextResponse.json(
         { success: false, error: 'Image upload service is not configured (FAL_KEY missing).' },
@@ -77,7 +82,7 @@ export async function POST(request: NextRequest) {
     // Ensure 'file' is a File object if 'uploadToFalStorage' expects it
     // The current `uploadToFalStorage` in `generate-video.ts` takes `File | Blob`
     // so no explicit conversion is needed here if `file` is already a Blob from dataURI.
-    const falImageUrl = await uploadToFalStorage(file);
+    const falImageUrl = await uploadToFalStorage(file, user.username);
 
     console.log(`File uploaded to Fal Storage, URL: ${falImageUrl}`);
 

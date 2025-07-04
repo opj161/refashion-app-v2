@@ -12,8 +12,9 @@
  * They do not handle local storage.
  */
 
-import { fal } from '@fal-ai/client';
+import { fal, createFalClient } from '@fal-ai/client';
 import { uploadToFalStorage } from '@/ai/actions/generate-video.action';
+import { getApiKeyForUser } from '../apiKey.service';
 
 // Constants for upscaling and face enhancement
 const UPSCALE_PROMPT = "high quality fashion photography, high-quality clothing, natural, 8k";
@@ -45,12 +46,12 @@ function dataUriToBlob(dataURI: string): Blob {
 /**
  * Helper to ensure we have a URL (uploads data URI to Fal Storage if needed)
  */
-async function ensureUrl(imageUrlOrDataUri: string, tempFileName: string): Promise<string> {
+async function ensureUrl(imageUrlOrDataUri: string, tempFileName: string, username: string): Promise<string> {
   if (imageUrlOrDataUri.startsWith('data:')) {
     console.log(`Data URI detected for ${tempFileName}, uploading to Fal Storage first...`);
     const blob = dataUriToBlob(imageUrlOrDataUri);
     const file = new File([blob], tempFileName, { type: blob.type || 'image/jpeg' });
-    const publicUrl = await uploadToFalStorage(file);
+    const publicUrl = await uploadToFalStorage(file, username);
     console.log(`Image uploaded to ${publicUrl}. Now processing.`);
     return publicUrl;
   }
@@ -64,22 +65,24 @@ async function ensureUrl(imageUrlOrDataUri: string, tempFileName: string): Promi
  * @param taskName A descriptive name for the task for logging purposes.
  * @returns Promise<string> The URL of the processed image from Fal.ai.
  */
-async function runFalImageWorkflow(modelId: string, input: any, taskName: string): Promise<string> {
+async function runFalImageWorkflow(modelId: string, input: any, taskName: string, username: string): Promise<string> {
   try {
     console.log(`Calling Fal.ai ${modelId} for ${taskName}...`);
+
+    const falKey = await getApiKeyForUser(username, 'fal');
+    const scopedFal = createFalClient({ credentials: falKey });
 
     // Ensure the input image is a public URL
     if (input.image_url || input.loadimage_1) {
       const key = input.image_url ? 'image_url' : 'loadimage_1';
-      input[key] = await ensureUrl(input[key], `${taskName.replace(/\s+/g, '-')}-input.jpg`);
+      input[key] = await ensureUrl(input[key], `${taskName.replace(/\s+/g, '-')}-input.jpg`, username);
     }
-
-    const result: any = await fal.subscribe(modelId, {
+    const result: any = await scopedFal.subscribe(modelId, {
       input,
       logs: process.env.NODE_ENV === 'development',
-      onQueueUpdate: (update) => {
+      onQueueUpdate: (update: any) => {
         if (update.status === "IN_PROGRESS" && update.logs && process.env.NODE_ENV === 'development') {
-          update.logs.forEach(log => console.log(`[Fal.ai Progress - ${taskName}]: ${log.message}`));
+          (update.logs as any[]).forEach((log: any) => console.log(`[Fal.ai Progress - ${taskName}]: ${log.message}`));
         }
       },
     });
@@ -117,8 +120,8 @@ async function runFalImageWorkflow(modelId: string, input: any, taskName: string
  * @param imageUrlOrDataUri The image data URI or public URL to process
  * @returns Promise<string> The URL of the processed image from Fal.ai
  */
-export async function removeBackground(imageUrlOrDataUri: string): Promise<string> {
-  return runFalImageWorkflow("fal-ai/rembg", { image_url: imageUrlOrDataUri }, 'Background Removal');
+export async function removeBackground(imageUrlOrDataUri: string, username: string): Promise<string> {
+  return runFalImageWorkflow("fal-ai/rembg", { image_url: imageUrlOrDataUri }, 'Background Removal', username);
 }
 
 /**
@@ -126,7 +129,7 @@ export async function removeBackground(imageUrlOrDataUri: string): Promise<strin
  * @param imageUrlOrDataUri The image URL or data URI to process
  * @returns Promise<string> The URL of the processed image from Fal.ai
  */
-export async function upscaleAndEnhance(imageUrlOrDataUri: string): Promise<string> {
+export async function upscaleAndEnhance(imageUrlOrDataUri: string, username: string): Promise<string> {
   const input = {
     loadimage_1: imageUrlOrDataUri,
     prompt_upscale: UPSCALE_PROMPT,
@@ -134,7 +137,7 @@ export async function upscaleAndEnhance(imageUrlOrDataUri: string): Promise<stri
     prompt_face: UPSCALE_FACE_PROMPT,
     negative_face: NEGATIVE_UPSCALE_FACE_PROMPT,
   };
-  return runFalImageWorkflow("comfy/opj161/sd-ultimateface", input, 'Upscaling and Enhancement');
+  return runFalImageWorkflow("comfy/opj161/sd-ultimateface", input, 'Upscaling and Enhancement', username);
 }
 
 /**
@@ -142,13 +145,13 @@ export async function upscaleAndEnhance(imageUrlOrDataUri: string): Promise<stri
  * @param imageUrlOrDataUri The image URL or data URI to process
  * @returns Promise<string> The URL of the processed image from Fal.ai
  */
-export async function detailFaces(imageUrlOrDataUri: string): Promise<string> {
+export async function detailFaces(imageUrlOrDataUri: string, username: string): Promise<string> {
   const input = {
     loadimage_1: imageUrlOrDataUri,
     prompt_face: FACE_DETAILER_PROMPT,
     negative_face: NEGATIVE_FACE_DETAILER_PROMPT,
   };
-  return runFalImageWorkflow("comfy/opj161/face-detailer", input, 'Face Detailing');
+  return runFalImageWorkflow("comfy/opj161/face-detailer", input, 'Face Detailing', username);
 }
 
 /**
@@ -156,6 +159,10 @@ export async function detailFaces(imageUrlOrDataUri: string): Promise<string> {
  * @returns {Promise<boolean>} True if the service is available, otherwise false.
  */
 export async function isServiceAvailable(): Promise<boolean> {
-  // The availability of all Fal.ai services depends on the presence of the FAL_KEY.
-  return !!process.env.FAL_KEY;
+  // Now, we can only check if the service is potentially available.
+  // A true availability check would require a username to check for keys.
+  // A simple check is to see if any global key is set.
+  const globalKey = (await import('../settings.service')).getSetting('global_fal_api_key');
+  const { decrypt } = await import('../encryption.service');
+  return !!decrypt(globalKey);
 }

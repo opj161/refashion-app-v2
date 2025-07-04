@@ -17,6 +17,7 @@ import {
 import { 
   Wand2, Sparkles, UserCheck, CheckCircle, Loader2 
 } from "lucide-react";
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ImageProcessingToolsProps {
   preparationMode: 'image' | 'video';
@@ -36,6 +37,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   } = useImageStore();
   
   const activeImage = useActiveImage();
+  const { user } = useAuth();
 
   // Service availability state
   const [isBgRemovalAvailable, setIsBgRemovalAvailable] = useState(false);
@@ -62,15 +64,16 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
 
   // --- Event Handlers ---
   const handleToggleBackgroundRemoval = async (checked: boolean) => {
+    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     if (checked) {
       try {
-        await removeBackground();
-        toast({ title: "Background Removed", description: "Background has been successfully removed." });
+        await removeBackground(user.username);
+        toast({ title: 'Background Removed', description: 'Background has been successfully removed.' });
       } catch (error) {
         toast({ 
-          title: "Background Removal Failed", 
+          title: 'Background Removal Failed', 
           description: (error as Error).message, 
-          variant: "destructive" 
+          variant: 'destructive' 
         });
       }
     } else {
@@ -91,27 +94,29 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   };
 
   const handleUpscaleImage = async () => {
+    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     try {
-      await upscaleImage();
-      toast({ title: "Image Upscaled", description: "Your image has been upscaled successfully." });
+      await upscaleImage(user.username);
+      toast({ title: 'Image Upscaled', description: 'Your image has been upscaled successfully.' });
     } catch (error) {
       toast({ 
-        title: "Upscaling Failed", 
+        title: 'Upscaling Failed', 
         description: (error as Error).message, 
-        variant: "destructive" 
+        variant: 'destructive' 
       });
     }
   };
 
   const handleFaceDetailer = async () => {
+    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     try {
-      await faceDetailer();
-      toast({ title: "Face Details Enhanced", description: "Face details have been enhanced successfully." });
+      await faceDetailer(user.username);
+      toast({ title: 'Face Details Enhanced', description: 'Face details have been enhanced successfully.' });
     } catch (error) {
       toast({ 
-        title: "Face Enhancement Failed", 
+        title: 'Face Enhancement Failed', 
         description: (error as Error).message, 
-        variant: "destructive" 
+        variant: 'destructive' 
       });
     }
   };

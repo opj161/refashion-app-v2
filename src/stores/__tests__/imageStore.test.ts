@@ -205,7 +205,7 @@ describe('ImageStore', () => {
 
     it('should handle background removal', async () => {
       await act(async () => {
-        await useImageStore.getState().removeBackground();
+        await useImageStore.getState().removeBackground('test-user');
       });
 
       const state = useImageStore.getState();
@@ -229,7 +229,7 @@ describe('ImageStore', () => {
 
     it('should handle upscaling', async () => {
       await act(async () => {
-        await useImageStore.getState().upscaleImage();
+        await useImageStore.getState().upscaleImage('test-user');
       });
 
       const state = useImageStore.getState();
@@ -243,7 +243,7 @@ describe('ImageStore', () => {
 
     it('should handle face detailing', async () => {
       await act(async () => {
-        await useImageStore.getState().faceDetailer();
+        await useImageStore.getState().faceDetailer('test-user');
       });
 
       const state = useImageStore.getState();
@@ -262,7 +262,7 @@ describe('ImageStore', () => {
 
       await expect(
         act(async () => {
-          await useImageStore.getState().removeBackground();
+          await useImageStore.getState().removeBackground('test-user');
         })
       ).rejects.toThrow('Test error');
 

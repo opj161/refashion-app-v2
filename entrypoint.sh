@@ -12,6 +12,16 @@ echo "--- Running database migration ---"
 node /app/dist/scripts/migrate-json-to-sqlite.js || echo "Migration completed or skipped"
 echo "--- Migration check complete ---"
 
+# Run the new API key column migration
+echo "--- Running API key column migration ---"
+node /app/dist/scripts/add-api-key-columns-to-users.js || echo "API key column migration completed or skipped"
+echo "--- API key column migration check complete ---"
+
+# Run the new granular API key migration
+echo "--- Running granular API key migration ---"
+node /app/dist/scripts/add-granular-api-key-columns.js || echo "Granular API key migration completed or skipped"
+echo "--- Granular API key migration check complete ---"
+
 # Use PUID/PGID from environment, or default to 1000 (common for 'node' user in base images)
 # Unraid should be passing PUID=99 and PGID=100
 PUID_TO_USE=${PUID:-1000}

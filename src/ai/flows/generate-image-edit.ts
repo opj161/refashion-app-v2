@@ -16,6 +16,7 @@ import fetch from 'node-fetch'; // For fetching image from URL
 import fs from 'fs';
 import path from 'path';
 import { saveDataUriLocally } from '@/services/storage.service';
+import { getApiKeyForUser } from '@/services/apiKey.service';
 
 // NEW: Import Axios and HttpsProxyAgent for explicit proxy control
 import axios, { AxiosError } from 'axios';
@@ -142,14 +143,11 @@ export type SingleImageOutput = z.infer<typeof SingleImageOutputSchema>;
 
 async function performSingleImageGeneration(
   input: GenerateImageEditInput,
-  flowIdentifier: string
+  flowIdentifier: string,
+  username: string,
+  keyIndex: 1 | 2 | 3
 ): Promise<SingleImageOutput> {
-  let apiKey: string | undefined;
-  if (flowIdentifier === 'flow1') apiKey = process.env.GEMINI_API_KEY_1;
-  else if (flowIdentifier === 'flow2') apiKey = process.env.GEMINI_API_KEY_2;
-  else if (flowIdentifier === 'flow3') apiKey = process.env.GEMINI_API_KEY_3;if (!apiKey) {
-    throw new Error(`API key not found for ${flowIdentifier}. Ensure GEMINI_API_KEY_1/2/3 are set.`);
-  }
+  const apiKey = await getApiKeyForUser(username, 'gemini', keyIndex);
 
   let sourceImageDataForModelProcessing: { mimeType: string; data: string; } | null = null;
   if (input.imageDataUriOrUrl) {
@@ -312,16 +310,16 @@ async function performSingleImageGeneration(
   throw new Error(`Failed to generate image after ${maxAttempts} attempts for ${flowIdentifier}`);
 }
 
-async function generateImageFlow1(input: GenerateImageEditInput): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, 'flow1');
+async function generateImageFlow1(input: GenerateImageEditInput, username: string): Promise<SingleImageOutput> {
+  return performSingleImageGeneration(input, 'flow1', username, 1);
 }
 
-async function generateImageFlow2(input: GenerateImageEditInput): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, 'flow2');
+async function generateImageFlow2(input: GenerateImageEditInput, username: string): Promise<SingleImageOutput> {
+  return performSingleImageGeneration(input, 'flow2', username, 2);
 }
 
-async function generateImageFlow3(input: GenerateImageEditInput): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, 'flow3');
+async function generateImageFlow3(input: GenerateImageEditInput, username: string): Promise<SingleImageOutput> {
+  return performSingleImageGeneration(input, 'flow3', username, 3);
 }
 
 const GenerateMultipleImagesOutputSchema = z.object({
@@ -333,11 +331,14 @@ const GenerateMultipleImagesOutputSchema = z.object({
 export type GenerateMultipleImagesOutput = z.infer<typeof GenerateMultipleImagesOutputSchema>;
 
 
-export async function generateImageEdit(input: GenerateImageEditInput): Promise<GenerateMultipleImagesOutput> {
+export async function generateImageEdit(input: GenerateImageEditInput, username: string): Promise<GenerateMultipleImagesOutput> {
+  if (!username) {
+    throw new Error('Username is required to generate images.');
+  }
   const results = await Promise.allSettled([
-    generateImageFlow1(input),
-    generateImageFlow2(input),
-    generateImageFlow3(input),
+    generateImageFlow1(input, username),
+    generateImageFlow2(input, username),
+    generateImageFlow3(input, username),
   ]);
 
   const editedImageUrlsResult: (string | null)[] = [null, null, null];
@@ -360,15 +361,18 @@ export async function generateImageEdit(input: GenerateImageEditInput): Promise<
   };
 }
 
-export async function regenerateSingleImage(input: GenerateImageEditInput, flowIndex: number): Promise<SingleImageOutput> {
+export async function regenerateSingleImage(input: GenerateImageEditInput, flowIndex: number, username: string): Promise<SingleImageOutput> {
+  if (!username) {
+    throw new Error('Username is required to re-roll an image.');
+  }
   console.log(`Attempting to re-roll image for flow index: ${flowIndex}`);
   switch (flowIndex) {
     case 0:
-      return generateImageFlow1(input);
+      return performSingleImageGeneration(input, 'flow1-reroll', username, 1);
     case 1:
-      return generateImageFlow2(input);
+      return performSingleImageGeneration(input, 'flow2-reroll', username, 2);
     case 2:
-      return generateImageFlow3(input);
+      return performSingleImageGeneration(input, 'flow3-reroll', username, 3);
     default:
       throw new Error(`Invalid flow index: ${flowIndex}. Must be 0, 1, or 2.`);
   }

@@ -11,6 +11,8 @@
  */
 
 import { fal } from '@fal-ai/client';
+import { getApiKeyForUser } from '../apiKey.service';
+import { getSetting, getBooleanSetting } from '../settings.service';
 
 export interface VideoGenerationInput {
   prompt: string;
@@ -106,16 +108,15 @@ export async function getVideoGenerationResult(taskId: string): Promise<VideoGen
  * Starts a video generation task using a webhook for completion notification
  * @param input The video generation parameters
  * @param webhookUrl The URL that fal.ai will call upon completion
+ * @param username The username for fetching the API key
  * @returns Promise<string> The request ID for the submitted job
  */
-export async function startVideoGenerationWithWebhook(input: VideoGenerationInput, webhookUrl: string): Promise<string> {
+export async function startVideoGenerationWithWebhook(input: VideoGenerationInput, webhookUrl: string, username: string): Promise<string> {
   try {
     console.log('Submitting video job to Fal.ai with webhook:', webhookUrl);
-    // Determine which fal.ai model to use
     const modelId = input.videoModel === 'pro'
       ? 'fal-ai/bytedance/seedance/v1/pro/image-to-video'
-      : 'fal-ai/bytedance/seedance/v1/lite/image-to-video'; // Default to lite
-    // Prepare the input for Fal.ai, only including defined values
+      : 'fal-ai/bytedance/seedance/v1/lite/image-to-video';
     const falInput: any = {
       prompt: input.prompt,
       image_url: input.image_url,
@@ -125,11 +126,11 @@ export async function startVideoGenerationWithWebhook(input: VideoGenerationInpu
     if (typeof input.camera_fixed === 'boolean') falInput.camera_fixed = input.camera_fixed;
     if (typeof input.seed === 'number' && input.seed !== undefined) falInput.seed = input.seed;
     console.log('Fal.ai input parameters:', JSON.stringify(falInput, null, 2));
-    // Use a direct HTTP request to queue.fal.run with the fal_webhook parameter
+    const falKey = await getApiKeyForUser(username, 'fal');
     const response = await fetch(`https://queue.fal.run/${modelId}?fal_webhook=${encodeURIComponent(webhookUrl)}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Key ${process.env.FAL_KEY}`,
+        'Authorization': `Key ${falKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(falInput),
@@ -150,5 +151,9 @@ export async function startVideoGenerationWithWebhook(input: VideoGenerationInpu
  * @returns Promise<boolean> True if the service is configured and available
  */
 export async function isVideoServiceAvailable(): Promise<boolean> {
-  return !!process.env.FAL_KEY;
+  // Check if the feature flag is enabled AND a global key exists.
+  // This is the best we can do without a user context.
+  const featureEnabled = getBooleanSetting('feature_video_generation');
+  const globalKey = getSetting('global_fal_api_key');
+  return featureEnabled && !!globalKey;
 }

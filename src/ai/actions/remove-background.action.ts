@@ -10,6 +10,7 @@
 import * as falImageService from '@/services/fal-api/image.service';
 import { saveFileFromUrl } from '@/services/storage.service';
 import { getCachedImage, setCachedImage } from './cache-manager';
+import { getCurrentUser } from '@/actions/authActions';
 
 /**
  * Remove background from a user-uploaded image
@@ -20,11 +21,14 @@ import { getCachedImage, setCachedImage } from './cache-manager';
  */
 export async function removeBackgroundAction(
   imageUrlOrDataUri: string,
-  imageHash?: string,
-  originalFileName?: string
+  imageHash?: string
 ): Promise<{ savedPath: string; outputHash: string }> {
   if (!imageUrlOrDataUri) {
     throw new Error('Image data URI or URL is required for background removal');
+  }
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Authentication required for background removal.');
   }
 
   // Check cache first if hash is provided
@@ -41,7 +45,7 @@ export async function removeBackgroundAction(
     console.log('Starting background removal process with Fal.ai...');
 
     // Remove background using Fal.ai service
-    const outputImageUrl = await falImageService.removeBackground(imageUrlOrDataUri);
+    const outputImageUrl = await falImageService.removeBackground(imageUrlOrDataUri, user.username);
     
     console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
 

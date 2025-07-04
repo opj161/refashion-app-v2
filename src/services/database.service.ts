@@ -55,7 +55,15 @@ function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS users (
       username TEXT PRIMARY KEY,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin', 'user'))
+      role TEXT NOT NULL CHECK (role IN ('admin', 'user')),
+      gemini_api_key_1 TEXT,
+      gemini_api_key_1_mode TEXT NOT NULL DEFAULT 'global' CHECK (gemini_api_key_1_mode IN ('global', 'user_specific')),
+      gemini_api_key_2 TEXT,
+      gemini_api_key_2_mode TEXT NOT NULL DEFAULT 'global' CHECK (gemini_api_key_2_mode IN ('global', 'user_specific')),
+      gemini_api_key_3 TEXT,
+      gemini_api_key_3_mode TEXT NOT NULL DEFAULT 'global' CHECK (gemini_api_key_3_mode IN ('global', 'user_specific')),
+      fal_api_key TEXT,
+      fal_api_key_mode TEXT NOT NULL DEFAULT 'global' CHECK (fal_api_key_mode IN ('global', 'user_specific'))
     );
     
     CREATE TABLE IF NOT EXISTS history_images (
@@ -83,7 +91,11 @@ function initSchema(db: Database.Database) {
       ('feature_video_generation', 'true'),
       ('feature_background_removal', 'true'),
       ('feature_image_upscaling', 'true'),
-      ('feature_face_detailer', 'true')
+      ('feature_face_detailer', 'true'),
+      ('global_gemini_api_key_1', ''),
+      ('global_gemini_api_key_2', ''),
+      ('global_gemini_api_key_3', ''),
+      ('global_fal_api_key', '')
   `);
   console.log('Database schema initialized.');
 }
@@ -507,9 +519,17 @@ export function getHistoryItemStatus(id: string, username: string): VideoStatusP
   };
 }
 
-export function findUserByUsername(username: string): (SessionUser & { passwordHash: string }) | null {
+type FullUser = SessionUser & {
+  passwordHash: string;
+  gemini_api_key_1?: string; gemini_api_key_1_mode: 'global' | 'user_specific';
+  gemini_api_key_2?: string; gemini_api_key_2_mode: 'global' | 'user_specific';
+  gemini_api_key_3?: string; gemini_api_key_3_mode: 'global' | 'user_specific';
+  fal_api_key?: string; fal_api_key_mode: 'global' | 'user_specific';
+};
+
+export function findUserByUsername(username: string): FullUser | null {
   const db = getDb();
-  const stmt = db.prepare('SELECT username, password_hash, role FROM users WHERE username = ?');
+  const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
   const row: any = stmt.get(username);
 
   if (!row) {
@@ -519,7 +539,15 @@ export function findUserByUsername(username: string): (SessionUser & { passwordH
     username: row.username,
     passwordHash: row.password_hash,
     role: row.role as 'admin' | 'user',
-    isLoggedIn: true // This is for session compatibility, not stored in DB
+    isLoggedIn: true, // This is for session compatibility, not stored in DB
+    gemini_api_key_1: row.gemini_api_key_1,
+    gemini_api_key_1_mode: row.gemini_api_key_1_mode,
+    gemini_api_key_2: row.gemini_api_key_2,
+    gemini_api_key_2_mode: row.gemini_api_key_2_mode,
+    gemini_api_key_3: row.gemini_api_key_3,
+    gemini_api_key_3_mode: row.gemini_api_key_3_mode,
+    fal_api_key: row.fal_api_key,
+    fal_api_key_mode: row.fal_api_key_mode
   };
 }
 

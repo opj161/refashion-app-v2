@@ -10,6 +10,7 @@
 import * as falImageService from '@/services/fal-api/image.service';
 import { saveFileFromUrl } from '@/services/storage.service';
 import { getCachedImage, setCachedImage } from './cache-manager';
+import { getCurrentUser } from '@/actions/authActions';
 
 /**
  * Upscale and enhance a user-uploaded image
@@ -20,11 +21,14 @@ import { getCachedImage, setCachedImage } from './cache-manager';
  */
 export async function upscaleImageAction(
   imageUrlOrDataUri: string,
-  imageHash?: string,
-  originalFileName?: string
+  imageHash?: string
 ): Promise<{ savedPath: string; outputHash: string }> {
   if (!imageUrlOrDataUri) {
     throw new Error('Image data URI or URL is required for upscaling');
+  }
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Authentication required for upscaling.');
   }
 
   // Check cache first if hash is provided
@@ -41,7 +45,7 @@ export async function upscaleImageAction(
     console.log('Starting image upscaling process with Fal.ai...');
 
     // Process image using Fal.ai service
-    const outputImageUrl = await falImageService.upscaleAndEnhance(imageUrlOrDataUri);
+    const outputImageUrl = await falImageService.upscaleAndEnhance(imageUrlOrDataUri, user.username);
     
     console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
 
@@ -77,11 +81,14 @@ export async function upscaleImageAction(
  */
 export async function faceDetailerAction(
   imageUrlOrDataUri: string,
-  imageHash?: string,
-  originalFileName?: string
+  imageHash?: string
 ): Promise<{ savedPath: string; outputHash: string }> {
   if (!imageUrlOrDataUri) {
     throw new Error('Image data URI or URL is required for face detailing');
+  }
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Authentication required for face detailing.');
   }
 
   // Check cache first if hash is provided
@@ -98,7 +105,7 @@ export async function faceDetailerAction(
     console.log('Starting face enhancement process with Fal.ai...');
 
     // Call the new, specific service function
-    const outputImageUrl = await falImageService.detailFaces(imageUrlOrDataUri);
+    const outputImageUrl = await falImageService.detailFaces(imageUrlOrDataUri, user.username);
 
     console.log(`Fal.ai face-detailer processed image URL: ${outputImageUrl}`);
 

@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { uploadToFalStorage } from '@/ai/actions/generate-video.action';
 import { useActiveImage } from "@/stores/imageStore";
+import { useAuth } from "@/contexts/AuthContext";
 import {
     PREDEFINED_PROMPTS, MODEL_MOVEMENT_OPTIONS, FABRIC_MOTION_OPTIONS_VIDEO, // Use FABRIC_MOTION_OPTIONS_VIDEO
     CAMERA_ACTION_OPTIONS, AESTHETIC_VIBE_OPTIONS as AESTHETIC_STYLE_OPTIONS
@@ -143,6 +144,7 @@ export default function VideoParameters({
   isLoadingHistory = false 
 }: VideoParametersProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   
   // Get prepared image from store instead of props
   const activeImage = useActiveImage();
@@ -285,6 +287,10 @@ export default function VideoParameters({
       toast({ title: "Missing Prompt", description: "Prompt is empty. Please select options or modify it.", variant: "destructive" });
       return;
     }
+    if (!user?.username) {
+        toast({ title: "Authentication Error", description: "Could not determine current user. Please log in again.", variant: "destructive" });
+        return;
+    }
 
     setIsGenerating(true);
     setGenerationError(null);
@@ -309,7 +315,7 @@ export default function VideoParameters({
           const imageBlob = dataUriToBlob(preparedImageUrl);
           const imageFile = new File([imageBlob], "prepared-image.jpg", { type: "image/jpeg" });
           // Upload to Fal storage
-          imageUrlForVideo = await uploadToFalStorage(imageFile);
+          imageUrlForVideo = await uploadToFalStorage(imageFile, user.username);
           update({ id: toastId, title: "Image Uploaded!", description: "Starting video generation..." });
         } catch (uploadError) {
           console.error("Error uploading to Fal storage:", uploadError);

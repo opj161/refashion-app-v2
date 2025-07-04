@@ -1,9 +1,10 @@
 'use server';
 
-import { fal } from '@fal-ai/client';
+import { fal, createFalClient } from '@fal-ai/client';
 import { getCurrentUser } from '@/actions/authActions';
 import { addStandaloneVideoHistoryItem, updateVideoHistoryItem } from '@/actions/historyActions';
 import * as videoService from '@/services/fal-api/video.service'; // Use the service layer
+import { getApiKeyForUser } from '@/services/apiKey.service';
 
 // Ensure FAL_KEY is available, otherwise Fal.ai calls will fail
 if (!process.env.FAL_KEY) {
@@ -45,12 +46,12 @@ export async function isFalVideoGenerationAvailable(): Promise<boolean> {
 /**
  * Utility to upload a file (from Blob or File object) to Fal Storage.
  */
-export async function uploadToFalStorage(file: File | Blob): Promise<string> {
-  if (!process.env.FAL_KEY) {
-    throw new Error('FAL_KEY environment variable is not set. Cannot upload to Fal Storage.');
-  }
+export async function uploadToFalStorage(file: File | Blob, username: string): Promise<string> {
   try {
-    const url = await fal.storage.upload(file);
+    const falKey = await getApiKeyForUser(username, 'fal');
+    // Use a per-user Fal client instance with the correct credentials
+    const scopedFal = createFalClient({ credentials: falKey });
+    const url = await scopedFal.storage.upload(file);
     console.log(`File uploaded to Fal Storage: ${url}`);
     return url;
   } catch (error: any) {
@@ -104,7 +105,7 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
       seed: input.seed,
     };
 
-    const taskId = await videoService.startVideoGenerationWithWebhook(videoServiceInput, webhookUrl);
+    const taskId = await videoService.startVideoGenerationWithWebhook(videoServiceInput, webhookUrl, user.username);
 
     // Update the history item with the taskId for tracking
     await updateVideoHistoryItem({ 

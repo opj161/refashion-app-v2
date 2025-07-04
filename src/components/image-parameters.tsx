@@ -311,7 +311,7 @@ export default function ImageParameters({
 
     try {
       const input: GenerateImageEditInput = { prompt: finalPromptToUse, imageDataUriOrUrl: preparedImageUrl };
-      const result: GenerateMultipleImagesOutput = await generateImageEdit(input);
+      const result: GenerateMultipleImagesOutput = await generateImageEdit(input, currentUser?.username || '');
       setOutputImageUrls(result.editedImageUrls);
       setGenerationErrors(result.errors || Array(NUM_IMAGES_TO_GENERATE).fill(null));
 
@@ -346,7 +346,7 @@ export default function ImageParameters({
     
     try {
         const inputForReroll: GenerateImageEditInput = { prompt: currentPrompt, imageDataUriOrUrl: preparedImageUrl };
-        const result = await regenerateSingleImage(inputForReroll, slotIndex);
+        const result = await regenerateSingleImage(inputForReroll, slotIndex, currentUser?.username || '');
 
         const updatedUrls = [...outputImageUrls];
         const newImageUrl = result.editedImageUrl;
@@ -421,8 +421,8 @@ export default function ImageParameters({
         imageDataUriForAction = imageUrl;
       }
 
-      // We pass undefined for hash and filename as this is a generated image, not the original upload
-      const { savedPath } = await upscaleImageAction(imageDataUriForAction, undefined, `generated_image_${slotIndex}.png`);
+      // We pass undefined for hash as this is a generated image, not the original upload
+      const { savedPath } = await upscaleImageAction(imageDataUriForAction, undefined);
 
       const updatedUrls = [...outputImageUrls];
       updatedUrls[slotIndex] = savedPath;

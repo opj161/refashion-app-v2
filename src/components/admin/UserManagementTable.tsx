@@ -16,12 +16,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
-import { createUser, deleteUser } from '@/actions/adminActions';
+import { PlusCircle, Trash2, Loader2, Edit } from 'lucide-react';
+import { createUser, deleteUser, updateUserConfiguration } from '@/actions/adminActions';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 type User = {
   username: string;
   role: 'admin' | 'user';
+  // New granular modes
+  gemini_api_key_1_mode: 'global' | 'user_specific';
+  gemini_api_key_2_mode: 'global' | 'user_specific';
+  gemini_api_key_3_mode: 'global' | 'user_specific';
+  fal_api_key_mode: 'global' | 'user_specific';
 };
 
 interface UserManagementTableProps {
@@ -34,6 +40,7 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
 
   const handleCreateUser = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -44,7 +51,17 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
     if (result.success) {
       toast({ title: 'User Created', description: `User '${formData.get('username')}' has been successfully created.` });
       // Manually add user to local state to avoid full page reload
-      setUsers([...users, { username: formData.get('username') as string, role: formData.get('role') as 'admin' | 'user' }].sort((a, b) => a.username.localeCompare(b.username)));
+      setUsers([
+        ...users,
+        {
+          username: formData.get('username') as string,
+          role: formData.get('role') as 'admin' | 'user',
+          gemini_api_key_1_mode: 'global' as 'global',
+          gemini_api_key_2_mode: 'global' as 'global',
+          gemini_api_key_3_mode: 'global' as 'global',
+          fal_api_key_mode: 'global' as 'global',
+        },
+      ].sort((a, b) => a.username.localeCompare(b.username)));
       setIsCreateDialogOpen(false);
     } else {
       toast({ title: 'Error', description: result.error, variant: 'destructive' });
@@ -65,6 +82,32 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
     setUserToDelete(null);
     setIsSubmitting(false);
   }
+
+  const handleUpdateUser = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    const formData = new FormData(event.currentTarget);
+    const result = await updateUserConfiguration(formData);
+    if (result.success) {
+      toast({ title: 'User Updated', description: `User '${userToEdit?.username}' has been updated.` });
+      setUsers(users.map(u =>
+        u.username === userToEdit?.username
+          ? {
+              ...u,
+              role: formData.get('role') as 'admin' | 'user',
+              gemini_api_key_1_mode: formData.get('gemini_api_key_1_mode') as 'global' | 'user_specific',
+              gemini_api_key_2_mode: formData.get('gemini_api_key_2_mode') as 'global' | 'user_specific',
+              gemini_api_key_3_mode: formData.get('gemini_api_key_3_mode') as 'global' | 'user_specific',
+              fal_api_key_mode: formData.get('fal_api_key_mode') as 'global' | 'user_specific',
+            }
+          : u
+      ));
+      setUserToEdit(null);
+    } else {
+      toast({ title: 'Update Error', description: result.error, variant: 'destructive' });
+    }
+    setIsSubmitting(false);
+  };
 
   return (
     <>
@@ -118,6 +161,7 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
             <TableRow>
               <TableHead>Username</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>API Key Mode</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -126,7 +170,11 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
               <TableRow key={user.username}>
                 <TableCell className="font-medium">{user.username}</TableCell>
                 <TableCell className="capitalize">{user.role}</TableCell>
+                <TableCell>Mixed</TableCell>
                 <TableCell className="text-right">
+                  <Button variant="ghost" size="icon" onClick={() => setUserToEdit(user)} disabled={isSubmitting} aria-label={`Edit ${user.username}`}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
                   <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={isSubmitting}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
@@ -136,6 +184,70 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
           </TableBody>
         </Table>
       </div>
+      {/* Edit User Dialog */}
+      <Dialog open={!!userToEdit} onOpenChange={(open) => !open && setUserToEdit(null)}>
+        <DialogContent>
+          <form onSubmit={handleUpdateUser}>
+            <DialogHeader>
+              <DialogTitle>Edit User: {userToEdit?.username}</DialogTitle>
+              <DialogDescription>Update user role and API key configuration.</DialogDescription>
+            </DialogHeader>
+            {/* Hidden input for username */}
+            <input type="hidden" name="username" value={userToEdit?.username || ''} />
+            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-role">Role</Label>
+                <Select name="role" defaultValue={userToEdit?.role}>
+                  <SelectTrigger id="edit-role"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Accordion type="multiple" className="w-full">
+                {[1, 2, 3].map(i => (
+                  <AccordionItem key={i} value={`gemini-${i}`}>
+                    <AccordionTrigger>Gemini Key {i}</AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor={`gemini_api_key_${i}_mode`}>Mode</Label>
+                        <Select name={`gemini_api_key_${i}_mode`} defaultValue={(userToEdit as any)?.[`gemini_api_key_${i}_mode`] || 'global'}>
+                          <SelectTrigger id={`gemini_api_key_${i}_mode`}><SelectValue/></SelectTrigger>
+                          <SelectContent><SelectItem value="global">Global</SelectItem><SelectItem value="user_specific">User-Specific</SelectItem></SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`gemini_api_key_${i}`}>User-Specific Key (Optional)</Label>
+                        <Input id={`gemini_api_key_${i}`} name={`gemini_api_key_${i}`} type="password" placeholder="Leave blank to keep unchanged" />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+                <AccordionItem value="fal">
+                  <AccordionTrigger>Fal.ai Key</AccordionTrigger>
+                  <AccordionContent className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="fal_api_key_mode">Mode</Label>
+                      <Select name="fal_api_key_mode" defaultValue={userToEdit?.fal_api_key_mode || 'global'}>
+                        <SelectTrigger id="fal_api_key_mode"><SelectValue/></SelectTrigger>
+                        <SelectContent><SelectItem value="global">Global</SelectItem><SelectItem value="user_specific">User-Specific</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fal_api_key">User-Specific Key (Optional)</Label>
+                      <Input id="fal_api_key" name="fal_api_key" type="password" placeholder="Leave blank to keep unchanged" />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       
       <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
         <AlertDialogContent>

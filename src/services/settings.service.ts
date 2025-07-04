@@ -6,6 +6,11 @@ const DEFAULTS = {
   'feature_background_removal': 'true',
   'feature_image_upscaling': 'true',
   'feature_face_detailer': 'true',
+  // New global API key settings
+  'global_gemini_api_key_1': '',
+  'global_gemini_api_key_2': '',
+  'global_gemini_api_key_3': '',
+  'global_fal_api_key': '',
 };
 
 // Type for keys to ensure type safety

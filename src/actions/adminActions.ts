@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt';
 import fs from 'fs/promises';
 import path from 'path';
 import * as settingsService from '@/services/settings.service';
+import { encrypt } from '@/services/encryption.service';
 
 const SALT_ROUNDS = 12;
 
@@ -22,8 +23,8 @@ async function verifyAdmin() {
 export async function getAllUsers() {
   await verifyAdmin();
   const db = dbService.getDb();
-  const stmt = db.prepare('SELECT username, role FROM users ORDER BY username');
-  return stmt.all() as { username: string; role: 'admin' | 'user' }[];
+  const stmt = db.prepare('SELECT username, role, gemini_api_key_1_mode, gemini_api_key_2_mode, gemini_api_key_3_mode, fal_api_key_mode FROM users ORDER BY username');
+  return stmt.all() as any[]; // Simplified for brevity, define a proper type
 }
 
 export async function createUser(formData: FormData) {
@@ -139,4 +140,76 @@ export async function triggerCacheCleanup() {
     console.error('Error during cache cleanup from admin panel:', error);
     return { success: false, error: 'Cache cleanup failed.' };
   }
+}
+
+export async function updateUserConfiguration(formData: FormData) {
+  await verifyAdmin();
+  const username = formData.get('username') as string;
+  if (!username) {
+    return { success: false, error: 'Username is required.' };
+  }
+
+  // Dynamically build the update statement only from present fields
+  const setClauses: string[] = [];
+  const params: any[] = [];
+
+  const role = formData.get('role');
+  if (role) { setClauses.push('role = ?'); params.push(role); }
+
+  const gemini1Mode = formData.get('gemini_api_key_1_mode');
+  if (gemini1Mode) { setClauses.push('gemini_api_key_1_mode = ?'); params.push(gemini1Mode); }
+  const gemini2Mode = formData.get('gemini_api_key_2_mode');
+  if (gemini2Mode) { setClauses.push('gemini_api_key_2_mode = ?'); params.push(gemini2Mode); }
+  const gemini3Mode = formData.get('gemini_api_key_3_mode');
+  if (gemini3Mode) { setClauses.push('gemini_api_key_3_mode = ?'); params.push(gemini3Mode); }
+  const falMode = formData.get('fal_api_key_mode');
+  if (falMode) { setClauses.push('fal_api_key_mode = ?'); params.push(falMode); }
+
+  // Handle optional API keys. Update if the field was submitted (even if empty, to allow clearing)
+  if (formData.has('gemini_api_key_1')) { setClauses.push('gemini_api_key_1 = ?'); params.push(encrypt(formData.get('gemini_api_key_1') as string)); }
+  if (formData.has('gemini_api_key_2')) { setClauses.push('gemini_api_key_2 = ?'); params.push(encrypt(formData.get('gemini_api_key_2') as string)); }
+  if (formData.has('gemini_api_key_3')) { setClauses.push('gemini_api_key_3 = ?'); params.push(encrypt(formData.get('gemini_api_key_3') as string)); }
+  if (formData.has('fal_api_key')) { setClauses.push('fal_api_key = ?'); params.push(encrypt(formData.get('fal_api_key') as string)); }
+
+  if (setClauses.length === 0) {
+    return { success: true, message: 'No changes submitted.' };
+  }
+
+  try {
+    const db = dbService.getDb();
+    params.push(username); // For the WHERE clause
+    const sql = `UPDATE users SET ${setClauses.join(', ')} WHERE username = ?`;
+    const stmt = db.prepare(sql);
+    stmt.run(...params);
+    revalidatePath('/admin/users');
+    return { success: true };
+  } catch (error) {
+    console.error(`Error updating configuration for user ${username}:`, error);
+    return { success: false, error: 'Database error occurred during update.' };
+  }
+}
+
+export async function updateEncryptedSetting(key: settingsService.SettingKey, value: string) {
+  await verifyAdmin();
+  try {
+    const encryptedValue = value ? encrypt(value) : '';
+    settingsService.setSetting(key, encryptedValue);
+    revalidatePath('/admin/settings');
+    return { success: true };
+  } catch (error) {
+    console.error(`Error updating encrypted setting ${key}:`, error);
+    return { success: false, error: 'Failed to update setting.' };
+  }
+}
+
+export async function getGlobalApiKeysForDisplay() {
+  const settings = settingsService.getAllSettings();
+  const { decrypt } = await import('@/services/encryption.service');
+  const mask = (key: string) => key ? `••••••••••••${key.slice(-4)}` : 'Not Set';
+  return {
+    gemini1: mask(decrypt(settings.global_gemini_api_key_1)),
+    gemini2: mask(decrypt(settings.global_gemini_api_key_2)),
+    gemini3: mask(decrypt(settings.global_gemini_api_key_3)),
+    fal: mask(decrypt(settings.global_fal_api_key)),
+  };
 }
