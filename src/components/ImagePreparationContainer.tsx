@@ -198,7 +198,7 @@ export default function ImagePreparationContainer({
     });
     resetStore();
     setIsConfirmed(false);
-  }, [resetStore]);
+  }, [resetStore, toast]);
 
   // --- Render Logic ---
   

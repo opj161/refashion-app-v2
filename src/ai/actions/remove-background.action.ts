@@ -9,7 +9,7 @@
 
 import * as falImageService from '@/services/fal-api/image.service';
 import { saveFileFromUrl } from '@/services/storage.service';
-import { getCachedImagePath, setCachedImagePath } from './cache-manager';
+import { getCachedImage, setCachedImage } from './cache-manager';
 
 /**
  * Remove background from a user-uploaded image
@@ -22,17 +22,17 @@ export async function removeBackgroundAction(
   imageUrlOrDataUri: string,
   imageHash?: string,
   originalFileName?: string
-): Promise<{ savedPath: string }> {
+): Promise<{ savedPath: string; outputHash: string }> {
   if (!imageUrlOrDataUri) {
     throw new Error('Image data URI or URL is required for background removal');
   }
 
   // Check cache first if hash is provided
   if (imageHash) {
-    const cachedPath = await getCachedImagePath(imageHash, 'bgRemoved');
-    if (cachedPath) {
-      console.log(`[Cache] HIT: Found background-removed image for hash ${imageHash}`);
-      return { savedPath: cachedPath };
+    const cachedEntry = await getCachedImage(imageHash, 'bgRemoved');
+    if (cachedEntry) {
+      console.log(`[Cache] HIT: Found background-removed image for hash ${imageHash} at path ${cachedEntry.path}`);
+      return { savedPath: cachedEntry.path, outputHash: cachedEntry.hash };
     }
     console.log(`[Cache] MISS: No cached background-removed image for hash ${imageHash}`);
   }
@@ -46,7 +46,7 @@ export async function removeBackgroundAction(
     console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
 
     // Save the processed image locally using the storage service
-    const savedPath = await saveFileFromUrl(
+    const { relativeUrl, hash: outputHash } = await saveFileFromUrl(
       outputImageUrl, 
       'RefashionAI_bg_removed', 
       'processed_images', 
@@ -55,12 +55,12 @@ export async function removeBackgroundAction(
     
     // Cache the result if hash is provided
     if (imageHash) {
-      await setCachedImagePath(imageHash, 'bgRemoved', savedPath);
+      await setCachedImage(imageHash, 'bgRemoved', relativeUrl, outputHash);
       console.log(`[Cache] SET: Stored background-removed image for hash ${imageHash}`);
     }
     
     console.log('Background removal completed successfully using Fal.ai.');
-    return { savedPath };
+    return { savedPath: relativeUrl, outputHash };
     
   } catch (error) {
     console.error('Error in background removal action (Fal.ai):', error);

@@ -31,6 +31,7 @@ export interface HistoryItem {
   videoGenerationParams?: {
     prompt: string;
     resolution: string;
+    videoModel?: 'lite' | 'pro';
     duration: string;
     seed: number;
     sourceImageUrl: string;

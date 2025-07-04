@@ -15,7 +15,8 @@ import { fal } from '@fal-ai/client';
 export interface VideoGenerationInput {
   prompt: string;
   image_url: string;
-  resolution?: '480p' | '720p';
+  videoModel?: 'lite' | 'pro';
+  resolution?: '480p' | '720p' | '1080p';
   duration?: '5' | '10';
   camera_fixed?: boolean;
   seed?: number;
@@ -153,23 +154,22 @@ export async function generateVideoSync(input: VideoGenerationInput): Promise<Vi
 export async function startVideoGenerationWithWebhook(input: VideoGenerationInput, webhookUrl: string): Promise<string> {
   try {
     console.log('Submitting video job to Fal.ai with webhook:', webhookUrl);
-    
+    // Determine which fal.ai model to use
+    const modelId = input.videoModel === 'pro'
+      ? 'fal-ai/bytedance/seedance/v1/pro/image-to-video'
+      : 'fal-ai/bytedance/seedance/v1/lite/image-to-video'; // Default to lite
     // Prepare the input for Fal.ai, only including defined values
     const falInput: any = {
       prompt: input.prompt,
       image_url: input.image_url,
     };
-    
-    // Add optional parameters only if they have values
     if (input.resolution) falInput.resolution = input.resolution;
     if (input.duration) falInput.duration = input.duration;
     if (typeof input.camera_fixed === 'boolean') falInput.camera_fixed = input.camera_fixed;
     if (typeof input.seed === 'number' && input.seed !== undefined) falInput.seed = input.seed;
-    
     console.log('Fal.ai input parameters:', JSON.stringify(falInput, null, 2));
-    
     // Use a direct HTTP request to queue.fal.run with the fal_webhook parameter
-    const response = await fetch(`https://queue.fal.run/fal-ai/bytedance/seedance/v1/lite/image-to-video?fal_webhook=${encodeURIComponent(webhookUrl)}`, {
+    const response = await fetch(`https://queue.fal.run/${modelId}?fal_webhook=${encodeURIComponent(webhookUrl)}`, {
       method: 'POST',
       headers: {
         'Authorization': `Key ${process.env.FAL_KEY}`,
@@ -177,24 +177,14 @@ export async function startVideoGenerationWithWebhook(input: VideoGenerationInpu
       },
       body: JSON.stringify(falInput),
     });
-
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Webhook submission failed: ${response.status} ${errorText}`);
+      throw new Error(`Fal.ai API error: ${response.statusText}`);
     }
-
-    const result = await response.json();
-    const requestId = result.request_id || result.gateway_request_id;
-    if (!requestId) {
-      throw new Error('No request_id returned from webhook submission');
-    }
-
-    console.log('Webhook submission successful. Request ID:', requestId);
-    return requestId;
-    
+    const data = await response.json();
+    return data.request_id;
   } catch (error) {
-    console.error('Error in startVideoGenerationWithWebhook:', error);
-    throw new Error(`Failed to start video generation with webhook: ${(error as Error).message}`);
+    console.error('Error submitting video job to Fal.ai:', error);
+    throw error;
   }
 }
 

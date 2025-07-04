@@ -58,39 +58,67 @@ async function ensureUrl(imageUrlOrDataUri: string, tempFileName: string): Promi
 }
 
 /**
+ * Generic helper to run a Fal.ai image workflow, handling subscription and response parsing.
+ * @param modelId The ID of the Fal.ai model to run.
+ * @param input The input object for the model.
+ * @param taskName A descriptive name for the task for logging purposes.
+ * @returns Promise<string> The URL of the processed image from Fal.ai.
+ */
+async function runFalImageWorkflow(modelId: string, input: any, taskName: string): Promise<string> {
+  try {
+    console.log(`Calling Fal.ai ${modelId} for ${taskName}...`);
+
+    // Ensure the input image is a public URL
+    if (input.image_url || input.loadimage_1) {
+      const key = input.image_url ? 'image_url' : 'loadimage_1';
+      input[key] = await ensureUrl(input[key], `${taskName.replace(/\s+/g, '-')}-input.jpg`);
+    }
+
+    const result: any = await fal.subscribe(modelId, {
+      input,
+      logs: process.env.NODE_ENV === 'development',
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS" && update.logs && process.env.NODE_ENV === 'development') {
+          update.logs.forEach(log => console.log(`[Fal.ai Progress - ${taskName}]: ${log.message}`));
+        }
+      },
+    });
+
+    // Robustly parse the output to find the image URL
+    let outputImageUrl: string | undefined;
+    if (result?.data?.outputs) {
+      for (const output of Object.values(result.data.outputs) as any) {
+        if (output?.images?.[0]?.url) {
+          outputImageUrl = output.images[0].url;
+          break;
+        }
+      }
+    } else if (result?.data?.images?.[0]?.url) {
+      outputImageUrl = result.data.images[0].url;
+    } else if (result?.data?.image?.url) {
+      outputImageUrl = result.data.image.url;
+    }
+
+    if (!outputImageUrl) {
+      console.error(`Fal.ai ${taskName} raw result:`, JSON.stringify(result, null, 2));
+      throw new Error(`Fal.ai (${taskName}) did not return a valid image URL.`);
+    }
+
+    console.log(`${taskName} completed successfully.`);
+    return outputImageUrl;
+  } catch (error) {
+    console.error(`Error in Fal.ai ${taskName}:`, error);
+    throw new Error(`${taskName} failed: ${(error as Error).message}`);
+  }
+}
+
+/**
  * Removes background from an image using Fal.ai's rembg service
  * @param imageUrlOrDataUri The image data URI or public URL to process
  * @returns Promise<string> The URL of the processed image from Fal.ai
  */
 export async function removeBackground(imageUrlOrDataUri: string): Promise<string> {
-  try {
-    console.log('Calling Fal.ai rembg service for background removal...');
-    const imageUrl = await ensureUrl(imageUrlOrDataUri, 'bg-removal-input.jpg');
-    const result: any = await fal.subscribe("fal-ai/rembg", {
-      input: {
-        image_url: imageUrl,
-      },
-      logs: process.env.NODE_ENV === 'development',
-      onQueueUpdate: (update) => {
-        if (update.status === "IN_PROGRESS" && update.logs && process.env.NODE_ENV === 'development') {
-          update.logs.forEach(log => console.log(`[Fal.ai Progress]: ${log.message}`));
-        }
-      },
-    });
-
-    // Extract the image URL from the response
-    if (!result?.data?.image?.url) {
-      console.error('Fal.ai rembg raw result:', JSON.stringify(result, null, 2));
-      throw new Error("Fal.ai (rembg) did not return a valid image URL.");
-    }
-
-    console.log('Background removal completed successfully.');
-    return result.data.image.url;
-    
-  } catch (error) {
-    console.error('Error in Fal.ai background removal:', error);
-    throw new Error(`Background removal failed: ${(error as Error).message}`);
-  }
+  return runFalImageWorkflow("fal-ai/rembg", { image_url: imageUrlOrDataUri }, 'Background Removal');
 }
 
 /**
@@ -99,53 +127,14 @@ export async function removeBackground(imageUrlOrDataUri: string): Promise<strin
  * @returns Promise<string> The URL of the processed image from Fal.ai
  */
 export async function upscaleAndEnhance(imageUrlOrDataUri: string): Promise<string> {
-  try {
-    console.log('Calling Fal.ai sd-ultimateface service for upscaling and enhancement...');
-    const imageUrl = await ensureUrl(imageUrlOrDataUri, 'upscale-input.jpg');
-    const result: any = await fal.subscribe("comfy/opj161/sd-ultimateface", {
-      input: {
-        loadimage_1: imageUrl,
-        prompt_upscale: UPSCALE_PROMPT,
-        negative_upscale: NEGATIVE_UPSCALE_PROMPT,
-        prompt_face: UPSCALE_FACE_PROMPT,
-        negative_face: NEGATIVE_UPSCALE_FACE_PROMPT,
-      },
-      logs: process.env.NODE_ENV === 'development',
-      onQueueUpdate: (update) => {
-        if (update.status === "IN_PROGRESS" && process.env.NODE_ENV === 'development') {
-          update.logs.map((log) => log.message).forEach(console.log);
-        }
-      },
-    });
-    
-    // Extract the output image URL from the result
-    // For ComfyUI-based models, the structure is typically result.data.outputs
-    let outputImageUrl: string | undefined;
-    
-    if (result?.data?.outputs) {
-      // ComfyUI style outputs - look for image outputs
-      for (const [nodeId, output] of Object.entries(result.data.outputs)) {
-        if (output && typeof output === 'object' && 'images' in output && Array.isArray(output.images) && output.images.length > 0) {
-          outputImageUrl = output.images[0]?.url;
-          if (outputImageUrl) break;
-        }
-      }
-    } else if (result?.data?.images?.[0]?.url) {
-      outputImageUrl = result.data.images[0].url;
-    } else if (result?.data?.image?.url) {
-      outputImageUrl = result.data.image.url;
-    }
-    if (!outputImageUrl) {
-      console.error('Fal.ai upscale raw result:', JSON.stringify(result, null, 2));
-      throw new Error("Fal.ai (upscale) did not return a valid image URL.");
-    }
-    console.log('Image upscaling and enhancement completed successfully.');
-    return outputImageUrl;
-    
-  } catch (error) {
-    console.error('Error in Fal.ai upscaling and enhancement:', error);
-    throw new Error(`Upscaling and enhancement failed: ${(error as Error).message}`);
-  }
+  const input = {
+    loadimage_1: imageUrlOrDataUri,
+    prompt_upscale: UPSCALE_PROMPT,
+    negative_upscale: NEGATIVE_UPSCALE_PROMPT,
+    prompt_face: UPSCALE_FACE_PROMPT,
+    negative_face: NEGATIVE_UPSCALE_FACE_PROMPT,
+  };
+  return runFalImageWorkflow("comfy/opj161/sd-ultimateface", input, 'Upscaling and Enhancement');
 }
 
 /**
@@ -154,36 +143,12 @@ export async function upscaleAndEnhance(imageUrlOrDataUri: string): Promise<stri
  * @returns Promise<string> The URL of the processed image from Fal.ai
  */
 export async function detailFaces(imageUrlOrDataUri: string): Promise<string> {
-  try {
-    console.log('Calling Fal.ai face-detailer service for face enhancement...');
-    const imageUrl = await ensureUrl(imageUrlOrDataUri, 'face-detailing-input.jpg');
-    const result: any = await fal.subscribe("comfy/opj161/face-detailer", {
-      input: {
-        image_url: imageUrl,
-        prompt: FACE_DETAILER_PROMPT,
-        negative_prompt: NEGATIVE_FACE_DETAILER_PROMPT,
-      },
-      logs: process.env.NODE_ENV === 'development',
-      onQueueUpdate: (update) => {
-        if (update.status === "IN_PROGRESS" && update.logs && process.env.NODE_ENV === 'development') {
-          update.logs.forEach(log => console.log(`[Fal.ai Progress]: ${log.message}`));
-        }
-      },
-    });
-
-    // Extract the image URL from the response
-    if (!result?.data?.image?.url) {
-      console.error('Fal.ai face-detailer raw result:', JSON.stringify(result, null, 2));
-      throw new Error("Fal.ai (face-detailer) did not return a valid image URL.");
-    }
-
-    console.log('Face detailing completed successfully.');
-    return result.data.image.url;
-    
-  } catch (error) {
-    console.error('Error in Fal.ai face detailing:', error);
-    throw new Error(`Face detailing failed: ${(error as Error).message}`);
-  }
+  const input = {
+    loadimage_1: imageUrlOrDataUri,
+    prompt_face: FACE_DETAILER_PROMPT,
+    negative_face: NEGATIVE_FACE_DETAILER_PROMPT,
+  };
+  return runFalImageWorkflow("comfy/opj161/face-detailer", input, 'Face Detailing');
 }
 
 /**

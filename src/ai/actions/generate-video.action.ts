@@ -15,8 +15,9 @@ if (!process.env.FAL_KEY) {
 export interface GenerateVideoInput {
   prompt: string;
   image_url: string; // This can be a public URL or a base64 data URI
-  resolution?: '480p' | '720p';
+  resolution?: '480p' | '720p' | '1080p';
   duration?: '5' | '10'; // Duration as strings for Fal.ai API
+  videoModel?: 'lite' | 'pro';
   camera_fixed?: boolean;
   seed?: number; // Use -1 for random
   // Add structured video parameters (for history/logging purposes, not sent to Fal.ai)
@@ -68,7 +69,8 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
   // 1. Create a placeholder history item first to get an ID
   const historyVideoParams = {
     prompt: input.prompt,
-    resolution: input.resolution || '720p',
+    resolution: input.resolution || '480p',
+    videoModel: input.videoModel || 'lite',
     duration: input.duration || '5',
     seed: input.seed || -1,
     sourceImageUrl: input.image_url,
@@ -95,6 +97,7 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
     const videoServiceInput = {
       prompt: input.prompt,
       image_url: input.image_url,
+      videoModel: input.videoModel,
       resolution: input.resolution,
       duration: input.duration,
       camera_fixed: input.camera_fixed,
@@ -111,6 +114,7 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
       localVideoUrl: null,
       seedUsed: null,
       status: 'processing',
+      videoModel: input.videoModel || 'lite',
     });
 
     return { taskId, historyItemId };
@@ -125,7 +129,8 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
       localVideoUrl: null,
       seedUsed: null,
       status: 'failed', 
-      error: 'Failed to submit job to fal.ai' 
+      error: 'Failed to submit job to fal.ai',
+      videoModel: input.videoModel || 'lite',
     });
     return { error: 'Failed to submit video generation job.' };
   }

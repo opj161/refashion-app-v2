@@ -11,6 +11,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 /**
  * Downloads a file from a URL and saves it locally with proper permissions
@@ -25,9 +26,8 @@ export async function saveFileFromUrl(
   fileNamePrefix: string, 
   subfolder: string,
   extension: string = 'png'
-): Promise<string> {
+): Promise<{ relativeUrl: string; hash: string }> {
   console.log(`Downloading from ${sourceUrl} to save in /uploads/${subfolder}`);
-  
   try {
     // Download the file from the URL
     const response = await fetch(sourceUrl);
@@ -37,6 +37,9 @@ export async function saveFileFromUrl(
 
     // Convert to buffer
     const fileBuffer = Buffer.from(await response.arrayBuffer());
+    
+    // Calculate hash of the file content
+    const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
     
     // Generate unique filename
     const uniqueFileName = `${fileNamePrefix}_${uuidv4()}.${extension}`;
@@ -74,7 +77,7 @@ export async function saveFileFromUrl(
     // Return relative URL
     const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
     console.log(`File saved to: ${filePath}, accessible at: ${relativeUrl}`);
-    return relativeUrl;
+    return { relativeUrl, hash: fileHash };
     
   } catch (error) {
     console.error(`Error saving file from ${sourceUrl}:`, error);
@@ -93,21 +96,20 @@ export async function saveDataUriLocally(
   dataUri: string,
   fileNamePrefix: string,
   subfolder: string
-): Promise<string> {
+): Promise<{ relativeUrl: string; hash: string }> {
   console.log(`Saving data URI to /uploads/${subfolder}`);
-  
   try {
     // Parse data URI
     const match = dataUri.match(/^data:(image\/\w+);base64,(.+)$/);
     if (!match) {
       throw new Error('Invalid data URI format');
     }
-    
     const mimeType = match[1];
     const base64Data = match[2];
     const buffer = Buffer.from(base64Data, 'base64');
     const extension = mimeType.split('/')[1] || 'png';
-    
+    // Calculate hash
+    const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
     // Generate unique filename
     const uniqueFileName = `${fileNamePrefix}_${uuidv4()}.${extension}`;
     
@@ -143,8 +145,7 @@ export async function saveDataUriLocally(
     // Return relative URL
     const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
     console.log(`Data URI saved to: ${filePath}, accessible at: ${relativeUrl}`);
-    return relativeUrl;
-    
+    return { relativeUrl, hash: fileHash };
   } catch (error) {
     console.error(`Error saving data URI:`, error);
     throw new Error(`Failed to save data URI: ${(error as Error).message}`);

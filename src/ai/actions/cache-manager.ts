@@ -5,11 +5,15 @@ import path from 'path';
 
 const cacheFilePath = path.join(process.cwd(), '.cache', 'image-processing-cache.json');
 
+type CacheEntry = {
+  path: string;
+  hash: string;
+};
 type CacheData = {
   [key: string]: {
-    bgRemoved?: string;
-    upscaled?: string;
-    faceDetailed?: string;
+    bgRemoved?: CacheEntry;
+    upscaled?: CacheEntry;
+    faceDetailed?: CacheEntry;
     timestamp?: number;
   };
 };
@@ -37,18 +41,15 @@ async function writeCache(data: CacheData): Promise<void> {
   }
 }
 
-export async function getCachedImagePath(hash: string, type: 'bgRemoved' | 'upscaled' | 'faceDetailed'): Promise<string | null> {
+export async function getCachedImage(hash: string, type: 'bgRemoved' | 'upscaled' | 'faceDetailed'): Promise<CacheEntry | null> {
   const cache = await readCache();
-  const cachedPath = cache[hash]?.[type];
-  
-  if (cachedPath) {
-    // Check if the cached file still exists
+  const cachedEntry = cache[hash]?.[type];
+  if (cachedEntry) {
     try {
-      const fullPath = path.join(process.cwd(), 'public', cachedPath);
+      const fullPath = path.join(process.cwd(), 'public', cachedEntry.path);
       await fs.access(fullPath);
-      return cachedPath;
+      return cachedEntry;
     } catch {
-      // File doesn't exist, remove from cache
       delete cache[hash]?.[type];
       if (cache[hash] && Object.keys(cache[hash]).length === 0) {
         delete cache[hash];
@@ -57,16 +58,15 @@ export async function getCachedImagePath(hash: string, type: 'bgRemoved' | 'upsc
       return null;
     }
   }
-  
   return null;
 }
 
-export async function setCachedImagePath(hash: string, type: 'bgRemoved' | 'upscaled' | 'faceDetailed', imagePath: string): Promise<void> {
+export async function setCachedImage(hash: string, type: 'bgRemoved' | 'upscaled' | 'faceDetailed', imagePath: string, outputHash: string): Promise<void> {
   const cache = await readCache();
   if (!cache[hash]) {
     cache[hash] = {};
   }
-  cache[hash][type] = imagePath;
+  cache[hash][type] = { path: imagePath, hash: outputHash };
   cache[hash].timestamp = Date.now();
   await writeCache(cache);
 }

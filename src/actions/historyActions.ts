@@ -240,6 +240,7 @@ export async function updateVideoHistoryItem(params: {
   seedUsed: number | null;
   status: 'processing' | 'completed' | 'failed';
   error?: string;
+  videoModel?: 'lite' | 'pro';
 }): Promise<void> {
   const { username, historyItemId, videoUrls, localVideoUrl, seedUsed, status, error } = params;
   
@@ -266,6 +267,7 @@ export async function updateVideoHistoryItem(params: {
     WHERE id = ?
   `).run(
     JSON.stringify({
+      videoModel: params.videoModel || 'lite',
       seed: seedUsed ?? -1,
       localVideoUrl: localVideoUrl,
       status: status,

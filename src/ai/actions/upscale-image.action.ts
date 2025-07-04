@@ -9,7 +9,7 @@
 
 import * as falImageService from '@/services/fal-api/image.service';
 import { saveFileFromUrl } from '@/services/storage.service';
-import { getCachedImagePath, setCachedImagePath } from './cache-manager';
+import { getCachedImage, setCachedImage } from './cache-manager';
 
 /**
  * Upscale and enhance a user-uploaded image
@@ -22,17 +22,17 @@ export async function upscaleImageAction(
   imageUrlOrDataUri: string,
   imageHash?: string,
   originalFileName?: string
-): Promise<{ savedPath: string }> {
+): Promise<{ savedPath: string; outputHash: string }> {
   if (!imageUrlOrDataUri) {
     throw new Error('Image data URI or URL is required for upscaling');
   }
 
   // Check cache first if hash is provided
   if (imageHash) {
-    const cachedPath = await getCachedImagePath(imageHash, 'upscaled');
-    if (cachedPath) {
-      console.log(`[Cache] HIT: Found upscaled image for hash ${imageHash}`);
-      return { savedPath: cachedPath };
+    const cachedEntry = await getCachedImage(imageHash, 'upscaled');
+    if (cachedEntry) {
+      console.log(`[Cache] HIT: Found upscaled image for hash ${imageHash} at path ${cachedEntry.path}`);
+      return { savedPath: cachedEntry.path, outputHash: cachedEntry.hash };
     }
     console.log(`[Cache] MISS: No cached upscaled image for hash ${imageHash}`);
   }
@@ -46,7 +46,7 @@ export async function upscaleImageAction(
     console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
 
     // Save the processed image locally using the storage service
-    const savedPath = await saveFileFromUrl(
+    const { relativeUrl, hash: outputHash } = await saveFileFromUrl(
       outputImageUrl, 
       'RefashionAI_upscaled', 
       'processed_images', 
@@ -55,12 +55,12 @@ export async function upscaleImageAction(
     
     // Cache the result if hash is provided
     if (imageHash) {
-      await setCachedImagePath(imageHash, 'upscaled', savedPath);
+      await setCachedImage(imageHash, 'upscaled', relativeUrl, outputHash);
       console.log(`[Cache] SET: Stored upscaled image for hash ${imageHash}`);
     }
     
     console.log('Image upscaling completed successfully using Fal.ai.');
-    return { savedPath };
+    return { savedPath: relativeUrl, outputHash };
     
   } catch (error) {
     console.error('Error in upscale image action (Fal.ai):', error);
@@ -79,17 +79,17 @@ export async function faceDetailerAction(
   imageUrlOrDataUri: string,
   imageHash?: string,
   originalFileName?: string
-): Promise<{ savedPath: string }> {
+): Promise<{ savedPath: string; outputHash: string }> {
   if (!imageUrlOrDataUri) {
     throw new Error('Image data URI or URL is required for face detailing');
   }
 
   // Check cache first if hash is provided
   if (imageHash) {
-    const cachedPath = await getCachedImagePath(imageHash, 'faceDetailed');
-    if (cachedPath) {
-      console.log(`[Cache] HIT: Found face-enhanced image for hash ${imageHash}`);
-      return { savedPath: cachedPath };
+    const cachedEntry = await getCachedImage(imageHash, 'faceDetailed');
+    if (cachedEntry) {
+      console.log(`[Cache] HIT: Found face-enhanced image for hash ${imageHash} at path ${cachedEntry.path}`);
+      return { savedPath: cachedEntry.path, outputHash: cachedEntry.hash };
     }
     console.log(`[Cache] MISS: No cached face-enhanced image for hash ${imageHash}`);
   }
@@ -103,7 +103,7 @@ export async function faceDetailerAction(
     console.log(`Fal.ai face-detailer processed image URL: ${outputImageUrl}`);
 
     // Save the processed image locally
-    const savedPath = await saveFileFromUrl(
+    const { relativeUrl, hash: outputHash } = await saveFileFromUrl(
       outputImageUrl, 
       'RefashionAI_face_enhanced', // Use a different prefix
       'processed_images', 
@@ -112,12 +112,12 @@ export async function faceDetailerAction(
 
     // Cache the result if hash is provided
     if (imageHash) {
-      await setCachedImagePath(imageHash, 'faceDetailed', savedPath);
+      await setCachedImage(imageHash, 'faceDetailed', relativeUrl, outputHash);
       console.log(`[Cache] SET: Stored face-enhanced image for hash ${imageHash}`);
     }
 
     console.log('Face enhancement completed successfully using Fal.ai.');
-    return { savedPath };
+    return { savedPath: relativeUrl, outputHash };
 
   } catch (error) {
     console.error('Error in face detailer action (Fal.ai):', error);

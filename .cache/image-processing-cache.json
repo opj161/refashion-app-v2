@@ -69,5 +69,20 @@
   "0578f2e34dd6c1ad3168d1eb662d60726fa9ca139f65a780be00487b94345f1f": {
     "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_2f03c225-dc9c-467d-9bcc-9d703e043527.png",
     "timestamp": 1751585241802
+  },
+  "8ec41f2e0888e0223507e7f7096919328cda02dca0a09a684a88ea4199601239": {
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_31399c2c-c13a-4fc1-bb0c-2f33c1270eae.png",
+    "timestamp": 1751587037238
+  },
+  "e222448010732e1daa918178a9b0449c2e272ccf18f958bcda925fa7ecaec26d": {
+    "faceDetailed": "/uploads/processed_images/RefashionAI_face_enhanced_79abc65c-d96d-45eb-9591-fc7a009084c6.png",
+    "timestamp": 1751587317905
+  },
+  "1e3edd92c2b9b8f61e7df5cb411fabb10b2a7f9b685ea1f71e86ee1a49dd9ab9": {
+    "bgRemoved": {
+      "path": "/uploads/processed_images/RefashionAI_bg_removed_ea6ea1b0-15c0-428b-bb24-e34351e8d560.png",
+      "hash": "b32c29a49bb5ee3180d65f9c7241d8785d02c5d0d26c3092813b91637e72a1ef"
+    },
+    "timestamp": 1751593503452
   }
 }

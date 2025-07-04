@@ -14,6 +14,7 @@ export interface ImageVersion {
   label: string;
   sourceVersionId: string;
   createdAt: number;
+  hash: string;
 }
 
 export interface ImageState {
@@ -101,6 +102,7 @@ export const useImageStore = create<ImageStore>()(
           label: 'Original',
           sourceVersionId: '',
           createdAt: Date.now(),
+          hash,
         };
 
         set({
@@ -155,36 +157,28 @@ export const useImageStore = create<ImageStore>()(
 
       // --- Async Actions ---
       removeBackground: async () => {
-        const { activeVersionId, versions, original } = get();
+        const { activeVersionId, versions } = get();
         if (!activeVersionId || !versions[activeVersionId]) {
           console.warn('No active version for background removal');
           return;
         }
-
         const currentVersion = versions[activeVersionId];
         set({ isProcessing: true, processingStep: 'bg' }, false, 'removeBackground:start');
-
         try {
           let imageUrlOrDataUri = currentVersion.dataUri;
-
-          // If the image is a local path, convert it to an absolute URL for Fal.ai
           if (imageUrlOrDataUri.startsWith('/uploads/')) {
-            console.log('Converting local path to absolute URL for Fal.ai...');
             imageUrlOrDataUri = new URL(imageUrlOrDataUri, window.location.origin).href;
           }
-
-          const { savedPath } = await removeBackgroundAction(
-            imageUrlOrDataUri, // Pass the URL or data URI directly
-            original?.hash
+          const { savedPath, outputHash } = await removeBackgroundAction(
+            imageUrlOrDataUri,
+            currentVersion.hash
           );
-
-          // Add new version and set it active
           get().addVersion({
             dataUri: savedPath,
             label: 'Background Removed',
             sourceVersionId: activeVersionId,
+            hash: outputHash,
           });
-
           console.log('Background removed successfully');
         } catch (error) {
           console.error('Background removal failed:', error);
@@ -199,32 +193,24 @@ export const useImageStore = create<ImageStore>()(
           console.warn('No active version for upscaling');
           return;
         }
-
         const currentVersion = versions[activeVersionId];
         set({ isProcessing: true, processingStep: 'upscale' }, false, 'upscaleImage:start');
-
         try {
           let imageUrlOrDataUri = currentVersion.dataUri;
-
-          // If the image is a local path, convert it to an absolute URL for Fal.ai
           if (imageUrlOrDataUri.startsWith('/uploads/')) {
-            console.log('Converting local path to absolute URL for Fal.ai...');
             imageUrlOrDataUri = new URL(imageUrlOrDataUri, window.location.origin).href;
           }
-
-          const { savedPath } = await upscaleImageAction(
+          const { savedPath, outputHash } = await upscaleImageAction(
             imageUrlOrDataUri,
-            original?.hash,
+            currentVersion.hash,
             original?.file?.name
           );
-
-          // Add new version and set it active
           get().addVersion({
             dataUri: savedPath,
             label: 'Upscaled',
             sourceVersionId: activeVersionId,
+            hash: outputHash,
           });
-
           console.log('Image upscaled successfully');
         } catch (error) {
           console.error('Image upscaling failed:', error);
@@ -239,32 +225,24 @@ export const useImageStore = create<ImageStore>()(
           console.warn('No active version for face detailer');
           return;
         }
-
         const currentVersion = versions[activeVersionId];
         set({ isProcessing: true, processingStep: 'face' }, false, 'faceDetailer:start');
-
         try {
           let imageUrlOrDataUri = currentVersion.dataUri;
-
-          // If the image is a local path, convert it to an absolute URL for Fal.ai
           if (imageUrlOrDataUri.startsWith('/uploads/')) {
-            console.log('Converting local path to absolute URL for Fal.ai...');
             imageUrlOrDataUri = new URL(imageUrlOrDataUri, window.location.origin).href;
           }
-
-          const { savedPath } = await faceDetailerAction(
+          const { savedPath, outputHash } = await faceDetailerAction(
             imageUrlOrDataUri,
-            original?.hash,
+            currentVersion.hash,
             original?.file?.name
           );
-
-          // Add new version and set it active
           get().addVersion({
             dataUri: savedPath,
             label: 'Face Enhanced',
             sourceVersionId: activeVersionId,
+            hash: outputHash,
           });
-
           console.log('Face enhancement completed successfully');
         } catch (error) {
           console.error('Face enhancement failed:', error);

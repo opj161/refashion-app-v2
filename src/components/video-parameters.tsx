@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { uploadToFalStorage } from '@/ai/actions/generate-video.action';
 import { useActiveImage } from "@/stores/imageStore";
@@ -24,6 +26,7 @@ import { usePromptManager } from "@/hooks/usePromptManager";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { HistoryItem } from "@/lib/types";
+import { calculateVideoCost, formatPrice, VideoModel, VideoResolution, VideoDuration } from "@/lib/pricing";
 
 
 // Type for video generation parameters
@@ -74,9 +77,12 @@ interface RenderSelectProps {
   options: OptionWithPromptSegment[]; // Use the imported type
   disabled?: boolean;
   placeholder?: string;
+  priceData?: { model: VideoModel; duration: VideoDuration; resolution: VideoResolution; };
 }
 
-const RenderSelectComponent: React.FC<RenderSelectProps> = ({ id, label, value, onChange, options, disabled, placeholder }) => {
+const RenderSelectComponent: React.FC<RenderSelectProps> = ({ 
+  id, label, value, onChange, options, disabled, placeholder, priceData 
+}) => {
   return (
     <div>
       <Label htmlFor={id} className="text-sm">{label}</Label>
@@ -85,11 +91,38 @@ const RenderSelectComponent: React.FC<RenderSelectProps> = ({ id, label, value, 
           <SelectValue placeholder={placeholder || `Select ${label.toLowerCase()}`} />
         </SelectTrigger>
         <SelectContent>
-          {options.map(option => (
-            <SelectItem key={option.value} value={option.value} className="text-sm">
-              {option.displayLabel}
-            </SelectItem>
-          ))}
+          {options.map(option => {
+            let priceLabel = '';
+            if (priceData) {
+              // Dynamically calculate price for this specific option
+              const cost = calculateVideoCost(
+                priceData.model,
+                (id === 'resolution' ? option.value : priceData.resolution) as VideoResolution,
+                (id === 'duration' ? option.value : priceData.duration) as VideoDuration
+              );
+              priceLabel = formatPrice(cost);
+            }
+
+            return (
+              <TooltipProvider key={option.value}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SelectItem value={option.value} className="text-sm">
+                      <div className="flex justify-between w-full items-center">
+                        <span>{option.displayLabel}</span>
+                        {priceLabel && <span className="text-xs text-muted-foreground ml-2">{priceLabel}</span>}
+                      </div>
+                    </SelectItem>
+                  </TooltipTrigger>
+                  {priceLabel && (
+                    <TooltipContent>
+                      <p>Estimated cost: {priceLabel}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+            );
+          })}
         </SelectContent>
       </Select>
     </div>
@@ -115,10 +148,12 @@ export default function VideoParameters({
   const preparedImageUrl = activeImage?.dataUri || null;
 
   // State for video parameters
-  const [resolution, setResolution] = useState<'480p' | '720p'>('480p');
-  const [duration, setDuration] = useState<'5' | '10'>('5');
+  const [videoModel, setVideoModel] = useState<VideoModel>('lite');
+  const [resolution, setResolution] = useState<VideoResolution>('480p');
+  const [duration, setDuration] = useState<VideoDuration>('5');
   const [seed, setSeed] = useState<string>("-1");
   const [cameraFixed, setCameraFixed] = useState<boolean>(false);
+  const [estimatedCost, setEstimatedCost] = useState<number | null>(null);
 
   // Prompt builder states
   const [selectedPredefinedPrompt, setSelectedPredefinedPrompt] = useState<string>('custom');
@@ -162,6 +197,34 @@ export default function VideoParameters({
     generationParams: currentVideoGenParams,
   });
 
+  // Effect to calculate and update the estimated cost
+  useEffect(() => {
+    const cost = calculateVideoCost(videoModel, resolution, duration);
+    setEstimatedCost(cost);
+  }, [videoModel, resolution, duration]);
+
+  // Dynamic resolution options based on the selected model
+  const resolutionOptions = React.useMemo(() => {
+    if (videoModel === 'pro') {
+      return [
+        { value: '480p', displayLabel: '480p (Faster)', promptSegment: '' },
+        { value: '1080p', displayLabel: '1080p (Higher Quality)', promptSegment: '' },
+      ];
+    }
+    // Default to 'lite' model resolutions
+    return [
+      { value: '480p', displayLabel: '480p (Faster)', promptSegment: '' },
+      { value: '720p', displayLabel: '720p (Higher Quality)', promptSegment: '' },
+    ];
+  }, [videoModel]);
+
+  // Effect to reset resolution if it becomes invalid after a model change
+  useEffect(() => {
+    if (!resolutionOptions.some(opt => opt.value === resolution)) {
+      setResolution('480p');
+    }
+  }, [videoModel, resolution, resolutionOptions]);
+
   // Effect to populate state when a history item with video parameters is loaded
   useEffect(() => {
     if (historyItemToLoad && !isLoadingHistory && historyItemToLoad.videoGenerationParams && historyItemToLoad.id !== loadedHistoryItemId) {
@@ -171,8 +234,11 @@ export default function VideoParameters({
       if (videoGenerationParams.prompt) {
         handlePromptChange(videoGenerationParams.prompt);
       }
+      if (videoGenerationParams.videoModel) {
+        setVideoModel(videoGenerationParams.videoModel);
+      }
       if (videoGenerationParams.resolution) {
-        setResolution(videoGenerationParams.resolution as '480p' | '720p');
+        setResolution(videoGenerationParams.resolution as '480p' | '720p' | '1080p');
       }
       if (videoGenerationParams.duration) {
         setDuration(videoGenerationParams.duration as '5' | '10');
@@ -257,6 +323,7 @@ export default function VideoParameters({
       const videoInput = {
         prompt: currentPrompt,
         image_url: imageUrlForVideo,
+        videoModel,
         resolution,
         duration,
         seed: seed === "-1" ? -1 : parseInt(seed),
@@ -438,22 +505,38 @@ export default function VideoParameters({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="resolution" className="text-sm">Resolution</Label>
-              <Select value={resolution} onValueChange={(v) => setResolution(v as '480p' | '720p')} disabled={commonFormDisabled}>
-                <SelectTrigger id="resolution" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="480p" className="text-sm">480p (Faster)</SelectItem><SelectItem value="720p" className="text-sm">720p (Higher Quality)</SelectItem></SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="duration" className="text-sm">Duration</Label>
-              <Select value={duration} onValueChange={(v) => setDuration(v as '5' | '10')} disabled={commonFormDisabled}>
-                <SelectTrigger id="duration" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="5" className="text-sm">5 seconds</SelectItem><SelectItem value="10" className="text-sm">10 seconds</SelectItem></SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+            <RenderSelectComponent
+              id="video-model"
+              label="Video Model"
+              value={videoModel}
+              onChange={(v) => setVideoModel(v as VideoModel)}
+              options={[
+                { value: 'lite', displayLabel: 'Seedance Lite (Default)', promptSegment: '' },
+                { value: 'pro', displayLabel: 'Seedance Pro (Higher Quality)', promptSegment: '' },
+              ]}
+              disabled={commonFormDisabled}
+            />
+            <RenderSelectComponent
+              id="resolution"
+              label="Resolution"
+              value={resolution}
+              onChange={(v) => setResolution(v as VideoResolution)}
+              options={resolutionOptions}
+              disabled={commonFormDisabled}
+              priceData={{ model: videoModel, resolution, duration }}
+            />
+            <RenderSelectComponent
+              id="duration"
+              label="Duration"
+              value={duration}
+              onChange={(v) => setDuration(v as VideoDuration)}
+              options={[
+                { value: '5', displayLabel: '5 seconds', promptSegment: '' },
+                { value: '10', displayLabel: '10 seconds', promptSegment: '' }
+              ]}
+              disabled={commonFormDisabled}
+              priceData={{ model: videoModel, resolution, duration }}
+            />
             <div>
               <Label htmlFor="seed" className="text-sm">Seed</Label>
               <div className="flex items-center gap-2 mt-1">
@@ -461,7 +544,9 @@ export default function VideoParameters({
                 <Button variant="outline" size="icon" onClick={handleRandomSeed} disabled={commonFormDisabled} title="Use Random Seed"><Shuffle className="h-4 w-4" /></Button>
               </div>
             </div>
-            <div className="flex items-center space-x-2 md:self-center md:pt-5"> {/* Adjusted alignment for switch */}
+          </div>
+          <div className="pt-2">
+            <div className="flex items-center space-x-2">
               <Switch id="cameraFixed" checked={cameraFixed} onCheckedChange={setCameraFixed} disabled={commonFormDisabled} />
               <Label htmlFor="cameraFixed" className="text-sm cursor-pointer">Fix Camera Position</Label>
             </div>
@@ -480,10 +565,15 @@ export default function VideoParameters({
                 Generating...
               </>
             ) : (
-              <>
+              <div className="flex items-center justify-center w-full">
                 <Video className="mr-2 h-5 w-5" />
-                Generate Video
-              </>
+                <span>Generate Video</span>
+                {estimatedCost !== null && !isGenerating && (
+                  <Badge variant="secondary" className="ml-auto text-base">
+                    {formatPrice(estimatedCost)}
+                  </Badge>
+                )}
+              </div>
             )}
           </Button>
         </CardFooter>
