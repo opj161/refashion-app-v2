@@ -686,7 +686,7 @@ export default function ImageParameters({
           <Button
             onClick={handleSubmit}
             disabled={isLoading || !preparedImageUrl || isReRollingSlot !== null || !currentPrompt.trim()}
-            className="w-full text-lg bg-gradient-to-r from-primary to-[hsl(var(--primary)/0.8)] shadow-primary/20 shadow-[0_4px_15px_-4px_hsl(var(--primary)/0.4)] transition-all duration-300 ease-in-out hover:shadow-[0_4px_20px_-2px_hsl(var(--primary)/0.5)] hover:brightness-110 hover:-translate-y-px"
+            className="w-full text-lg bg-gradient-to-r from-primary to-[hsl(var(--primary)/0.8)] text-primary-foreground shadow-[0_4px_15px_-4px_hsl(var(--primary)/0.4)] transition-all duration-300 ease-in-out hover:shadow-[0_4px_20px_-2px_hsl(var(--primary)/0.5)] hover:brightness-110 hover:-translate-y-px focus-visible:ring-4 focus-visible:ring-primary/30"
             size="lg"
           >
             {isLoading ? (

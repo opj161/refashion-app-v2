@@ -100,11 +100,11 @@ body {
   }
 
   .dark {
-    --background: 204 18% 12%; /* #1A2026 - Softer, slightly bluish-dark */
+    --background: 191, 71%, 3%; /* #171a1d - Slightly darker and bluer */
     --background-accent: 180, 40%, 6%; /* Brighter & more saturated petrol */
     --foreground: 195 15% 90%; /* #DCE2E2 - Light cool grey for text */
 
-    --card: 204 18% 15%; /* #1F262D - Slightly lighter than background for depth */
+    --card: 210 12% 14%; /* #1e2227 - A bit lighter for noticeable depth */
     --card-foreground: 195 15% 95%;
 
     --popover: 195 20% 12%;
@@ -119,16 +119,10 @@ body {
     --muted: 195 15% 18%; /* #232B2B - Dark grey petrol for muted */
     --muted-foreground: 195 10% 75%; /* #9BA3A3 - Muted grey text */
 
-    --accent: 35 60% 65%; /* #DCA969 - Brighter Bronze/Gold */
-    --accent-foreground: 35 30% 10%; /* #2D241A - Very dark brown for text */
-
-    --destructive: 0 70% 60%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 204 18% 22%; /* #2D363F - Adjusted border to match new palette */
-    --input: 195 15% 32%;
-    --ring: 190 55% 60%; /* #5BC7BE - Brighter Petrol ring */
-    --radius: 0.5rem;
+    --border: 210 10% 23%; /* #353a42 - Softer, less saturated border */
+    --input: 190 20% 90%; /* #E2EDED - Light petrol input background */
+    --ring: 190 45% 45%; /* #499A94 - Slightly lighter Deep Petrol for ring */
+    --radius: 0.75rem; /* Slightly increase border radius for a softer feel */
   }
 
   /* --- Improvement 4: Softer Focus Rings --- */

@@ -88,7 +88,10 @@ export default {
         'progress-ribbings': 'progress-ribbings 2s linear infinite',
         'progress-pulsation': 'progress-pulsation 1.5s infinite',
         'progress-completion': 'progress-completion 1s ease-in-out'
-  		}
+  		},
+      fontFamily: {
+        sans: ['Satoshi', 'sans-serif'],
+      },
   	}
   },
   plugins: [require("tailwindcss-animate")],
