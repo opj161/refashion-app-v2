@@ -9,7 +9,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle } from 'lucide-react';
 import { generateImageEdit, regenerateSingleImage, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
@@ -561,7 +560,7 @@ export default function ImageParameters({
               <Palette className="h-6 w-6 text-primary" />
               Configure Image Parameters
             </CardTitle>
-            <CardDescription>Define the model, style, and scene for your fashion images.</CardDescription>
+            <CardDescription className="hidden lg:block">Define the model, style, and scene for your fashion images.</CardDescription>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
@@ -582,16 +581,6 @@ export default function ImageParameters({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!preparedImageUrl && (
-            <Alert className="mb-4">
-              <UploadCloud className="h-4 w-4" />
-              <AlertTitle>Image Required</AlertTitle>
-              <AlertDescription>
-                Please upload and prepare an image in the step above to enable these options.
-              </AlertDescription>
-            </Alert>
-          )}
-
           {/* Parameter Controls */}
           {settingsMode === 'advanced' ? (
             <>
@@ -697,7 +686,7 @@ export default function ImageParameters({
           <Button
             onClick={handleSubmit}
             disabled={isLoading || !preparedImageUrl || isReRollingSlot !== null || !currentPrompt.trim()}
-            className="w-full text-lg"
+            className="w-full text-lg bg-gradient-to-r from-primary to-[hsl(var(--primary)/0.8)] shadow-primary/20 shadow-[0_4px_15px_-4px_hsl(var(--primary)/0.4)] transition-all duration-300 ease-in-out hover:shadow-[0_4px_20px_-2px_hsl(var(--primary)/0.5)] hover:brightness-110 hover:-translate-y-px"
             size="lg"
           >
             {isLoading ? (
@@ -717,7 +706,7 @@ export default function ImageParameters({
               <Palette className="h-6 w-6 text-primary" />
               Generated Images
             </CardTitle>
-            <CardDescription>Your AI-generated fashion model images.</CardDescription>
+            <CardDescription className="hidden lg:block">Your AI-generated fashion model images.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -730,59 +719,49 @@ export default function ImageParameters({
                 ))
               ) : (
                 outputImageUrls.map((uri, index) => {
-                  if (index >= NUM_IMAGES_TO_GENERATE) return null;
-                  const error = generationErrors[index];
-                  const isCurrentlyReRollingThisSlot = isReRollingSlot === index;
-                  const isCurrentlyUpscalingThisSlot = isUpscalingSlot === index;
-                  const isProcessingThisSlot = isCurrentlyReRollingThisSlot || isCurrentlyUpscalingThisSlot;
-                  const originalUri = originalOutputImageUrls[index];
-                  const displayUri = comparingSlotIndex === index ? originalUri : uri;
+                  if (uri === null) {
+                    return (
+                      <div key={index} className="aspect-[3/4] bg-muted/50 rounded-md border flex items-center justify-center">
+                        <p className="text-sm text-muted-foreground">Image {index + 1} not generated</p>
+                      </div>
+                    );
+                  }
+                  const isError = generationErrors[index] !== null;
+                  const displayUrl = getDisplayableImageUrl(uri);
                   return (
-                    <div key={index} className="relative group">
-                      {uri ? (
-                        <>
-                          <div className="aspect-[3/4] overflow-hidden rounded-md border relative">
-                            <Image src={getDisplayableImageUrl(displayUri) || ''} alt={`Generated image ${index + 1}`} width={300} height={400} className="w-full h-full object-cover" />
-                            {isCurrentlyUpscalingThisSlot && (
-                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <div className="text-white text-center">
-                                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                                  <p className="text-sm">Upscaling...</p>
-                                </div>
-                              </div>
-                            )}
-                            {originalUri && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="absolute top-2 right-2 h-8 w-8 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-sm"
-                                onMouseDown={() => setComparingSlotIndex(index)}
-                                onMouseUp={() => setComparingSlotIndex(null)}
-                                onMouseLeave={() => setComparingSlotIndex(null)}
-                                onTouchStart={() => setComparingSlotIndex(index)}
-                                onTouchEnd={() => setComparingSlotIndex(null)}
-                                title="Hold to see original"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                          <div className="mt-2 flex gap-1">
-                              <Button onClick={() => handleDownloadOutput(uri, index)} className="flex-1" variant="outline" size="sm" disabled={isProcessingThisSlot || isLoading}><Download className="h-3 w-3 mr-1" /> <span className="text-xs">DL</span></Button>
-                              <Button onClick={() => handleReRollImage(index)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><RefreshCw className="h-3 w-3 mr-1" /> <span className="text-xs">Re-roll</span></Button>
-                              <Button onClick={() => handleUpscale(index)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><Sparkles className="h-3 w-3 mr-1" /> <span className="text-xs">Upscale</span></Button>
-                              <Button onClick={() => handleSendToVideoPage(uri)} className="flex-1" variant="ghost" size="sm" disabled={isProcessingThisSlot || isLoading}><VideoIcon className="h-3 w-3 mr-1" /> <span className="text-xs">Video</span></Button>
-                          </div>
-                        </>
-                      ) : isCurrentlyReRollingThisSlot ? (
-                        <div className="aspect-[3/4] flex items-center justify-center bg-muted/50 rounded-md border">
-                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <div key={index} className="group aspect-[3/4] rounded-md overflow-hidden">
+                      <Image
+                        src={displayUrl || ''}
+                        alt={`Generated Image ${index + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        width={400}
+                        height={300}
+                      />
+                      <div className="p-2 bg-card/80 backdrop-blur-md rounded-b-md">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadOutput(uri, index)}
+                            className="flex-1"
+                            disabled={isLoading}
+                          >
+                            <Download className="mr-2 h-4 w-4" /> Download
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleSendToVideoPage(uri)}
+                            className="flex-1"
+                            disabled={isLoading}
+                          >
+                            <VideoIcon className="mr-2 h-4 w-4" /> Video
+                          </Button>
                         </div>
-                      ) : error ? (
-                        <div className="aspect-[3/4] flex flex-col items-center justify-center text-center text-xs text-destructive p-2 bg-destructive/10">
-                          Failed. <Button onClick={() => handleReRollImage(index)} variant="link" size="sm" className="text-xs p-0 h-auto mt-1" disabled={isProcessingThisSlot || isLoading}>Retry</Button>
-                        </div>
-                      ) : null}
+                        {isError ? (
+                          <p className="mt-2 text-sm text-red-500">{generationErrors[index]}</p>
+                        ) : null}
+                      </div>
                     </div>
                   );
                 })

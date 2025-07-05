@@ -257,14 +257,14 @@ export default function HistoryGallery() {
       {/* Modal for History Item Details */}
       {selectedHistoryItemForDetail && (
         <Dialog open={isHistoryDetailOpen} onOpenChange={setIsHistoryDetailOpen}>
-          <DialogContent className="max-w-3xl"> {/* Increased max-width for better layout */}
+          <DialogContent className="h-screen w-screen max-w-full sm:h-auto sm:max-w-3xl sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-lg">
             <DialogHeader>
               <DialogTitle>History Item Details</DialogTitle>
               <DialogDescription>
                 Review of saved configuration and generated outputs.
               </DialogDescription>
             </DialogHeader>
-            <ScrollArea className="max-h-[70vh] p-1 pr-2 -mr-2"> {/* Added padding for scrollbar */}
+            <ScrollArea className="flex-1 min-h-0 p-1 pr-2 -mr-2">
               <div className="space-y-6 py-4 px-2">
                 {/* Displaying original image or source image for video */}
                 {(selectedHistoryItemForDetail.originalClothingUrl || selectedHistoryItemForDetail.videoGenerationParams?.sourceImageUrl) && (

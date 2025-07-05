@@ -1,16 +1,18 @@
 // src/components/ImageEditorCanvas.tsx
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import React, { useCallback, useEffect, useRef, useMemo } from "react";
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import { Button } from "@/components/ui/button";
-import { useImageStore, useActiveImage } from "@/stores/imageStore";
-import { useToast } from "@/hooks/use-toast";
 import { getDisplayableImageUrl } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+
+interface DisplayImage {
+  id: string;
+  dataUri: string;
+}
 
 interface ImageEditorCanvasProps {
+  image: DisplayImage | null;
   preparationMode: 'image' | 'video';
   aspect?: number;
   disabled?: boolean;
@@ -25,6 +27,7 @@ interface ImageEditorCanvasProps {
 // The getCroppedImgDataUrl function has been moved to the parent component
 
 export default function ImageEditorCanvas({ 
+  image,
   preparationMode, 
   aspect, 
   disabled = false, 
@@ -34,10 +37,6 @@ export default function ImageEditorCanvas({
   onCropComplete,
   onImageLoad
 }: ImageEditorCanvasProps) {
-  const { toast } = useToast();
-  const { isProcessing, processingStep } = useImageStore();
-  const activeImage = useActiveImage();
-  
   // Use a ref for the displayed image element to avoid re-renders.
   const imgRef = useRef<HTMLImageElement | null>(null);
   
@@ -137,25 +136,18 @@ export default function ImageEditorCanvas({
   // Reset imgRef when active image changes
   useEffect(() => {
     imgRef.current = null;
-  }, [activeImage?.id]);
+  }, [image?.id]);
 
-  // Don't render if no active image
-  if (!activeImage) {
+  if (!image) {
     return null;
   }
 
-  const isCurrentlyProcessing = isProcessing && processingStep === 'crop';
-  const imageUrlToDisplay = activeImage ? getDisplayableImageUrl(activeImage.dataUri) : null;
+  const imageUrlToDisplay = getDisplayableImageUrl(image.dataUri);
 
   return (
     <>
       {/* Processing overlay */}
-      {isCurrentlyProcessing && (
-        <div className="absolute inset-0 bg-background/70 z-30 flex flex-col items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="mt-2 text-sm font-semibold">Cropping...</p>
-        </div>
-      )}
+      {/* Removed processing overlay as it's now handled in the parent component */}
 
       {/* Image with crop overlay */}
       <ReactCrop 
@@ -164,12 +156,10 @@ export default function ImageEditorCanvas({
         onComplete={(c) => handleCropComplete(c)} 
         aspect={aspect} 
         className="max-h-[60vh]" 
-        disabled={disabled || isProcessing}
+        disabled={disabled}
       >
-        {/* Using a key ensures the img element is re-mounted when the active image changes. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img 
-          key={activeImage.id}
+          key={image.id}
           src={imageUrlToDisplay || ''} 
           alt="Editable image" 
           onLoad={handleImageLoad} 

@@ -473,7 +473,7 @@ export default function VideoParameters({
               <PaletteIcon className="h-6 w-6 text-primary" />
               Animation & Style
             </CardTitle>
-            <CardDescription>Define the video&apos;s motion and aesthetic.</CardDescription>
+            <CardDescription className="hidden lg:block">Define the video&apos;s motion and aesthetic.</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -561,7 +561,7 @@ export default function VideoParameters({
             <Settings2 className="h-6 w-6 text-primary" />
             Technical Parameters
           </CardTitle>
-          <CardDescription>Configure resolution, duration, and other technical settings.</CardDescription>
+          <CardDescription className="hidden lg:block">Configure resolution, duration, and other technical settings.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

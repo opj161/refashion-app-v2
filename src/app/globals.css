@@ -33,6 +33,39 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+/* --- Improvement 1: Aurora Background Glow --- */
+.dark body::before {
+  content: '';
+  position: fixed;
+  left: 50%;
+  top: 15%;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, hsl(var(--primary) / 0.1), transparent 65%);
+  transform: translateX(-50%);
+  filter: blur(120px);
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* --- Improvement 2: Enhanced Card Styling --- */
+.dark .card {
+  position: relative;
+  background-clip: padding-box;
+  border: 1px solid transparent;
+}
+.dark .card::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  z-index: -1;
+  margin: -1px;
+  border-radius: inherit;
+  background: linear-gradient(145deg, hsl(var(--primary) / 0.3), hsl(var(--border) / 0.1) 80%);
+}
+
 @layer base {
   :root {
     --background: 190 0% 96%; /* #F3F7F7 - Very light, cool off-white */
@@ -67,11 +100,11 @@ body {
   }
 
   .dark {
-    --background: 195 25% 5%; /* #0F1616 - Very dark, desaturated petrol */
-    --background-accent: 180, 40%, 6%; /* ADD THIS LINE: Brighter & more saturated petrol */
+    --background: 204 18% 12%; /* #1A2026 - Softer, slightly bluish-dark */
+    --background-accent: 180, 40%, 6%; /* Brighter & more saturated petrol */
     --foreground: 195 15% 90%; /* #DCE2E2 - Light cool grey for text */
 
-    --card: 195 20% 15%; /* #161E1E - Dark petrol, slightly lighter than background */
+    --card: 204 18% 15%; /* #1F262D - Slightly lighter than background for depth */
     --card-foreground: 195 15% 95%;
 
     --popover: 195 20% 12%;
@@ -92,9 +125,17 @@ body {
     --destructive: 0 70% 60%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 195 15% 22%; /* #2D3636 - Subtle dark petrol border */
+    --border: 204 18% 22%; /* #2D363F - Adjusted border to match new palette */
     --input: 195 15% 32%;
     --ring: 190 55% 60%; /* #5BC7BE - Brighter Petrol ring */
     --radius: 0.5rem;
+  }
+
+  /* --- Improvement 4: Softer Focus Rings --- */
+  .dark input:focus-visible, 
+  .dark textarea:focus-visible, 
+  .dark [data-radix-select-trigger]:focus-visible {
+    border-color: hsl(var(--primary) / 0.8) !important;
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important;
   }
 }
