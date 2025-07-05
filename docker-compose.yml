@@ -6,6 +6,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_FAL_KEY: ${NEXT_PUBLIC_FAL_KEY}
+        ENCRYPTION_SECRET: ${ENCRYPTION_SECRET}
     ports:
       - "3000:3000" # Map host port 3000 to container port 3000
     volumes:

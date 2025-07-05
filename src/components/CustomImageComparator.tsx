@@ -35,15 +35,6 @@ export default function CustomImageComparator({
     setIsDragging(false);
   }, []);
 
-  const handleMouseMoveContainer = useCallback((e: React.MouseEvent) => {
-    if (!containerRef.current) return;
-    
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    setSliderPosition(percentage);
-  }, []);
-
   React.useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
@@ -60,7 +51,6 @@ export default function CustomImageComparator({
       ref={containerRef}
       className="w-full relative overflow-hidden rounded-lg bg-muted cursor-ew-resize"
       onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMoveContainer}
     >
       {/* Base/Right Image (for sizing and as the 'After' view) */}
       <img

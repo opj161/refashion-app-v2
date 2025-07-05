@@ -25,6 +25,10 @@ WORKDIR /app
 ARG NEXT_PUBLIC_FAL_KEY
 ENV NEXT_PUBLIC_FAL_KEY=$NEXT_PUBLIC_FAL_KEY
 
+# Accept build-time argument for ENCRYPTION_SECRET
+ARG ENCRYPTION_SECRET
+ENV ENCRYPTION_SECRET=$ENCRYPTION_SECRET
+
 # Copy dependencies from the 'deps' stage
 COPY --from=deps /app/node_modules ./node_modules
 # Copy package.json for npm scripts

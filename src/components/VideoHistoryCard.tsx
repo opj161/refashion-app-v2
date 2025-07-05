@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import type { HistoryItem } from '@/lib/types';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -15,13 +15,51 @@ interface VideoHistoryCardProps {
 
 export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isInView, setIsInView] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const thumbnailUrl = getDisplayableImageUrl(
     item.videoGenerationParams?.sourceImageUrl || item.originalClothingUrl || ''
   );
   const videoUrl = getDisplayableImageUrl(item.generatedVideoUrls?.[0] || '');
   const status = item.videoGenerationParams?.status;
   const error = item.videoGenerationParams?.error;
+
+  // IntersectionObserver for autoplay-in-view
+  useEffect(() => {
+    const currentCard = cardRef.current;
+    if (!currentCard || !videoUrl) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        setIsInView(entry.isIntersecting);
+      },
+      {
+        root: null, // viewport
+        rootMargin: '0px',
+        threshold: 0.5, // Play when 50% of the card is visible
+      }
+    );
+
+    observer.observe(currentCard);
+
+    return () => {
+      observer.unobserve(currentCard);
+    };
+  }, [videoUrl]);
+
+  // Handle video play/pause based on visibility
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !videoUrl) return;
+
+    if (isInView) {
+      video.play().catch(error => { if (error.name !== 'AbortError') console.error("Video play failed:", error); });
+    } else {
+      video.pause();
+    }
+  }, [isInView, videoUrl]);
 
   const getStatusIcon = () => {
     switch (status) {
@@ -53,56 +91,45 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
 
   return (
     <>
-      <Card className="overflow-hidden group transition-all hover:shadow-lg hover:border-primary/50">
+      <Card ref={cardRef} className="overflow-hidden group transition-all hover:shadow-lg hover:border-primary/50">
         <CardContent className="p-0">
           <div
             className={`relative aspect-[9/16] w-full bg-muted ${
               canPlayVideo ? 'cursor-pointer' : 'cursor-default'
             }`}
             onClick={() => canPlayVideo && setIsModalOpen(true)}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
           >
-            {!isHovered && thumbnailUrl ? (
+            {thumbnailUrl && (
               <Image
                 src={thumbnailUrl}
                 alt="Video thumbnail"
                 fill
-                className="object-cover"
+                className={`object-cover transition-opacity duration-300 ${isInView ? 'opacity-0' : 'opacity-100'}`}
               />
-            ) : null}
-            {isHovered && videoUrl ? (
+            )}
+            {videoUrl && (
               <video
+                ref={videoRef}
                 src={videoUrl}
-                autoPlay
                 loop
                 muted
                 playsInline
-                className="w-full h-full object-cover"
+                preload="metadata"
+                className={`w-full h-full object-cover absolute inset-0 transition-opacity duration-300 ${isInView ? 'opacity-100' : 'opacity-0'}`}
               />
-            ) : isHovered && !videoUrl && thumbnailUrl ? (
-              <Image
-                src={thumbnailUrl}
-                alt="Video thumbnail"
-                fill
-                className="object-cover"
-              />
-            ) : null}
-            
+            )}
             {/* Status overlay */}
             {status && (
               <div className="absolute top-2 right-2 bg-black/70 rounded-full p-1.5">
                 {getStatusIcon()}
               </div>
             )}
-            
             {/* Play button overlay - only show for completed videos */}
-            {!isHovered && canPlayVideo && (
+            {!isInView && canPlayVideo && (
               <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <PlayCircle className="h-16 w-16 text-white/80" />
               </div>
             )}
-            
             {/* Processing overlay for incomplete videos */}
             {status === 'processing' && (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
@@ -112,7 +139,6 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
                 </div>
               </div>
             )}
-            
             {/* Error overlay */}
             {status === 'failed' && (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
