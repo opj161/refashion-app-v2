@@ -6,12 +6,13 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ThemeToggleImproved } from '@/components/ui/ThemeToggleImproved';
-import { UserAuthStatus } from '@/contexts/AuthContext';
-import { Home, History as HistoryIcon } from 'lucide-react';
+import { UserAuthStatus, useAuth } from '@/contexts/AuthContext';
+import { Home, History as HistoryIcon, ShieldCheck } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -40,6 +41,15 @@ export function SiteHeader() {
             {/* Only render the navigation buttons on the client to avoid hydration mismatch */}
             {isClient && (
               <>
+                {/* Admin Console Button */}
+                {user?.role === 'admin' && (
+                  <Button asChild variant="ghost" size="sm" className="px-2">
+                    <Link href="/admin">
+                      <ShieldCheck className="h-5 w-5 md:mr-2" />
+                      <span className="hidden md:inline">Admin</span>
+                    </Link>
+                  </Button>
+                )}
                 {/* Conditionally render the "Create" button */}
                 {pathname.startsWith('/history') && (
                   <Button asChild variant="ghost" size="sm" className="px-2">

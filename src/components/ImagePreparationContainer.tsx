@@ -15,7 +15,7 @@ import ImageEditorCanvas from "./ImageEditorCanvas";
 import ImageProcessingTools from "./ImageProcessingTools";
 import AspectRatioSelector from "./AspectRatioSelector";
 import ImageVersionStack from "./ImageVersionStack";
-import ImageComparator from "./ImageComparator";
+import CustomImageComparator from "./CustomImageComparator";
 
 import { 
   UploadCloud, CheckCircle, RefreshCw, Loader2, Trash2, Eye, X, Check, Edit 
@@ -250,14 +250,14 @@ export default function ImagePreparationContainer({
 
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Main View Area: Conditionally render Editor or Comparator */}
-          <div className="lg:col-span-3 relative">
+          {/* Main View Area: Now with a unified container */}
+          <div className="lg:col-span-3 relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border">
             {showComparison && activeImage && sourceVersion ? (
-              <ImageComparator
+              // This wrapper creates the correctly sized box for the comparator,
+              // matching the max-height of the editor canvas.
+              <CustomImageComparator
                 leftImageUri={sourceVersion.dataUri}
                 rightImageUri={activeImage.dataUri}
-                // Match the styling wrapper of the editor for consistency
-                className="bg-muted/20 p-2 rounded-lg border min-h-[400px]"
               />
             ) : (
               <ImageEditorCanvas 

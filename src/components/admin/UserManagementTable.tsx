@@ -90,23 +90,38 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
     const result = await updateUserConfiguration(formData);
     if (result.success) {
       toast({ title: 'User Updated', description: `User '${userToEdit?.username}' has been updated.` });
-      setUsers(users.map(u =>
-        u.username === userToEdit?.username
-          ? {
-              ...u,
-              role: formData.get('role') as 'admin' | 'user',
-              gemini_api_key_1_mode: formData.get('gemini_api_key_1_mode') as 'global' | 'user_specific',
-              gemini_api_key_2_mode: formData.get('gemini_api_key_2_mode') as 'global' | 'user_specific',
-              gemini_api_key_3_mode: formData.get('gemini_api_key_3_mode') as 'global' | 'user_specific',
-              fal_api_key_mode: formData.get('fal_api_key_mode') as 'global' | 'user_specific',
-            }
-          : u
-      ));
+      // More robust optimistic update: only update what's in the form data
+      setUsers(users.map(u => {
+        if (u.username === userToEdit?.username) {
+          const updatedUser: User = { ...u };
+          if (formData.has('role')) updatedUser.role = formData.get('role') as 'admin' | 'user';
+          if (formData.has('gemini_api_key_1_mode')) updatedUser.gemini_api_key_1_mode = formData.get('gemini_api_key_1_mode') as 'global' | 'user_specific';
+          if (formData.has('gemini_api_key_2_mode')) updatedUser.gemini_api_key_2_mode = formData.get('gemini_api_key_2_mode') as 'global' | 'user_specific';
+          if (formData.has('gemini_api_key_3_mode')) updatedUser.gemini_api_key_3_mode = formData.get('gemini_api_key_3_mode') as 'global' | 'user_specific';
+          if (formData.has('fal_api_key_mode')) updatedUser.fal_api_key_mode = formData.get('fal_api_key_mode') as 'global' | 'user_specific';
+          return updatedUser;
+        }
+        return u;
+      }));
       setUserToEdit(null);
     } else {
       toast({ title: 'Update Error', description: result.error, variant: 'destructive' });
     }
     setIsSubmitting(false);
+  };
+
+  const getApiKeyModeSummary = (user: User) => {
+    const modes = [
+      user.gemini_api_key_1_mode,
+      user.gemini_api_key_2_mode,
+      user.gemini_api_key_3_mode,
+      user.fal_api_key_mode,
+    ];
+    const userSpecificCount = modes.filter(m => m === 'user_specific').length;
+
+    if (userSpecificCount === 0) return 'All Global';
+    if (userSpecificCount === modes.length) return 'All User-Specific';
+    return `${userSpecificCount} / ${modes.length} User-Specific`;
   };
 
   return (
@@ -170,7 +185,7 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
               <TableRow key={user.username}>
                 <TableCell className="font-medium">{user.username}</TableCell>
                 <TableCell className="capitalize">{user.role}</TableCell>
-                <TableCell>Mixed</TableCell>
+                <TableCell>{getApiKeyModeSummary(user)}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => setUserToEdit(user)} disabled={isSubmitting} aria-label={`Edit ${user.username}`}>
                     <Edit className="h-4 w-4" />

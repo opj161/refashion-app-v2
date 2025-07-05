@@ -148,7 +148,7 @@ export default function ImageEditorCanvas({
   const imageUrlToDisplay = activeImage ? getDisplayableImageUrl(activeImage.dataUri) : null;
 
   return (
-    <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border min-h-[400px]">
+    <>
       {/* Processing overlay */}
       {isCurrentlyProcessing && (
         <div className="absolute inset-0 bg-background/70 z-30 flex flex-col items-center justify-center">
@@ -159,7 +159,6 @@ export default function ImageEditorCanvas({
 
       {/* Image with crop overlay */}
       <ReactCrop 
-        // Conditionally pass the crop object. If it's undefined, the crop UI is not shown.
         crop={currentCrop}
         onChange={(_, percentCrop) => handleCropChange(percentCrop)} 
         onComplete={(c) => handleCropComplete(c)} 
@@ -177,6 +176,6 @@ export default function ImageEditorCanvas({
           className="max-h-[60vh] object-contain" 
         />
       </ReactCrop>
-    </div>
+    </>
   );
 }

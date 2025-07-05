@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils';
 interface ImageComparatorProps {
   leftImageUri: string;
   rightImageUri: string;
-  className?: string;
 }
 
 const CustomHandle = () => (
@@ -28,15 +27,21 @@ const ComparisonSkeleton = () => (
 export default function ImageComparator({
   leftImageUri,
   rightImageUri,
-  className,
 }: ImageComparatorProps) {
   return (
-    <div
-      className={cn(
-        "image-comparator-container w-full [&>div]:max-h-[60vh] [&_img]:max-h-[60vh] [&_img]:object-contain",
-        className
-      )}
-    >
+    // This div makes the component fill its parent container.
+    <div className="w-full h-full image-comparator-wrapper">
+      {/*
+        The react-compare-image library applies an inline style of `object-fit: cover`, which crops the image.
+        To override this, we must use a <style> tag with `!important`. This is the only
+        way to win the CSS specificity battle against inline styles. The parent `.image-comparator-wrapper`
+        scopes this override to only this component.
+      */}
+      <style jsx global>{`
+        .image-comparator-wrapper .ReactCompareImage_img {
+          object-fit: contain !important;
+        }
+      `}</style>
       <ReactCompareImage
         leftImage={getDisplayableImageUrl(leftImageUri) || ''}
         rightImage={getDisplayableImageUrl(rightImageUri) || ''}
