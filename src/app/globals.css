@@ -18,108 +18,122 @@
   --motion-ease-anticipate: cubic-bezier(0.68, -0.6, 0.32, 1.6);
 }
 
-/* --- Improvement 1: Aurora Background Glow --- */
-.dark body::before {
-  content: '';
-  position: fixed;
-  left: 50%;
-  top: 15%;
-  width: 600px;
-  height: 600px;
-  border-radius: 50%;
-  background: radial-gradient(circle, hsl(var(--primary) / 0.1), transparent 65%);
-  transform: translateX(-50%);
-  filter: blur(120px);
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.7;
-}
-
-/* --- Improvement 2: Enhanced Card Styling --- */
-.dark .card {
-  position: relative;
-  background-clip: padding-box;
-  border: 1px solid transparent;
-}
-.dark .card::before {
-  content: '';
-  position: absolute;
-  top: 0; right: 0; bottom: 0; left: 0;
-  z-index: -1;
-  margin: -1px;
-  border-radius: inherit;
-  background: linear-gradient(145deg, hsl(var(--primary) / 0.3), hsl(var(--border) / 0.1) 80%);
-}
-
 @layer base {
-  /* Theme initialization - prevent flash */
+  /* Remove existing :root and .dark color definitions and replace with these */
   :root {
-    color-scheme: light;
-
-    /* Light Theme Variables */
-    --background: 190 0% 96%; /* #F3F7F7 - Very light, cool off-white */
-    --background-accent: 190 15% 94%; /* ADD THIS LINE: Slightly bluer & darker for contrast */
-    --foreground: 190 15% 20%; /* #2A3434 - Dark, desaturated petrol for text */
-
-    --card: 0 0% 99%; /* #FFFFFF - Pure white cards */
-    --card-foreground: 190 15% 20%; /* Matches foreground */
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 190 15% 20%;
-
-    --primary: 190 45% 35%; /* #317873 - Deep Petrol */
-    --primary-foreground: 190 20% 95%; /* #EEF6F6 - Light, cool off-white for text on primary */
-
-    --secondary: 190 30% 88%; /* #D6E6E5 - Lighter, desaturated petrol */
-    --secondary-foreground: 190 25% 30%; /* #3A504F - Darker petrol for text on secondary */
-
-    --muted: 190 20% 94%; /* #EBF1F1 - Very light, muted petrol-grey */
-    --muted-foreground: 190 15% 45%; /* #627474 - Softer petrol text for muted */
-
-    --accent: 338, 100%, 68%; /* #C49A57 - Muted Bronze/Gold */
-    --accent-foreground: 319°, 100%, 15%; /* #3A2F22 - Dark brown for text on accent */
-
-    --destructive: 0 84.2% 60.2%;
+    /* Light Theme (if you ever need it, but we'll focus on dark) */
+    --background: 210 20% 98%;
+    --background-accent: 210 20% 94%;
+    --foreground: 210 10% 23%;
+    --card: 210 20% 100%;
+    --card-foreground: 210 10% 23%;
+    --popover: 210 20% 100%;
+    --popover-foreground: 210 10% 23%;
+    --primary: 173 71% 38%; /* Darker Teal for contrast on light BG */
+    --primary-foreground: 173 50% 98%;
+    --secondary: 210 15% 90%;
+    --secondary-foreground: 210 10% 23%;
+    --muted: 210 15% 94%;
+    --muted-foreground: 210 10% 45%;
+    --accent: 177 63% 48%;
+    --accent-foreground: 210 10% 23%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-
-    --border: 190 20% 82%; /* #C8DADC - Desaturated petrol border */
-    --input: 190 20% 90%; /* #E2EDED - Light petrol input background */
-    --ring: 190 45% 45%; /* #499A94 - Slightly lighter Deep Petrol for ring */
-    --radius: 0.5rem;
+    --border: 210 10% 88%;
+    --input: 210 10% 92%;
+    --ring: 173 71% 42%;
+    --radius: 0.75rem;
   }
 
   .dark {
-    color-scheme: dark;
+    /* Main Dark Theme */
+    --background: 224 71% 4%;          /* hsl(224, 71%, 4%) - Almost black, deep blue */
+    --background-accent: 224 40% 8%;   /* hsl(224, 40%, 8%) - Slightly lighter, for depth */
+    --foreground: 210 20% 92%;         /* hsl(210, 20%, 92%) - Off-white with a cool tint */
+    
+    --card: 224 25% 12%;               /* hsl(224, 25%, 12%) - Dark blue-gray */
+    --card-foreground: 210 20% 95%;    /* hsl(210, 20%, 95%) */
 
-    --background: 191, 71%, 3%; /* #171a1d - Slightly darker and bluer */
-    --background-accent: 180, 40%, 6%; /* Brighter & more saturated petrol */
-    --foreground: 195 15% 90%; /* #DCE2E2 - Light cool grey for text */
+    --popover: 224 71% 4%;
+    --popover-foreground: 210 20% 95%;
 
-    --card: 210 12% 14%; /* #1e2227 - A bit lighter for noticeable depth */
-    --card-foreground: 195 15% 95%;
+    --primary: 173 71% 42%;            /* #1fab99 */
+    --primary-foreground: 224 20% 98%; /* Very light, almost white */
 
-    --popover: 195 20% 12%;
-    --popover-foreground: 195 15% 90%;
+    --secondary: 210 15% 23%;          /* hsl(210, 15%, 23%) - Muted dark blue */
+    --secondary-foreground: 210 20% 92%;
 
-    --primary: 190 55% 50%; /* #3AB7AD - Brighter Petrol for dark mode */
-    --primary-foreground: 190 20% 91%; /* #141A1A - Very dark petrol for text on primary */
+    --muted: 210 15% 18%;
+    --muted-foreground: 210 10% 65%;
 
-    --secondary: 195 20% 25%; /* #334141 - Medium-dark desaturated petrol */
-    --secondary-foreground: 195 15% 85%; /* #D2D9D9 - Lighter grey text */
+    --accent: 177 63% 48%;             /* #2abab1 */
+    --accent-foreground: 224 20% 98%;
 
-    --muted: 195 15% 18%; /* #232B2B - Dark grey petrol for muted */
-    --muted-foreground: 195 10% 75%; /* #9BA3A3 - Muted grey text */
+    --destructive: 19 87% 51%;         /* #ef571a */
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 210 10% 23%; /* #353a42 - Softer, less saturated border */
-    --input: 190 20% 90%; /* #E2EDED - Light petrol input background */
-    --ring: 190 45% 45%; /* #499A94 - Slightly lighter Deep Petrol for ring */
-    --radius: 0.75rem; /* Slightly increase border radius for a softer feel */
+    --border: 210 10% 23%;             /* A slightly lighter blue-gray */
+    --input: 210 15% 18%;
+    --ring: 177 63% 55%;               /* Lighter teal for focus rings */
+    --radius: 0.75rem;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root:not(.light) {
-      color-scheme: dark;
-    }
+  @keyframes aurora-animation {
+    0% { transform: translate(-50%, -50%) rotate(0deg) scale(1.2); }
+    50% { transform: translate(-50%, -50%) rotate(180deg) scale(1.5); }
+    100% { transform: translate(-50%, -50%) rotate(360deg) scale(1.2); }
+  }
+
+  .aurora-bg {
+    content: '';
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    width: 120vw;
+    height: 120vh;
+    max-width: 1400px;
+    max-height: 1400px;
+    background-image: radial-gradient(circle at 20% 20%, hsl(173 71% 42% / 0.2), transparent 40%),
+                      radial-gradient(circle at 80% 30%, hsl(278 48% 28% / 0.2), transparent 40%),
+                      radial-gradient(circle at 60% 80%, hsl(244 62% 30% / 0.2), transparent 40%);
+    filter: blur(100px);
+    z-index: -1;
+    pointer-events: none;
+    animation: aurora-animation 45s linear infinite;
+    opacity: 0.7;
+  }
+
+  /* --- Improvement 1: Aurora Background Glow --- */
+  .dark body::before {
+    content: '';
+    position: fixed;
+    left: 50%;
+    top: 15%;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.1), transparent 65%);
+    transform: translateX(-50%);
+    filter: blur(120px);
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.7;
+  }
+
+  /* --- Improvement 2: Enhanced Card Styling --- */
+  .dark .card {
+    position: relative;
+    background-clip: padding-box;
+    border: 1px solid transparent;
+  }
+  .dark .card::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: -1;
+    margin: -1px;
+    border-radius: inherit;
+    background: linear-gradient(145deg, hsl(var(--primary) / 0.3), hsl(var(--border) / 0.1) 80%);
   }
 
   /* Ensure theme transitions are smooth when hydrated */
@@ -146,5 +160,38 @@
   .dark [data-radix-select-trigger]:focus-visible {
     border-color: hsl(var(--primary) / 0.8) !important;
     box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply border border-white/10 bg-card/50 backdrop-blur-xl shadow-2xl shadow-black/20;
+    @apply transition-all duration-300;
+  }
+  .glass-card:hover {
+    @apply border-white/20 bg-card/60;
+  }
+  .uploader-dropzone {
+    @apply border border-white/10; /* Default border */
+    position: relative;
+    overflow: hidden;
+  }
+
+  .uploader-dropzone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px; /* border thickness */
+    background: radial-gradient(400px circle at 50% 50%, hsl(var(--primary) / 0.5), transparent 40%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+  }
+  
+  .uploader-dropzone[data-state='drag-over']::before {
+    opacity: 1;
   }
 }

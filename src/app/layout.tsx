@@ -68,6 +68,7 @@ export default async function RootLayout({
           '--font-geist-mono': 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
         } as React.CSSProperties}
       >
+        <div className="aurora-bg"></div>
         <AuthProvider initialUser={initialUser}>
           <ThemeProvider>
             <SiteHeader /> {/* Use the new header component here */}

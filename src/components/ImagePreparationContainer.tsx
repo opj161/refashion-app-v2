@@ -242,7 +242,7 @@ export default function ImagePreparationContainer({
   // Main editor interface
   return (
     <motion.div layout transition={{ duration: 0.5, type: 'spring', bounce: 0.2 }}>
-      <Card>
+      <Card variant="glass">
         <CardHeader>
           <div className="flex justify-between items-start gap-4">
             <div>
@@ -297,7 +297,7 @@ export default function ImagePreparationContainer({
                       onTouchEnd={() => setIsComparing(false)}
                     >
                       <Eye className="mr-2 h-4 w-4" />
-                      Hold to Compare
+                      Compare
                     </Button>
                   )}
                 </div>

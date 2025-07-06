@@ -28,6 +28,7 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
   
   // Local UI state
   const [isDraggingOverPage, setIsDraggingOverPage] = useState(false);
+  const [isDraggingOverDropZone, setIsDraggingOverDropZone] = useState(false);
 
   // --- File Processing ---
   const processFile = useCallback(async (file: File | null | undefined) => {
@@ -99,6 +100,13 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
       processFile(e.dataTransfer.files[0]);
     }
   }, [processFile, isProcessing]);
+
+  // Modify handleDragAction to set state for the drop zone specifically
+  const handleDropZoneDrag = (e: React.DragEvent, action: 'enter' | 'leave') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOverDropZone(action === 'enter');
+  };
 
   // --- Effects ---
   
@@ -187,17 +195,17 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
 
         <CardContent>
           <div 
-            className="p-12 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-center text-muted-foreground bg-muted/20 cursor-pointer hover:bg-muted/30 transition-colors" 
+            data-state={isDraggingOverDropZone ? 'drag-over' : 'idle'}
+            className="p-12 rounded-lg flex flex-col items-center justify-center text-center text-muted-foreground bg-black/10 cursor-pointer transition-all duration-300 uploader-dropzone" 
             onClick={() => fileInputRef.current?.click()}
-            onDragEnter={(e) => handleDragAction(e, 'enter')}
-            onDragLeave={(e) => handleDragAction(e, 'leave')}
-            onDragOver={(e) => handleDragAction(e, 'over')}
-            onDrop={(e) => handleDragAction(e, 'drop')}
+            onDragEnter={(e) => handleDropZoneDrag(e, 'enter')}
+            onDragLeave={(e) => handleDropZoneDrag(e, 'leave')}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { setIsDraggingOverDropZone(false); handleDragAction(e, 'drop'); }}
           >
             <UploadCloud className="w-16 h-16 mb-4" />
             <p className="font-semibold text-foreground">Click to upload or drag & drop</p>
             <p className="text-sm">PNG, JPG, WEBP, etc.</p>
-            
             <Input 
               id="image-upload" 
               type="file" 

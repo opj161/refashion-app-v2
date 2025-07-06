@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Eye, PlayCircle, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 import { getDisplayableImageUrl } from '@/lib/utils';
 import { VideoPlaybackModal } from '@/components/VideoPlaybackModal';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface VideoHistoryCardProps {
   item: HistoryItem;
@@ -174,7 +175,11 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
           </p>
         </CardFooter>
       </Card>
-      {isModalOpen && canPlayVideo && <VideoPlaybackModal item={item} onClose={() => setIsModalOpen(false)} />}
+      <AnimatePresence>
+        {isModalOpen && canPlayVideo && (
+          <VideoPlaybackModal item={item} onClose={() => setIsModalOpen(false)} />
+        )}
+      </AnimatePresence>
     </>
   );
 }

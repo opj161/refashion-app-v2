@@ -466,7 +466,7 @@ export default function VideoParameters({
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card variant="glass">
         <CardHeader className="flex flex-row items-start justify-between">
           <div>
             <CardTitle className="text-xl flex items-center gap-2">
@@ -555,7 +555,7 @@ export default function VideoParameters({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card variant="glass">
         <CardHeader>
           <CardTitle className="text-xl flex items-center gap-2">
             <Settings2 className="h-6 w-6 text-primary" />
@@ -609,9 +609,10 @@ export default function VideoParameters({
         </CardContent>
         <CardFooter>
           <Button
+            variant="gradient"
             onClick={handleGenerateVideo}
             disabled={commonFormDisabled || isGenerating || !currentPrompt.trim()}
-            className="w-full text-lg"
+            className="w-full text-lg hover:animate-shimmer"
             size="lg"
           >
             {isGenerating ? (
@@ -635,14 +636,14 @@ export default function VideoParameters({
       </Card>
 
       {!isVideoServiceAvailable && (
-        <Card className="border-amber-500 bg-amber-50 text-amber-700">
+        <Card variant="glass" className="border-amber-500 bg-amber-50 text-amber-700">
           <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle /> Service Not Available</CardTitle></CardHeader>
           <CardContent><p>Video generation service is not configured.</p></CardContent>
         </Card>
       )}
 
       {generationError && (
-        <Card className="border-destructive bg-destructive/10 text-destructive">
+        <Card variant="glass" className="border-destructive bg-destructive/10 text-destructive">
           <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle /> Generation Failed</CardTitle></CardHeader>
           <CardContent><p>{generationError}</p></CardContent>
         </Card>

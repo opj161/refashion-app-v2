@@ -10,6 +10,7 @@ import { HistoryItem } from "@/lib/types";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle, MoreVertical, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { motion } from 'motion/react';
 
 interface HistoryCardProps {
   item: HistoryItem;
@@ -92,7 +93,7 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
   // Add more sophisticated status detection if needed, e.g. for image processing steps
 
   return (
-    <Card ref={cardRef} className="flex flex-col h-full group shadow-sm hover:shadow-md transition-shadow var(--motion-duration-standard) var(--motion-ease-out)">
+    <Card ref={cardRef} variant="glass" className="flex flex-col h-full group shadow-sm hover:shadow-md transition-shadow var(--motion-duration-standard) var(--motion-ease-out)">
       <CardHeader className="p-3 sm:p-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base sm:text-lg font-semibold truncate" title={item.constructedPrompt?.substring(0,100) || (isVideoItem ? "Video Generation" : "Image Generation")}> 
@@ -120,7 +121,8 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
         className="p-3 sm:p-4 flex-grow relative cursor-pointer active:scale-[0.98] transition-transform var(--motion-duration-fast) var(--motion-ease-out)"
         onClick={() => onViewDetails(item)}
       >
-        <div 
+        <motion.div
+          layoutId={`history-card-media-${item.id}`}
           className="aspect-[2/3] w-full bg-muted rounded-md overflow-hidden relative pointer-events-none"
         >
           {isVideoItem && videoUrl ? (
@@ -170,7 +172,7 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
                 </Badge>
              </div>
            )}
-        </div>
+        </motion.div>
 
         {/* Display a few key parameters if available */}
         <div className="mt-2 space-y-1 text-xs text-muted-foreground">

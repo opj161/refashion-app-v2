@@ -101,7 +101,7 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
 
   return (
     <div className="grid gap-6">
-        <Card>
+        <Card variant="glass">
             <CardHeader>
                 <CardTitle>Feature Flags</CardTitle>
                 <CardDescription>Enable or disable major application features in real-time.</CardDescription>
@@ -133,7 +133,7 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
             </CardContent>
         </Card>
         
-        <Card>
+        <Card variant="glass">
             <CardHeader>
                 <CardTitle>System Maintenance</CardTitle>
                 <CardDescription>Run maintenance tasks to keep the application running smoothly.</CardDescription>
@@ -152,7 +152,7 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
             </CardContent>
         </Card>
 
-        <Card>
+        <Card variant="glass">
           <CardHeader>
             <CardTitle>Global API Keys</CardTitle>
             <CardDescription>Set the system-wide default API keys for AI services. User-specific keys will override these.</CardDescription>

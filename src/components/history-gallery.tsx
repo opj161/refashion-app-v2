@@ -2,13 +2,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { getHistoryPaginated, deleteHistoryItem } from "@/actions/historyActions";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertTriangle, History, Download, Copy } from "lucide-react";
+import { Loader2, AlertTriangle, History, Download, Copy, ImageIcon } from "lucide-react";
 import HistoryCard from "./HistoryCard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { Card, CardContent } from "@/components/ui/card";
 
 type FilterType = 'all' | 'image' | 'video';
 
@@ -49,7 +50,7 @@ export default function HistoryGallery() {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.08,
+        delayChildren: 0.08,
       },
     },
   };
@@ -233,32 +234,38 @@ export default function HistoryGallery() {
       )}
 
       {!isLoading && !error && historyItems.length === 0 && (
-        <div className="text-center py-10 text-muted-foreground">
-          <p>No history items found for this filter.</p>
-        </div>
+        <Card variant="glass" className="mt-8">
+          <CardContent className="py-16 flex flex-col items-center justify-center text-center">
+            <ImageIcon className="h-16 w-16 text-muted-foreground/50 mb-4" />
+            <h3 className="text-xl font-semibold">No History Found</h3>
+            <p className="text-muted-foreground mt-1">Creations for this filter will appear here once you've made some.</p>
+          </CardContent>
+        </Card>
       )}
 
       {!isLoading && !error && historyItems.length > 0 && (
-        <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          layout
-        >
-          <AnimatePresence>
-            {historyItems.map((item) => (
-              <motion.div key={item.id} variants={itemVariants} layout>
-                <HistoryCard
-                  item={item}
-                  onViewDetails={handleViewDetails}
-                  onReloadConfig={handleReloadConfig}
-                  onDeleteItem={handleDeleteRequest}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        <LayoutGroup>
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            layout
+          >
+            <AnimatePresence>
+              {historyItems.map((item) => (
+                <motion.div key={item.id} variants={itemVariants} layout>
+                  <HistoryCard
+                    item={item}
+                    onViewDetails={handleViewDetails}
+                    onReloadConfig={handleReloadConfig}
+                    onDeleteItem={handleDeleteRequest}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        </LayoutGroup>
       )}
 
       {/* Modal for History Item Details */}

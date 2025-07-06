@@ -30,6 +30,7 @@ import {
     DEPTH_OF_FIELD_OPTIONS, FABRIC_RENDERING_OPTIONS, OptionWithPromptSegment
 } from '@/lib/prompt-builder';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { MOTION_TRANSITIONS } from '@/lib/motion-constants';
 
 // Interface for image generation parameters
 interface ImageGenerationParams extends ModelAttributes {
@@ -558,13 +559,13 @@ export default function ImageParameters({
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1,
+        delayChildren: 0.1,
       },
     },
   };
   const resultItemVariant = {
-    hidden: { y: 20, opacity: 0 },
-    visible: { y: 0, opacity: 1 },
+    hidden: { opacity: 0, scale: 0.9 },
+    visible: { opacity: 1, scale: 1, transition: MOTION_TRANSITIONS.spring.standard },
   };
   
   const shouldReduceMotion = useReducedMotion();
@@ -583,7 +584,7 @@ export default function ImageParameters({
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card variant="glass">
         <CardHeader className="flex flex-row items-start justify-between">
           <div>
             <CardTitle className="text-xl flex items-center gap-2">
@@ -715,9 +716,10 @@ export default function ImageParameters({
         <CardFooter className="flex-col items-stretch space-y-4">
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             <Button
+              variant="gradient"
               onClick={handleSubmit}
               disabled={isLoading || !preparedImageUrl || isReRollingSlot !== null || !currentPrompt.trim()}
-              className="w-full text-lg bg-gradient-to-r from-primary to-[hsl(var(--primary)/0.8)] text-primary-foreground shadow-[0_4px_15px_-4px_hsl(var(--primary)/0.4)] transition-all duration-300 ease-in-out hover:shadow-[0_4px_20px_-2px_hsl(var(--primary)/0.5)] hover:brightness-110 focus-visible:ring-4 focus-visible:ring-primary/30"
+              className="w-full text-lg hover:animate-shimmer"
               size="lg"
             >
               <AnimatePresence mode="wait" initial={false}>
@@ -752,7 +754,7 @@ export default function ImageParameters({
 
       {/* Generated Images Display */}
       {(outputImageUrls.some(uri => uri !== null) || generationErrors.some(err => err !== null) || isLoading) && (
-        <Card>
+        <Card variant="glass">
           <CardHeader>
             <CardTitle className="text-xl flex items-center gap-2">
               <Palette className="h-6 w-6 text-primary" />
