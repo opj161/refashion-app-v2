@@ -31,7 +31,7 @@ export function SiteHeader() {
             height={60}
             className="h-12 w-auto sm:h-14 sm:w-auto"
           />
-          <span className="text-xl sm:text-3xl font-bold tracking-tight">
+          <span className="text-xl sm:text-3xl font-bold">
             Refashion AI
           </span>
         </Link>
