@@ -91,14 +91,16 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
   const canPlayVideo = status === 'completed' && videoUrl;
 
   return (
-    <>
-      <Card ref={cardRef} className="overflow-hidden group transition-all hover:shadow-lg hover:border-primary/50">
+    <motion.div layout>
+      <Card
+        ref={cardRef}
+        className="overflow-hidden group transition-all hover:shadow-lg hover:border-primary/50 cursor-pointer"
+        onClick={() => canPlayVideo && setIsModalOpen(true)}
+      >
         <CardContent className="p-0">
-          <div
-            className={`relative aspect-[9/16] w-full bg-muted ${
-              canPlayVideo ? 'cursor-pointer' : 'cursor-default'
-            }`}
-            onClick={() => canPlayVideo && setIsModalOpen(true)}
+          <motion.div
+            layoutId={`video-card-${item.id}`}
+            className="relative aspect-[9/16] w-full bg-muted"
           >
             {thumbnailUrl && (
               <Image
@@ -150,7 +152,7 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
                 </div>
               </div>
             )}
-          </div>
+          </motion.div>
         </CardContent>
         <CardFooter className="p-3 bg-card-foreground/5 flex-col items-start">
           <div className="flex items-center gap-2 w-full">
@@ -176,10 +178,10 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
         </CardFooter>
       </Card>
       <AnimatePresence>
-        {isModalOpen && canPlayVideo && (
+        {isModalOpen && (
           <VideoPlaybackModal item={item} onClose={() => setIsModalOpen(false)} />
         )}
       </AnimatePresence>
-    </>
+    </motion.div>
   );
 }

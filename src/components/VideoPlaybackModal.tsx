@@ -33,13 +33,13 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent asChild>
+      <DialogContent className="h-screen w-screen max-w-full sm:h-auto sm:max-w-6xl sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-lg">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="h-screen w-screen max-w-full sm:h-auto sm:max-w-6xl sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-lg"
+          className="flex flex-col h-full"
         >
           <DialogHeader>
             <DialogTitle>Video Details</DialogTitle>
@@ -54,7 +54,8 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="lg:col-span-2 bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-[400px]"
+              className="lg:col-span-2 bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-[400px] max-h-[70vh]"
+              layoutId={`video-card-${item.id}`}
             >
               {videoUrl ? (
                 <video 
@@ -62,8 +63,7 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
                   controls 
                   autoPlay 
                   loop 
-                  className="max-w-full max-h-full w-auto h-auto object-contain"
-                  style={{ aspectRatio: 'auto' }}
+                  className="w-full h-full object-contain"
                 >
                   Your browser does not support the video tag.
                 </video>

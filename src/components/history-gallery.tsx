@@ -18,12 +18,14 @@ import Image from "next/image";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
+import { VideoPlaybackModal } from './VideoPlaybackModal'; // Import the video modal
 
 type FilterType = 'all' | 'image' | 'video';
 
 export default function HistoryGallery() {
   const { toast } = useToast();
   const router = useRouter();
+  const [showSkeletons, setShowSkeletons] = useState<boolean>(false); // NEW: controls skeleton visibility
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +72,10 @@ export default function HistoryGallery() {
 
   // Effect for initial load and filter changes
   useEffect(() => {
+    // NEW: Timer to delay skeletons
+    const skeletonTimer = setTimeout(() => {
+      if (isLoading) setShowSkeletons(true);
+    }, 500);
     const loadInitialHistory = async () => {
       setIsLoading(true);
       setError(null);
@@ -90,9 +96,12 @@ export default function HistoryGallery() {
         });
       } finally {
         setIsLoading(false);
+        setShowSkeletons(false); // NEW: always hide skeletons after load
       }
     };
     loadInitialHistory();
+    // NEW: cleanup timer
+    return () => clearTimeout(skeletonTimer);
   }, [currentFilter, toast, itemsPerPage]);
 
   const handleLoadMore = useCallback(async () => {
@@ -205,6 +214,9 @@ export default function HistoryGallery() {
   // ... add other simplified option arrays as needed for the modal
 
 
+  // Helper to check if item is a video
+  const itemIsVideo = (item: HistoryItem) => !!(item.videoGenerationParams || (item.generatedVideoUrls && item.generatedVideoUrls.some(url => !!url)));
+
   return (
     <>
       <Tabs value={currentFilter} onValueChange={handleFilterChange} className="w-full">
@@ -215,7 +227,7 @@ export default function HistoryGallery() {
         </TabsList>
       </Tabs>
 
-      {isLoading && !isLoadingMore && (
+      {isLoading && showSkeletons && !isLoadingMore && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
           {Array.from({ length: itemsPerPage }).map((_, index) => (
             <div key={`skel-${index}`} className="p-4 border rounded-lg shadow-sm space-y-2 bg-muted/50">
@@ -244,8 +256,8 @@ export default function HistoryGallery() {
         </Card>
       )}
 
-      {!isLoading && !error && historyItems.length > 0 && (
-        <LayoutGroup>
+      <LayoutGroup>
+        {!isLoading && !error && historyItems.length > 0 && (
           <motion.div
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
             variants={containerVariants}
@@ -266,11 +278,19 @@ export default function HistoryGallery() {
               ))}
             </AnimatePresence>
           </motion.div>
-        </LayoutGroup>
-      )}
+        )}
+        <AnimatePresence>
+          {selectedHistoryItemForDetail && itemIsVideo(selectedHistoryItemForDetail) && (
+            <VideoPlaybackModal
+              item={selectedHistoryItemForDetail}
+              onClose={() => setSelectedHistoryItemForDetail(null)}
+            />
+          )}
+        </AnimatePresence>
+      </LayoutGroup>
 
       {/* Modal for History Item Details */}
-      {selectedHistoryItemForDetail && (
+      {selectedHistoryItemForDetail && !itemIsVideo(selectedHistoryItemForDetail) && (
         <Dialog open={isHistoryDetailOpen} onOpenChange={setIsHistoryDetailOpen}>
           <DialogContent className="h-screen w-screen max-w-full sm:h-auto sm:max-w-3xl sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-lg">
             <DialogHeader>
