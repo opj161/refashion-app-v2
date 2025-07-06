@@ -80,6 +80,20 @@ export default {
           '0%': { backgroundColor: 'hsl(var(--primary))' },
           '50%': { backgroundColor: 'hsl(142, 76%, 36%)', boxShadow: '0 0 20px rgba(34, 197, 94, 0.5)' },
           '100%': { backgroundColor: 'hsl(142, 76%, 36%)', boxShadow: '0 0 10px rgba(34, 197, 94, 0.3)' }
+        },
+        // Enhanced motion animations
+        'spring-quick': {
+          '0%': { transform: 'scale(0)' },
+          '100%': { transform: 'scale(1)' }
+        },
+        'spring-standard': {
+          '0%': { transform: 'scale(0)' },
+          '100%': { transform: 'scale(1)' }
+        },
+        'bounce-subtle': {
+          '0%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-20px)' },
+          '100%': { transform: 'translateY(0)' }
         }
   		},
   		animation: {
@@ -87,7 +101,11 @@ export default {
   			'accordion-up': 'accordion-up 0.2s ease-out',
         'progress-ribbings': 'progress-ribbings 2s linear infinite',
         'progress-pulsation': 'progress-pulsation 1.5s infinite',
-        'progress-completion': 'progress-completion 1s ease-in-out'
+        'progress-completion': 'progress-completion 1s ease-in-out',
+        // Enhanced motion animations
+        'spring-quick': 'spring-quick var(--motion-spring-quick)',
+        'spring-standard': 'spring-standard var(--motion-spring-standard)',
+        'bounce-subtle': 'bounce-subtle var(--motion-bounce-subtle)',
   		},
       fontFamily: {
         sans: ['Satoshi', 'sans-serif'],

@@ -8,6 +8,7 @@ import { useImageStore, useActiveImage } from "@/stores/imageStore";
 import { useToast } from "@/hooks/use-toast";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import { motion, AnimatePresence } from "motion/react";
 
 // New Components
 import ImageUploader from "./ImageUploader";
@@ -226,7 +227,13 @@ export default function ImagePreparationContainer({
   
   // Show uploader if no image
   if (!original) {
-    return <ImageUploader sourceImageUrl={sourceImageUrl} />;
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div key="uploader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <ImageUploader sourceImageUrl={sourceImageUrl} />
+        </motion.div>
+      </AnimatePresence>
+    );
   }
 
   // Determine which image data to pass to the canvas
@@ -234,114 +241,120 @@ export default function ImagePreparationContainer({
 
   // Main editor interface
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-start gap-4">
-          <div>
-            <CardTitle className="text-xl flex items-center gap-2">
-              <UploadCloud className="h-6 w-6 text-primary" />
-              Prepare Your Image
-            </CardTitle>
-            <CardDescription className="hidden lg:block">
-              Upload, crop, and process your clothing image. The canvas shows the version that will be used for generation.
-            </CardDescription>
-          </div>
-          {activeImage && (
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              onClick={resetAllState} 
-              disabled={isProcessing}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Remove Image
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Main View Area: Now with a unified container */}
-          <div className="lg:col-span-3 relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border">
-            <ImageEditorCanvas 
-              image={imageForCanvas}
-              preparationMode={preparationMode}
-              aspect={aspect}
-              disabled={false}
-              onAspectChange={setAspect}
-              crop={crop}
-              onCropChange={setCrop}
-              onCropComplete={setCompletedCrop}
-              onImageLoad={handleImageLoad}
-            />
-
-            {/* 'Hold to Compare' button */}
-            {sourceVersion && (
+    <motion.div layout transition={{ duration: 0.5, type: 'spring', bounce: 0.2 }}>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <UploadCloud className="h-6 w-6 text-primary" />
+                Prepare Your Image
+              </CardTitle>
+              <CardDescription className="hidden lg:block">
+                Upload, crop, and process your clothing image. The canvas shows the version that will be used for generation.
+              </CardDescription>
+            </div>
+            {activeImage && (
               <Button 
-                variant="outline" 
-                className="absolute bottom-4 right-4 z-10 bg-background/80 backdrop-blur-sm select-none"
-                onMouseDown={() => setIsComparing(true)}
-                onMouseUp={() => setIsComparing(false)}
-                onMouseLeave={() => setIsComparing(false)}
-                onTouchStart={(e) => { e.preventDefault(); setIsComparing(true); }}
-                onTouchEnd={() => setIsComparing(false)}
+                variant="destructive" 
+                size="sm" 
+                onClick={resetAllState} 
+                disabled={isProcessing}
               >
-                <Eye className="mr-2 h-4 w-4" />
-                Hold to Compare
+                <Trash2 className="mr-2 h-4 w-4" />
+                Remove Image
               </Button>
             )}
           </div>
+        </CardHeader>
+        <CardContent className="space-y-6 pt-6">
+          <AnimatePresence mode="wait">
+            <motion.div key="editor" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Main View Area: Now with a unified container */}
+                <div className="lg:col-span-3 relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border">
+                  <ImageEditorCanvas 
+                    image={imageForCanvas}
+                    preparationMode={preparationMode}
+                    aspect={aspect}
+                    disabled={false}
+                    onAspectChange={setAspect}
+                    crop={crop}
+                    onCropChange={setCrop}
+                    onCropComplete={setCompletedCrop}
+                    onImageLoad={handleImageLoad}
+                  />
 
-          {/* Controls Panel: Conditionally render controls based on view */}
-          <div className="lg:col-span-1 flex flex-col space-y-6">
-            {/* Only editor controls, no comparison controls */}
-            <AspectRatioSelector
-              preparationMode={preparationMode}
-              aspect={aspect}
-              onAspectChange={setAspect}
-              disabled={false}
-            />
+                  {/* 'Hold to Compare' button */}
+                  {sourceVersion && (
+                    <Button 
+                      variant="outline" 
+                      className="absolute bottom-4 right-4 z-10 bg-background/80 backdrop-blur-sm select-none"
+                      onMouseDown={() => setIsComparing(true)}
+                      onMouseUp={() => setIsComparing(false)}
+                      onMouseLeave={() => setIsComparing(false)}
+                      onTouchStart={(e) => { e.preventDefault(); setIsComparing(true); }}
+                      onTouchEnd={() => setIsComparing(false)}
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Hold to Compare
+                    </Button>
+                  )}
+                </div>
 
-            {/* Processing Tools are always visible but disabled during crop */}
-            <ImageProcessingTools 
-              preparationMode={preparationMode} 
-              disabled={isProcessing || aspect !== undefined} 
-            />
+                {/* Controls Panel: Conditionally render controls based on view */}
+                <div className="lg:col-span-1 flex flex-col space-y-6">
+                  {/* Only editor controls, no comparison controls */}
+                  <AspectRatioSelector
+                    preparationMode={preparationMode}
+                    aspect={aspect}
+                    onAspectChange={setAspect}
+                    disabled={false}
+                  />
 
-            {/* Contextual Crop Action Bar */}
-            {aspect !== undefined && (
-              <div className="flex gap-2 animate-in fade-in">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={handleCancelCrop}
-                  disabled={isProcessing}
-                >
-                  <X className="mr-2 h-4 w-4" /> Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="flex-1"
-                  onClick={handleApplyCrop}
-                  disabled={isProcessing}
-                >
-                  <Check className="mr-2 h-4 w-4" /> Apply Crop
-                </Button>
+                  {/* Processing Tools are always visible but disabled during crop */}
+                  <ImageProcessingTools 
+                    preparationMode={preparationMode} 
+                    disabled={isProcessing || aspect !== undefined} 
+                  />
+
+                  {/* Contextual Crop Action Bar */}
+                  {aspect !== undefined && (
+                    <div className="flex gap-2 animate-in fade-in">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={handleCancelCrop}
+                        disabled={isProcessing}
+                      >
+                        <X className="mr-2 h-4 w-4" /> Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={handleApplyCrop}
+                        disabled={isProcessing}
+                      >
+                        <Check className="mr-2 h-4 w-4" /> Apply Crop
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-        
-        {/* Version Stack - Always visible when there are images */}
-        {Object.keys(versions).length > 0 && (
-          <ImageVersionStack
-            versions={versions}
-            activeVersionId={activeVersionId}
-            isProcessing={isProcessing}
-          />
-        )}
-      </CardContent>
-    </Card>
+              
+              {/* Version Stack - Always visible when there are images */}
+              {Object.keys(versions).length > 0 && (
+                <ImageVersionStack
+                  versions={versions}
+                  activeVersionId={activeVersionId}
+                  isProcessing={isProcessing}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }

@@ -10,7 +10,6 @@ import VideoParameters from "./video-parameters";
 import { getHistoryItemById } from "@/actions/historyActions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useImageStore } from "@/stores/imageStore";
 import type { HistoryItem } from "@/lib/types";
 
 export default function CreationHub() {
@@ -22,16 +21,6 @@ export default function CreationHub() {
   const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null);
   const [historyItemToLoad, setHistoryItemToLoad] = useState<HistoryItem | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
-  const { reset } = useImageStore();
-
-  // Cleanup effect: Reset the store when the component unmounts.
-  // This ensures that navigating away and back to the create page starts a fresh session.
-  useEffect(() => {
-    // The returned function is the cleanup function, which runs on unmount.
-    return () => {
-      reset();
-    };
-  }, [reset]); // Dependency on `reset` is stable and ensures effect runs once.
 
   // Handle URL parameters and state synchronization on component mount
   useEffect(() => {
@@ -40,14 +29,20 @@ export default function CreationHub() {
     const sourceImageUrlParam = searchParams.get('sourceImageUrl');
     const currentContextId = historyItemId || sourceImageUrlParam;
 
-    // Set default tab from URL parameter
+    // Set default tab from URL parameter, but only if it's different to avoid re-renders
     if (defaultTabParam && (defaultTabParam === 'image' || defaultTabParam === 'video')) {
-      setDefaultTab(defaultTabParam);
+      if (defaultTab !== defaultTabParam) {
+        setDefaultTab(defaultTabParam);
+      }
+    }
+
+    // If there's no context, and nothing was processed, do nothing.
+    if (!currentContextId && !processedContextId) {
+      return;
     }
 
     // Reset and load history item or source image URL based on URL parameters
     if (currentContextId && currentContextId !== processedContextId) {
-      reset();
       setHistoryItemToLoad(null);
       if (historyItemId) {
         const loadHistoryData = async () => {
@@ -72,12 +67,11 @@ export default function CreationHub() {
       }
       setProcessedContextId(currentContextId);
     } else if (!currentContextId && processedContextId) {
-      reset();
       setSourceImageUrl(null);
       setHistoryItemToLoad(null);
       setProcessedContextId(null);
     }
-  }, [searchParams, currentUser, toast, reset, processedContextId]);
+  }, [searchParams, currentUser, toast, processedContextId, defaultTab]);
 
   return (
     <div className="space-y-8">

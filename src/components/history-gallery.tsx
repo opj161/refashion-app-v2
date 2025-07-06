@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { getHistoryPaginated, deleteHistoryItem } from "@/actions/historyActions";
@@ -66,21 +66,41 @@ export default function HistoryGallery() {
 
   const itemsPerPage = 9; // Or any other number you prefer
 
-  const fetchHistory = useCallback(async (page: number, filter: FilterType, append: boolean = false) => {
-    if (!append) {
+  // Effect for initial load and filter changes
+  useEffect(() => {
+    const loadInitialHistory = async () => {
       setIsLoading(true);
-      setHistoryItems([]); // Clear items for new filter/initial load
-    } else {
-      setIsLoadingMore(true);
-    }
-    setError(null);
+      setError(null);
+      try {
+        const result = await getHistoryPaginated(1, itemsPerPage, currentFilter);
+        setHistoryItems(result.items);
+        setCurrentPage(result.currentPage);
+        setHasMore(result.hasMore);
+        setTotalCount(result.totalCount);
+      } catch (err) {
+        console.error("Failed to fetch history:", err);
+        const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+        setError(errorMessage);
+        toast({
+          title: "Error Loading History",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadInitialHistory();
+  }, [currentFilter, toast, itemsPerPage]);
 
+  const handleLoadMore = useCallback(async () => {
+    if (!hasMore || isLoadingMore) return;
+    setIsLoadingMore(true);
     try {
-      const result = await getHistoryPaginated(page, itemsPerPage, filter);
-      setHistoryItems(prevItems => append ? [...prevItems, ...result.items] : result.items);
+      const result = await getHistoryPaginated(currentPage + 1, itemsPerPage, currentFilter);
+      setHistoryItems(prevItems => [...prevItems, ...result.items]);
       setCurrentPage(result.currentPage);
       setHasMore(result.hasMore);
-      setTotalCount(result.totalCount);
     } catch (err) {
       console.error("Failed to fetch history:", err);
       setError(err instanceof Error ? err.message : "An unknown error occurred.");
@@ -90,27 +110,16 @@ export default function HistoryGallery() {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [toast, itemsPerPage]);
-
-  useEffect(() => {
-    fetchHistory(1, currentFilter);
-  }, [currentFilter, fetchHistory]);
-
-  const handleLoadMore = useCallback(() => {
-    if (hasMore && !isLoadingMore) {
-      fetchHistory(currentPage + 1, currentFilter, true);
-    }
-  }, [hasMore, isLoadingMore, currentPage, currentFilter, fetchHistory]);
+  }, [hasMore, isLoadingMore, currentPage, currentFilter, itemsPerPage, toast]);
 
   // Set up the IntersectionObserver to watch the loadMoreRef
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         // If the trigger element is intersecting and we have more items to load
-        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMore) {
           handleLoadMore();
         }
       },
@@ -119,18 +128,16 @@ export default function HistoryGallery() {
         rootMargin: '100px' // Start loading 100px before the element is visible
       }
     );
-
     const currentRef = loadMoreRef.current;
     if (currentRef) {
       observer.observe(currentRef);
     }
-
     return () => {
       if (currentRef) {
         observer.unobserve(currentRef);
       }
     };
-  }, [hasMore, isLoadingMore, handleLoadMore]); // Dependencies updated
+  }, [hasMore, isLoading, isLoadingMore, handleLoadMore]); // Dependencies updated
 
   const handleFilterChange = (newFilter: string) => {
     setCurrentFilter(newFilter as FilterType);

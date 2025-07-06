@@ -92,7 +92,7 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
   // Add more sophisticated status detection if needed, e.g. for image processing steps
 
   return (
-    <Card ref={cardRef} className="flex flex-col h-full group shadow-sm hover:shadow-md transition-shadow duration-300">
+    <Card ref={cardRef} className="flex flex-col h-full group shadow-sm hover:shadow-md transition-shadow var(--motion-duration-standard) var(--motion-ease-out)">
       <CardHeader className="p-3 sm:p-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base sm:text-lg font-semibold truncate" title={item.constructedPrompt?.substring(0,100) || (isVideoItem ? "Video Generation" : "Image Generation")}> 
@@ -117,7 +117,7 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
         </CardDescription>
       </CardHeader>
       <CardContent 
-        className="p-3 sm:p-4 flex-grow relative cursor-pointer active:scale-[0.98] transition-transform duration-100 ease-out"
+        className="p-3 sm:p-4 flex-grow relative cursor-pointer active:scale-[0.98] transition-transform var(--motion-duration-fast) var(--motion-ease-out)"
         onClick={() => onViewDetails(item)}
       >
         <div 

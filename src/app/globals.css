@@ -4,33 +4,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Theme initialization - prevent flash */
+/* Motion constants for optimized animations */
 :root {
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    color-scheme: dark;
-  }
-}
-
-/* Ensure theme transitions are smooth when hydrated */
-html.light,
-html.dark {
-  transition: none;
-}
-
-html, body {
-  width: 100%;
-  overflow-x: hidden;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --motion-spring-quick: 450ms linear(0, 0.2348, 0.6075, 0.8763, 1.0076, 1.0451, 1.0389, 1.0217, 1.0079, 1.0006, 0.9981, 0.9981, 0.9988, 0.9995, 1);
+  --motion-spring-standard: 900ms linear(0, 0.0697, 0.2323, 0.4311, 0.6265, 0.7946, 0.9243, 1.0138, 1.0669, 1.0909, 1.094, 1.0837, 1.0666, 1.0476, 1.0297, 1.0149, 1.0039, 0.9967, 0.9926, 0.9911, 0.9913, 0.9926, 0.9943, 0.9961, 0.9977, 0.999, 0.9999, 1.0005, 1, 1);
+  --motion-bounce-subtle: 0.6s linear(0, 0.0022, 0.0087, 0.0196, 0.0348, 0.0543, 0.0782, 0.1065, 0.139, 0.176, 0.2173, 0.2629, 0.3128, 0.3672, 0.4258, 0.4888, 0.5562, 0.6279, 0.7039, 0.7843, 0.869, 0.9581, 0.9752, 0.9332, 0.8954, 0.8621, 0.833, 0.8083, 0.788, 0.772, 0.7603, 0.753, 0.7501, 0.7515, 0.7572, 0.7673, 0.7817, 0.8004, 0.8235, 0.851, 0.8828, 0.9189, 0.9594, 0.9979, 0.9772, 0.9608, 0.9487, 0.941, 0.9377, 0.9386, 0.944, 0.9537, 0.9677, 0.986, 0.996, 0.9881, 0.9846, 0.9854, 0.9905, 1);
+  --motion-duration-fast: 100ms;
+  --motion-duration-quick: 200ms;
+  --motion-duration-standard: 300ms;
+  --motion-duration-slow: 500ms;
+  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-ease-anticipate: cubic-bezier(0.68, -0.6, 0.32, 1.6);
 }
 
 /* --- Improvement 1: Aurora Background Glow --- */
@@ -67,7 +52,11 @@ body {
 }
 
 @layer base {
+  /* Theme initialization - prevent flash */
   :root {
+    color-scheme: light;
+
+    /* Light Theme Variables */
     --background: 190 0% 96%; /* #F3F7F7 - Very light, cool off-white */
     --background-accent: 190 15% 94%; /* ADD THIS LINE: Slightly bluer & darker for contrast */
     --foreground: 190 15% 20%; /* #2A3434 - Dark, desaturated petrol for text */
@@ -100,6 +89,8 @@ body {
   }
 
   .dark {
+    color-scheme: dark;
+
     --background: 191, 71%, 3%; /* #171a1d - Slightly darker and bluer */
     --background-accent: 180, 40%, 6%; /* Brighter & more saturated petrol */
     --foreground: 195 15% 90%; /* #DCE2E2 - Light cool grey for text */
@@ -123,6 +114,30 @@ body {
     --input: 190 20% 90%; /* #E2EDED - Light petrol input background */
     --ring: 190 45% 45%; /* #499A94 - Slightly lighter Deep Petrol for ring */
     --radius: 0.75rem; /* Slightly increase border radius for a softer feel */
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+      color-scheme: dark;
+    }
+  }
+
+  /* Ensure theme transitions are smooth when hydrated */
+  html.light,
+  html.dark {
+    transition: none;
+  }
+
+  html, body {
+    width: 100%;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   }
 
   /* --- Improvement 4: Softer Focus Rings --- */

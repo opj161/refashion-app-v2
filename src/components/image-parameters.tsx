@@ -29,6 +29,7 @@ import {
     LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, CAMERA_ANGLE_OPTIONS, LENS_EFFECT_OPTIONS,
     DEPTH_OF_FIELD_OPTIONS, FABRIC_RENDERING_OPTIONS, OptionWithPromptSegment
 } from '@/lib/prompt-builder';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 
 // Interface for image generation parameters
 interface ImageGenerationParams extends ModelAttributes {
@@ -551,6 +552,35 @@ export default function ImageParameters({
     </div>
   );
 
+  // Animation variants for results grid
+  const resultsContainerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
+  const resultItemVariant = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1 },
+  };
+  
+  const shouldReduceMotion = useReducedMotion();
+  const containerAnim = shouldReduceMotion
+    ? {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1 },
+      }
+    : resultsContainerVariants;
+  const itemAnim = shouldReduceMotion
+    ? {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1 },
+      }
+    : resultItemVariant;
+
   return (
     <div className="space-y-6">
       <Card>
@@ -683,18 +713,40 @@ export default function ImageParameters({
           </div>
         </CardContent>
         <CardFooter className="flex-col items-stretch space-y-4">
-          <Button
-            onClick={handleSubmit}
-            disabled={isLoading || !preparedImageUrl || isReRollingSlot !== null || !currentPrompt.trim()}
-            className="w-full text-lg bg-gradient-to-r from-primary to-[hsl(var(--primary)/0.8)] text-primary-foreground shadow-[0_4px_15px_-4px_hsl(var(--primary)/0.4)] transition-all duration-300 ease-in-out hover:shadow-[0_4px_20px_-2px_hsl(var(--primary)/0.5)] hover:brightness-110 hover:-translate-y-px focus-visible:ring-4 focus-visible:ring-primary/30"
-            size="lg"
-          >
-            {isLoading ? (
-              <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating Images...</>
-            ) : (
-              <><Wand2 className="mr-2 h-5 w-5" /> Generate {NUM_IMAGES_TO_GENERATE} Images</>
-            )}
-          </Button>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Button
+              onClick={handleSubmit}
+              disabled={isLoading || !preparedImageUrl || isReRollingSlot !== null || !currentPrompt.trim()}
+              className="w-full text-lg bg-gradient-to-r from-primary to-[hsl(var(--primary)/0.8)] text-primary-foreground shadow-[0_4px_15px_-4px_hsl(var(--primary)/0.4)] transition-all duration-300 ease-in-out hover:shadow-[0_4px_20px_-2px_hsl(var(--primary)/0.5)] hover:brightness-110 focus-visible:ring-4 focus-visible:ring-primary/30"
+              size="lg"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {isLoading ? (
+                  <motion.span
+                    key="loading"
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 5 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center justify-center"
+                  >
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating Images...
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="idle"
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 5 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center justify-center"
+                  >
+                    <Wand2 className="mr-2 h-5 w-5" /> Generate {NUM_IMAGES_TO_GENERATE} Images
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </Button>
+          </motion.div>
         </CardFooter>
       </Card>
 
@@ -709,7 +761,12 @@ export default function ImageParameters({
             <CardDescription className="hidden lg:block">Your AI-generated fashion model images.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+              variants={containerAnim}
+              initial="hidden"
+              animate="visible"
+            >
               {/* If loading, render placeholders. Otherwise, map over results. */}
               {isLoading ? (
                 Array.from({ length: NUM_IMAGES_TO_GENERATE }).map((_, index) => (
@@ -729,7 +786,7 @@ export default function ImageParameters({
                   const isError = generationErrors[index] !== null;
                   const displayUrl = getDisplayableImageUrl(uri);
                   return (
-                    <div key={index} className="group aspect-[3/4] rounded-md overflow-hidden">
+                    <motion.div key={index} variants={itemAnim} className="group aspect-[3/4] rounded-md overflow-hidden">
                       <Image
                         src={displayUrl || ''}
                         alt={`Generated Image ${index + 1}`}
@@ -762,11 +819,11 @@ export default function ImageParameters({
                           <p className="mt-2 text-sm text-red-500">{generationErrors[index]}</p>
                         ) : null}
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })
               )}
-            </div>
+            </motion.div>
           </CardContent>
         </Card>
       )}

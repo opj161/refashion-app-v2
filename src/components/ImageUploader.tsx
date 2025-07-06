@@ -124,7 +124,7 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
 
   // Load image from sourceImageUrl when provided (for history restoration)
   useEffect(() => {
-    if (sourceImageUrl && !original) {
+    if (sourceImageUrl) {
       const loadImageFromUrl = async () => {
         try {
           // Import getDisplayableImageUrl utility
@@ -159,14 +159,17 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
 
       loadImageFromUrl();
     }
-  }, [sourceImageUrl, original, toast, reset, uploadOriginalImage]);
+  }, [sourceImageUrl, toast, reset, uploadOriginalImage]);
 
   return (
     <>
       {/* Global drag overlay */}
       {isDraggingOverPage && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-none">
-          <UploadCloud className="h-24 w-24 text-primary animate-bounce" />
+          <UploadCloud 
+            className="h-24 w-24 text-primary"
+            style={{ animation: 'var(--motion-bounce-subtle) infinite' }}
+          />
           <p className="mt-4 text-2xl font-semibold text-foreground">Drop image to upload</p>
         </div>
       )}
