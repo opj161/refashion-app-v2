@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useRef, useMemo } from "react";
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
+import Image from 'next/image';
 import { getDisplayableImageUrl } from "@/lib/utils";
 
 interface DisplayImage {
@@ -158,12 +159,15 @@ export default function ImageEditorCanvas({
         className="max-h-[60vh]" 
         disabled={disabled}
       >
-        <img 
+        <Image 
           key={image.id}
           src={imageUrlToDisplay || ''} 
           alt="Editable image" 
           onLoad={handleImageLoad} 
           className="max-h-[60vh] object-contain" 
+          width={800}
+          height={600}
+          style={{ maxHeight: '60vh', objectFit: 'contain' }}
         />
       </ReactCrop>
     </>

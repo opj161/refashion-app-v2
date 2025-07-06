@@ -50,7 +50,10 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 flex-1 min-h-0">
             <motion.div
-              layoutId={`history-card-media-${item.id}`}
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
               className="lg:col-span-2 bg-black rounded-lg overflow-hidden flex items-center justify-center min-h-[400px]"
             >
               {videoUrl ? (

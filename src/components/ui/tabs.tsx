@@ -1,56 +1,80 @@
 "use client"
 
 import * as React from "react"
+import { motion, LayoutGroup } from "motion/react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
-import { motion } from "motion/react" // Import motion
 
 import { cn } from "@/lib/utils"
 
-const Tabs = TabsPrimitive.Root
+// 1. Create a context to hold the active tab's value
+const TabsContext = React.createContext<{
+  activeTab: string
+}>({
+  activeTab: "",
+})
 
+// 2. Tabs component provides the active tab value to context
+const Tabs = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root>
+>(({ value, ...props }, ref) => (
+  <TabsPrimitive.Root ref={ref} value={value} {...props}>
+    <TabsContext.Provider value={{ activeTab: value || "" }}>
+      {props.children}
+    </TabsContext.Provider>
+  </TabsPrimitive.Root>
+))
+Tabs.displayName = TabsPrimitive.Root.displayName
+
+// 3. TabsList wraps children in LayoutGroup for shared layout animations
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      // Change background, remove padding
       "relative inline-flex h-12 items-center justify-center rounded-full bg-muted p-0",
       className
     )}
     {...props}
-  />
+  >
+    <LayoutGroup id={React.useId()}>{children}</LayoutGroup>
+  </TabsPrimitive.List>
 ))
 TabsList.displayName = TabsPrimitive.List.displayName
 
+// 4. TabsTrigger uses context to determine if it's active and renders the indicator
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, children, ...props }, ref) => {
-  // Get the active state from props['data-state']
-  const isActive = (props as any)["data-state"] === "active";
+>(({ className, children, value, ...props }, ref) => {
+  const { activeTab } = React.useContext(TabsContext)
+  const isActive = activeTab === value
+
   return (
     <TabsPrimitive.Trigger
       ref={ref}
+      value={value}
       className={cn(
-        // Make trigger transparent, adjust padding, remove default active styles
-        "relative inline-flex items-center justify-center whitespace-nowrap rounded-full px-6 py-2.5 text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=inactive]:text-muted-foreground data-[state=active]:text-primary-foreground",
+        "relative inline-flex items-center justify-center whitespace-nowrap rounded-full px-6 py-2.5 text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+        isActive
+          ? "text-primary-foreground"
+          : "text-muted-foreground hover:text-foreground",
         className
       )}
       {...props}
     >
-      {/* Wrap children in a span to ensure it's on top of the layout div */}
       <span className="relative z-10">{children}</span>
       {isActive && (
         <motion.div
-          className="absolute inset-0 rounded-full bg-primary"
-          layoutId="active-tab-indicator" // This ID is key for the animation
-          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          layoutId="active-tab-indicator"
+          className="absolute inset-0 z-0 rounded-full bg-primary"
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
         />
       )}
     </TabsPrimitive.Trigger>
-  );
+  )
 })
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 

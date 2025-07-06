@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useImageStore } from "@/stores/imageStore";
 import { UploadCloud } from "lucide-react";
+import { motion, AnimatePresence } from 'motion/react';
 
 // --- Constants ---
 const MAX_FILE_SIZE_MB = 50;
@@ -29,6 +30,19 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
   // Local UI state
   const [isDraggingOverPage, setIsDraggingOverPage] = useState(false);
   const [isDraggingOverDropZone, setIsDraggingOverDropZone] = useState(false);
+
+  // Define variants for the dropzone's different states
+  const dropZoneVariants = {
+    idle: {
+      borderColor: 'hsl(var(--border))',
+      backgroundColor: 'hsla(var(--background-accent), 0.5)'
+    },
+    dragOver: {
+      borderColor: 'hsl(var(--primary))',
+      backgroundColor: 'hsla(var(--primary), 0.1)',
+      scale: 1.02,
+    },
+  };
 
   // --- File Processing ---
   const processFile = useCallback(async (file: File | null | undefined) => {
@@ -194,16 +208,22 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
         </CardHeader>
 
         <CardContent>
-          <div 
-            data-state={isDraggingOverDropZone ? 'drag-over' : 'idle'}
-            className="p-12 rounded-lg flex flex-col items-center justify-center text-center text-muted-foreground bg-black/10 cursor-pointer transition-all duration-300 uploader-dropzone" 
+          <motion.div
+            animate={isDraggingOverDropZone ? "dragOver" : "idle"}
+            variants={dropZoneVariants}
+            transition={{ stiffness: 500, damping: 30 }}
+            className="p-12 rounded-lg flex flex-col items-center justify-center text-center text-muted-foreground border-2 border-dashed cursor-pointer"
             onClick={() => fileInputRef.current?.click()}
             onDragEnter={(e) => handleDropZoneDrag(e, 'enter')}
             onDragLeave={(e) => handleDropZoneDrag(e, 'leave')}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { setIsDraggingOverDropZone(false); handleDragAction(e, 'drop'); }}
           >
-            <UploadCloud className="w-16 h-16 mb-4" />
+            <motion.div
+              animate={{ scale: isDraggingOverDropZone ? 1.1 : 1, y: isDraggingOverDropZone ? -5 : 0 }}
+            >
+              <UploadCloud className="w-16 h-16 mb-4 text-muted-foreground" />
+            </motion.div>
             <p className="font-semibold text-foreground">Click to upload or drag & drop</p>
             <p className="text-sm">PNG, JPG, WEBP, etc.</p>
             <Input 
@@ -215,7 +235,7 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
               accept={ALLOWED_FILE_TYPES.join(',')} 
               disabled={isProcessing}
             />
-          </div>
+          </motion.div>
         </CardContent>
       </Card>
     </>

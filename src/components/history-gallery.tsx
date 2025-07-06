@@ -50,7 +50,7 @@ export default function HistoryGallery() {
     visible: {
       opacity: 1,
       transition: {
-        delayChildren: 0.08,
+        staggerChildren: 0.08,
       },
     },
   };
@@ -60,6 +60,7 @@ export default function HistoryGallery() {
     visible: {
       y: 0,
       opacity: 1,
+      transition: { stiffness: 300, damping: 25 }, // Removed 'type' property for compatibility
     },
     exit: { y: -20, opacity: 0, transition: { duration: 0.2 } },
   };
@@ -238,7 +239,7 @@ export default function HistoryGallery() {
           <CardContent className="py-16 flex flex-col items-center justify-center text-center">
             <ImageIcon className="h-16 w-16 text-muted-foreground/50 mb-4" />
             <h3 className="text-xl font-semibold">No History Found</h3>
-            <p className="text-muted-foreground mt-1">Creations for this filter will appear here once you've made some.</p>
+            <p className="text-muted-foreground mt-1">Creations for this filter will appear here once you&apos;ve made some.</p>
           </CardContent>
         </Card>
       )}
