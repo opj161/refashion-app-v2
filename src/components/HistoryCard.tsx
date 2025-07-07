@@ -102,9 +102,8 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
       <Card ref={cardRef} variant="glass" className="flex flex-col h-full group shadow-sm transition-shadow">
         <CardHeader className="p-3 sm:p-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base sm:text-lg font-semibold truncate" title={item.constructedPrompt?.substring(0,100) || (isVideoItem ? "Video Generation" : "Image Generation")}> 
-              {item.constructedPrompt?.substring(0, 40) || (isVideoItem ? "Video Generation" : "Image Generation")}
-              {item.constructedPrompt && item.constructedPrompt.length > 40 ? "..." : ""}
+            <CardTitle className="text-base sm:text-lg font-semibold truncate" title={item.constructedPrompt || (isVideoItem ? "Video Generation" : "Image Generation")}>
+              {item.constructedPrompt || (isVideoItem ? "Video Generation" : "Image Generation")}
             </CardTitle>
             <Badge variant={
               status === 'completed' ? 'default' : // 'success' if you have it

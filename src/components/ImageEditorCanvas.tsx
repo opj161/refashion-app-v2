@@ -167,6 +167,7 @@ export default function ImageEditorCanvas({
           className="max-h-[60vh] object-contain" 
           width={800}
           height={600}
+          sizes="(max-width: 1023px) 100vw, 75vw"
           style={{ maxHeight: '60vh', objectFit: 'contain' }}
         />
       </ReactCrop>

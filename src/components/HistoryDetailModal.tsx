@@ -102,33 +102,31 @@ export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: Hi
             </div>
 
             {/* Sidebar with Details and Thumbnails */}
-            <div className="flex flex-col lg:w-1/3 xl:w-[400px] flex-shrink-0 min-h-0 border-t lg:border-t-0 lg:border-l border-white/10">
+            <div className="flex flex-col lg:w-[350px] xl:w-[400px] flex-shrink-0 min-h-0 border-t lg:border-t-0 lg:border-l border-white/10">
               <ScrollArea className="flex-1">
                 <div className="p-4 sm:p-6 space-y-6">
                   {/* Thumbnails */}
-                  <div className="grid grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-2 gap-4">
                     {allImages.map(({ type, url }, index) => (
                       <button
                         key={`${url}-${index}`}
                         onClick={() => setSelectedImageUrl(url)}
                         className={cn(
-                          "relative aspect-[2/3] rounded-md transition-all ring-offset-background ring-offset-2 focus:outline-none focus:ring-2 focus:ring-ring p-1",
+                          "relative aspect-[2/3] rounded-md overflow-hidden border border-white/10 transition-all ring-offset-background ring-offset-2 focus:outline-none focus:ring-2 focus:ring-ring",
                           selectedImageUrl === url ? 'ring-2 ring-primary' : 'hover:opacity-80'
                         )}
                       >
-                        <div className="relative w-full h-full rounded-md overflow-hidden bg-muted/30">
-                          <Image
-                            src={getDisplayableImageUrl(url) ?? '/placeholder.png'}
-                            alt={type}
-                            fill
-                            className={cn(
-                              type === 'Original' ? 'object-contain p-1' : 'object-cover'
-                            )}
-                            sizes="(max-width: 640px) 33vw, (max-width: 1024px) 16vw, 11vw"
-                          />
-                          <div className="absolute bottom-0 w-full bg-black/70 text-white text-[10px] p-1 text-center truncate backdrop-blur-sm">
-                            {type}
-                          </div>
+                        <Image
+                          src={getDisplayableImageUrl(url) ?? '/placeholder.png'}
+                          alt={type}
+                          fill
+                          className={cn(
+                            type === 'Original' ? 'object-contain p-1' : 'object-cover'
+                          )}
+                          sizes="(max-width: 1023px) 50vw, 15vw"
+                        />
+                        <div className="absolute bottom-0 w-full bg-black/70 text-white text-[10px] p-1 text-center truncate backdrop-blur-sm">
+                          {type}
                         </div>
                       </button>
                     ))}
@@ -160,7 +158,7 @@ export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: Hi
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="absolute top-1 right-1 h-7 w-7"
+                          className="absolute top-1 right-1"
                           onClick={handleCopyPrompt}
                         >
                           <Copy className="h-3.5 w-3.5" />
@@ -188,12 +186,12 @@ export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: Hi
               <X className="mr-2 h-4 w-4" /> Close
             </Button>
             <Button onClick={() => onReloadConfig(item)}>
-              <Copy className="mr-2 h-4 w-4" /> Use as Template
+              <Copy className="mr-2 h-4 w-4" /> <span className="hidden sm:inline">Use as Template</span>
             </Button>
             {selectedImageUrl &&
               <a href={getDisplayableImageUrl(selectedImageUrl) ?? '#'} download={`Refashion_Image_${item.id.substring(0, 6)}.png`}>
                 <Button>
-                  <Download className="mr-2 h-4 w-4" /> Download Selected
+                  <Download className="mr-2 h-4 w-4" /> <span className="hidden sm:inline">Download Selected</span>
                 </Button>
               </a>
             }
