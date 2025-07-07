@@ -80,11 +80,13 @@ async function getCroppedImgDataUrl(
 interface ImagePreparationContainerProps {
   sourceImageUrl?: string | null;
   preparationMode: 'image' | 'video';
+  onReset: () => void;
 }
 
 export default function ImagePreparationContainer({ 
   sourceImageUrl, 
-  preparationMode 
+  preparationMode,
+  onReset
 }: ImagePreparationContainerProps) {
   const { toast } = useToast();
   
@@ -213,16 +215,6 @@ export default function ImagePreparationContainer({
     imgRef.current = img;
   };
 
-  // --- Handlers ---
-  
-  const resetAllState = useCallback(() => {
-    toast({
-      title: "Image Cleared",
-      description: "You can now upload a new image to start over.",
-    });
-    resetStore();
-  }, [resetStore, toast]);
-
   // --- Render Logic ---
   
   // Show uploader if no image
@@ -258,7 +250,7 @@ export default function ImagePreparationContainer({
               <Button 
                 variant="destructive" 
                 size="sm" 
-                onClick={resetAllState} 
+                onClick={onReset} 
                 disabled={isProcessing}
               >
                 <Trash2 className="mr-2 h-4 w-4" />

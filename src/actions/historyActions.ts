@@ -72,7 +72,7 @@ export async function addHistoryItem(
   originalClothingUrl: string,
   editedImageUrls: (string | null)[],
   settingsMode: 'basic' | 'advanced'
-): Promise<void> {
+): Promise<string> {
   const user = await getCurrentUser();
   if (!user) {
     throw new Error('User not authenticated');
@@ -90,6 +90,7 @@ export async function addHistoryItem(
   };
   
   dbService.insertHistoryItem(newItem);
+  return newItem.id;
 }
 
 export async function addVideoToHistoryItem(

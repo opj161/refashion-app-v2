@@ -3,12 +3,13 @@ import { ReactNode, Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCurrentUser } from '@/actions/authActions';
-import { Home, LogOut, ShieldCheck } from 'lucide-react';
+import { Home, LogOut, ShieldCheck, PanelLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { AdminNav } from './_components/AdminNav';
 import { logoutUser } from '@/actions/authActions';
 import { ThemeToggleImproved as ThemeToggleCompact } from '@/components/ui/ThemeToggleImproved';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
@@ -21,9 +22,20 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     <>
       <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-50">
         <div className="container mx-auto flex justify-between items-center max-w-7xl h-16 px-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
+                <div className="md:hidden">
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <PanelLeft className="h-5 w-5" />
+                        <span className="sr-only">Toggle Menu</span>
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="left" className="pr-0 pt-12"><AdminNav /></SheetContent>
+                  </Sheet>
+                </div>
                 <ShieldCheck className="h-6 w-6 text-primary" />
-                <span className="text-lg font-semibold tracking-tight">Admin Console</span>
+                <span className="text-base sm:text-lg font-semibold tracking-tight">Admin Console</span>
             </div>
             <div className="flex items-center gap-2">
                 <Button asChild variant="outline" size="sm">

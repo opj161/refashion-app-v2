@@ -32,10 +32,10 @@ export function usePromptManager({
     }
   }, [isPromptManuallyEdited, generatePromptFromParams]);
 
-  const handlePromptChange = (newPrompt: string) => {
+  const handlePromptChange = useCallback((newPrompt: string) => {
     setCurrentPrompt(newPrompt);
     setIsPromptManuallyEdited(true);
-  };
+  }, []);
 
   const resetPromptToAuto = () => {
     setIsPromptManuallyEdited(false);

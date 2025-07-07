@@ -171,7 +171,7 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
         </Dialog>
       </div>
 
-      <Card variant="glass">
+      <Card variant="glass" className="hidden md:block">
         <CardContent>
           <Table>
             <TableHeader>
@@ -202,6 +202,35 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
           </Table>
         </CardContent>
       </Card>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-4">
+        {users.map((user) => (
+          <Card key={user.username} variant="glass">
+            <CardContent className="p-4 flex justify-between items-center">
+              <div>
+                <p className="font-medium">{user.username}</p>
+                <p className="text-sm text-muted-foreground capitalize">Role: {user.role}</p>
+                <p className="text-sm text-muted-foreground">Keys: {getApiKeyModeSummary(user)}</p>
+              </div>
+              <div className="flex items-center">
+                 <Button variant="ghost" size="icon" onClick={() => setUserToEdit(user)} disabled={isSubmitting} aria-label={`Edit ${user.username}`}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={isSubmitting}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+         {users.length === 0 && (
+            <Card>
+                <CardContent className="p-6 text-center text-muted-foreground">No users found.</CardContent>
+            </Card>
+         )}
+      </div>
+
       {/* Edit User Dialog */}
       <Dialog open={!!userToEdit} onOpenChange={(open) => !open && setUserToEdit(null)}>
         <DialogContent>

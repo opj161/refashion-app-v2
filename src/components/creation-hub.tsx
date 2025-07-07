@@ -1,8 +1,8 @@
 // src/components/creation-hub.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ImagePreparationContainer from "./ImagePreparationContainer";
 import ImageParameters from "./image-parameters";
@@ -10,17 +10,33 @@ import VideoParameters from "./video-parameters";
 import { getHistoryItemById } from "@/actions/historyActions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useImageStore } from "@/stores/imageStore";
 import type { HistoryItem } from "@/lib/types";
 
 export default function CreationHub() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { reset: resetStore } = useImageStore();
   const [defaultTab, setDefaultTab] = useState<string>("image");
   const [processedContextId, setProcessedContextId] = useState<string | null>(null);
   const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null);
   const [historyItemToLoad, setHistoryItemToLoad] = useState<HistoryItem | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
+
+  // Centralized reset function
+  const handleReset = useCallback(() => {
+    router.push('/create', { scroll: false }); // Update URL first
+    resetStore();
+    setSourceImageUrl(null);
+    setHistoryItemToLoad(null);
+    setProcessedContextId(null);
+    toast({
+      title: "Image Cleared",
+      description: "You can now upload a new image to start over.",
+    });
+  }, [router, resetStore, toast]);
 
   // Handle URL parameters and state synchronization on component mount
   useEffect(() => {
@@ -86,6 +102,7 @@ export default function CreationHub() {
           <ImagePreparationContainer 
             sourceImageUrl={sourceImageUrl} 
             preparationMode="image" 
+            onReset={handleReset}
           />
           <ImageParameters 
             historyItemToLoad={historyItemToLoad}
@@ -97,6 +114,7 @@ export default function CreationHub() {
           <ImagePreparationContainer 
             sourceImageUrl={sourceImageUrl} 
             preparationMode="video" 
+            onReset={handleReset}
           />
           <VideoParameters 
             historyItemToLoad={historyItemToLoad}

@@ -33,7 +33,7 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="h-screen w-screen max-w-full sm:h-auto sm:max-w-6xl sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-lg">
+      <DialogContent className="h-screen w-screen max-w-full sm:h-auto sm:max-w-6xl sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-lg glass-card p-0">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -41,14 +41,14 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
           transition={{ duration: 0.3, ease: "easeInOut" }}
           className="flex flex-col h-full"
         >
-          <DialogHeader>
+          <DialogHeader className="p-6 pb-2">
             <DialogTitle>Video Details</DialogTitle>
             <DialogDescription>
               Playback and details for your generated video from {new Date(item.timestamp).toLocaleString()}.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4 flex-1 min-h-0">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0 px-6 py-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -115,7 +115,7 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
             </ScrollArea>
           </div>
 
-          <DialogFooter className="mt-6">
+          <DialogFooter className="mt-auto p-6 border-t border-border/20">
             <Button variant="outline" onClick={onClose}>
               <X className="mr-2 h-4 w-4" /> Close
             </Button>

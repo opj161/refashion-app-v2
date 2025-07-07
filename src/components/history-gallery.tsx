@@ -8,16 +8,12 @@ import { Button } from "@/components/ui/button";
 import { getHistoryPaginated, deleteHistoryItem } from "@/actions/historyActions";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertTriangle, History, Download, Copy, ImageIcon } from "lucide-react";
+import { Loader2, AlertTriangle, ImageIcon } from "lucide-react";
 import HistoryCard from "./HistoryCard";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import Image from "next/image";
-import { getDisplayableImageUrl } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
+import { HistoryDetailModal } from './HistoryDetailModal'; // Import the new image modal
 import { VideoPlaybackModal } from './VideoPlaybackModal'; // Import the video modal
 
 type FilterType = 'all' | 'image' | 'video';
@@ -36,8 +32,7 @@ export default function HistoryGallery() {
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
   // State for details modal
-  const [selectedHistoryItemForDetail, setSelectedHistoryItemForDetail] = useState<HistoryItem | null>(null);
-  const [isHistoryDetailOpen, setIsHistoryDetailOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<HistoryItem | null>(null);
 
   // State for delete confirmation
   const [itemToDelete, setItemToDelete] = useState<HistoryItem | null>(null);
@@ -102,6 +97,7 @@ export default function HistoryGallery() {
     loadInitialHistory();
     // NEW: cleanup timer
     return () => clearTimeout(skeletonTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFilter, toast, itemsPerPage]);
 
   const handleLoadMore = useCallback(async () => {
@@ -156,8 +152,7 @@ export default function HistoryGallery() {
   };
 
   const handleViewDetails = (item: HistoryItem) => {
-    setSelectedHistoryItemForDetail(item);
-    setIsHistoryDetailOpen(true);
+    setDetailItem(item);
   };
 
   const handleReloadConfig = (item: HistoryItem) => {
@@ -280,131 +275,24 @@ export default function HistoryGallery() {
           </motion.div>
         )}
         <AnimatePresence>
-          {selectedHistoryItemForDetail && itemIsVideo(selectedHistoryItemForDetail) && (
+          {detailItem && itemIsVideo(detailItem) && (
             <VideoPlaybackModal
-              item={selectedHistoryItemForDetail}
-              onClose={() => setSelectedHistoryItemForDetail(null)}
+              item={detailItem}
+              onClose={() => setDetailItem(null)}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {detailItem && !itemIsVideo(detailItem) && (
+            <HistoryDetailModal
+              isOpen={!!detailItem}
+              onClose={() => setDetailItem(null)}
+              item={detailItem}
+              onReloadConfig={handleReloadConfig}
             />
           )}
         </AnimatePresence>
       </LayoutGroup>
-
-      {/* Modal for History Item Details */}
-      {selectedHistoryItemForDetail && !itemIsVideo(selectedHistoryItemForDetail) && (
-        <Dialog open={isHistoryDetailOpen} onOpenChange={setIsHistoryDetailOpen}>
-          <DialogContent className="h-screen w-screen max-w-full sm:h-auto sm:max-w-3xl sm:max-h-[90vh] flex flex-col rounded-none sm:rounded-lg">
-            <DialogHeader>
-              <DialogTitle>History Item Details</DialogTitle>
-              <DialogDescription>
-                Review of saved configuration and generated outputs.
-              </DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="flex-1 min-h-0 p-1 pr-2 -mr-2">
-              <div className="space-y-6 py-4 px-2">
-                {/* Displaying original image or source image for video */}
-                {(selectedHistoryItemForDetail.originalClothingUrl || selectedHistoryItemForDetail.videoGenerationParams?.sourceImageUrl) && (
-                  <div>
-                    <h3 className="font-semibold mb-2 text-muted-foreground">
-                      {selectedHistoryItemForDetail.videoGenerationParams ? "Source Image for Video" : "Original Clothing Item"}
-                    </h3>
-                    <div className="relative aspect-square w-full max-w-xs mx-auto border rounded-md bg-muted/30">
-                      <Image
-                        src={getDisplayableImageUrl(selectedHistoryItemForDetail.videoGenerationParams?.sourceImageUrl || selectedHistoryItemForDetail.originalClothingUrl || '')!}
-                        alt="Original/Source Item"
-                        fill
-                        sizes="(max-width: 768px) 90vw, 33vw"
-                        className="object-contain rounded-md"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Displaying Generated Images */}
-                {selectedHistoryItemForDetail.editedImageUrls && selectedHistoryItemForDetail.editedImageUrls.some(url => url) && !selectedHistoryItemForDetail.generatedVideoUrls?.some(vUrl => vUrl) && (
-                  <div>
-                    <h3 className="font-semibold mb-2 text-muted-foreground">Generated Images</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {selectedHistoryItemForDetail.editedImageUrls.map((url, index) => url && (
-                        <div key={`img-detail-${index}`} className="relative aspect-square border rounded-md bg-muted/30 overflow-hidden">
-                          <Image src={getDisplayableImageUrl(url)!} alt={`Generated ${index + 1}`} fill sizes="(max-width: 640px) 50vw, 33vw" className="object-contain" />
-                           <a href={getDisplayableImageUrl(url)!} download={`Refashion_Image_${selectedHistoryItemForDetail.id.substring(0,6)}_${index}.png`} target="_blank" rel="noopener noreferrer" className="absolute bottom-1 right-1">
-                            <Button variant="outline" size="icon" className="h-6 w-6 bg-background/70 hover:bg-background/90"><Download className="h-3 w-3" /></Button>
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Displaying Generated Videos */}
-                {selectedHistoryItemForDetail.generatedVideoUrls && selectedHistoryItemForDetail.generatedVideoUrls.some(url => url) && (
-                   <div>
-                    <h3 className="font-semibold mb-2 text-muted-foreground">Generated Video(s)</h3>
-                    {selectedHistoryItemForDetail.generatedVideoUrls.map((url, index) => url && (
-                      <div key={`video-detail-${index}`} className="space-y-2">
-                        <div className="aspect-video w-full border rounded-md bg-muted/30 overflow-hidden">
-                          <video src={getDisplayableImageUrl(url)!} controls className="w-full h-full" />
-                        </div>
-                        <a href={getDisplayableImageUrl(url)!} download={`Refashion_Video_${selectedHistoryItemForDetail.id.substring(0,6)}_${index}.mp4`} target="_blank" rel="noopener noreferrer">
-                          <Button variant="outline" size="sm" className="w-full"><Download className="mr-2 h-4 w-4" /> Download Video</Button>
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <Separator />
-
-                {/* Displaying Configuration */}
-                <div>
-                  <h3 className="font-semibold mb-2 text-muted-foreground">Configuration Used</h3>
-                  {selectedHistoryItemForDetail.attributes && Object.keys(selectedHistoryItemForDetail.attributes).length > 0 && (
-                    <div className="text-xs space-y-1 bg-muted/50 p-3 rounded-md">
-                      {Object.entries(selectedHistoryItemForDetail.attributes).map(([key, value]) => {
-                        // A simple way to format keys. Could be more sophisticated.
-                        const formattedKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                        // Here, you might want to map `value` to display labels if they are IDs/enums
-                        // For now, just stringifying. This is where getDisplayLabelForValue would be used with actual option arrays.
-                        return <p key={key}><strong>{formattedKey}:</strong> {String(value)}</p>;
-                      })}
-                    </div>
-                  )}
-                  {selectedHistoryItemForDetail.videoGenerationParams && (
-                     <div className="text-xs space-y-1 bg-muted/50 p-3 rounded-md mt-2">
-                        <p><strong>Video Prompt:</strong> {selectedHistoryItemForDetail.videoGenerationParams.prompt}</p>
-                        <p><strong>Resolution:</strong> {selectedHistoryItemForDetail.videoGenerationParams.resolution}</p>
-                        <p><strong>Duration:</strong> {selectedHistoryItemForDetail.videoGenerationParams.duration}s</p>
-                        {selectedHistoryItemForDetail.videoGenerationParams.seed !== undefined && <p><strong>Seed:</strong> {selectedHistoryItemForDetail.videoGenerationParams.seed}</p>}
-                     </div>
-                  )}
-                  {selectedHistoryItemForDetail.constructedPrompt && (!selectedHistoryItemForDetail.videoGenerationParams || selectedHistoryItemForDetail.constructedPrompt !== selectedHistoryItemForDetail.videoGenerationParams.prompt) && (
-                    <>
-                      <h4 className="font-medium text-xs mt-2 mb-1 text-muted-foreground">Full Generated Prompt (Image):</h4>
-                      <ScrollArea className="h-20"><p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md whitespace-pre-wrap break-words">{selectedHistoryItemForDetail.constructedPrompt}</p></ScrollArea>
-                    </>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Timestamp: {new Date(selectedHistoryItemForDetail.timestamp).toLocaleString()}</p>
-              </div>
-            </ScrollArea>
-            <DialogFooter className="mt-2 sm:justify-between">
-                <Button
-                    variant="secondary"
-                    onClick={() => {
-                        handleReloadConfig(selectedHistoryItemForDetail);
-                        setIsHistoryDetailOpen(false);
-                    }}
-                    className="w-full sm:w-auto"
-                >
-                    <Copy className="mr-2 h-4 w-4"/> Use as Template
-                </Button>
-                <DialogClose asChild>
-                    <Button type="button" variant="outline" className="w-full sm:w-auto mt-2 sm:mt-0">Close</Button>
-                </DialogClose>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
 
       {/* Invisible trigger element for infinite scroll */}
       {hasMore && <div ref={loadMoreRef} className="h-4" />}

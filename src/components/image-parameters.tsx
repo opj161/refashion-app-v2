@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { ModelAttributes, HistoryItem } from "@/lib/types";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import Image from "next/image";
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
 import { useActiveImage, useImageStore } from "@/stores/imageStore";
@@ -54,7 +54,6 @@ export default function ImageParameters({
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
   
   // Get prepared image from store instead of props
   const activeImage = useActiveImage();
@@ -324,8 +323,8 @@ export default function ImageParameters({
 
       // Add to history
       if (currentUser && preparedImageUrl) {
-        await addHistoryItem(currentAttributes, finalPromptToUse, preparedImageUrl, result.editedImageUrls, settingsMode);
-        setActiveHistoryItemId(crypto.randomUUID());
+        const newHistoryId = await addHistoryItem(currentAttributes, finalPromptToUse, preparedImageUrl, result.editedImageUrls, settingsMode);
+        setActiveHistoryItemId(newHistoryId);
       }
 
     } catch (error) {
@@ -481,61 +480,6 @@ export default function ImageParameters({
     router.push(`/create?${params.toString()}`);
   };
 
-  // Effect to load configuration from historyItemId in URL
-  useEffect(() => {
-    const historyItemId = searchParams.get('historyItemId');
-    if (historyItemId && currentUser && !activeHistoryItemId) {
-      const loadData = async () => {
-        setIsLoading(true);
-        try {
-          const { success, item, error } = await getHistoryItemById(historyItemId);
-          if (success && item) {
-            // Set all parameters from the loaded history item
-            if (item.attributes) {
-              Object.entries(item.attributes).forEach(([key, value]) => {
-                const config = PARAMETER_CONFIG[key as keyof ModelAttributes];
-                if (config && typeof value === 'string') {
-                  config.setter(value);
-                }
-              });
-            }
-            if (item.settingsMode) {
-              setSettingsMode(item.settingsMode);
-            }
-            if (item.constructedPrompt) {
-              handlePromptChange(item.constructedPrompt);
-            }
-            if (item.editedImageUrls) {
-              // Pad the incoming array to the expected length for the UI
-              const paddedUrls = new Array(NUM_IMAGES_TO_GENERATE).fill(null);
-              item.editedImageUrls.forEach((url, i) => {
-                if (i < NUM_IMAGES_TO_GENERATE) paddedUrls[i] = url;
-              });
-              setOutputImageUrls(paddedUrls);
-            }
-            if (item.originalImageUrls) {
-              setOriginalOutputImageUrls(item.originalImageUrls);
-            }
-            setActiveHistoryItemId(item.id);
-            toast({ title: "History Loaded", description: "Configuration and images have been restored." });
-          } else {
-            toast({ title: "Failed to Load History", description: error || "Unknown error", variant: "destructive" });
-            // Optionally, clear the invalid historyItemId from URL
-            router.replace('/create', { scroll: false });
-          }
-        } catch (error) {
-          console.error('Error loading history:', error);
-          toast({ title: "Failed to Load History", description: "An error occurred while loading history.", variant: "destructive" });
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      loadData();
-    }
-    // Intentionally run only when historyItemId is detected on load.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, currentUser, activeHistoryItemId]);
-
   // Helper to render select components
   const renderSelect = ({ id, label, value, onChange, options, disabled }: {
     id: string; label: string; value: string; onChange: (value: string) => void; options: OptionWithPromptSegment[]; disabled?: boolean;
@@ -627,7 +571,7 @@ export default function ImageParameters({
                 <AccordionItem value="model-attributes">
                   <AccordionTrigger className="text-lg"><PersonStanding className="h-5 w-5 mr-2 text-primary" />Model Attributes</AccordionTrigger>
                   <AccordionContent className="pt-4 space-y-4">
-                    <RadioGroup value={gender} onValueChange={setGender} className="flex space-x-4 pt-1" disabled={commonFormDisabled}>
+                    <RadioGroup value={gender} onValueChange={setGender} className="flex flex-col space-y-2 pt-1 sm:flex-row sm:space-x-4 sm:space-y-0" disabled={commonFormDisabled}>
                         {GENDER_OPTIONS.map((option) => (
                           <div key={option.value} className="flex items-center space-x-2">
                             <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
@@ -666,7 +610,7 @@ export default function ImageParameters({
                   <p><strong>Note:</strong> Some advanced settings are active. Switch to Advanced mode to review or modify them.</p>
                 </div>
               )}
-              <RadioGroup value={gender} onValueChange={setGender} className="flex space-x-4 pt-1" disabled={commonFormDisabled}>
+              <RadioGroup value={gender} onValueChange={setGender} className="flex flex-col space-y-2 pt-1 sm:flex-row sm:space-x-4 sm:space-y-0" disabled={commonFormDisabled}>
                 {GENDER_OPTIONS.map((option) => (
                   <div key={option.value} className="flex items-center space-x-2">
                     <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
