@@ -81,12 +81,14 @@ interface ImagePreparationContainerProps {
   sourceImageUrl?: string | null;
   preparationMode: 'image' | 'video';
   onReset: () => void;
+  isLoadingHistory?: boolean;
 }
 
 export default function ImagePreparationContainer({ 
   sourceImageUrl, 
   preparationMode,
-  onReset
+  onReset,
+  isLoadingHistory = false
 }: ImagePreparationContainerProps) {
   const { toast } = useToast();
   
@@ -108,6 +110,7 @@ export default function ImagePreparationContainer({
   // Local UI state
   const [aspect, setAspect] = useState<number | undefined>(undefined);
   const [isComparing, setIsComparing] = useState(false);
+  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
   
   // Cropping state
   const [crop, setCrop] = useState<Crop>();
@@ -178,6 +181,30 @@ export default function ImagePreparationContainer({
     }
   }, [aspect, recalculateCrop]);
 
+  // Effect to load image from URL, moved from ImageUploader
+  useEffect(() => {
+    if (sourceImageUrl && !original && !isLoadingFromUrl) {
+      const loadImageFromUrl = async () => {
+        setIsLoadingFromUrl(true);
+        try {
+          const displayUrl = getDisplayableImageUrl(sourceImageUrl);
+          if (!displayUrl) throw new Error("Could not generate displayable URL.");
+          const response = await fetch(displayUrl);
+          if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+          const blob = await response.blob();
+          const file = new File([blob], 'loaded-image.jpg', { type: blob.type });
+          await useImageStore.getState().uploadOriginalImage(file);
+        } catch (error) {
+          console.error('Error loading image from sourceImageUrl:', error);
+          toast({ title: "Load Error", description: "Failed to load the image from history.", variant: "destructive" });
+        } finally {
+          setIsLoadingFromUrl(false);
+        }
+      };
+      loadImageFromUrl();
+    }
+  }, [sourceImageUrl, original, isLoadingFromUrl, toast]);
+
   // --- Cropping Handlers ---
   
   const handleApplyCrop = useCallback(async () => {
@@ -217,12 +244,23 @@ export default function ImagePreparationContainer({
 
   // --- Render Logic ---
   
+  // Show a loading skeleton if loading from URL or waiting for history data
+  if (isLoadingFromUrl || (isLoadingHistory && sourceImageUrl)) {
+    return (
+      <Card variant="glass">
+        <CardContent className="flex items-center justify-center p-10 min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Show uploader if no image
   if (!original) {
     return (
       <AnimatePresence mode="wait">
         <motion.div key="uploader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <ImageUploader sourceImageUrl={sourceImageUrl} />
+          <ImageUploader />
         </motion.div>
       </AnimatePresence>
     );

@@ -15,11 +15,7 @@ const MAX_FILE_SIZE_MB = 50;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/heic', 'image/heif', 'image/avif'];
 
-interface ImageUploaderProps {
-  sourceImageUrl?: string | null;
-}
-
-export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
+export default function ImageUploader() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
@@ -143,45 +139,6 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
       window.removeEventListener('drop', drop);
     };
   }, [handleDragAction]);
-
-  // Load image from sourceImageUrl when provided (for history restoration)
-  useEffect(() => {
-    if (sourceImageUrl) {
-      const loadImageFromUrl = async () => {
-        try {
-          // Import getDisplayableImageUrl utility
-          const { getDisplayableImageUrl } = await import("@/lib/utils");
-          const displayUrl = getDisplayableImageUrl(sourceImageUrl);
-          
-          if (!displayUrl) {
-            console.warn('Could not generate displayable URL for:', sourceImageUrl);
-            return;
-          }
-
-          const response = await fetch(displayUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.statusText}`);
-          }
-
-          const blob = await response.blob();
-          
-          // Create a File object from the blob
-          const file = new File([blob], 'loaded-image.jpg', { type: blob.type });
-          await uploadOriginalImage(file);
-          // Removed toast for 'Image Loaded' here
-        } catch (error) {
-          console.error('Error loading image from sourceImageUrl:', error);
-          toast({ 
-            title: "Load Error", 
-            description: "Failed to load the original image from history.", 
-            variant: "destructive" 
-          });
-        }
-      };
-
-      loadImageFromUrl();
-    }
-  }, [sourceImageUrl, toast, reset, uploadOriginalImage]);
 
   return (
     <>

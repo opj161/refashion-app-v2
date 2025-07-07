@@ -213,8 +213,7 @@ export default function ImageParameters({
   // Effect to populate state when a history item is loaded
   useEffect(() => {
     if (historyItemToLoad && !isLoadingHistory && historyItemToLoad.id !== loadedHistoryItemId) {
-      const { attributes, constructedPrompt, settingsMode } = historyItemToLoad;
-      
+      const { attributes, constructedPrompt, settingsMode, editedImageUrls, originalImageUrls, id } = historyItemToLoad;
       // Set all attribute states from the loaded history item
       setGender(attributes.gender || GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value);
       setBodyType(attributes.bodyType || BODY_TYPE_OPTIONS[0].value);
@@ -234,18 +233,24 @@ export default function ImageParameters({
       setTimeOfDay(attributes.timeOfDay || TIME_OF_DAY_OPTIONS[0].value);
       setOverallMood(attributes.overallMood || OVERALL_MOOD_OPTIONS[0].value);
       setFabricRendering(attributes.fabricRendering || FABRIC_RENDERING_OPTIONS[0].value);
-      
       // Set settings mode
       setSettingsMode(settingsMode || 'basic');
-      
+      // Set the generated image URLs to display them in the results section
+      if (editedImageUrls && editedImageUrls.length > 0) {
+        setOutputImageUrls(editedImageUrls);
+      }
+      // Set the original URLs for the "Compare" feature
+      if (originalImageUrls && originalImageUrls.length > 0) {
+        setOriginalOutputImageUrls(originalImageUrls);
+      } else {
+        setOriginalOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+      }
+      setActiveHistoryItemId(id);
       // Set the prompt and mark it as manually edited to prevent auto-generation
       if (constructedPrompt) {
         handlePromptChange(constructedPrompt);
       }
-      
-      // Mark this history item as loaded to prevent reloading
       setLoadedHistoryItemId(historyItemToLoad.id);
-      
       toast({
         title: "History Restored",
         description: "Image and all generation parameters have been successfully restored.",
@@ -384,32 +389,25 @@ export default function ImageParameters({
   };
 
   const handleUpscale = async (slotIndex: number) => {
-    const imageUrl = outputImageUrls[slotIndex];
-    if (!imageUrl) {
+    // Capture the URL to be upscaled at the beginning of the action.
+    const imageUrlToUpscale = outputImageUrls[slotIndex];
+    if (!imageUrlToUpscale) {
       toast({ title: "Image Not Available", variant: "destructive" });
       return;
     }
     setIsUpscalingSlot(slotIndex);
     try {
-      // Store the current URL as the "original" before enhancing
-      const currentOriginals = [...originalOutputImageUrls];
-      currentOriginals[slotIndex] = imageUrl;
-      setOriginalOutputImageUrls(currentOriginals);
-
       let imageDataUriForAction: string;
 
       // Check if the imageUrl is a local path or already a data URI
-      if (imageUrl.startsWith('/uploads/')) {
+      if (imageUrlToUpscale.startsWith('/uploads/')) {
         // It's a local path, convert to data URI
-        const displayUrl = getDisplayableImageUrl(imageUrl);
+        const displayUrl = getDisplayableImageUrl(imageUrlToUpscale);
         if (!displayUrl) throw new Error("Could not create displayable URL.");
-        
         const absoluteUrl = `${window.location.origin}${displayUrl}`;
         const response = await fetch(absoluteUrl);
         if (!response.ok) throw new Error(`Failed to fetch image for processing: ${response.statusText}`);
-        
         const blob = await response.blob();
-        
         imageDataUriForAction = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
@@ -418,22 +416,37 @@ export default function ImageParameters({
         });
       } else {
         // It's already a data URI or a public URL, use it directly
-        imageDataUriForAction = imageUrl;
+        imageDataUriForAction = imageUrlToUpscale;
       }
 
       // We pass undefined for hash as this is a generated image, not the original upload
       const { savedPath } = await upscaleImageAction(imageDataUriForAction, undefined);
 
-      const updatedUrls = [...outputImageUrls];
-      updatedUrls[slotIndex] = savedPath;
-      setOutputImageUrls(updatedUrls);
-
       if (activeHistoryItemId) {
-        await updateHistoryItem(activeHistoryItemId, { 
-          editedImageUrls: updatedUrls,
-          originalImageUrls: currentOriginals // Use the updated originals array
+        // The state isn't updated yet, so we build the arrays manually for the DB update
+        const finalOriginals = [...originalOutputImageUrls];
+        finalOriginals[slotIndex] = imageUrlToUpscale;
+        const finalOutputs = [...outputImageUrls];
+        finalOutputs[slotIndex] = savedPath;
+        await updateHistoryItem(activeHistoryItemId, {
+          editedImageUrls: finalOutputs,
+          originalImageUrls: finalOriginals,
         });
       }
+
+      // Use functional updates to prevent stale state issues in the UI.
+      setOriginalOutputImageUrls(prev => {
+        const newOriginals = [...prev];
+        newOriginals[slotIndex] = imageUrlToUpscale;
+        return newOriginals;
+      });
+
+      setOutputImageUrls(prev => {
+        const newUrls = [...prev];
+        newUrls[slotIndex] = savedPath;
+        return newUrls;
+      });
+
       toast({ title: `Image ${slotIndex + 1} Upscaled Successfully` });
     } catch (error) {
       console.error(`Error upscaling image ${slotIndex}:`, error);
@@ -730,24 +743,48 @@ export default function ImageParameters({
                     );
                   }
                   const isError = generationErrors[index] !== null;
-                  const displayUrl = getDisplayableImageUrl(uri);
+                  const displayUrl = getDisplayableImageUrl(comparingSlotIndex === index ? originalOutputImageUrls[index] : uri) || '';
                   return (
-                    <motion.div key={index} variants={itemAnim} className="group aspect-[3/4] rounded-md overflow-hidden">
-                      <Image
-                        src={displayUrl || ''}
-                        alt={`Generated Image ${index + 1}`}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        width={400}
-                        height={300}
-                      />
-                      <div className="p-2 bg-card/80 backdrop-blur-md rounded-b-md">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
+                    <motion.div key={index} variants={itemAnim} className="group rounded-md overflow-hidden flex flex-col border border-border/20">
+                      <div className="relative aspect-[3/4] w-full">
+                        <Image
+                          src={displayUrl || ''}
+                          alt={`Generated Image ${index + 1}`}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        {/* Loading overlay for reroll/upscale */}
+                        {(isReRollingSlot === index || isUpscalingSlot === index) && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <Loader2 className="h-8 w-8 text-white animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-2 bg-card/80 backdrop-blur-md space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleReRollImage(index)}
+                            disabled={isLoading || isReRollingSlot !== null || isUpscalingSlot !== null}
+                          >
+                            <RefreshCw className="mr-2 h-4 w-4" /> Re-roll
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUpscale(index)}
+                            disabled={isLoading || isUpscalingSlot !== null || isReRollingSlot !== null || !!originalOutputImageUrls[index]}
+                          >
+                            <Sparkles className="mr-2 h-4 w-4" /> Upscale
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleDownloadOutput(uri, index)}
                             className="flex-1"
-                            disabled={isLoading}
+                            disabled={isLoading || isReRollingSlot !== null || isUpscalingSlot !== null}
                           >
                             <Download className="mr-2 h-4 w-4" /> Download
                           </Button>
@@ -756,11 +793,22 @@ export default function ImageParameters({
                             size="sm"
                             onClick={() => handleSendToVideoPage(uri)}
                             className="flex-1"
-                            disabled={isLoading}
+                            disabled={isLoading || isReRollingSlot !== null || isUpscalingSlot !== null}
                           >
                             <VideoIcon className="mr-2 h-4 w-4" /> Video
                           </Button>
                         </div>
+                        {originalOutputImageUrls[index] && (
+                          <Button variant="ghost" size="sm" className="w-full select-none"
+                            onMouseDown={() => setComparingSlotIndex(index)}
+                            onMouseUp={() => setComparingSlotIndex(null)}
+                            onMouseLeave={() => setComparingSlotIndex(null)}
+                            onTouchStart={(e) => { e.preventDefault(); setComparingSlotIndex(index); }}
+                            onTouchEnd={() => setComparingSlotIndex(null)}
+                          >
+                            <Eye className="mr-2 h-4 w-4" /> Hold to Compare
+                          </Button>
+                        )}
                         {isError ? (
                           <p className="mt-2 text-sm text-red-500">{generationErrors[index]}</p>
                         ) : null}
