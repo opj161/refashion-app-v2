@@ -54,19 +54,28 @@ export function ThemeProvider({
   useEffect(() => {
     if (typeof window === 'undefined' || !isHydrated) return;
 
-    const root = window.document.documentElement;    const applyThemePreference = () => {
+    const root = window.document.documentElement;
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    const darkColor = '#020410'; // from globals.css dark theme --background
+    const lightColor = '#f9fafb'; // from globals.css light theme --background
+
+    const applyThemePreference = () => {
       // Remove all theme classes first
       root.classList.remove('light', 'dark');
-      
       if (theme === 'system') {
         const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         if (systemPrefersDark) {
           root.classList.add('dark');
+          if (themeColorMeta) themeColorMeta.setAttribute('content', darkColor);
         } else {
           root.classList.add('light');
+          if (themeColorMeta) themeColorMeta.setAttribute('content', lightColor);
         }
       } else {
         root.classList.add(theme);
+        if (themeColorMeta) {
+          themeColorMeta.setAttribute('content', theme === 'dark' ? darkColor : lightColor);
+        }
       }
     };
 

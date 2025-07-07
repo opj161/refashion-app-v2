@@ -34,12 +34,12 @@ export default function ImageUploader({ sourceImageUrl }: ImageUploaderProps) {
   // Define variants for the dropzone's different states
   const dropZoneVariants = {
     idle: {
-      borderColor: 'hsl(var(--border))',
-      backgroundColor: 'hsla(var(--background-accent), 0.5)'
+      borderColor: 'hsl(210 10% 23%)',
+      backgroundColor: 'hsla(224 40% 8% / 0.5)'
     },
     dragOver: {
-      borderColor: 'hsl(var(--primary))',
-      backgroundColor: 'hsla(var(--primary), 0.1)',
+      borderColor: 'hsl(173 71% 42%)',
+      backgroundColor: 'hsla(173 71% 42% / 0.1)',
       scale: 1.02,
     },
   };

@@ -571,7 +571,7 @@ export default function ImageParameters({
                 <AccordionItem value="model-attributes">
                   <AccordionTrigger className="text-lg"><PersonStanding className="h-5 w-5 mr-2 text-primary" />Model Attributes</AccordionTrigger>
                   <AccordionContent className="pt-4 space-y-4">
-                    <RadioGroup value={gender} onValueChange={setGender} className="flex flex-col space-y-2 pt-1 sm:flex-row sm:space-x-4 sm:space-y-0" disabled={commonFormDisabled}>
+                    <RadioGroup value={gender} onValueChange={setGender} className="flex flex-row flex-wrap gap-2 pt-1" disabled={commonFormDisabled}>
                         {GENDER_OPTIONS.map((option) => (
                           <div key={option.value} className="flex items-center space-x-2">
                             <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
@@ -610,7 +610,7 @@ export default function ImageParameters({
                   <p><strong>Note:</strong> Some advanced settings are active. Switch to Advanced mode to review or modify them.</p>
                 </div>
               )}
-              <RadioGroup value={gender} onValueChange={setGender} className="flex flex-col space-y-2 pt-1 sm:flex-row sm:space-x-4 sm:space-y-0" disabled={commonFormDisabled}>
+              <RadioGroup value={gender} onValueChange={setGender} className="flex flex-row flex-wrap gap-2 pt-1" disabled={commonFormDisabled}>
                 {GENDER_OPTIONS.map((option) => (
                   <div key={option.value} className="flex items-center space-x-2">
                     <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
