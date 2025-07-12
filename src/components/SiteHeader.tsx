@@ -48,27 +48,21 @@ export function SiteHeader() {
               <>
                 {/* Admin Console Button */}
                 {user?.role === 'admin' && (
-                  <Link href="/admin" passHref legacyBehavior>
-                    <Button asChild variant={pathname.startsWith('/admin') ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
-                      <a><ShieldCheck className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">Admin</span></a>
-                    </Button>
-                  </Link>
+                  <Button asChild variant={pathname.startsWith('/admin') ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
+                    <Link href="/admin"><ShieldCheck className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">Admin</span></Link>
+                  </Button>
                 )}
                 {/* Conditionally render the "Create" button */}
                 {pathname.startsWith('/history') && (
-                  <Link href="/create" passHref legacyBehavior>
-                    <Button asChild variant={pathname === '/create' ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
-                      <a><Home className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">Create</span></a>
-                    </Button>
-                  </Link>
+                  <Button asChild variant={pathname === '/create' ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
+                    <Link href="/create"><Home className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">Create</span></Link>
+                  </Button>
                 )}
                 {/* Conditionally render the "History" button */}
                 {pathname.startsWith('/create') && (
-                  <Link href="/history" passHref legacyBehavior>
-                    <Button asChild variant={pathname === '/history' ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
-                      <a><HistoryIcon className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">History</span></a>
-                    </Button>
-                  </Link>
+                  <Button asChild variant={pathname === '/history' ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
+                    <Link href="/history"><HistoryIcon className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">History</span></Link>
+                  </Button>
                 )}
               </>
             )}
