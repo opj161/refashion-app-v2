@@ -17,6 +17,7 @@ import fs from 'fs';
 import path from 'path';
 import { saveDataUriLocally } from '@/services/storage.service';
 import { getApiKeyForUser } from '@/services/apiKey.service';
+import { buildAIPrompt } from '@/lib/prompt-builder';
 
 // NEW: Import Axios and HttpsProxyAgent for explicit proxy control
 import axios, { AxiosError } from 'axios';
@@ -124,7 +125,9 @@ async function makeGeminiApiCall(apiKey: string, requestBody: GeminiApiRequestBo
 }
 
 const GenerateImageEditInputSchema = z.object({
-  prompt: z.string().describe('The prompt to use for generating or editing the image.'),
+  prompt: z.string().optional().describe('The prompt to use for generating or editing the image.'),
+  parameters: z.any().optional().describe('The parameters object to build the prompt from.'),
+  settingsMode: z.enum(['basic', 'advanced']).optional().describe('The settings mode for prompt construction.'),
   imageDataUriOrUrl: z
     .string()
     .optional()
@@ -325,6 +328,7 @@ async function generateImageFlow3(input: GenerateImageEditInput, username: strin
 const GenerateMultipleImagesOutputSchema = z.object({
   editedImageUrls: z.array(z.string().nullable()).length(3)
     .describe('An array of three generated or edited image URLs/paths (or null for failures).'),
+  constructedPrompt: z.string().describe('The final prompt that was sent to the AI.'),
   errors: z.array(z.string().nullable()).optional()
     .describe('An array of error messages if any generation or storage failed.'),
 });
@@ -335,10 +339,33 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
   if (!username) {
     throw new Error('Username is required to generate images.');
   }
+
+  // Construct the prompt from parameters if provided
+  let constructedPrompt: string;
+  if (input.parameters) {
+    constructedPrompt = buildAIPrompt({
+      type: 'image',
+      params: {
+        ...input.parameters,
+        settingsMode: input.settingsMode || 'basic'
+      }
+    });
+  } else if (input.prompt) {
+    constructedPrompt = input.prompt;
+  } else {
+    throw new Error('Either parameters or prompt must be provided');
+  }
+
+  // Create input with the constructed prompt for the generation flows
+  const inputForGeneration: GenerateImageEditInput = {
+    ...input,
+    prompt: constructedPrompt,
+  };
+
   const results = await Promise.allSettled([
-    generateImageFlow1(input, username),
-    generateImageFlow2(input, username),
-    generateImageFlow3(input, username),
+    generateImageFlow1(inputForGeneration, username),
+    generateImageFlow2(inputForGeneration, username),
+    generateImageFlow3(inputForGeneration, username),
   ]);
 
   const editedImageUrlsResult: (string | null)[] = [null, null, null];
@@ -357,6 +384,7 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
 
   return {
     editedImageUrls: editedImageUrlsResult,
+    constructedPrompt: constructedPrompt,
     errors: errorsResult.some(e => e !== null) ? errorsResult : undefined
   };
 }

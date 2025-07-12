@@ -10,14 +10,12 @@ import { AdminNav } from './_components/AdminNav';
 import { logoutUser } from '@/actions/authActions';
 import { ThemeToggleImproved as ThemeToggleCompact } from '@/components/ui/ThemeToggleImproved';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { AdminLoading } from './_components/AdminLoading';
 
-export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const user = await getCurrentUser();
-
-  if (!user || user.role !== 'admin') {
-    return notFound(); // Or redirect('/login') if you prefer
-  }
-
+export default function AdminLayout({ children }: { children: ReactNode }) {
+  // The auth check is now handled by middleware.ts, so we don't need to
+  // make this component async to await getCurrentUser(). This fixes the
+  // conflict between Suspense and the PageTransitionWrapper.
   return (
     <>
       <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-50">
@@ -50,13 +48,13 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       </header>
       <div className="container mx-auto max-w-7xl flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10 py-10">
         <aside className="fixed top-16 z-30 -ml-2 hidden h-[calc(100vh-64px)] w-full shrink-0 md:sticky md:block">
-          <div className="h-full py-6 pr-6">
-              <Suspense fallback={<div>Loading nav...</div>}>
-                <AdminNav />
-              </Suspense>
+          <div className="h-full py-6 pr-6 lg:py-8">
+              <AdminNav />
           </div>
         </aside>
-        <main className="w-full">{children}</main>
+        <main className="w-full flex-1 flex flex-col">
+          <Suspense fallback={<AdminLoading />}>{children}</Suspense>
+        </main>
       </div>
     </>
   );

@@ -4,6 +4,7 @@ import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { motion } from "motion/react"
+import { Loader2 } from 'lucide-react';
 
 import { cn } from "@/lib/utils"
 
@@ -23,6 +24,8 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         gradient:
           "bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_auto] text-primary-foreground hover:shadow-lg hover:shadow-primary/30 transition-shadow",
+        active:
+          "bg-primary/10 text-primary hover:bg-primary/20",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -42,35 +45,36 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
+  loading?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, loading = false, children, ...props }, ref) => {
     // Only use motion.button for native buttons, and Slot for asChild (no animation)
     if (asChild) {
       return (
         <Slot
-          className={cn(buttonVariants({ variant, size, className }))}
+          className={cn(buttonVariants({ variant, size, className }), loading && "opacity-80 cursor-not-allowed")}
           ref={ref}
           {...props}
         />
       )
     }
     // Remove onDrag from props to avoid type conflict with motion.button
-    const { onDrag, ...rest } = props as any
+    const { onDrag, ...rest } = props as any;
     return (
       <motion.button
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant, size, className }), loading && "opacity-80 cursor-not-allowed")}
         ref={ref}
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
-        transition={{
-          type: "spring",
-          stiffness: 400,
-          damping: 15,
-        }}
+        transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+        disabled={loading || props.disabled}
         {...rest}
-      />
+      >
+        {loading && <Loader2 className="animate-spin" />}
+        {!loading && children}
+      </motion.button>
     )
   }
 )

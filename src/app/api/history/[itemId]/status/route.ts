@@ -1,13 +1,9 @@
 // src/app/api/history/[itemId]/status/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getHistoryItemStatus } from '@/services/database.service';
 import { getCurrentUser } from '@/actions/authActions';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ itemId: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ itemId: string }> }) {
   try {
     const user = await getCurrentUser();
     if (!user) {

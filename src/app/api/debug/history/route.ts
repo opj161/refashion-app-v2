@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         id: item.id,
         timestamp: item.timestamp,
         hasVideoGenerationParams: !!item.videoGenerationParams,
-        videoGenerationStatus: item.videoGenerationParams?.status,
+        videoGenerationStatus: (item.videoGenerationParams as any)?.status,
         hasLocalVideoUrl: !!item.videoGenerationParams?.localVideoUrl,
         hasGeneratedVideoUrls: !!item.generatedVideoUrls,
         generatedVideoUrlsCount: item.generatedVideoUrls?.length || 0,
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       itemsWithVideoParams: imageHistory.filter(item => !!item.videoGenerationParams).map(item => ({
         id: item.id,
         timestamp: item.timestamp,
-        status: item.videoGenerationParams?.status,
+        status: (item.videoGenerationParams as any)?.status,
         hasLocalVideoUrl: !!item.videoGenerationParams?.localVideoUrl,
         localVideoUrl: item.videoGenerationParams?.localVideoUrl
       }))

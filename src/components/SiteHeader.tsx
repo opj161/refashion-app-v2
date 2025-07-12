@@ -14,10 +14,15 @@ export function SiteHeader() {
   const pathname = usePathname();
   const { user } = useAuth();
   const [isClient, setIsClient] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    setIsNavigating(false);
+  }, [pathname]);
 
   return (
     <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-50">
@@ -43,37 +48,33 @@ export function SiteHeader() {
               <>
                 {/* Admin Console Button */}
                 {user?.role === 'admin' && (
-                  <Button asChild variant="ghost" size="sm" className="px-2">
-                    <Link href="/admin">
-                      <ShieldCheck className="h-5 w-5 md:mr-2" />
-                      <span className="hidden md:inline">Admin</span>
-                    </Link>
-                  </Button>
+                  <Link href="/admin" passHref legacyBehavior>
+                    <Button asChild variant={pathname.startsWith('/admin') ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
+                      <a><ShieldCheck className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">Admin</span></a>
+                    </Button>
+                  </Link>
                 )}
                 {/* Conditionally render the "Create" button */}
                 {pathname.startsWith('/history') && (
-                  <Button asChild variant="ghost" size="sm" className="px-2">
-                    <Link href="/create">
-                      <Home className="h-5 w-5 md:mr-2" />
-                      <span className="hidden md:inline">Create</span>
-                    </Link>
-                  </Button>
+                  <Link href="/create" passHref legacyBehavior>
+                    <Button asChild variant={pathname === '/create' ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
+                      <a><Home className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">Create</span></a>
+                    </Button>
+                  </Link>
                 )}
                 {/* Conditionally render the "History" button */}
                 {pathname.startsWith('/create') && (
-                  <Button asChild variant="ghost" size="sm" className="px-2">
-                    <Link href="/history">
-                      <HistoryIcon className="h-5 w-5 md:mr-2" />
-                      <span className="hidden md:inline">History</span>
-                    </Link>
-                  </Button>
+                  <Link href="/history" passHref legacyBehavior>
+                    <Button asChild variant={pathname === '/history' ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
+                      <a><HistoryIcon className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">History</span></a>
+                    </Button>
+                  </Link>
                 )}
               </>
             )}
           </nav>
-          <Separator orientation="vertical" className="h-6 hidden md:block" />
-          <ThemeToggleImproved variant="compact" />
-          <UserAuthStatus />
+          <Separator orientation="vertical" className="mx-2 h-8" />
+          <ThemeToggleImproved />
         </div>
       </div>
     </header>

@@ -22,6 +22,11 @@ echo "--- Running granular API key migration ---"
 node /app/dist/scripts/add-granular-api-key-columns.js || echo "Granular API key migration completed or skipped"
 echo "--- Granular API key migration check complete ---"
 
+# Run the new API features migration
+echo "--- Running API Features migration ---"
+node /app/dist/scripts/migrate-api-features.js || echo "API features migration completed or skipped"
+echo "--- API features migration check complete ---"
+
 # Use PUID/PGID from environment, or default to 1000 (common for 'node' user in base images)
 # Unraid should be passing PUID=99 and PGID=100
 PUID_TO_USE=${PUID:-1000}

@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Script from 'next/script'; // Import next/script
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -8,7 +7,6 @@ import { getCurrentUser } from '@/actions/authActions';
 import type { SessionUser } from '@/lib/types';
 import { cookies } from 'next/headers';
 import { SiteHeader } from '@/components/SiteHeader'; // Import the new header
-import PageTransitionWrapper from '@/components/PageTransitionWrapper';
 
 // Force dynamic rendering to ensure authentication state is determined at request time
 export const dynamic = 'force-dynamic';
@@ -35,32 +33,28 @@ export default async function RootLayout({
       <head>
         <meta name="theme-color" content="#020410" />
         <link href="https://api.fontshare.com/v2/css?f[]=satoshi@700,500,400&display=swap" rel="stylesheet" />
-        <Script id="theme-init-script" strategy="beforeInteractive">
-          {`
-            (function() {
-              function setTheme() {
-                try {
-                  var theme = localStorage.getItem('theme');
-                  var systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  // Default to dark if no theme in localStorage or if theme is 'system' and system prefers dark
-                  var shouldBeDark = theme === 'dark' || (theme === 'system' && systemPrefersDark) || (!theme && true);
-
-                  var root = document.documentElement;
-                  root.classList.remove('light', 'dark');
-                  if (shouldBeDark) {
-                    root.classList.add('dark');
-                  } else {
-                    root.classList.add('light');
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                function setTheme() {
+                  try {
+                    var theme = localStorage.getItem('theme');
+                    var systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    var shouldBeDark = theme === 'dark' || (theme === 'system' && systemPrefersDark) || (!theme && true);
+                    var root = document.documentElement;
+                    root.classList.remove('light', 'dark');
+                    root.classList.add(shouldBeDark ? 'dark' : 'light');
+                  } catch (e) {
+                    console.error("Error setting initial theme:", e);
+                    document.documentElement.classList.add('dark'); // Default fallback
                   }
-                } catch (e) {
-                  console.error("Error setting initial theme:", e);
-                  document.documentElement.classList.add('dark'); // Default fallback
                 }
-              }
-              setTheme();
-            })();
-          `}
-        </Script>
+                setTheme();
+              })();
+            `,
+          }}
+        />
       </head>
       <body
         className="antialiased bg-gradient-to-br from-background-accent to-background text-foreground flex flex-col min-h-screen"
@@ -74,7 +68,7 @@ export default async function RootLayout({
           <ThemeProvider>
             <SiteHeader /> {/* Use the new header component here */}
             <main className="flex-1 flex flex-col">
-              <PageTransitionWrapper>{children}</PageTransitionWrapper>
+              {children}
             </main>
             <Toaster />
           </ThemeProvider>

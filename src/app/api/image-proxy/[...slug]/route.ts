@@ -7,8 +7,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string[] }> }
 ) {
-  const resolvedParams = await params;
-  const slug = resolvedParams.slug;
+  const { slug } = await params;
 
   if (!slug || !Array.isArray(slug)) {
     return new NextResponse('Invalid image path', { status: 400 });
