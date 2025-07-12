@@ -28,7 +28,10 @@ export function SiteHeader() {
     <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-50">
       <div className="container mx-auto flex justify-between items-center max-w-7xl h-20 px-4">
         {/* Make Logo and Title a link to the homepage */}
-        <Link href="/create" className="flex items-center gap-2.5 sm:gap-3 text-foreground hover:text-primary transition-colors">
+        <Link
+          href="/create"
+          className="flex items-center gap-2.5 sm:gap-3 text-foreground hover:text-primary transition-colors"
+          legacyBehavior>
           <Image
             src="/refashion.webp"
             alt="Refashion AI logo"
@@ -49,19 +52,19 @@ export function SiteHeader() {
                 {/* Admin Console Button */}
                 {user?.role === 'admin' && (
                   <Button asChild variant={pathname.startsWith('/admin') ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
-                    <Link href="/admin"><ShieldCheck className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">Admin</span></Link>
+                    <Link href="/admin" legacyBehavior><ShieldCheck className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">Admin</span></Link>
                   </Button>
                 )}
                 {/* Conditionally render the "Create" button */}
                 {pathname.startsWith('/history') && (
                   <Button asChild variant={pathname === '/create' ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
-                    <Link href="/create"><Home className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">Create</span></Link>
+                    <Link href="/create" legacyBehavior><Home className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">Create</span></Link>
                   </Button>
                 )}
                 {/* Conditionally render the "History" button */}
                 {pathname.startsWith('/create') && (
                   <Button asChild variant={pathname === '/history' ? 'active' : 'ghost'} size="sm" className="px-2" onClick={() => setIsNavigating(true)} loading={isNavigating}>
-                    <Link href="/history"><HistoryIcon className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">History</span></Link>
+                    <Link href="/history" legacyBehavior><HistoryIcon className="h-5 w-5 md:mr-2" /><span className="hidden md:inline">History</span></Link>
                   </Button>
                 )}
               </>

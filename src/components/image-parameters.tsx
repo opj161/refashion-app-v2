@@ -617,7 +617,7 @@ export default function ImageParameters({
             </>
           ) : (
             /* Basic Mode Settings */
-            <div className="space-y-4">
+            (<div className="space-y-4">
               {showAdvancedSettingsActiveMessage && (
                 <div className="p-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md">
                   <p><strong>Note:</strong> Some advanced settings are active. Switch to Advanced mode to review or modify them.</p>
@@ -639,7 +639,7 @@ export default function ImageParameters({
                 {renderSelect({ id: "poseStyle", label: "Pose Style", value: poseStyle, onChange: setPoseStyle, options: POSE_STYLE_OPTIONS, disabled: commonFormDisabled })}
                 {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS, disabled: commonFormDisabled })}
               </div>
-            </div>
+            </div>)
           )}
            {/* Save/Clear Defaults Buttons */}
            <div className="flex gap-2 pt-4 border-t mt-4">
@@ -710,7 +710,6 @@ export default function ImageParameters({
           </motion.div>
         </CardFooter>
       </Card>
-
       {/* Generated Images Display */}
       {(outputImageUrls.some(uri => uri !== null) || generationErrors.some(err => err !== null) || isLoading) && (
         <Card variant="glass">

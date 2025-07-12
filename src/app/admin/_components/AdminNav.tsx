@@ -20,20 +20,20 @@ export function AdminNav() {
 	const pathname = usePathname();
 
 	return (
-		<nav className="flex flex-col gap-2">
-			{NAV_ITEMS.map((item) => (
+        <nav className="flex flex-col gap-2">
+            {NAV_ITEMS.map((item) => (
 				<Button
 					key={item.label}
 					asChild
 					variant={isActive(item.href, pathname) ? 'active' : 'ghost'}
 					className="justify-start"
 				>
-					<Link href={item.href}>
+					<Link href={item.href} legacyBehavior>
 						<item.icon className="mr-2 h-4 w-4" />
 						{item.label}
 					</Link>
 				</Button>
 			))}
-		</nav>
-	);
+        </nav>
+    );
 }

@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }
-    if (!await isFalVideoGenerationAvailable()) {
+    if (!(await isFalVideoGenerationAvailable())) {
       return NextResponse.json(
         { success: false, error: 'Image upload service is not configured (FAL_KEY missing).' },
         { status: 503 }

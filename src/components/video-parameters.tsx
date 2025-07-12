@@ -554,7 +554,6 @@ export default function VideoParameters({
           </div>
         </CardContent>
       </Card>
-
       <Card variant="glass">
         <CardHeader>
           <CardTitle className="text-xl flex items-center gap-2">
@@ -634,21 +633,18 @@ export default function VideoParameters({
           </Button>
         </CardFooter>
       </Card>
-
       {!isVideoServiceAvailable && (
         <Card variant="glass" className="border-amber-500 bg-amber-50 text-amber-700">
           <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle /> Service Not Available</CardTitle></CardHeader>
           <CardContent><p>Video generation service is not configured.</p></CardContent>
         </Card>
       )}
-
       {generationError && (
         <Card variant="glass" className="border-destructive bg-destructive/10 text-destructive">
           <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle /> Generation Failed</CardTitle></CardHeader>
           <CardContent><p>{generationError}</p></CardContent>
         </Card>
       )}
-
       {isGenerating && !generatedVideoUrl && (
         <Card>
           <CardHeader>
@@ -684,9 +680,8 @@ export default function VideoParameters({
           </CardFooter>
         </Card>
       )}
-
       {generatedVideoUrl && !isGenerating && ( // Ensure isGenerating is false to show result
-        <Card>
+        (<Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-600"><CheckCircle /> Video Ready!</CardTitle>
             {generatedSeedValue !== null && (<CardDescription>Seed used: {generatedSeedValue}</CardDescription>)}
@@ -699,7 +694,7 @@ export default function VideoParameters({
               <a href={getDisplayableImageUrl(generatedVideoUrl) || undefined} download={`RefashionAI_video_${generatedSeedValue || Date.now()}.mp4`}><Download className="h-4 w-4 mr-2" />Download Video</a>
             </Button>
           </CardContent>
-        </Card>
+        </Card>)
       )}
     </div>
   );

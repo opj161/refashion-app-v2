@@ -19,7 +19,7 @@ export async function loginUser(formData: FormData): Promise<{ error: string } |
   try {
     const user = dbService.findUserByUsername(username);
 
-    if (user && await bcrypt.compare(submittedPassword, user.passwordHash)) {
+    if (user && (await bcrypt.compare(submittedPassword, user.passwordHash))) {
       // Save session and prepare for redirect
       session.user = {
         username: username,
