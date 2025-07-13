@@ -1,4 +1,3 @@
-
 // src/contexts/AuthContext.tsx
 "use client";
 
@@ -10,7 +9,8 @@ import type { SessionUser } from '@/lib/types';
 
 interface AuthContextType {
   user: SessionUser | null;
-  loading: boolean; // Represents loading for explicit refreshes, not initial load if initialUser is provided
+  loading: boolean;
+  isHydrated: boolean;
   refreshUser: () => Promise<void>;
 }
 
@@ -23,18 +23,18 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children, initialUser }: AuthProviderProps) => {
-  // Initialize user state with the server-provided initialUser
   const [user, setUser] = useState<SessionUser | null>(initialUser);
-
-  // 2. The only "loading" state is for manual refreshes, not initial load.
   const [loading, setLoading] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // 3. This effect is now only for syncing with layout re-renders, not for fetching.
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
   useEffect(() => {
     setUser(initialUser);
   }, [initialUser]);
 
-  // The refreshUser function remains to allow explicit session re-fetching.
   const refreshUser = useCallback(async () => {
     setLoading(true);
     try {
@@ -48,7 +48,7 @@ export const AuthProvider = ({ children, initialUser }: AuthProviderProps) => {
     }
   }, []);
 
-  const value = { user, loading, refreshUser };
+  const value = { user, loading, isHydrated, refreshUser };
 
   return (
     <AuthContext.Provider value={value}>
@@ -67,14 +67,10 @@ export const useAuth = (): AuthContextType => {
 
 // UserAuthStatus component remains largely the same but benefits from faster initial user state
 export const UserAuthStatus = () => {
-  const { user, loading: authContextLoading } = useAuth(); // Renamed loading to avoid conflict
-  const [isClient, setIsClient] = useState(false);
+  const { user, loading: authContextLoading, isHydrated } = useAuth();
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-  // Show loading if AuthContext is loading (e.g. during a refresh) OR if not yet client-side rendered
-  if (authContextLoading || !isClient) {
+  // Show loading if AuthContext is loading (e.g. during a refresh) OR if not yet hydrated
+  if (authContextLoading || !isHydrated) {
     return (
       <div className="flex items-center space-x-2">
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
