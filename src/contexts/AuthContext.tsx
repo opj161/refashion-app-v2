@@ -3,6 +3,7 @@
 
 import type ReactType from 'react';
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser, logoutUser } from '@/actions/authActions';
 import type { SessionUser } from '@/lib/types';
@@ -31,6 +32,8 @@ export const AuthProvider = ({ children, initialUser }: AuthProviderProps) => {
     setIsHydrated(true);
   }, []);
 
+  const pathname = usePathname();
+
   useEffect(() => {
     setUser(initialUser);
   }, [initialUser]);
@@ -47,6 +50,14 @@ export const AuthProvider = ({ children, initialUser }: AuthProviderProps) => {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    // Only refresh if the user state is potentially stale.
+    // This avoids an unnecessary refresh on the initial server-side pass.
+    if (isHydrated) {
+      refreshUser();
+    }
+  }, [pathname, isHydrated]);
 
   const value = { user, loading, isHydrated, refreshUser };
 
