@@ -21,7 +21,7 @@ services:
     environment:
       - NODE_ENV=production # Or 'production' if you want to test production build behavior
       - PORT=3000
-      - NEXT_PUBLIC_APP_URL=https://app.refashion.cc
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
       - FORCE_HTTPS=false # Set to true if using HTTPS
       # STORAGE_PROVIDER will be picked from .env file
     # If you need to ensure Genkit dev server runs, you might need a more complex setup

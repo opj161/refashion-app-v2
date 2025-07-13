@@ -7,33 +7,34 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ThemeToggleImproved } from '@/components/ui/ThemeToggleImproved';
 import { UserAuthStatus, useAuth } from '@/contexts/AuthContext';
-import { Home, History as HistoryIcon, ShieldCheck, Loader2 } from 'lucide-react';
+import { Home, History as HistoryIcon, ShieldCheck } from 'lucide-react';
 import type { SessionUser } from '@/lib/types';
-import React, { useState, useEffect, useTransition } from 'react';
+import React from 'react';
 
+// CORRECTED navigation items with proper visibility logic
 const NAV_ITEMS = [
 	{
 		href: '/admin',
 		label: 'Admin',
 		icon: ShieldCheck,
-		// Logic is correct: only show for admin users.
-		visible: (user: SessionUser | null, pathname: string) => user?.role === 'admin',
+		// Show only if the user is an admin
+		visible: (user: SessionUser | null) => user?.role === 'admin',
 		active: (pathname: string) => pathname.startsWith('/admin'),
 	},
 	{
 		href: '/create',
 		label: 'Create',
 		icon: Home,
-		// FIX: Show if the user is logged in, regardless of the current page.
-		visible: (user: SessionUser | null, pathname: string) => !!user?.isLoggedIn,
+		// CORRECTED: Show this button ONLY when on the /history page.
+		visible: (user: SessionUser | null, pathname: string) => !!user?.isLoggedIn && pathname.startsWith('/history'),
 		active: (pathname: string) => pathname.startsWith('/create'),
 	},
 	{
 		href: '/history',
 		label: 'History',
 		icon: HistoryIcon,
-		// FIX: Show if the user is logged in, regardless of the current page.
-		visible: (user: SessionUser | null, pathname: string) => !!user?.isLoggedIn,
+		// CORRECTED: Show this button ONLY when on the /create page.
+		visible: (user: SessionUser | null, pathname: string) => !!user?.isLoggedIn && pathname.startsWith('/create'),
 		active: (pathname: string) => pathname.startsWith('/history'),
 	},
 ];
@@ -41,7 +42,9 @@ const NAV_ITEMS = [
 export function SiteHeader() {
 	const pathname = usePathname();
 	const { user, isHydrated } = useAuth();
-	const [isPending, startTransition] = useTransition();
+
+	// Filter items based on the corrected visibility logic
+	const visibleNavItems = NAV_ITEMS.filter(item => item.visible(user, pathname));
 
 	return (
 		<header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-50">
@@ -63,7 +66,7 @@ export function SiteHeader() {
 					<nav className="flex items-center gap-1">
 						{/* Render nav items only when the auth context is hydrated */}
 						{isHydrated &&
-							NAV_ITEMS.filter(item => item.visible(user, pathname)).map(item => {
+							visibleNavItems.map(item => {
 								const isActive = item.active(pathname);
 								return (
 									<Button
@@ -72,9 +75,7 @@ export function SiteHeader() {
 										variant={isActive ? 'active' : 'ghost'}
 										size="sm"
 										className="px-2"
-										// ENHANCEMENT: Disable the active button to prevent redundant navigation.
-										disabled={isActive || isPending}
-										onClick={() => !isActive && startTransition(() => {})}
+										disabled={isActive}
 									>
 										<Link href={item.href}>
 											<item.icon className="h-5 w-5 md:mr-2" />
@@ -83,17 +84,12 @@ export function SiteHeader() {
 									</Button>
 								);
 							})}
-						{isPending && (
-							<div className="px-2">
-								<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-							</div>
-						)}
 					</nav>
 				</div>
 				{/* RIGHT SIDE: Theme Toggle and User Status */}
 				<div className="flex items-center gap-2">
-					<ThemeToggleImproved />
-					<Separator orientation="vertical" className="h-8" />
+					<ThemeToggleImproved variant="compact" />
+					<Separator orientation="vertical" className="h-8 hidden md:block" />
 					<UserAuthStatus />
 				</div>
 			</div>

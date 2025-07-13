@@ -1,9 +1,9 @@
 // src/contexts/AuthContext.tsx
+
 "use client";
 
-import type ReactType from 'react';
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
+import type React from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser, logoutUser } from '@/actions/authActions';
 import type { SessionUser } from '@/lib/types';
@@ -17,10 +17,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Define props for AuthProvider
 interface AuthProviderProps {
   children: ReactNode;
-  initialUser: SessionUser | null; // Prop to pass initial user state
+  initialUser: SessionUser | null;
 }
 
 export const AuthProvider = ({ children, initialUser }: AuthProviderProps) => {
@@ -28,16 +27,18 @@ export const AuthProvider = ({ children, initialUser }: AuthProviderProps) => {
   const [loading, setLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
 
+  // This effect simply marks when the component has mounted on the client.
   useEffect(() => {
     setIsHydrated(true);
   }, []);
 
-  const pathname = usePathname();
-
+  // This correctly syncs the user state if the initialUser prop changes
+  // (e.g., after a full-page reload on login/logout), without unnecessary re-fetching.
   useEffect(() => {
     setUser(initialUser);
   }, [initialUser]);
 
+  // This function can be called manually if an explicit state refresh is ever needed.
   const refreshUser = useCallback(async () => {
     setLoading(true);
     try {
@@ -50,14 +51,6 @@ export const AuthProvider = ({ children, initialUser }: AuthProviderProps) => {
       setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    // Only refresh if the user state is potentially stale.
-    // This avoids an unnecessary refresh on the initial server-side pass.
-    if (isHydrated) {
-      refreshUser();
-    }
-  }, [pathname, isHydrated]);
 
   const value = { user, loading, isHydrated, refreshUser };
 
@@ -76,11 +69,10 @@ export const useAuth = (): AuthContextType => {
   return context;
 };
 
-// UserAuthStatus component remains largely the same but benefits from faster initial user state
+// UserAuthStatus component (no changes needed, but included for completeness)
 export const UserAuthStatus = () => {
   const { user, loading: authContextLoading, isHydrated } = useAuth();
 
-  // Show loading if AuthContext is loading (e.g. during a refresh) OR if not yet hydrated
   if (authContextLoading || !isHydrated) {
     return (
       <div className="flex items-center space-x-2">
@@ -111,7 +103,6 @@ export const UserAuthStatus = () => {
     );
   }
   
-  // If not logged in, show login button
   return (
     <Button asChild variant="default" size="sm">
       <a href="/login">Login</a>
