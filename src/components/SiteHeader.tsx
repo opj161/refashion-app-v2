@@ -41,7 +41,13 @@ const NAV_ITEMS = [
 
 export function SiteHeader() {
 	const pathname = usePathname();
-	const { user, isHydrated } = useAuth();
+	const { user } = useAuth();
+
+	// Hydration-safe client check
+	const [isClient, setIsClient] = React.useState(false);
+	React.useEffect(() => {
+		setIsClient(true);
+	}, []);
 
 	// Filter items based on the corrected visibility logic
 	const visibleNavItems = NAV_ITEMS.filter(item => item.visible(user, pathname));
@@ -64,8 +70,8 @@ export function SiteHeader() {
 						</span>
 					</Link>
 					<nav className="flex items-center gap-1">
-						{/* Render nav items only when the auth context is hydrated */}
-						{isHydrated &&
+						{/* Only render nav items on the client after hydration to prevent mismatch */}
+						{isClient &&
 							visibleNavItems.map(item => {
 								const isActive = item.active(pathname);
 								return (

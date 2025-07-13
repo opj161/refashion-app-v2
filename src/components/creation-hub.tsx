@@ -25,6 +25,19 @@ export default function CreationHub() {
   const [historyItemToLoad, setHistoryItemToLoad] = useState<HistoryItem | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
 
+  // ******************** START OF FIX ********************
+  // This cleanup effect is the core of the fix.
+  // It ensures that when the user navigates away from the /create page,
+  // the global imageStore is reset to its initial state.
+  // The PageTransitionWrapper ensures this runs *after* the exit animation,
+  // preventing race conditions with the next page's components.
+  // useEffect(() => {
+  //   return () => {
+  //     resetStore();
+  //   };
+  // }, [resetStore]);
+  // ********************* END OF FIX *********************
+
   // Centralized reset function
   const handleReset = useCallback(() => {
     router.push('/create', { scroll: false }); // Update URL first

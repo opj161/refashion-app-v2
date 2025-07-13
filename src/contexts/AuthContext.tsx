@@ -11,7 +11,6 @@ import type { SessionUser } from '@/lib/types';
 interface AuthContextType {
   user: SessionUser | null;
   loading: boolean;
-  isHydrated: boolean;
   refreshUser: () => Promise<void>;
 }
 
@@ -25,20 +24,13 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children, initialUser }: AuthProviderProps) => {
   const [user, setUser] = useState<SessionUser | null>(initialUser);
   const [loading, setLoading] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
 
-  // This effect simply marks when the component has mounted on the client.
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
-
-  // This correctly syncs the user state if the initialUser prop changes
-  // (e.g., after a full-page reload on login/logout), without unnecessary re-fetching.
+  // Trust initialUser from server, update only if it changes
   useEffect(() => {
     setUser(initialUser);
   }, [initialUser]);
 
-  // This function can be called manually if an explicit state refresh is ever needed.
+  // Manual refresh function for explicit session updates
   const refreshUser = useCallback(async () => {
     setLoading(true);
     try {
@@ -52,7 +44,7 @@ export const AuthProvider = ({ children, initialUser }: AuthProviderProps) => {
     }
   }, []);
 
-  const value = { user, loading, isHydrated, refreshUser };
+  const value = { user, loading, refreshUser };
 
   return (
     <AuthContext.Provider value={value}>
@@ -61,7 +53,7 @@ export const AuthProvider = ({ children, initialUser }: AuthProviderProps) => {
   );
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = (): Omit<AuthContextType, 'isHydrated'> => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
@@ -69,11 +61,15 @@ export const useAuth = (): AuthContextType => {
   return context;
 };
 
-// UserAuthStatus component (no changes needed, but included for completeness)
+// UserAuthStatus component
 export const UserAuthStatus = () => {
-  const { user, loading: authContextLoading, isHydrated } = useAuth();
+  const { user, loading: authContextLoading } = useAuth();
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
-  if (authContextLoading || !isHydrated) {
+  if (authContextLoading || !isClient) {
     return (
       <div className="flex items-center space-x-2">
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -102,7 +98,7 @@ export const UserAuthStatus = () => {
       </div>
     );
   }
-  
+
   return (
     <Button asChild variant="default" size="sm">
       <a href="/login">Login</a>
