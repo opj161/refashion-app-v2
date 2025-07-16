@@ -5,11 +5,14 @@ import { getHistoryItemById } from '@/actions/historyActions';
 import type { HistoryItem } from '@/lib/types';
 import CreationHub from "@/components/creation-hub";
 
-export default async function CreatePage({ searchParams }: { 
-  searchParams: { historyItemId?: string | string[], sourceImageUrl?: string | string[] }; 
+export default async function CreatePage({ searchParams }: {
+  // The searchParams prop is now correctly typed as a Promise
+  searchParams: Promise<{ historyItemId?: string | string[], sourceImageUrl?: string | string[] }>;
 }) {
-  // Destructure properties from searchParams first, then handle array values
-  const { historyItemId: historyItemIdParam, sourceImageUrl: sourceImageUrlParam } = searchParams;
+  // Await the promise to get the actual search params object
+  const resolvedSearchParams = await searchParams;
+
+  const { historyItemId: historyItemIdParam, sourceImageUrl: sourceImageUrlParam } = resolvedSearchParams;
   const historyItemId = Array.isArray(historyItemIdParam) ? historyItemIdParam[0] : historyItemIdParam;
   const sourceImageUrl = Array.isArray(sourceImageUrlParam) ? sourceImageUrlParam[0] : sourceImageUrlParam;
 

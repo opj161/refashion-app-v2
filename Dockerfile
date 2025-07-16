@@ -25,10 +25,6 @@ WORKDIR /app
 ARG NEXT_PUBLIC_FAL_KEY
 ENV NEXT_PUBLIC_FAL_KEY=$NEXT_PUBLIC_FAL_KEY
 
-# Accept build-time argument for ENCRYPTION_SECRET
-ARG ENCRYPTION_SECRET
-ENV ENCRYPTION_SECRET=$ENCRYPTION_SECRET
-
 # Copy dependencies from the 'deps' stage
 COPY --from=deps /app/node_modules ./node_modules
 # Copy package.json for npm scripts
@@ -41,9 +37,14 @@ COPY src ./src
 COPY public ./public
 COPY scripts ./scripts
 
+
 # Set NEXT_TELEMETRY_DISABLED before build
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# First, compile the migration scripts
+RUN npm run build:scripts
+
+# Then, build the Next.js application
 RUN npm run build
 
 # 4. ---- Runner Stage (Final Image) ----
@@ -52,7 +53,6 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000
 
