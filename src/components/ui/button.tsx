@@ -1,9 +1,6 @@
-"use client"
-
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
-import { motion } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
@@ -21,8 +18,6 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        gradient:
-          "bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_auto] text-primary-foreground hover:shadow-lg hover:shadow-primary/30 transition-shadow",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -46,30 +41,12 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    // Only use motion.button for native buttons, and Slot for asChild (no animation)
-    if (asChild) {
-      return (
-        <Slot
-          className={cn(buttonVariants({ variant, size, className }))}
-          ref={ref}
-          {...props}
-        />
-      )
-    }
-    // Remove onDrag from props to avoid type conflict with motion.button
-    const { onDrag, ...rest } = props as any
+    const Comp = asChild ? Slot : "button"
     return (
-      <motion.button
+      <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.97 }}
-        transition={{
-          type: "spring",
-          stiffness: 400,
-          damping: 15,
-        }}
-        {...rest}
+        {...props}
       />
     )
   }
