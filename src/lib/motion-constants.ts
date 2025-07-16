@@ -145,3 +145,25 @@ export const MOTION_TRANSITIONS = {
     delayChildren: 0.1,
   },
 } as const;
+
+import { Transition } from "motion/react";
+
+/**
+ * Pre-defined transition for our page animations.
+ * Based on the new motion library's Transition type.
+ */
+export const PAGE_TRANSITION: Transition = {
+  type: 'tween',
+  ease: 'easeInOut',
+  duration: 0.4
+};
+
+/**
+ * Variants for our page transitions.
+ * This will be used in the template.tsx file.
+ */
+export const PAGE_VARIANTS = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10 },
+};

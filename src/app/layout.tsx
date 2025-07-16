@@ -8,7 +8,6 @@ import { getCurrentUser } from '@/actions/authActions';
 import type { SessionUser } from '@/lib/types';
 import { cookies } from 'next/headers';
 import { SiteHeader } from '@/components/SiteHeader'; // Import the new header
-import PageTransitionWrapper from '@/components/PageTransitionWrapper';
 
 // Force dynamic rendering to ensure authentication state is determined at request time
 export const dynamic = 'force-dynamic';
@@ -74,7 +73,7 @@ export default async function RootLayout({
           <ThemeProvider>
             <SiteHeader /> {/* Use the new header component here */}
             <main className="flex-1 flex flex-col">
-              <PageTransitionWrapper>{children}</PageTransitionWrapper>
+              {children}
             </main>
             <Toaster />
           </ThemeProvider>
