@@ -1,5 +1,5 @@
 # Use an official Node.js runtime as a parent image
-FROM node:20-alpine AS base
+FROM node:alpine AS base
 
 # 1. ---- Dependencies Stage ----
 # Only re-run when package.json or package-lock.json changes
