@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, Loader2, Edit } from 'lucide-react';
-import { createUser, deleteUser, updateUserConfiguration } from '@/actions/adminActions';
+import { createUser, deleteUser, updateUserConfiguration, generateApiKeyForUser } from '@/actions/adminActions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -42,6 +42,7 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
+  const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
 
   const handleCreateUser = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -107,6 +108,19 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
       setUserToEdit(null);
     } else {
       toast({ title: 'Update Error', description: result.error, variant: 'destructive' });
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleGenerateKey = async () => {
+    if (!userToEdit) return;
+    setIsSubmitting(true);
+    const result = await generateApiKeyForUser(userToEdit.username);
+    if (result.success && result.apiKey) {
+      setGeneratedApiKey(result.apiKey);
+      toast({ title: 'API Key Generated', description: `A new key has been generated for ${userToEdit.username}.` });
+    } else {
+      toast({ title: 'Error', description: result.error, variant: 'destructive' });
     }
     setIsSubmitting(false);
   };
@@ -288,6 +302,13 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
+              <div className="pt-4 border-t">
+                <Label>External API Key</Label>
+                <p className="text-xs text-muted-foreground pb-2">Generate a key for integrations like WordPress.</p>
+                <Button type="button" variant="secondary" onClick={handleGenerateKey} disabled={isSubmitting}>
+                  Generate New API Key
+                </Button>
+              </div>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes</Button>
@@ -308,6 +329,27 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
             <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteUser} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!generatedApiKey} onOpenChange={() => setGeneratedApiKey(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>API Key Generated</AlertDialogTitle>
+            <AlertDialogDescription>
+              Copy this key and store it securely. You will not see it again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="p-4 bg-muted rounded-md font-mono text-sm break-all">{generatedApiKey}</div>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => {
+              navigator.clipboard.writeText(generatedApiKey || '');
+              toast({ title: 'Copied!' });
+              setGeneratedApiKey(null);
+            }}>
+              Copy & Close
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

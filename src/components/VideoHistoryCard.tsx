@@ -23,8 +23,8 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
     item.videoGenerationParams?.sourceImageUrl || item.originalClothingUrl || ''
   );
   const videoUrl = getDisplayableImageUrl(item.generatedVideoUrls?.[0] || '');
-  const status = item.videoGenerationParams?.status;
-  const error = item.videoGenerationParams?.error;
+  const status = (item.videoGenerationParams as any)?.status;
+  const error = (item.videoGenerationParams as any)?.error;
 
   // IntersectionObserver for autoplay-in-view
   useEffect(() => {

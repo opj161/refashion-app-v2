@@ -31,9 +31,9 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
   let status: 'completed' | 'processing' | 'failed' | null = null;
   let statusText = "";
 
-  if (isVideoItem && item.videoGenerationParams?.status) {
-    status = item.videoGenerationParams.status;
-    statusText = status.charAt(0).toUpperCase() + status.slice(1);
+  if (isVideoItem && (item.videoGenerationParams as any)?.status) {
+    status = (item.videoGenerationParams as any).status;
+    statusText = status ? status.charAt(0).toUpperCase() + status.slice(1) : "";
   } else if (!isVideoItem && item.editedImageUrls && item.editedImageUrls.every(url => url === null) && item.constructedPrompt) {
     // This is a basic heuristic for failed image jobs if all URLs are null but a prompt existed.
     // More robust status would require adding it to HistoryItem for images.
