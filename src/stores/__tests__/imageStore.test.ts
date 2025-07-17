@@ -1,5 +1,5 @@
 // src/stores/__tests__/imageStore.test.ts
-import { renderHook, act } from '@testing-library/react';
+import { act } from '@testing-library/react';
 import { useImageStore, getStoreSnapshot } from '../imageStore';
 
 // Mock the server actions
@@ -13,11 +13,15 @@ jest.mock('@/ai/actions/upscale-image.action', () => ({
 }));
 
 // Mock File and crypto for browser environment
+type MockFileOptions = {
+  type?: string;
+  lastModified?: number;
+};
 global.File = class MockFile extends File {
-  constructor(chunks: any[], filename: string, options?: any) {
+  constructor(chunks: BlobPart[], filename: string, options?: MockFileOptions) {
     super(chunks, filename, options);
   }
-} as any;
+};
 
 // Mock crypto.subtle
 Object.defineProperty(global, 'crypto', {
@@ -31,17 +35,17 @@ Object.defineProperty(global, 'crypto', {
 // Mock FileReader
 global.FileReader = class MockFileReader {
   result = 'data:image/jpeg;base64,test-data-uri';
-  onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null;
-  onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null;
+  onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => void) | null = null;
+  onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => void) | null = null;
   
   readAsDataURL(file: File) {
     setTimeout(() => {
       if (this.onload) {
-        this.onload.call(this as any, {} as ProgressEvent<FileReader>);
+        this.onload.call(this, {} as ProgressEvent<FileReader>);
       }
     }, 0);
   }
-} as any;
+};
 
 describe('ImageStore', () => {
   beforeEach(() => {

@@ -12,7 +12,7 @@
  * They do not handle local storage.
  */
 
-import { fal, createFalClient } from '@fal-ai/client';
+import { createFalClient } from '@fal-ai/client';
 import { uploadToFalStorage } from '@/ai/actions/generate-video.action';
 import { getApiKeyForUser } from '../apiKey.service';
 
@@ -65,7 +65,18 @@ async function ensureUrl(imageUrlOrDataUri: string, tempFileName: string, userna
  * @param taskName A descriptive name for the task for logging purposes.
  * @returns Promise<string> The URL of the processed image from Fal.ai.
  */
-async function runFalImageWorkflow(modelId: string, input: any, taskName: string, username: string): Promise<string> {
+interface FalImageInput {
+  image_url?: string;
+  loadimage_1?: string;
+  [key: string]: unknown;
+}
+
+interface FalQueueUpdate {
+  status: string;
+  logs?: { message: string }[];
+}
+
+async function runFalImageWorkflow(modelId: string, input: FalImageInput, taskName: string, username: string): Promise<string> {
   try {
     console.log(`Calling Fal.ai ${modelId} for ${taskName}...`);
 
@@ -77,12 +88,12 @@ async function runFalImageWorkflow(modelId: string, input: any, taskName: string
       const key = input.image_url ? 'image_url' : 'loadimage_1';
       input[key] = await ensureUrl(input[key], `${taskName.replace(/\s+/g, '-')}-input.jpg`, username);
     }
-    const result: any = await scopedFal.subscribe(modelId, {
+    const result = await scopedFal.subscribe(modelId, {
       input,
       logs: process.env.NODE_ENV === 'development',
-      onQueueUpdate: (update: any) => {
+      onQueueUpdate: (update: FalQueueUpdate) => {
         if (update.status === "IN_PROGRESS" && update.logs && process.env.NODE_ENV === 'development') {
-          (update.logs as any[]).forEach((log: any) => console.log(`[Fal.ai Progress - ${taskName}]: ${log.message}`));
+          update.logs.forEach((log) => console.log(`[Fal.ai Progress - ${taskName}]: ${log.message}`));
         }
       },
     });
@@ -90,7 +101,7 @@ async function runFalImageWorkflow(modelId: string, input: any, taskName: string
     // Robustly parse the output to find the image URL
     let outputImageUrl: string | undefined;
     if (result?.data?.outputs) {
-      for (const output of Object.values(result.data.outputs) as any) {
+      for (const output of Object.values(result.data.outputs) as Record<string, any>) {
         if (output?.images?.[0]?.url) {
           outputImageUrl = output.images[0].url;
           break;

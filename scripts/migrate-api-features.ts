@@ -1,5 +1,6 @@
 // scripts/migrate-api-features.ts
 import { getDb } from '../src/services/database.service';
+import { pathToFileURL } from 'url';
 
 function runApiMigration() {
   const db = getDb();
@@ -27,7 +28,7 @@ function runApiMigration() {
       console.log('Column "error" already exists. Skipping.');
     } else { throw e; }
   }
-  
+
   // Add app_api_key column to the users table
   try {
     db.exec(`
@@ -53,6 +54,6 @@ function runApiMigration() {
   console.log('API features migration finished.');
 }
 
-if (require.main === module) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   runApiMigration();
 }

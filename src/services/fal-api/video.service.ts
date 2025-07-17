@@ -41,7 +41,7 @@ export async function startVideoGeneration(input: VideoGenerationInput): Promise
     console.log('Starting video generation with Fal.ai Seedance...');
     
     // Prepare the input for Fal.ai, only including defined values
-    const falInput: any = {
+    const falInput: Record<string, unknown> = {
       prompt: input.prompt,
       image_url: input.image_url,
     };
@@ -92,7 +92,7 @@ export async function getVideoGenerationResult(taskId: string): Promise<VideoGen
     
     if (result.status === 'COMPLETED') {
       console.log('Video generation completed successfully');
-      return (result as any).responseBody as VideoGenerationResult;
+      return (result as { responseBody: VideoGenerationResult }).responseBody;
     } else {
       console.log(`Video generation still in progress. Status: ${result.status}`);
       return null; // Still processing
@@ -117,7 +117,7 @@ export async function startVideoGenerationWithWebhook(input: VideoGenerationInpu
     const modelId = input.videoModel === 'pro'
       ? 'fal-ai/bytedance/seedance/v1/pro/image-to-video'
       : 'fal-ai/bytedance/seedance/v1/lite/image-to-video';
-    const falInput: any = {
+    const falInput: Record<string, unknown> = {
       prompt: input.prompt,
       image_url: input.image_url,
     };

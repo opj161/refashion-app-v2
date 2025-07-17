@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcrypt';
 import * as dbService from '../src/services/database.service';
+import { pathToFileURL } from 'url';
 
 // Load environment variables from .env file
 import dotenv from 'dotenv';
@@ -32,7 +33,7 @@ async function migrateUsers() {
     const usersConfig: UsersConfig = JSON.parse(rawConfig);
     const db = dbService.getDb();
     const insertStmt = db.prepare('INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)');
-    
+
     let migratedCount = 0;
     for (const [username, config] of Object.entries(usersConfig)) {
       // Check if user already exists
@@ -49,10 +50,10 @@ async function migrateUsers() {
     }
 
     if (migratedCount > 0) {
-        console.log(`\n🎉 Successfully migrated ${migratedCount} users to the database.`);
-        console.log('IMPORTANT: You can now remove the APP_USERS_CONFIG environment variable.');
+      console.log(`\n🎉 Successfully migrated ${migratedCount} users to the database.`);
+      console.log('IMPORTANT: You can now remove the APP_USERS_CONFIG environment variable.');
     } else {
-        console.log('\n✅ No new users to migrate.');
+      console.log('\n✅ No new users to migrate.');
     }
 
   } catch (error) {
@@ -61,7 +62,7 @@ async function migrateUsers() {
   }
 }
 
-if (require.main === module) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   migrateUsers()
     .then(() => {
       console.log('🏁 User migration check complete!');

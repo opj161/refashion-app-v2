@@ -1,7 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "ESNext",
     "target": "es2020",
     "moduleResolution": "node",
     "outDir": "dist",
@@ -11,6 +11,13 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["scripts/**/*.ts", "src/**/*.ts"],
-  "exclude": ["node_modules", ".next", "dist"]
+  "include": [
+    "scripts/**/*.ts",
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "dist"
+  ]
 }

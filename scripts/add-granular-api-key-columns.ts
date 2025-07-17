@@ -1,5 +1,6 @@
 // scripts/add-granular-api-key-columns.ts
 import { getDb } from '../src/services/database.service';
+import { pathToFileURL } from 'url';
 
 function runMigration() {
   const db = getDb();
@@ -89,8 +90,8 @@ function runMigration() {
 }
 
 // This construct ensures the script can be run directly
-if (require.main === module) {
-    runMigration();
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runMigration();
 }
 
 export { runMigration };
