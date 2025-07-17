@@ -18,16 +18,11 @@ import AspectRatioSelector from "./AspectRatioSelector";
 import ImageVersionStack from "./ImageVersionStack";
 
 import { 
-  UploadCloud, CheckCircle, RefreshCw, Loader2, Trash2, Eye, X, Check, Edit 
+  UploadCloud, Loader2, Trash2, Eye, X, Check 
 } from "lucide-react";
 
 // --- Constants ---
-const SERVER_IMAGE_PATH_PREFIX = '/uploads/';
-
 // --- Helper function to get the default aspect based on mode ---
-const getDefaultAspect = (mode: 'image' | 'video') => {
-  return mode === 'video' ? 9 / 16 : 3 / 4;
-};
 
 // --- Hashing Helper Function ---
 const generateDataUriHash = async (dataUri: string): Promise<string> => {
@@ -98,10 +93,6 @@ export default function ImagePreparationContainer({
     versions, 
     activeVersionId, 
     isProcessing, 
-    processingStep,
-    setActiveVersion,
-    reset: resetStore,
-    setProcessing,
     addVersion
   } = useImageStore();
   
@@ -305,10 +296,8 @@ export default function ImagePreparationContainer({
                 <div className="lg:col-span-3 relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border">
                   <ImageEditorCanvas 
                     image={imageForCanvas}
-                    preparationMode={preparationMode}
                     aspect={aspect}
                     disabled={false}
-                    onAspectChange={setAspect}
                     crop={crop}
                     onCropChange={setCrop}
                     onCropComplete={setCompletedCrop}
@@ -336,7 +325,6 @@ export default function ImagePreparationContainer({
                 <div className="lg:col-span-1 flex flex-col space-y-6">
                   {/* Only editor controls, no comparison controls */}
                   <AspectRatioSelector
-                    preparationMode={preparationMode}
                     aspect={aspect}
                     onAspectChange={setAspect}
                     disabled={false}

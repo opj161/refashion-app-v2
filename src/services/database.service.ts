@@ -116,7 +116,7 @@ export interface PaginationResult {
 }
 
 // Prepared statements
-let preparedStatements: {
+const preparedStatements: {
   insertHistory?: Database.Statement;
   insertImage?: Database.Statement;
   findHistoryById?: Database.Statement;
@@ -215,29 +215,29 @@ function getPreparedStatements() {
   return preparedStatements;
 }
 
-export function rowToHistoryItem(row: any): HistoryItem { // Export for use in actions
+export function rowToHistoryItem(row: Record<string, unknown>): HistoryItem {
   // Do NOT filter(Boolean) -- preserve nulls for correct slot mapping
-  let editedImageUrls: any[] = [];
-  let originalImageUrls: any[] | undefined = undefined;
-  let generatedVideoUrls: any[] | undefined = undefined;
+  let editedImageUrls: (string | null)[] = [];
+  let originalImageUrls: (string | null)[] | undefined = undefined;
+  let generatedVideoUrls: (string | null)[] | undefined = undefined;
   let attributes: ModelAttributes = {} as ModelAttributes;
-  let videoGenerationParams: any = undefined;
+  let videoGenerationParams: HistoryItem['videoGenerationParams'] = undefined;
 
   try {
-    editedImageUrls = row.edited_images ? JSON.parse(row.edited_images) : [];
-  } catch (e) { editedImageUrls = []; }
+    editedImageUrls = row.edited_images ? JSON.parse(row.edited_images as string) : [];
+  } catch { editedImageUrls = []; }
   try {
-    originalImageUrls = row.original_images ? JSON.parse(row.original_images) : undefined;
-  } catch (e) { originalImageUrls = undefined; }
+    originalImageUrls = row.original_images ? JSON.parse(row.original_images as string) : undefined;
+  } catch { originalImageUrls = undefined; }
   try {
-    generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls) : undefined;
-  } catch (e) { generatedVideoUrls = undefined; }
+    generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls as string) : undefined;
+  } catch { generatedVideoUrls = undefined; }
   try {
-    attributes = row.attributes ? JSON.parse(row.attributes) : {} as ModelAttributes;
-  } catch (e) { attributes = {} as ModelAttributes; }
+    attributes = row.attributes ? JSON.parse(row.attributes as string) : {} as ModelAttributes;
+  } catch { attributes = {} as ModelAttributes; }
   try {
-    videoGenerationParams = row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined;
-  } catch (e) { videoGenerationParams = undefined; }
+    videoGenerationParams = row.videoGenerationParams ? JSON.parse(row.videoGenerationParams as string) : undefined;
+  } catch { videoGenerationParams = undefined; }
 
   return {
     id: row.id,
@@ -427,19 +427,16 @@ export function _dangerouslyUpdateHistoryItem(
 
 export function findHistoryByUsername(username: string): HistoryItem[] {
   const statements = getPreparedStatements();
-  const rows = statements.findHistoryByUsername!.all(username);
+  const rows = statements.findHistoryByUsername!.all(username) as Record<string, unknown>[];
   return rows.map(rowToHistoryItem);
 }
 
 export function getPaginatedHistoryForUser(options: PaginationOptions): PaginationResult {
   const statements = getPreparedStatements();
   const { username, page, limit, filter } = options;
-  
   const offset = (page - 1) * limit;
-  
   let countQuery: Database.Statement;
   let dataQuery: Database.Statement;
-  
   if (filter === 'video') {
     countQuery = getDb().prepare('SELECT COUNT(*) as count FROM history WHERE username = ? AND videoGenerationParams IS NOT NULL');
     dataQuery = statements.findHistoryPaginatedWithVideoFilter!;
@@ -450,15 +447,11 @@ export function getPaginatedHistoryForUser(options: PaginationOptions): Paginati
     countQuery = statements.countHistoryByUsername!;
     dataQuery = statements.findHistoryPaginated!;
   }
-  
   const countResult = countQuery.get(username) as { count: number };
   const totalCount = countResult.count;
-  
-  const rows = dataQuery.all(username, limit, offset);
+  const rows = dataQuery.all(username, limit, offset) as Record<string, unknown>[];
   const items = rows.map(rowToHistoryItem);
-  
   const hasMore = offset + limit < totalCount;
-  
   return {
     items,
     totalCount,
@@ -469,10 +462,8 @@ export function getPaginatedHistoryForUser(options: PaginationOptions): Paginati
 
 export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10): PaginationResult {
   const db = getDb();
-  
   const totalCount = db.prepare('SELECT COUNT(*) as count FROM history').get() as { count: number };
   const offset = (page - 1) * limit;
-  
   const rows = db.prepare(`
     SELECT h.*, 
            (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
@@ -482,11 +473,9 @@ export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10
     GROUP BY h.id
     ORDER BY h.timestamp DESC
     LIMIT ? OFFSET ?
-  `).all(limit, offset);
-  
+  `).all(limit, offset) as Record<string, unknown>[];
   const items = rows.map(rowToHistoryItem);
   const hasMore = offset + limit < totalCount.count;
-  
   return {
     items,
     totalCount: totalCount.count,
@@ -503,30 +492,25 @@ export function getHistoryItemStatus(id: string, username: string): VideoStatusP
     FROM history h
     WHERE h.id = ? AND h.username = ?
   `);
-
-  const row: any = stmt.get(id, username);
-
+  const row = stmt.get(id, username) as Record<string, unknown> | undefined;
   if (!row) {
     return null; // Item not found or does not belong to the user
   }
-  
   if (!row.videoGenerationParams) {
     // This is an image-only item or something is wrong
     return { status: 'unknown' };
   }
-
-  let params: any = {};
+  let params: Partial<NonNullable<HistoryItem['videoGenerationParams']>> & { status?: VideoStatusPayload['status'], error?: string } = {};
   try {
-    params = JSON.parse(row.videoGenerationParams);
-  } catch (e) {
-    console.error('Failed to parse videoGenerationParams JSON for history item', id, e);
+    params = JSON.parse(row.videoGenerationParams as string);
+  } catch (err) {
+    console.error('Failed to parse videoGenerationParams JSON for history item', id, err);
     return { status: 'unknown' };
   }
-
   return {
     status: params.status || 'processing', // Default to processing if status not set
-    videoUrl: row.video_url || params.localVideoUrl || null,
-    error: params.error,
+    videoUrl: typeof row.video_url === 'string' ? row.video_url : (typeof params.localVideoUrl === 'string' ? params.localVideoUrl : null),
+    error: typeof params.error === 'string' ? params.error : undefined,
     seed: params.seed,
   };
 }
@@ -542,8 +526,7 @@ type FullUser = SessionUser & {
 export function findUserByUsername(username: string): FullUser | null {
   const db = getDb();
   const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
-  const row: any = stmt.get(username);
-
+  const row = stmt.get(username) as Record<string, unknown> | undefined;
   if (!row) {
     return null;
   }
@@ -566,8 +549,7 @@ export function findUserByUsername(username: string): FullUser | null {
 export function findUserByApiKey(apiKey: string): FullUser | null {
   const db = getDb();
   const stmt = db.prepare('SELECT * FROM users WHERE app_api_key = ?');
-  const row: any = stmt.get(apiKey);
-
+  const row = stmt.get(apiKey) as Record<string, unknown> | undefined;
   if (!row) {
     return null;
   }

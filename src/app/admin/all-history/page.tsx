@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAllUsersHistoryPaginatedForAdmin } from '@/actions/historyActions';
 import type { HistoryItem } from '@/lib/types';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+// ...removed unused Card component imports...
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import HistoryCard from '@/components/HistoryCard'; // Re-use the existing card for consistency

@@ -1,10 +1,9 @@
 // src/components/history-gallery.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { getHistoryPaginated, deleteHistoryItem } from "@/actions/historyActions";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -27,7 +26,6 @@ export default function HistoryGallery() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(false);
-  const [totalCount, setTotalCount] = useState<number>(0);
   const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
@@ -79,7 +77,6 @@ export default function HistoryGallery() {
         setHistoryItems(result.items);
         setCurrentPage(result.currentPage);
         setHasMore(result.hasMore);
-        setTotalCount(result.totalCount);
       } catch (err) {
         console.error("Failed to fetch history:", err);
         const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
@@ -97,37 +94,36 @@ export default function HistoryGallery() {
     loadInitialHistory();
     // NEW: cleanup timer
     return () => clearTimeout(skeletonTimer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFilter, toast, itemsPerPage]);
 
-  const handleLoadMore = useCallback(async () => {
-    if (!hasMore || isLoadingMore) return;
-    setIsLoadingMore(true);
-    try {
-      const result = await getHistoryPaginated(currentPage + 1, itemsPerPage, currentFilter);
-      setHistoryItems(prevItems => [...prevItems, ...result.items]);
-      setCurrentPage(result.currentPage);
-      setHasMore(result.hasMore);
-    } catch (err) {
-      console.error("Failed to fetch history:", err);
-      setError(err instanceof Error ? err.message : "An unknown error occurred.");
-      toast({
-        title: "Error Loading History",
-        description: err instanceof Error ? err.message : "Could not fetch history items.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [hasMore, isLoadingMore, currentPage, currentFilter, itemsPerPage, toast]);
 
   // Set up the IntersectionObserver to watch the loadMoreRef
   useEffect(() => {
+    const loadMore = async () => {
+      if (!hasMore || isLoadingMore) return;
+      setIsLoadingMore(true);
+      try {
+        const result = await getHistoryPaginated(currentPage + 1, itemsPerPage, currentFilter);
+        setHistoryItems(prevItems => [...prevItems, ...result.items]);
+        setCurrentPage(result.currentPage);
+        setHasMore(result.hasMore);
+      } catch (err) {
+        console.error("Failed to fetch history:", err);
+        setError(err instanceof Error ? err.message : "An unknown error occurred.");
+        toast({
+          title: "Error Loading History",
+          description: err instanceof Error ? err.message : "Could not fetch history items.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingMore(false);
+      }
+    };
     const observer = new IntersectionObserver(
       (entries) => {
         // If the trigger element is intersecting and we have more items to load
-        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMore) {
-          handleLoadMore();
+        if (entries[0].isIntersecting) {
+          loadMore();
         }
       },
       { 
@@ -135,16 +131,10 @@ export default function HistoryGallery() {
         rootMargin: '100px' // Start loading 100px before the element is visible
       }
     );
-    const currentRef = loadMoreRef.current;
-    if (currentRef) {
-      observer.observe(currentRef);
-    }
-    return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
-    };
-  }, [hasMore, isLoading, isLoadingMore, handleLoadMore]); // Dependencies updated
+    const currentRef = loadMoreRef.current; // ... observer logic
+    if (currentRef) observer.observe(currentRef);
+    return () => { if (currentRef) observer.unobserve(currentRef); };
+  }, [hasMore, isLoading, isLoadingMore, currentPage, currentFilter, itemsPerPage, toast]); // Correct dependencies
 
   const handleFilterChange = (newFilter: string) => {
     setCurrentFilter(newFilter as FilterType);
@@ -174,7 +164,6 @@ export default function HistoryGallery() {
       if (result.success) {
         // Optimistic UI Update: Remove the item from the local state
         setHistoryItems(prevItems => prevItems.filter(item => item.id !== itemToDelete.id));
-        setTotalCount(prevCount => prevCount - 1); // Decrement total count
         toast({
           title: "Item Deleted",
           description: "The history item has been permanently removed.",
@@ -194,19 +183,6 @@ export default function HistoryGallery() {
       setItemToDelete(null); // Close the dialog
     }
   };
-
-
-  // Function to get display label for attribute values (similar to one in image-forge)
-  // This might be better placed in a utils file if used in multiple places
-  const getDisplayLabelForValue = (options: { value: string, displayLabel: string }[], value: string | undefined): string => {
-    if (!value) return "N/A";
-    return options.find(o => o.value === value)?.displayLabel || value;
-  };
-
-  // Simplified options for display in modal - ideally import from a shared location
-  const FASHION_STYLE_OPTIONS_SIMPLE = [{value: "default_style", displayLabel: "Default"}, /* ... other styles */];
-  const GENDER_OPTIONS_SIMPLE = [{value: "female", displayLabel: "Female"},  /* ... other genders */];
-  // ... add other simplified option arrays as needed for the modal
 
 
   // Helper to check if item is a video

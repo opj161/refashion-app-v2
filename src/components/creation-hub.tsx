@@ -5,9 +5,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ImagePreparationContainer from "./ImagePreparationContainer";
-import ImageParameters from "./image-parameters";
-import VideoParameters from "./video-parameters";
-import { useAuth } from "@/contexts/AuthContext";
+import ImageParameters from "./image-parameters"; // Keep this
+import VideoParameters from "./video-parameters"; // Keep this
 import { useToast } from "@/hooks/use-toast";
 import { useImageStore } from "@/stores/imageStore";
 import type { HistoryItem } from "@/lib/types";

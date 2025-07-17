@@ -30,8 +30,8 @@ export async function getApiKeyForUser(username: string, service: ApiService, in
   const userApiKeyField = service === 'gemini' ? `gemini_api_key_${index}` : 'fal_api_key';
 
   // 1. Check for user-specific key
-  if ((user as any)[keyModeField] === 'user_specific') {
-    const userApiKey = (user as any)[userApiKeyField];
+  if ((user as unknown as Record<string, unknown>)[keyModeField] === 'user_specific') {
+    const userApiKey = (user as unknown as Record<string, unknown>)[userApiKeyField] as string | undefined;
     if (userApiKey) {
       const decryptedKey = decrypt(userApiKey);
       if (decryptedKey) {

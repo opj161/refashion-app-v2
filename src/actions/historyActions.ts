@@ -243,14 +243,39 @@ export async function updateVideoHistoryItem(params: {
   // Construct the partial update object
   const updatePayload: Partial<HistoryItem> = {};
   // Only include videoGenerationParams if patch fields are present
-  const videoGenPatch: Record<string, unknown> = {};
+  type VideoGenPatch = Partial<NonNullable<HistoryItem['videoGenerationParams']>> & {
+    status?: 'processing' | 'completed' | 'failed';
+    error?: string;
+  };
+  const videoGenPatch: VideoGenPatch = {};
   if (videoModel !== undefined) videoGenPatch.videoModel = videoModel;
-  if (seedUsed !== undefined) videoGenPatch.seed = seedUsed;
+  if (seedUsed !== undefined && seedUsed !== null) videoGenPatch.seed = seedUsed;
   if (localVideoUrl !== undefined) videoGenPatch.localVideoUrl = localVideoUrl;
   if (status !== undefined) videoGenPatch.status = status;
   if (error !== undefined) videoGenPatch.error = error;
-  if (Object.keys(videoGenPatch).length > 0) {
-    updatePayload.videoGenerationParams = videoGenPatch as any;
+  // Only assign if patch includes at least one defined property
+  const hasPatch = Object.values(videoGenPatch).some(v => v !== undefined);
+  if (hasPatch) {
+    const existingParams = existingItem.videoGenerationParams ?? {};
+    // Ensure all required fields are present
+    const merged = { ...existingParams, ...videoGenPatch };
+    updatePayload.videoGenerationParams = {
+      prompt: merged.prompt ?? '',
+      resolution: merged.resolution ?? '',
+      videoModel: merged.videoModel,
+      duration: merged.duration ?? '',
+      seed: merged.seed ?? 0,
+      sourceImageUrl: merged.sourceImageUrl ?? '',
+      modelMovement: merged.modelMovement ?? '',
+      fabricMotion: merged.fabricMotion ?? '',
+      cameraAction: merged.cameraAction ?? '',
+      aestheticVibe: merged.aestheticVibe ?? '',
+      cameraFixed: merged.cameraFixed ?? false,
+      localVideoUrl: merged.localVideoUrl,
+      // Allow status and error for patching, but not part of strict type
+      ...(merged.status ? { status: merged.status } : {}),
+      ...(merged.error ? { error: merged.error } : {}),
+    };
   }
   if (videoUrls) updatePayload.generatedVideoUrls = videoUrls;
   dbService.updateHistoryItem(historyItemId, updatePayload);

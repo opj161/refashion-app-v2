@@ -2,13 +2,13 @@
 "use client";
 
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+// ...removed unused Button import...
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useImageStore } from "@/stores/imageStore";
 import { UploadCloud } from "lucide-react";
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 
 // --- Constants ---
 const MAX_FILE_SIZE_MB = 50;
@@ -21,7 +21,7 @@ export default function ImageUploader() {
   const dragCounter = useRef(0);
   
   // Store state
-  const { original, isProcessing, reset, uploadOriginalImage } = useImageStore();
+  const { isProcessing, uploadOriginalImage } = useImageStore();
   
   // Local UI state
   const [isDraggingOverPage, setIsDraggingOverPage] = useState(false);
@@ -89,12 +89,18 @@ export default function ImageUploader() {
     processFile(e.target.files?.[0]);
   };
   
-  const handleDragAction = useCallback((e: React.DragEvent, action: 'enter' | 'leave' | 'over' | 'drop') => {
-    e.preventDefault();
-    e.stopPropagation();
+  // Overload to accept both React and native DragEvent
+  const handleDragAction = useCallback((e: React.DragEvent | DragEvent, action: 'enter' | 'leave' | 'over' | 'drop') => {
+    // Type guard for React vs native DragEvent
+    if ('preventDefault' in e && 'stopPropagation' in e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     
     if (isProcessing) return;
     
+    // Get dataTransfer from either event type
+    const dataTransfer = 'dataTransfer' in e ? e.dataTransfer : undefined;
     if (action === 'enter') {
       dragCounter.current++;
     }
@@ -103,11 +109,11 @@ export default function ImageUploader() {
     }
     
     setIsDraggingOverPage(dragCounter.current > 0);
-
-    if (action === 'drop' && e.dataTransfer.files.length > 0) {
+    
+    if (action === 'drop' && dataTransfer && dataTransfer.files.length > 0) {
       dragCounter.current = 0;
       setIsDraggingOverPage(false);
-      processFile(e.dataTransfer.files[0]);
+      processFile(dataTransfer.files[0]);
     }
   }, [processFile, isProcessing]);
 
@@ -122,10 +128,10 @@ export default function ImageUploader() {
   
   // Handle drag and drop events on the page
   useEffect(() => {
-    const enter = (e: DragEvent) => handleDragAction(e as any, 'enter');
-    const leave = (e: DragEvent) => handleDragAction(e as any, 'leave');
-    const over = (e: DragEvent) => handleDragAction(e as any, 'over');
-    const drop = (e: DragEvent) => handleDragAction(e as any, 'drop');
+    const enter = (e: DragEvent) => handleDragAction(e, 'enter');
+    const leave = (e: DragEvent) => handleDragAction(e, 'leave');
+    const over = (e: DragEvent) => handleDragAction(e, 'over');
+    const drop = (e: DragEvent) => handleDragAction(e, 'drop');
 
     window.addEventListener('dragenter', enter);
     window.addEventListener('dragleave', leave);

@@ -348,7 +348,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
         const genderOpt = getSelectedOption(GENDER_OPTIONS, gender)!;
         prompt = prompt.replace("{gender}", genderOpt.promptSegment);
 
-        let modelDetailSegments: string[] = [];
+        const modelDetailSegments: string[] = [];
         const addSegment = (optionArray: OptionWithPromptSegment[], value?: string) => {
           const opt = getSelectedOption(optionArray, value);
           if (opt && opt.value !== "default" && opt.promptSegment) modelDetailSegments.push(opt.promptSegment);
@@ -418,7 +418,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
           prompt += `\n\nLighting: ${lightingDescription.trim()}`;
         }
 
-        let shotDetailSegments: string[] = [];
+        const shotDetailSegments: string[] = [];
         const addShotDetail = (optionArray: OptionWithPromptSegment[], value?: string) => {
           const opt = getSelectedOption(optionArray, value);
           if (opt && opt.value !== "default" && opt.promptSegment) shotDetailSegments.push(opt.promptSegment);

@@ -12,6 +12,11 @@ import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, Play
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from 'motion/react';
 
+// Define a more specific type for the params we expect to use
+type VideoParamsWithStatus = HistoryItem['videoGenerationParams'] & {
+  status?: 'completed' | 'processing' | 'failed';
+};
+
 interface HistoryCardProps {
   item: HistoryItem;
   onViewDetails: (item: HistoryItem) => void;
@@ -28,11 +33,11 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
   const primaryImageUrl = item.editedImageUrls?.[0] || item.originalClothingUrl;
   const videoUrl = item.generatedVideoUrls?.[0];
 
-  let status: 'completed' | 'processing' | 'failed' | null = null;
-  let statusText = "";
+  let status: 'completed' | 'processing' | 'failed' | null | undefined = null;
+  let statusText = ""; 
 
-  if (isVideoItem && (item.videoGenerationParams as any)?.status) {
-    status = (item.videoGenerationParams as any).status;
+  if (isVideoItem && (item.videoGenerationParams as VideoParamsWithStatus)?.status) {
+    status = (item.videoGenerationParams as VideoParamsWithStatus).status;
     statusText = status ? status.charAt(0).toUpperCase() + status.slice(1) : "";
   } else if (!isVideoItem && item.editedImageUrls && item.editedImageUrls.every(url => url === null) && item.constructedPrompt) {
     // This is a basic heuristic for failed image jobs if all URLs are null but a prompt existed.

@@ -41,24 +41,14 @@ export async function startVideoGeneration(input: VideoGenerationInput): Promise
     console.log('Starting video generation with Fal.ai Seedance...');
     
     // Prepare the input for Fal.ai, only including defined values
-    const falInput: Record<string, unknown> = {
+    const falInput: VideoGenerationInput = {
       prompt: input.prompt,
       image_url: input.image_url,
     };
-    
-    // Add optional parameters only if they have values
-    if (input.resolution) {
-      falInput.resolution = input.resolution;
-    }
-    if (input.duration) {
-      falInput.duration = input.duration;
-    }
-    if (typeof input.camera_fixed === 'boolean') {
-      falInput.camera_fixed = input.camera_fixed;
-    }
-    if (typeof input.seed === 'number' && input.seed !== undefined) {
-      falInput.seed = input.seed;
-    }
+    if (input.resolution) falInput.resolution = input.resolution;
+    if (input.duration) falInput.duration = input.duration;
+    if (typeof input.camera_fixed === 'boolean') falInput.camera_fixed = input.camera_fixed;
+    if (typeof input.seed === 'number' && input.seed !== undefined) falInput.seed = input.seed;
     
     console.log('Fal.ai input parameters:', JSON.stringify(falInput, null, 2));
     
@@ -92,7 +82,7 @@ export async function getVideoGenerationResult(taskId: string): Promise<VideoGen
     
     if (result.status === 'COMPLETED') {
       console.log('Video generation completed successfully');
-      return (result as { responseBody: VideoGenerationResult }).responseBody;
+      return (result as unknown as { responseBody: VideoGenerationResult }).responseBody;
     } else {
       console.log(`Video generation still in progress. Status: ${result.status}`);
       return null; // Still processing

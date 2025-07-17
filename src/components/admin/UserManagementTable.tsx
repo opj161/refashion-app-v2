@@ -58,11 +58,11 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
         {
           username: formData.get('username') as string,
           role: formData.get('role') as 'admin' | 'user',
-          gemini_api_key_1_mode: 'global' as 'global',
-          gemini_api_key_2_mode: 'global' as 'global',
-          gemini_api_key_3_mode: 'global' as 'global',
-          fal_api_key_mode: 'global' as 'global',
-        },
+          gemini_api_key_1_mode: 'global',
+          gemini_api_key_2_mode: 'global',
+          gemini_api_key_3_mode: 'global',
+          fal_api_key_mode: 'global',
+        } as const,
       ].sort((a, b) => a.username.localeCompare(b.username)));
       setIsCreateDialogOpen(false);
     } else {
@@ -273,7 +273,7 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
                     <AccordionContent className="space-y-4 pt-4">
                       <div className="space-y-2">
                         <Label htmlFor={`gemini_api_key_${i}_mode`}>Mode</Label>
-                        <Select name={`gemini_api_key_${i}_mode`} defaultValue={(userToEdit as any)?.[`gemini_api_key_${i}_mode`] || 'global'}>
+                        <Select name={`gemini_api_key_${i}_mode`} defaultValue={userToEdit?.[`gemini_api_key_${i}_mode` as keyof typeof userToEdit] || 'global'}>
                           <SelectTrigger id={`gemini_api_key_${i}_mode`}><SelectValue/></SelectTrigger>
                           <SelectContent><SelectItem value="global">Global</SelectItem><SelectItem value="user_specific">User-Specific</SelectItem></SelectContent>
                         </Select>

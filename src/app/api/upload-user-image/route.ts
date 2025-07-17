@@ -92,17 +92,18 @@ export async function POST(request: NextRequest) {
       fileName: fileName
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in image upload endpoint:', error);
     let errorMessage = 'Internal server error during image upload.';
-    if (error.message) {
-      errorMessage = error.message;
-    }
-    if (error.message && error.message.toLowerCase().includes('fal_key')) {
-      return NextResponse.json(
-        { success: false, error: 'Image upload service is not configured (FAL_KEY missing for storage).' },
-        { status: 503 }
-      );
+    if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
+      const message = (error as { message: string }).message;
+      errorMessage = message;
+      if (message.toLowerCase().includes('fal_key')) {
+        return NextResponse.json(
+          { success: false, error: 'Image upload service is not configured (FAL_KEY missing for storage).' },
+          { status: 503 }
+        );
+      }
     }
     return NextResponse.json(
       { success: false, error: errorMessage },

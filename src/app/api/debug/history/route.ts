@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/actions/authActions';
 import { getUserHistory, getVideoHistoryPaginated } from '@/actions/historyActions';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const user = await getCurrentUser();
     if (!user) {
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         id: item.id,
         timestamp: item.timestamp,
         hasVideoGenerationParams: !!item.videoGenerationParams,
-        videoGenerationStatus: (item.videoGenerationParams as any)?.status,
+        videoGenerationStatus: (item.videoGenerationParams as Record<string, unknown>)?.status,
         hasLocalVideoUrl: !!item.videoGenerationParams?.localVideoUrl,
         hasGeneratedVideoUrls: !!item.generatedVideoUrls,
         generatedVideoUrlsCount: item.generatedVideoUrls?.length || 0,
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       itemsWithVideoParams: imageHistory.filter(item => !!item.videoGenerationParams).map(item => ({
         id: item.id,
         timestamp: item.timestamp,
-        status: (item.videoGenerationParams as any)?.status,
+        status: (item.videoGenerationParams as Record<string, unknown>)?.status,
         hasLocalVideoUrl: !!item.videoGenerationParams?.localVideoUrl,
         localVideoUrl: item.videoGenerationParams?.localVideoUrl
       }))

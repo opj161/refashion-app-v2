@@ -171,9 +171,7 @@ export default function VideoParameters({
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [generatedSeedValue, setGeneratedSeedValue] = useState<number | null>(null);
-
   // For webhook-based flow
-  const [generationTaskId, setGenerationTaskId] = useState<string | null>(null);
   const [historyItemId, setHistoryItemId] = useState<string | null>(null);
   const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
   const [progressValue, setProgressValue] = useState(0);
@@ -192,7 +190,6 @@ export default function VideoParameters({
 
   const {
     currentPrompt,
-    isPromptManuallyEdited,
     handlePromptChange,
     resetPromptToAuto,
     isManualPromptOutOfSync,
@@ -296,7 +293,6 @@ export default function VideoParameters({
     setGenerationError(null);
     setGeneratedVideoUrl(null);
     setGeneratedSeedValue(null);
-    setGenerationTaskId(null);
     setHistoryItemId(null);
 
     try {
@@ -306,7 +302,7 @@ export default function VideoParameters({
       if (isDataUri) {
         setIsUploadingToFal(true);
         // Use a single toast and update it after upload
-        const { update, dismiss, id: toastId } = toast({ 
+        const { update, id: toastId } = toast({ 
           title: "Uploading Image...", 
           description: "Preparing your image for video generation." 
         });
@@ -354,8 +350,7 @@ export default function VideoParameters({
         throw new Error(errorData.error || `Failed to start generation: ${response.statusText}`);
       }
 
-      const { taskId, historyItemId: hId } = await response.json();
-      setGenerationTaskId(taskId);
+      const { historyItemId: hId } = await response.json();
       setHistoryItemId(hId);
 
       toast({
@@ -375,7 +370,6 @@ export default function VideoParameters({
 
   const handleCancelGeneration = useCallback(() => {
     setIsGenerating(false);
-    setGenerationTaskId(null);
     setHistoryItemId(null);
     // TODO: If there's a way to cancel on the backend via taskId, implement here
     toast({ title: "Generation Cancelled", description: "Video generation stopped by user." });

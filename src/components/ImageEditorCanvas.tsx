@@ -14,10 +14,8 @@ interface DisplayImage {
 
 interface ImageEditorCanvasProps {
   image: DisplayImage | null;
-  preparationMode: 'image' | 'video';
   aspect?: number;
   disabled?: boolean;
-  onAspectChange: (aspect: number | undefined) => void;
   crop?: Crop;
   onCropChange?: (crop: Crop) => void;
   onCropComplete?: (crop: PixelCrop) => void;
@@ -29,10 +27,8 @@ interface ImageEditorCanvasProps {
 
 export default function ImageEditorCanvas({ 
   image,
-  preparationMode, 
   aspect, 
   disabled = false, 
-  onAspectChange,
   crop,
   onCropChange,
   onCropComplete,

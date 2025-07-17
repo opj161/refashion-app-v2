@@ -92,7 +92,7 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
       await updateEncryptedSetting('global_gemini_api_key_3', apiKeys.gemini3);
       await updateEncryptedSetting('global_fal_api_key', apiKeys.fal);
       toast({ title: 'API Keys Updated', description: 'Global API keys have been saved.' });
-    } catch (error) {
+    } catch {
       toast({ title: 'Error', description: 'Failed to update API keys.', variant: 'destructive' });
     } finally {
       setIsUpdatingApiKeys(false);

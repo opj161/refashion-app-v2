@@ -4,8 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import type { HistoryItem } from '@/lib/types';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Eye, PlayCircle, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { PlayCircle, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 import { getDisplayableImageUrl } from '@/lib/utils';
 import { VideoPlaybackModal } from '@/components/VideoPlaybackModal';
 import { motion, AnimatePresence } from 'motion/react';
@@ -23,8 +22,12 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
     item.videoGenerationParams?.sourceImageUrl || item.originalClothingUrl || ''
   );
   const videoUrl = getDisplayableImageUrl(item.generatedVideoUrls?.[0] || '');
-  const status = (item.videoGenerationParams as any)?.status;
-  const error = (item.videoGenerationParams as any)?.error;
+  type VideoParamsWithStatus = typeof item.videoGenerationParams & {
+    status?: 'completed' | 'processing' | 'failed';
+    error?: string;
+  };
+  const status = (item.videoGenerationParams as VideoParamsWithStatus)?.status;
+  const error = (item.videoGenerationParams as VideoParamsWithStatus)?.error;
 
   // IntersectionObserver for autoplay-in-view
   useEffect(() => {

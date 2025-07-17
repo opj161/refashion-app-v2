@@ -9,9 +9,6 @@
  * The source image can be provided as a data URI or a public HTTPS URL.
  */
 
-import { z } from 'zod';
-import { v4 as uuidv4 } from 'uuid';
-import { Buffer } from 'buffer';
 import fetch from 'node-fetch'; // For fetching image from URL
 import fs from 'fs';
 import path from 'path';
@@ -20,7 +17,7 @@ import { getApiKeyForUser } from '@/services/apiKey.service';
 import { buildAIPrompt } from '@/lib/prompt-builder';
 
 // NEW: Import Axios and HttpsProxyAgent for explicit proxy control
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
 // Direct API configuration matching Python implementation
@@ -124,25 +121,16 @@ async function makeGeminiApiCall(apiKey: string, requestBody: GeminiApiRequestBo
   }
 }
 
-const GenerateImageEditInputSchema = z.object({
-  prompt: z.string().optional().describe('The prompt to use for generating or editing the image.'),
-  parameters: z.any().optional().describe('The parameters object to build the prompt from.'),
-  settingsMode: z.enum(['basic', 'advanced']).optional().describe('The settings mode for prompt construction.'),
-  imageDataUriOrUrl: z
-    .string()
-    .optional()
-    .describe(
-      "Optional: The image to edit, as a data URI (e.g., 'data:image/png;base64,...') or a publicly accessible HTTPS URL."
-    ),
-});
-export type GenerateImageEditInput = z.infer<typeof GenerateImageEditInputSchema>;
+export type GenerateImageEditInput = {
+  prompt?: string;
+  parameters?: unknown;
+  settingsMode?: 'basic' | 'advanced';
+  imageDataUriOrUrl?: string;
+};
 
-const SingleImageOutputSchema = z.object({
-  editedImageUrl: z
-    .string()
-    .describe('The URL or local path of the generated or edited image.'),
-});
-export type SingleImageOutput = z.infer<typeof SingleImageOutputSchema>;
+export type SingleImageOutput = {
+  editedImageUrl: string;
+};
 
 async function performSingleImageGeneration(
   input: GenerateImageEditInput,
@@ -325,14 +313,11 @@ async function generateImageFlow3(input: GenerateImageEditInput, username: strin
   return performSingleImageGeneration(input, 'flow3', username, 3);
 }
 
-const GenerateMultipleImagesOutputSchema = z.object({
-  editedImageUrls: z.array(z.string().nullable()).length(3)
-    .describe('An array of three generated or edited image URLs/paths (or null for failures).'),
-  constructedPrompt: z.string().describe('The final prompt that was sent to the AI.'),
-  errors: z.array(z.string().nullable()).optional()
-    .describe('An array of error messages if any generation or storage failed.'),
-});
-export type GenerateMultipleImagesOutput = z.infer<typeof GenerateMultipleImagesOutputSchema>;
+export type GenerateMultipleImagesOutput = {
+  editedImageUrls: (string | null)[];
+  constructedPrompt: string;
+  errors?: (string | null)[];
+};
 
 
 export async function generateImageEdit(input: GenerateImageEditInput, username: string): Promise<GenerateMultipleImagesOutput> {

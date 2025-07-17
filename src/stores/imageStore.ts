@@ -52,20 +52,7 @@ export interface ImageActions {
 
 export type ImageStore = ImageState & ImageActions;
 
-// --- Helper Functions ---
-const fileToDataUri = (file: File): Promise<string> => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(reader.result as string);
-  reader.onerror = reject;
-  reader.readAsDataURL(file);
-});
 
-const generateHash = async (file: File): Promise<string> => {
-  const buffer = await file.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-};
 
 const dataUriToBlob = (dataUri: string): Blob => {
   const byteString = atob(dataUri.split(',')[1]);
@@ -77,6 +64,8 @@ const dataUriToBlob = (dataUri: string): Blob => {
   }
   return new Blob([ab], { type: mimeString });
 };
+
+
 
 // --- Initial State ---
 const initialState: ImageState = {
@@ -156,7 +145,7 @@ export const useImageStore = create<ImageStore>()(
       },
 
       // --- Async Actions ---
-      removeBackground: async (username: string) => {
+      removeBackground: async () => {
         const { activeVersionId, versions } = get();
         if (!activeVersionId || !versions[activeVersionId]) {
           console.warn('No active version for background removal');
@@ -185,8 +174,8 @@ export const useImageStore = create<ImageStore>()(
           set({ isProcessing: false, processingStep: null }, false, 'removeBackground:end');
         }
       },
-      upscaleImage: async (username: string) => {
-        const { activeVersionId, versions, original } = get();
+      upscaleImage: async () => {
+        const { activeVersionId, versions } = get();
         if (!activeVersionId || !versions[activeVersionId]) {
           console.warn('No active version for upscaling');
           return;
@@ -214,8 +203,8 @@ export const useImageStore = create<ImageStore>()(
           set({ isProcessing: false, processingStep: null }, false, 'upscaleImage:end');
         }
       },
-      faceDetailer: async (username: string) => {
-        const { activeVersionId, versions, original } = get();
+      faceDetailer: async () => {
+        const { activeVersionId, versions } = get();
         if (!activeVersionId || !versions[activeVersionId]) {
           console.warn('No active version for face detailer');
           return;
@@ -298,6 +287,8 @@ export const getStoreSnapshot = () => {
 
 // For development - access in console as window.imageStore
 if (typeof window !== 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).imageStore = useImageStore;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).imageStoreSnapshot = getStoreSnapshot;
 }

@@ -21,11 +21,20 @@ async function verifyAdmin() {
   return user;
 }
 
+type UserForAdminView = {
+  username: string;
+  role: 'admin' | 'user';
+  gemini_api_key_1_mode: 'global' | 'user_specific';
+  gemini_api_key_2_mode: 'global' | 'user_specific';
+  gemini_api_key_3_mode: 'global' | 'user_specific';
+  fal_api_key_mode: 'global' | 'user_specific';
+};
+
 export async function getAllUsers() {
   await verifyAdmin();
   const db = dbService.getDb();
   const stmt = db.prepare('SELECT username, role, gemini_api_key_1_mode, gemini_api_key_2_mode, gemini_api_key_3_mode, fal_api_key_mode FROM users ORDER BY username');
-  return stmt.all() as any[]; // Simplified for brevity, define a proper type
+  return stmt.all() as UserForAdminView[];
 }
 
 export async function createUser(formData: FormData) {
@@ -109,12 +118,12 @@ export async function triggerCacheCleanup() {
     const cacheFilePath = path.join(process.cwd(), '.cache', 'image-processing-cache.json');
     const maxAgeMs = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-    let cache: Record<string, any> = {};
+    let cache: Record<string, { timestamp?: number }> = {};
     try {
       const data = await fs.readFile(cacheFilePath, 'utf-8');
       cache = JSON.parse(data);
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
+    } catch (error: unknown) {
+      if (typeof error === 'object' && error !== null && 'code' in error && (error as { code?: string }).code === 'ENOENT') {
         return { success: true, message: 'Cache file does not exist. Nothing to clean up.' };
       }
       throw error;
@@ -152,19 +161,19 @@ export async function updateUserConfiguration(formData: FormData) {
 
   // Dynamically build the update statement only from present fields
   const setClauses: string[] = [];
-  const params: any[] = [];
+  const params: (string | null)[] = [];
 
   const role = formData.get('role');
-  if (role) { setClauses.push('role = ?'); params.push(role); }
+  if (role) { setClauses.push('role = ?'); params.push(role as string); }
 
   const gemini1Mode = formData.get('gemini_api_key_1_mode');
-  if (gemini1Mode) { setClauses.push('gemini_api_key_1_mode = ?'); params.push(gemini1Mode); }
+  if (gemini1Mode) { setClauses.push('gemini_api_key_1_mode = ?'); params.push(gemini1Mode as string); }
   const gemini2Mode = formData.get('gemini_api_key_2_mode');
-  if (gemini2Mode) { setClauses.push('gemini_api_key_2_mode = ?'); params.push(gemini2Mode); }
+  if (gemini2Mode) { setClauses.push('gemini_api_key_2_mode = ?'); params.push(gemini2Mode as string); }
   const gemini3Mode = formData.get('gemini_api_key_3_mode');
-  if (gemini3Mode) { setClauses.push('gemini_api_key_3_mode = ?'); params.push(gemini3Mode); }
+  if (gemini3Mode) { setClauses.push('gemini_api_key_3_mode = ?'); params.push(gemini3Mode as string); }
   const falMode = formData.get('fal_api_key_mode');
-  if (falMode) { setClauses.push('fal_api_key_mode = ?'); params.push(falMode); }
+  if (falMode) { setClauses.push('fal_api_key_mode = ?'); params.push(falMode as string); }
 
   // Handle optional API keys. Update if the field was submitted (even if empty, to allow clearing)
   if (formData.has('gemini_api_key_1')) { setClauses.push('gemini_api_key_1 = ?'); params.push(encrypt(formData.get('gemini_api_key_1') as string)); }

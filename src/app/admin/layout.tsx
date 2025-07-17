@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { getCurrentUser } from '@/actions/authActions';
 import { Home, LogOut, ShieldCheck, PanelLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+// ...removed unused Separator import...
 import { AdminNav } from './_components/AdminNav';
 import { logoutUser } from '@/actions/authActions';
 import { ThemeToggleImproved as ThemeToggleCompact } from '@/components/ui/ThemeToggleImproved';

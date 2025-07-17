@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { POST } from './route'; // Assuming route.ts is in the same directory
 import { NextRequest } from 'next/server';
 import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
@@ -10,11 +9,19 @@ jest.mock('@/ai/actions/generate-video.action', () => ({
 }));
 
 // Helper to create a mock NextRequest
-function createMockRequest(body: any, contentType: string): NextRequest {
+function createMockRequest(body: unknown, contentType: string): NextRequest {
+  let requestBody: BodyInit | null | undefined;
+  if (contentType.includes('json')) {
+    requestBody = typeof body === 'string' ? body : JSON.stringify(body);
+  } else if (body instanceof FormData) {
+    requestBody = body;
+  } else {
+    requestBody = undefined;
+  }
   const request = new NextRequest('http://localhost/api/upload-user-image', {
     method: 'POST',
     headers: { 'Content-Type': contentType },
-    body: contentType.includes('json') ? JSON.stringify(body) : body, // body for FormData would be FormData itself
+    body: requestBody,
   });
   return request;
 }

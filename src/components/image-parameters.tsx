@@ -10,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle } from 'lucide-react';
+import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, AlertTriangle } from 'lucide-react';
 import { generateImageEdit, regenerateSingleImage, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
 import { upscaleImageAction } from "@/ai/actions/upscale-image.action";
-import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
+import { addHistoryItem, updateHistoryItem } from "@/actions/historyActions";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ModelAttributes, HistoryItem } from "@/lib/types";
 import { getDisplayableImageUrl } from "@/lib/utils";
@@ -201,7 +201,6 @@ export default function ImageParameters({
 
   const {
     currentPrompt,
-    isPromptManuallyEdited,
     handlePromptChange,
     resetPromptToAuto,
     isManualPromptOutOfSync,
@@ -473,9 +472,9 @@ export default function ImageParameters({
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-      }).catch(err => {
+      }).catch(() => {
         toast({ title: "Download Error", variant: "destructive" });
-    });
+      });
   };
 
   const handleSendToVideoPage = (imageUrl: string | null) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation'; // Ensure this is from 'next/navigation'
+// ...removed unused useRouter import...
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +10,7 @@ import { LogIn } from 'lucide-react';
 import { loginUser } from '@/actions/authActions'; // Your server action
 
 export default function LoginPage() {
-  const router = useRouter();
+  // ...removed unused router variable...
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

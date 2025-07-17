@@ -38,7 +38,7 @@ export async function loginUser(formData: FormData): Promise<{ error: string } |
     // Re-throw redirect errors so they can work properly (this is expected behavior)
     if (error instanceof Error && (
       error.message === 'NEXT_REDIRECT' || 
-      (error as any).digest?.startsWith('NEXT_REDIRECT')
+      (error as { digest?: string }).digest?.startsWith('NEXT_REDIRECT')
     )) {
       throw error; // This is normal and expected
     }

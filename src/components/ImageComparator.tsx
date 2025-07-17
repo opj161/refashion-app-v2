@@ -5,7 +5,7 @@ import ReactCompareImage from 'react-compare-image';
 import { ChevronsLeftRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getDisplayableImageUrl } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+// ...removed unused cn import...
 
 interface ImageComparatorProps {
   leftImageUri: string;

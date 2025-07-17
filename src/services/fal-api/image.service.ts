@@ -86,7 +86,9 @@ async function runFalImageWorkflow(modelId: string, input: FalImageInput, taskNa
     // Ensure the input image is a public URL
     if (input.image_url || input.loadimage_1) {
       const key = input.image_url ? 'image_url' : 'loadimage_1';
-      input[key] = await ensureUrl(input[key], `${taskName.replace(/\s+/g, '-')}-input.jpg`, username);
+      if (typeof input[key] === 'string') {
+        input[key] = await ensureUrl(input[key], `${taskName.replace(/\s+/g, '-')}-input.jpg`, username);
+      }
     }
     const result = await scopedFal.subscribe(modelId, {
       input,
@@ -100,14 +102,15 @@ async function runFalImageWorkflow(modelId: string, input: FalImageInput, taskNa
 
     // Robustly parse the output to find the image URL
     let outputImageUrl: string | undefined;
-    if (result?.data?.outputs) {
-      for (const output of Object.values(result.data.outputs) as Record<string, any>) {
+    if (result?.data?.outputs && typeof result.data.outputs === 'object') {
+      for (const key in result.data.outputs) {
+        const output = (result.data.outputs as Record<string, { images?: { url?: string }[] }>)[key];
         if (output?.images?.[0]?.url) {
           outputImageUrl = output.images[0].url;
           break;
         }
       }
-    } else if (result?.data?.images?.[0]?.url) {
+    } else if (result?.data?.images && Array.isArray(result.data.images) && result.data.images[0]?.url) {
       outputImageUrl = result.data.images[0].url;
     } else if (result?.data?.image?.url) {
       outputImageUrl = result.data.image.url;

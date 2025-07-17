@@ -5,19 +5,15 @@ import React, { useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  Crop as CropIcon, Square, RectangleVertical, RectangleHorizontal
-} from "lucide-react";
+import { Crop as CropIcon, Square, RectangleVertical } from "lucide-react";
 
 interface AspectRatioSelectorProps {
-  preparationMode: 'image' | 'video';
   aspect: number | undefined;
   onAspectChange: (aspect: number | undefined) => void;
   disabled?: boolean;
 }
 
 export default function AspectRatioSelector({ 
-  preparationMode, 
   aspect, 
   onAspectChange, 
   disabled = false 

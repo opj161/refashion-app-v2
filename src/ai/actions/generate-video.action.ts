@@ -1,6 +1,6 @@
 'use server';
 
-import { fal, createFalClient } from '@fal-ai/client';
+import { createFalClient } from '@fal-ai/client';
 import { getCurrentUser } from '@/actions/authActions';
 import { addStandaloneVideoHistoryItem, updateVideoHistoryItem } from '@/actions/historyActions';
 import * as videoService from '@/services/fal-api/video.service'; // Use the service layer
@@ -54,9 +54,9 @@ export async function uploadToFalStorage(file: File | Blob, username: string): P
     const url = await scopedFal.storage.upload(file);
     console.log(`File uploaded to Fal Storage: ${url}`);
     return url;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error uploading file to Fal Storage:', error);
-    throw new Error(`Failed to upload to Fal Storage: ${error.message}`);
+    throw new Error(`Failed to upload to Fal Storage: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -119,7 +119,7 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
     });
 
     return { taskId, historyItemId };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Fal.ai submission error:', error);
     
     // If submission fails, mark the history item as failed

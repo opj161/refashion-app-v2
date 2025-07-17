@@ -32,20 +32,37 @@ Object.defineProperty(global, 'crypto', {
   }
 });
 
-// Mock FileReader
-global.FileReader = class MockFileReader {
-  result = 'data:image/jpeg;base64,test-data-uri';
-  onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => void) | null = null;
-  onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => void) | null = null;
-  
-  readAsDataURL(file: File) {
+
+// Mock a more complete FileReader that satisfies the full interface
+class MockFileReader extends EventTarget implements FileReader {
+  static EMPTY = 0;
+  static LOADING = 1;
+  static DONE = 2;
+  readonly EMPTY = 0;
+  readonly LOADING = 1;
+  readonly DONE = 2;
+  result: string | ArrayBuffer | null = 'data:image/jpeg;base64,test-data-uri';
+  error: DOMException | null = null;
+  onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null;
+  onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null;
+  onabort: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null;
+  onloadend: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null;
+  onloadstart: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null;
+  onprogress: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null;
+  readyState: 0 | 1 | 2 = 0;
+  abort(): void {}
+  readAsArrayBuffer(_blob: Blob): void {}
+  readAsBinaryString(_blob: Blob): void {}
+  readAsDataURL(_file: File): void {
     setTimeout(() => {
       if (this.onload) {
-        this.onload.call(this, {} as ProgressEvent<FileReader>);
+        this.onload.call(this, { target: this } as unknown as ProgressEvent<FileReader>);
       }
     }, 0);
   }
-};
+  readAsText(_blob: Blob, _encoding?: string): void {}
+}
+global.FileReader = MockFileReader;
 
 describe('ImageStore', () => {
   beforeEach(() => {
@@ -261,8 +278,8 @@ describe('ImageStore', () => {
 
     it('should handle errors in async actions', async () => {
       // Mock a failing action
-      const { removeBackgroundAction } = require('@/ai/actions/remove-background.action');
-      removeBackgroundAction.mockRejectedValueOnce(new Error('Test error'));
+      const { removeBackgroundAction } = await import('@/ai/actions/remove-background.action');
+      (removeBackgroundAction as jest.Mock).mockRejectedValueOnce(new Error('Test error'));
 
       await expect(
         act(async () => {

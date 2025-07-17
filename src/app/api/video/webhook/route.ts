@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get the raw body for signature verification
     const bodyText = await request.text();
-    const bodyBuffer = Buffer.from(bodyText, 'utf-8');
+    // ...removed unused bodyBuffer variable...
     
     // Parse the JSON after we have the raw body
     let result;
