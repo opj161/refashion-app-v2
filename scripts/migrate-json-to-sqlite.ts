@@ -15,7 +15,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { HistoryItem } from '../src/lib/types';
-import * as dbService from '../src/services/database.service';
+import * as dbService from '@/services/database.service';
 
 const JSON_HISTORY_DIR = path.join(process.cwd(), 'user_data', 'history');
 const BACKUP_DIR = path.join(process.cwd(), 'user_data', 'history_json_backup');

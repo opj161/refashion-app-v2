@@ -37,6 +37,7 @@ export interface HistoryItem {
   };
   status?: 'processing' | 'completed' | 'failed';
   error?: string;
+  webhookUrl?: string;
 }
 
 export interface ModelAttributes {

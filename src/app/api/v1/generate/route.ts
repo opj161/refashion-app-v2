@@ -30,6 +30,7 @@ const GenerateRequestSchema = z.object({
   imageUrl: z.string().url().optional(),
   parameters: ModelAttributesSchema,
   settingsMode: z.enum(['basic', 'advanced']).default('basic'),
+  webhookUrl: z.string().url().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
       imageDataUri: imageDataSource,
       parameters: validatedData.parameters,
       settingsMode: validatedData.settingsMode,
+      webhookUrl: validatedData.webhookUrl,
     });
 
     // Start processing in background (don't await)
@@ -65,6 +67,7 @@ export async function POST(request: NextRequest) {
       imageDataUri: imageDataSource,
       parameters: validatedData.parameters,
       settingsMode: validatedData.settingsMode,
+      webhookUrl: validatedData.webhookUrl,
     }, user.username).catch(console.error);
 
     // Return immediately with job ID
@@ -77,7 +80,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({
         error: 'Invalid request data',
-        details: error.errors
+        details: error.issues
       }, { status: 400 });
     }
 

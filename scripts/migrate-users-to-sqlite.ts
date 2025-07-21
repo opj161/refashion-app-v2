@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcrypt';
-import * as dbService from '../src/services/database.service';
+import * as dbService from '@/services/database.service';
 
 // Load environment variables from .env file
 import dotenv from 'dotenv';

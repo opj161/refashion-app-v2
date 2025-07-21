@@ -1,5 +1,5 @@
 // scripts/add-granular-api-key-columns.ts
-import { getDb } from '../src/services/database.service';
+import { getDb } from '@/services/database.service';
 
 function runMigration() {
   const db = getDb();

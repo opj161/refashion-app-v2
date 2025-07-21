@@ -49,7 +49,10 @@ function initSchema(db: Database.Database) {
       originalClothingUrl TEXT,
       settingsMode TEXT,
       attributes TEXT,
-      videoGenerationParams TEXT
+      videoGenerationParams TEXT,
+      webhook_url TEXT,
+      status TEXT DEFAULT 'completed', -- ADDED
+      error TEXT -- ADDED
     );
 
     CREATE TABLE IF NOT EXISTS users (
@@ -133,10 +136,11 @@ function getPreparedStatements() {
   if (!preparedStatements.insertHistory) {
     const db = getDb();
     
+    // Removed stray SQL code
     preparedStatements.insertHistory = db.prepare(`
       INSERT OR REPLACE INTO history 
-      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error, webhook_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     preparedStatements.insertImage = db.prepare(`
@@ -239,6 +243,7 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
     videoGenerationParams = row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined;
   } catch (e) { videoGenerationParams = undefined; }
 
+  // removed malformed object literal
   return {
     id: row.id,
     username: row.username,
@@ -253,6 +258,7 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
     videoGenerationParams,
     status: row.status as 'processing' | 'completed' | 'failed',
     error: row.error || undefined,
+    webhookUrl: row.webhook_url || undefined,
   };
 }
 
@@ -272,7 +278,8 @@ export function insertHistoryItem(item: HistoryItem): void {
       JSON.stringify(item.attributes),
       item.videoGenerationParams ? JSON.stringify(item.videoGenerationParams) : null,
       item.status || 'completed',
-      item.error || null
+      item.error || null,
+      item.webhookUrl || null
     );
     
     // Insert edited images

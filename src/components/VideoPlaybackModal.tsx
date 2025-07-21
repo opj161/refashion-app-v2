@@ -115,7 +115,7 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
             </ScrollArea>
           </div>
 
-          <DialogFooter className="mt-auto p-6 border-t border-border/20">
+          <DialogFooter className="mt-auto p-6 border-t border-border/20 flex-row justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
               <X className="mr-2 h-4 w-4" /> Close
             </Button>
