@@ -4,6 +4,7 @@
     "module": "commonjs",
     "target": "es2020",
     "moduleResolution": "node",
+    "baseUrl": ".",
     "outDir": "dist",
     "rootDir": ".",
     "noEmit": false,

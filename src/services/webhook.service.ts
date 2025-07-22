@@ -6,26 +6,27 @@ interface WebhookPayload {
   historyId: string; 
 }
 
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
-if (!WEBHOOK_SECRET) {
-  console.warn('CRITICAL: WEBHOOK_SECRET is not set in environment variables. Webhook calls will be insecure and likely fail.');
+function getWebhookSecret(): string {
+  const secret = process.env.WEBHOOK_SECRET;
+  if (!secret) {
+    // This warning/error will now only happen at runtime.
+    console.warn('CRITICAL: WEBHOOK_SECRET is not set in environment variables. Webhook calls will be insecure and likely fail.');
+    throw new Error('WEBHOOK_SECRET is not configured.');
+  }
+  return secret;
 }
 
 export async function sendWebhook(url: string, payload: WebhookPayload): Promise<void> {
-  if (!WEBHOOK_SECRET) {
-    console.error(`Cannot send webhook to ${url}: WEBHOOK_SECRET is not configured.`);
-    return;
-  }
-
   const sendRequest = async (attempt: number) => {
     console.log(`[Webhook] Attempt ${attempt}: Sending webhook to: ${url}`);
     try {
+      const secret = getWebhookSecret(); // Get the secret just-in-time
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Refashion-Secret': WEBHOOK_SECRET,
+          'X-Refashion-Secret': secret,
         },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(15000),
