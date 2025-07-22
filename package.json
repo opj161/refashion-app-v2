@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
-    "build": "next build && tsc --project tsconfig.scripts.json",
-    "start": "node .next/standalone/server.js",
+    "build": "next build && tsc --project tsconfig.scripts.json && tsc-alias -p tsconfig.scripts.json",
+    "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "jest",
@@ -54,7 +54,7 @@
     "iron-session": "^8.0.4",
     "lucide-react": "^0.475.0",
     "mime-types": "^3.0.1",
-    "motion": "^12.23.0",
+    "motion": "^12.23.3",
     "next": "^15.3.3",
     "node-fetch": "^3.3.2",
     "react": "^18.3.1",
@@ -95,6 +95,7 @@
     "postcss": "^8.5.4",
     "tailwindcss": "^3.4.17",
     "ts-jest": "^29.4.0",
+    "tsc-alias": "^1.8.16",
     "typescript": "5.8.3",
     "whatwg-fetch": "^3.6.20"
   },
