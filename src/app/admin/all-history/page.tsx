@@ -19,10 +19,18 @@ export default function AllHistoryPage() {
 // This separate async component fetches the data. This allows the main page
 // component to render its static parts immediately without waiting for the data fetch.
 async function HistoryLoader() {
-  const initialHistory = await getAllUsersHistoryPaginatedForAdmin(1, 9);
-  if (!initialHistory || initialHistory.items.length === 0) {
-    return <div className="text-center text-muted-foreground py-8">No user history found.</div>;
+  try {
+    const initialHistory = await getAllUsersHistoryPaginatedForAdmin(1, 9);
+    if (!initialHistory || initialHistory.items.length === 0) {
+      return <div className="text-center text-muted-foreground py-8">No user history found.</div>;
+    }
+    // The client component receives the initial data as a prop.
+    return <HistoryGallery initialHistory={initialHistory} />;
+  } catch (error) {
+    // Handle cases where there's no admin user session (e.g., during build time)
+    console.warn('[AdminHistoryLoader] Unable to fetch admin history:', error instanceof Error ? error.message : String(error));
+    // Return empty state when no admin user is available
+    const emptyHistory = { items: [], hasMore: false };
+    return <HistoryGallery initialHistory={emptyHistory} />;
   }
-  // The client component receives the initial data as a prop.
-  return <HistoryGallery initialHistory={initialHistory} />;
 }

@@ -21,8 +21,16 @@ export default async function HistoryPage() {
 }
 
 async function UserHistoryLoader() {
-  const initialHistory = await getHistoryPaginated(1, 9, 'all');
-  return <HistoryGallery initialHistory={initialHistory} />;
+  try {
+    const initialHistory = await getHistoryPaginated(1, 9, 'all');
+    return <HistoryGallery initialHistory={initialHistory} />;
+  } catch (error) {
+    // Handle cases where there's no user session (e.g., during build time)
+    console.warn('[UserHistoryLoader] Unable to fetch history:', error instanceof Error ? error.message : String(error));
+    // Return empty state when no user is available
+    const emptyHistory = { items: [], totalCount: 0, hasMore: false, currentPage: 1 };
+    return <HistoryGallery initialHistory={emptyHistory} />;
+  }
 }
 
 function HistoryGallerySkeleton() {

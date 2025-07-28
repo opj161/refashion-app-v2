@@ -29,17 +29,12 @@ export default function CreationHub({ children }: { children: React.ReactNode })
   return (
     <div className="space-y-8">
       {/* Tabs at the top */}
-      <Tabs value={defaultTab} onValueChange={setDefaultTab} className="w-full">
+      <Tabs defaultValue="image" value={defaultTab} onValueChange={setDefaultTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="image">Image Generation</TabsTrigger>
           <TabsTrigger value="video">Video Generation</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="history" className="space-y-6 mt-8" forceMount>
-          {/* The children prop is the server-rendered history gallery */}
-          {children}
-        </TabsContent>
 
         <TabsContent value="image" className="space-y-6 mt-8" forceMount>
           <ImagePreparationContainer preparationMode="image" onReset={handleReset} />
@@ -49,6 +44,11 @@ export default function CreationHub({ children }: { children: React.ReactNode })
         <TabsContent value="video" className="space-y-6 mt-8" forceMount>
           <ImagePreparationContainer preparationMode="video" onReset={handleReset} />
           <VideoParameters />
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-6 mt-8" forceMount>
+          {/* The children prop is the server-rendered history gallery */}
+          {children}
         </TabsContent>
       </Tabs>
     </div>

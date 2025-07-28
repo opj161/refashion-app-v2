@@ -3,8 +3,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "motion/react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { getHistoryPaginated, deleteHistoryItem } from "@/actions/historyActions";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -111,8 +111,13 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
   }, [hasMore, isLoadingMore, currentPage, currentFilter, toast]);
 
 
-  const handleFilterChange = (newFilter: string) => {
-    setCurrentFilter(newFilter as FilterType);
+  const handleFilterChange = (newFilter: string | null) => {
+    // ToggleGroup can return null/empty string if deselected. Default to 'all'.
+    if (newFilter) {
+      setCurrentFilter(newFilter as FilterType);
+    } else {
+      setCurrentFilter('all');
+    }
   };
 
   const handleViewDetails = (item: HistoryItem) => {
@@ -177,13 +182,21 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
 
   return (
     <>
-      <Tabs value={currentFilter} onValueChange={handleFilterChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="image">Images</TabsTrigger>
-          <TabsTrigger value="video">Videos</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* --- REPLACEMENT FOR TABS --- */}
+      <div className="flex justify-start mb-6">
+        <ToggleGroup
+          type="single"
+          defaultValue="all"
+          value={currentFilter}
+          onValueChange={handleFilterChange}
+          className="bg-muted/30 p-1 rounded-lg"
+          aria-label="Filter history items"
+        >
+          <ToggleGroupItem value="all" aria-label="Show all items">All</ToggleGroupItem>
+          <ToggleGroupItem value="image" aria-label="Show only images">Images</ToggleGroupItem>
+          <ToggleGroupItem value="video" aria-label="Show only videos">Videos</ToggleGroupItem>
+        </ToggleGroup>
+      </div>
 
       {historyItems.length === 0 && !isLoadingMore && (
         <Card variant="glass" className="mt-8">

@@ -6,7 +6,9 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb', // Increase limit for image uploads
-    },  },images: {
+    },
+  },
+  images: {
     remotePatterns: [
       {
         protocol: 'https',
