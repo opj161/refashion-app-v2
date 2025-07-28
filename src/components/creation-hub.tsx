@@ -18,7 +18,7 @@ export default function CreationHub({ children }: { children: React.ReactNode })
 
   // Centralized reset function
   const handleReset = useCallback(() => {
-    router.push('/create', { scroll: false }); // Update URL first
+    router.push('/', { scroll: false }); // Update URL first
     resetStore();
     toast({
       title: "Image Cleared",

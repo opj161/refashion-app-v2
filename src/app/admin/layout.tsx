@@ -39,7 +39,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             </div>
             <div className="flex items-center gap-2">
                 <Button asChild variant="outline" size="sm">
-                  <Link href="/create"><Home className="mr-2 h-4 w-4" />Back to App</Link>
+                  <Link href="/"><Home className="mr-2 h-4 w-4" />Back to App</Link>
                 </Button>
                 <ThemeToggleCompact />
                 <form action={logoutUser}>

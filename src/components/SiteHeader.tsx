@@ -27,17 +27,13 @@ export function SiteHeader() {
     setIsClient(true);
   }, []);
 
-  // Define ONLY primary navigation items here. Admin is a secondary action.
-  const primaryNavItems = [
-    { href: '/create', label: 'Create', icon: Palette },
-    { href: '/history', label: 'History', icon: HistoryIcon },
-  ];
+  // Primary navigation removed - logo now serves as main navigation
 
   return (
     <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-50">
       <div className="container mx-auto flex justify-between items-center max-w-7xl h-20 px-4">
-        {/* Make Logo and Title a link to the homepage */}
-        <Link href="/create" className="flex items-center gap-2.5 sm:gap-3 text-foreground group">
+        {/* Make Logo and Title a link to the new homepage */}
+        <Link href="/" className="flex items-center gap-2.5 sm:gap-3 text-foreground group">
           <Image
             src="/refashion.webp"
             alt="Refashion AI logo"
@@ -50,23 +46,7 @@ export function SiteHeader() {
           </span>
         </Link>
         <div className="flex items-center gap-2">
-          {/* --- CORRECTED ALWAYS-VISIBLE PRIMARY NAVIGATION --- */}
-          {/* The nav element is now always a flex container. The responsive magic happens inside the buttons. */}
-          <nav className="flex items-center gap-1">
-            {isClient && primaryNavItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname.startsWith(item.href);
-              return (
-                <Button asChild variant={isActive ? 'secondary' : 'ghost'} size="sm" key={item.href}>
-                  <Link href={item.href}>
-                    <Icon className="h-5 w-5 mr-2" />
-                    {/* Text is now always visible */}
-                    <span>{item.label}</span>
-                  </Link>
-                </Button>
-              );
-            })}
-          </nav>
+          {/* Primary navigation removed - simplified header */}
 
           {/* --- DESKTOP-ONLY SECONDARY CONTROLS --- */}
           <div className="hidden md:flex items-center gap-3">

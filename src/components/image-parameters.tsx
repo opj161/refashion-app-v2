@@ -490,7 +490,7 @@ export default function ImageParameters({
     // and 'defaultTab' to select the correct tab.
     params.set('sourceImageUrl', imageUrl);
     params.set('defaultTab', 'video');
-    router.push(`/create?${params.toString()}`);
+    router.push(`/?${params.toString()}`);
   };
 
   // Helper to render select components

@@ -126,7 +126,7 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
 
   const handleReloadConfig = (item: HistoryItem) => {
     // Only navigate, do not show a toast here
-    router.push(`/create?historyItemId=${item.id}`);
+    router.push(`/?historyItemId=${item.id}`);
   };
 
   const handleDeleteRequest = (item: HistoryItem) => {
