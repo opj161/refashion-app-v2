@@ -252,46 +252,48 @@ export default function HistoryGallery() {
       )}
 
       <LayoutGroup>
-        {!isLoading && !error && historyItems.length > 0 && (
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            layout
-          >
-            <AnimatePresence>
-              {historyItems.map((item) => (
-                <motion.div key={item.id} variants={itemVariants} layout>
-                  <HistoryCard
-                    item={item}
-                    onViewDetails={handleViewDetails}
-                    onReloadConfig={handleReloadConfig}
-                    onDeleteItem={handleDeleteRequest}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        )}
-        <AnimatePresence>
-          {detailItem && itemIsVideo(detailItem) && (
-            <VideoPlaybackModal
-              item={detailItem}
-              onClose={() => setDetailItem(null)}
-            />
+        <>
+          {!isLoading && !error && historyItems.length > 0 && (
+            <motion.div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              layout
+            >
+              <AnimatePresence>
+                {historyItems.map((item) => (
+                  <motion.div key={item.id} variants={itemVariants} layout>
+                    <HistoryCard
+                      item={item}
+                      onViewDetails={handleViewDetails}
+                      onReloadConfig={handleReloadConfig}
+                      onDeleteItem={handleDeleteRequest}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
           )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {detailItem && !itemIsVideo(detailItem) && (
-            <HistoryDetailModal
-              isOpen={!!detailItem}
-              onClose={() => setDetailItem(null)}
-              item={detailItem}
-              onReloadConfig={handleReloadConfig}
-            />
-          )}
-        </AnimatePresence>
+          <AnimatePresence>
+            {detailItem && itemIsVideo(detailItem) && (
+              <VideoPlaybackModal
+                item={detailItem}
+                onClose={() => setDetailItem(null)}
+              />
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {detailItem && !itemIsVideo(detailItem) && (
+              <HistoryDetailModal
+                isOpen={!!detailItem}
+                onClose={() => setDetailItem(null)}
+                item={detailItem}
+                onReloadConfig={handleReloadConfig}
+              />
+            )}
+          </AnimatePresence>
+        </>
       </LayoutGroup>
 
       {/* Invisible trigger element for infinite scroll */}
