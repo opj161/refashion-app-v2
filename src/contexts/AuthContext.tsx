@@ -6,6 +6,8 @@ import type ReactType from 'react';
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser, logoutUser } from '@/actions/authActions';
+// Export logoutUser for use in other components
+export { logoutUser };
 import type { SessionUser } from '@/lib/types';
 
 interface AuthContextType {
@@ -90,10 +92,6 @@ export const UserAuthStatus = () => {
           <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold">
             {user.username.charAt(0).toUpperCase()}
           </div>
-          <div className="hidden sm:block">
-            <p className="text-sm font-medium">{user.username}</p>
-            <p className="text-xs text-muted-foreground capitalize">{user.role}</p>
-          </div>
         </div>
         <form action={logoutUser}>
           <Button type="submit" variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
@@ -106,7 +104,7 @@ export const UserAuthStatus = () => {
   
   // If not logged in, show login button
   return (
-    <Button asChild variant="default" size="sm">
+    <Button asChild variant="outline" size="sm">
       <a href="/login">Login</a>
     </Button>
   );
