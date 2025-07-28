@@ -82,7 +82,10 @@ export function UnifiedMediaModal({ isOpen, onClose, title, description, footer,
       <SheetContent side="bottom" className={cn(
         "h-[95vh] p-4 !gap-y-4",
         // THE CORE LAYOUT LOGIC (Mobile)
-        "grid grid-rows-[auto_minmax(0,1fr)_auto]" // Use minmax for safety on mobile too
+        // --- THE FIX ---
+        // From [header, content, footer] to [header, media, scrollable_sidebar, footer]
+        // This gives the media its own auto-sized row, allowing it to be much larger.
+        "grid grid-rows-[auto_auto_minmax(0,1fr)_auto]"
       )}>
         {ModalContent}
       </SheetContent>
