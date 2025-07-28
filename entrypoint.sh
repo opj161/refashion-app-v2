@@ -99,6 +99,14 @@ if [ -d "/app/user_data" ]; then
     echo "Owned /app/user_data (for server-side history storage)"
 fi
 
+# --- FIX: Create and set ownership for the image processing cache directory ---
+if [ ! -d "/app/.cache" ]; then
+    mkdir -p /app/.cache
+    echo "Created /app/.cache directory"
+fi
+chown -R "$TARGET_USER_NAME:$TARGET_GROUP_NAME" /app/.cache
+echo "Owned /app/.cache"
+
 # Add other directories here if your app uses them inside /app (not on a volume)
 # e.g., if node_modules are bundled and need write access for some reason (uncommon for prod):
 # if [ -d "/app/node_modules" ]; then
