@@ -59,9 +59,9 @@ export function SiteHeader() {
               return (
                 <Button asChild variant={isActive ? 'secondary' : 'ghost'} size="sm" key={item.href}>
                   <Link href={item.href}>
-                    <Icon className="h-5 w-5 md:mr-2" />
-                    {/* This span correctly hides the text on mobile */}
-                    <span className="hidden md:inline">{item.label}</span>
+                    <Icon className="h-5 w-5 mr-2" />
+                    {/* Text is now always visible */}
+                    <span>{item.label}</span>
                   </Link>
                 </Button>
               );
