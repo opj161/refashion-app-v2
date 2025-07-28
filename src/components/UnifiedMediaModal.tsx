@@ -38,12 +38,12 @@ interface UnifiedMediaModalProps {
   onClose: () => void;
   title: React.ReactNode;
   description: React.ReactNode;
-  footer: React.ReactNode;
+  footerLeft?: React.ReactNode; // Optional left content (e.g., logo)
+  footerRight: React.ReactNode; // Required right content (e.g., buttons)
   children: React.ReactNode;
   layoutId?: string;
 }
-
-export function UnifiedMediaModal({ isOpen, onClose, title, description, footer, children, layoutId }: UnifiedMediaModalProps) {
+export function UnifiedMediaModal({ isOpen, onClose, title, description, footerLeft, footerRight, children, layoutId }: UnifiedMediaModalProps) {
   const isMobile = useIsMobile();
 
   const ModalContent = (
@@ -56,9 +56,17 @@ export function UnifiedMediaModal({ isOpen, onClose, title, description, footer,
       {/* Main content area (MediaSlot and SidebarSlot) */}
       {children}
       
-      <DialogFooter className="lg:col-span-2 flex-row justify-end gap-2 border-t bg-background/50">
-        {footer}
-      </DialogFooter>
+      {/* --- MODERNIZED FOOTER --- */}
+      <div className="lg:col-span-2 px-0 pt-2 pb-0"> {/* Use a div instead of DialogFooter for simpler styling */}
+        <div className="glass-card w-full p-3 rounded-xl flex items-center justify-between">
+          <div>
+            {footerLeft}
+          </div>
+          <div className="flex items-center gap-2">
+            {footerRight}
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 

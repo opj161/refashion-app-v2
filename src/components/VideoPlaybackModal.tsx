@@ -36,7 +36,7 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
       title={<DialogTitle>Video Details</DialogTitle>}
       description={<DialogDescription>{`Playback and details for your generated video from ${new Date(item.timestamp).toLocaleString()}.`}</DialogDescription>}
       layoutId={`history-card-${item.id}`}
-      footer={
+      footerRight={
         <>
           <Button variant="outline" onClick={onClose}>
             <X className="mr-2 h-4 w-4" /> Close

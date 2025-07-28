@@ -6,7 +6,7 @@ import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { UnifiedMediaModal, MediaSlot, SidebarSlot } from "./UnifiedMediaModal";
 import { ParameterSection, ParameterRow } from "./ParameterDisplay";
 import { Button } from "@/components/ui/button";
-import { Download, Copy, X } from "lucide-react";
+import { Download, Copy, X, RefreshCw } from "lucide-react";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +50,10 @@ export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: Hi
 
   if (!item) return null;
 
+  const downloadUrl = getDisplayableImageUrl(selectedImageUrl);
+  // Generate a filename based on the history item ID and a timestamp for uniqueness
+  const downloadFilename = `RefashionAI_image_${item.id.substring(0, 8)}_${Date.now()}.png`;
+
   return (
     <UnifiedMediaModal
       isOpen={isOpen}
@@ -57,17 +61,22 @@ export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: Hi
       title={<DialogTitle>History Item Details</DialogTitle>}
       description={<DialogDescription>{`Review of saved configuration from ${new Date(item.timestamp).toLocaleString()}.`}</DialogDescription>}
       layoutId={`history-card-${item.id}`}
-      footer={
+      footerRight={
         <>
           <Button variant="outline" onClick={onClose}>
             <X className="w-4 h-4 mr-2" /> Close
           </Button>
-          <Button variant="outline" onClick={handleCopyPrompt}>
+           <Button variant="outline" onClick={handleCopyPrompt}>
             <Copy className="w-4 h-4 mr-2" /> Copy Prompt
-          </Button>
-          <Button variant="outline" onClick={() => item && onReloadConfig(item)}>
-            <Download className="w-4 h-4 mr-2" /> Reload Config
-          </Button>
+           </Button>
+           <Button variant="outline" onClick={() => item && onReloadConfig(item)}>
+            <RefreshCw className="w-4 h-4 mr-2" /> Reload Config
+           </Button>
+           <a href={downloadUrl || '#'} download={downloadFilename}>
+            <Button disabled={!downloadUrl}>
+              <Download className="h-4 w-4 sm:mr-2" /> Download
+            </Button>
+           </a>
         </>
       }
     >
