@@ -18,28 +18,26 @@ import { VideoPlaybackModal } from './VideoPlaybackModal'; // Import the video m
 
 type FilterType = 'all' | 'image' | 'video';
 
-export default function HistoryGallery() {
+interface PaginatedResult {
+  items: HistoryItem[];
+  totalCount: number;
+  hasMore: boolean;
+  currentPage: number;
+}
+
+export default function HistoryGallery({ initialHistory }: { initialHistory: PaginatedResult }) {
   const { toast } = useToast();
   const router = useRouter();
-  const [showSkeletons, setShowSkeletons] = useState<boolean>(false); // NEW: controls skeleton visibility
-  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [hasMore, setHasMore] = useState<boolean>(false);
-  const [totalCount, setTotalCount] = useState<number>(0);
   const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
-  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
-
-  // State for details modal
   const [detailItem, setDetailItem] = useState<HistoryItem | null>(null);
-
-  // State for delete confirmation
   const [itemToDelete, setItemToDelete] = useState<HistoryItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Ref for the element that will trigger loading more items
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  // State is now initialized from server-provided props
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>(initialHistory.items);
+  const [currentPage, setCurrentPage] = useState<number>(initialHistory.currentPage + 1);
+  const [hasMore, setHasMore] = useState<boolean>(initialHistory.hasMore);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
   // Animation variants for the gallery
   const containerVariants = {
@@ -63,54 +61,45 @@ export default function HistoryGallery() {
   };
 
 
-  const itemsPerPage = 9; // Or any other number you prefer
+  const isInitialRender = useRef(true);
 
-  // Effect for initial load and filter changes
+  // Data fetching is now handled by this function, called on filter change or load more.
   useEffect(() => {
-    // NEW: Timer to delay skeletons
-    const skeletonTimer = setTimeout(() => {
-      if (isLoading) setShowSkeletons(true);
-    }, 500);
-    const loadInitialHistory = async () => {
-      setIsLoading(true);
-      setError(null);
+    const loadFilteredHistory = async () => {
+      setIsLoadingMore(true); // Use loadingMore state for subsequent loads
       try {
-        const result = await getHistoryPaginated(1, itemsPerPage, currentFilter);
+        const result = await getHistoryPaginated(1, 9, currentFilter);
         setHistoryItems(result.items);
-        setCurrentPage(result.currentPage);
+        setCurrentPage(result.currentPage + 1);
         setHasMore(result.hasMore);
-        setTotalCount(result.totalCount);
       } catch (err) {
-        console.error("Failed to fetch history:", err);
-        const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
-        setError(errorMessage);
         toast({
           title: "Error Loading History",
-          description: errorMessage,
+          description: err instanceof Error ? err.message : "An unknown error occurred.",
           variant: "destructive",
         });
       } finally {
-        setIsLoading(false);
-        setShowSkeletons(false); // NEW: always hide skeletons after load
+        setIsLoadingMore(false);
       }
     };
-    loadInitialHistory();
-    // NEW: cleanup timer
-    return () => clearTimeout(skeletonTimer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFilter, toast, itemsPerPage]);
+    // Don't run on initial render, only when filter changes
+    if (isInitialRender.current) {
+      isInitialRender.current = false;
+    } else {
+      loadFilteredHistory();
+    }
+  }, [currentFilter, toast]);
 
   const handleLoadMore = useCallback(async () => {
     if (!hasMore || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      const result = await getHistoryPaginated(currentPage + 1, itemsPerPage, currentFilter);
+      // Use a server action for pagination
+      const result = await getHistoryPaginated(currentPage, 9, currentFilter);
       setHistoryItems(prevItems => [...prevItems, ...result.items]);
-      setCurrentPage(result.currentPage);
+      setCurrentPage(prev => prev + 1);
       setHasMore(result.hasMore);
     } catch (err) {
-      console.error("Failed to fetch history:", err);
-      setError(err instanceof Error ? err.message : "An unknown error occurred.");
       toast({
         title: "Error Loading History",
         description: err instanceof Error ? err.message : "Could not fetch history items.",
@@ -119,36 +108,11 @@ export default function HistoryGallery() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [hasMore, isLoadingMore, currentPage, currentFilter, itemsPerPage, toast]);
+  }, [hasMore, isLoadingMore, currentPage, currentFilter, toast]);
 
-  // Set up the IntersectionObserver to watch the loadMoreRef
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // If the trigger element is intersecting and we have more items to load
-        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMore) {
-          handleLoadMore();
-        }
-      },
-      { 
-        threshold: 1.0, // Trigger when 100% of the element is visible
-        rootMargin: '100px' // Start loading 100px before the element is visible
-      }
-    );
-    const currentRef = loadMoreRef.current;
-    if (currentRef) {
-      observer.observe(currentRef);
-    }
-    return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
-    };
-  }, [hasMore, isLoading, isLoadingMore, handleLoadMore]); // Dependencies updated
 
   const handleFilterChange = (newFilter: string) => {
     setCurrentFilter(newFilter as FilterType);
-    setCurrentPage(1); // Reset to first page on filter change
   };
 
   const handleViewDetails = (item: HistoryItem) => {
@@ -174,7 +138,6 @@ export default function HistoryGallery() {
       if (result.success) {
         // Optimistic UI Update: Remove the item from the local state
         setHistoryItems(prevItems => prevItems.filter(item => item.id !== itemToDelete.id));
-        setTotalCount(prevCount => prevCount - 1); // Decrement total count
         toast({
           title: "Item Deleted",
           description: "The history item has been permanently removed.",
@@ -222,26 +185,7 @@ export default function HistoryGallery() {
         </TabsList>
       </Tabs>
 
-      {isLoading && showSkeletons && !isLoadingMore && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-          {Array.from({ length: itemsPerPage }).map((_, index) => (
-            <div key={`skel-${index}`} className="p-4 border rounded-lg shadow-sm space-y-2 bg-muted/50">
-              <div className="h-5 w-3/4 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-              <div className="h-4 w-1/2 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-              <div className="h-4 w-1/3 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!isLoading && error && (
-        <div className="text-center py-10 text-red-600">
-          <AlertTriangle className="mx-auto h-12 w-12 mb-2" />
-          <p>Error loading history: {error}</p>
-        </div>
-      )}
-
-      {!isLoading && !error && historyItems.length === 0 && (
+      {historyItems.length === 0 && !isLoadingMore && (
         <Card variant="glass" className="mt-8">
           <CardContent className="py-16 flex flex-col items-center justify-center text-center">
             <ImageIcon className="h-16 w-16 text-muted-foreground/50 mb-4" />
@@ -253,7 +197,7 @@ export default function HistoryGallery() {
 
       <LayoutGroup>
         <>
-          {!isLoading && !error && historyItems.length > 0 && (
+          {historyItems.length > 0 && (
             <motion.div
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
               variants={containerVariants}
@@ -296,14 +240,15 @@ export default function HistoryGallery() {
         </>
       </LayoutGroup>
 
-      {/* Invisible trigger element for infinite scroll */}
-      {hasMore && <div ref={loadMoreRef} className="h-4" />}
-
-      {isLoadingMore && (
-        <div className="text-center mt-8 flex justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      {hasMore && (
+        <div className="mt-8 text-center">
+          <Button onClick={handleLoadMore} disabled={isLoadingMore}>
+            {isLoadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Load More
+          </Button>
         </div>
       )}
+
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!itemToDelete} onOpenChange={(isOpen) => !isOpen && setItemToDelete(null)}>

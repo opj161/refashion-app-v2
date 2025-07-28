@@ -153,8 +153,15 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
               <Badge variant="secondary" className="ml-2 text-xs font-medium">{username}</Badge>
             )}
           </div>
-          <CardDescription className="text-xs text-muted-foreground mt-1">
-            {new Date(item.timestamp).toLocaleDateString()} {new Date(item.timestamp).toLocaleTimeString()}
+          <CardDescription className="text-xs text-muted-foreground mt-1" suppressHydrationWarning>
+            {new Date(item.timestamp).toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'numeric', 
+              day: 'numeric' 
+            })} {new Date(item.timestamp).toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent 
