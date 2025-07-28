@@ -1,0 +1,5 @@
+# Set default behavior for all text files to normalize to LF on commit
+* text=auto eol=lf
+
+# Explicitly force shell scripts to use LF, preventing any ambiguity
+*.sh text eol=lf

@@ -5,13 +5,15 @@ const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
-const secretKey = process.env.ENCRYPTION_SECRET;
 
-if (!secretKey || secretKey.length !== 32) {
-  throw new Error('ENCRYPTION_SECRET is not defined or is not 32 characters long in .env file.');
+function getKey(): Buffer {
+  const secretKey = process.env.ENCRYPTION_SECRET;
+  if (!secretKey || secretKey.length !== 32) {
+    // This error will now only be thrown at RUNTIME if the secret is missing, not at build time.
+    throw new Error('ENCRYPTION_SECRET is not defined or is not 32 characters long in .env file.');
+  }
+  return Buffer.from(secretKey, 'utf-8');
 }
-
-const key = Buffer.from(secretKey, 'utf-8');
 
 /**
  * Encrypts a plaintext string.
@@ -19,6 +21,7 @@ const key = Buffer.from(secretKey, 'utf-8');
  * @returns A base64 encoded string containing the iv, authTag, and encrypted data.
  */
 export function encrypt(text: string): string {
+  const key = getKey(); // Get the key just-in-time
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
   const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
@@ -36,6 +39,7 @@ export function decrypt(encryptedText: string | null | undefined): string {
   if (!encryptedText) {
     return '';
   }
+  const key = getKey(); // Get the key just-in-time
   try {
     const data = Buffer.from(encryptedText, 'base64');
     const iv = data.slice(0, IV_LENGTH);

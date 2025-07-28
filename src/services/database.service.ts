@@ -49,7 +49,10 @@ function initSchema(db: Database.Database) {
       originalClothingUrl TEXT,
       settingsMode TEXT,
       attributes TEXT,
-      videoGenerationParams TEXT
+      videoGenerationParams TEXT,
+      webhook_url TEXT,
+      status TEXT DEFAULT 'completed', -- ADDED
+      error TEXT -- ADDED
     );
 
     CREATE TABLE IF NOT EXISTS users (
@@ -133,10 +136,11 @@ function getPreparedStatements() {
   if (!preparedStatements.insertHistory) {
     const db = getDb();
     
+    // Removed stray SQL code
     preparedStatements.insertHistory = db.prepare(`
       INSERT OR REPLACE INTO history 
-      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error, webhook_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     preparedStatements.insertImage = db.prepare(`
@@ -239,6 +243,7 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
     videoGenerationParams = row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined;
   } catch (e) { videoGenerationParams = undefined; }
 
+  // removed malformed object literal
   return {
     id: row.id,
     username: row.username,
@@ -251,6 +256,9 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
     originalImageUrls,
     generatedVideoUrls,
     videoGenerationParams,
+    status: row.status as 'processing' | 'completed' | 'failed',
+    error: row.error || undefined,
+    webhookUrl: row.webhook_url || undefined,
   };
 }
 
@@ -268,7 +276,10 @@ export function insertHistoryItem(item: HistoryItem): void {
       item.originalClothingUrl,
       item.settingsMode,
       JSON.stringify(item.attributes),
-      item.videoGenerationParams ? JSON.stringify(item.videoGenerationParams) : null
+      item.videoGenerationParams ? JSON.stringify(item.videoGenerationParams) : null,
+      item.status || 'completed',
+      item.error || null,
+      item.webhookUrl || null
     );
     
     // Insert edited images
@@ -317,14 +328,22 @@ export function updateHistoryItem(id: string, updates: Partial<HistoryItem>): vo
 
   const updateTransaction = db.transaction(() => {
     // Update simple text fields if provided
-    if (updates.constructedPrompt !== undefined || updates.settingsMode !== undefined) {
+    if (updates.constructedPrompt !== undefined || updates.settingsMode !== undefined || updates.status !== undefined || updates.error !== undefined) {
       const updateMainStmt = db.prepare(`
         UPDATE history
         SET constructedPrompt = COALESCE(?, constructedPrompt),
-            settingsMode = COALESCE(?, settingsMode)
+            settingsMode = COALESCE(?, settingsMode),
+            status = COALESCE(?, status),
+            error = COALESCE(?, error)
         WHERE id = ?
       `);
-      updateMainStmt.run(updates.constructedPrompt, updates.settingsMode, id);
+      updateMainStmt.run(
+        updates.constructedPrompt,
+        updates.settingsMode,
+        updates.status,
+        updates.error,
+        id
+      );
     }
 
     // Atomically patch JSON fields
@@ -540,6 +559,30 @@ export function findUserByUsername(username: string): FullUser | null {
     passwordHash: row.password_hash,
     role: row.role as 'admin' | 'user',
     isLoggedIn: true, // This is for session compatibility, not stored in DB
+    gemini_api_key_1: row.gemini_api_key_1,
+    gemini_api_key_1_mode: row.gemini_api_key_1_mode,
+    gemini_api_key_2: row.gemini_api_key_2,
+    gemini_api_key_2_mode: row.gemini_api_key_2_mode,
+    gemini_api_key_3: row.gemini_api_key_3,
+    gemini_api_key_3_mode: row.gemini_api_key_3_mode,
+    fal_api_key: row.fal_api_key,
+    fal_api_key_mode: row.fal_api_key_mode
+  };
+}
+
+export function findUserByApiKey(apiKey: string): FullUser | null {
+  const db = getDb();
+  const stmt = db.prepare('SELECT * FROM users WHERE app_api_key = ?');
+  const row: any = stmt.get(apiKey);
+
+  if (!row) {
+    return null;
+  }
+  return {
+    username: row.username,
+    passwordHash: row.password_hash,
+    role: row.role as 'admin' | 'user',
+    isLoggedIn: true, // For session compatibility
     gemini_api_key_1: row.gemini_api_key_1,
     gemini_api_key_1_mode: row.gemini_api_key_1_mode,
     gemini_api_key_2: row.gemini_api_key_2,

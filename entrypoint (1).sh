@@ -2,23 +2,25 @@
 # Exit on error
 set -e
 
-
-# scripts migrate data from older formats (env vars, JSON files) into the SQLite DB.
-# They are idempotent and safe to run on every startup. They will be needed for any new deployment
-# that might be migrating from a pre-SQLite version.
-echo "--- Running one-time data migrations (if needed) ---"
+# Run the user migration
+echo "--- Running user migration ---"
 node /app/dist/scripts/migrate-users-to-sqlite.js || echo "User migration completed or skipped"
-node /app/dist/scripts/migrate-json-to-sqlite.js || echo "Migration completed or skipped"
-# This one is a complex schema + data migration, so we keep it separate.
-node /app/dist/scripts/add-granular-api-key-columns.js || echo "Granular API key migration completed or skipped"
-echo "--- One-time data migrations complete ---"
+echo "--- User migration check complete ---"
 
-# --- ONGOING SCHEMA INTEGRITY CHECK ---
-# This single, consolidated script ensures all necessary columns exist in the database.
-# It is idempotent and replaces all the simple "ALTER TABLE ADD COLUMN" scripts.
-echo "--- Ensuring Database Schema Integrity ---"
-node /app/dist/scripts/ensure-schema-integrity.js || echo "Schema integrity check completed or skipped."
-echo "--- Database Schema Integrity Check Complete ---"
+# Run the database migration
+echo "--- Running database migration ---"
+node /app/dist/scripts/migrate-json-to-sqlite.js || echo "Migration completed or skipped"
+echo "--- Migration check complete ---"
+
+# Run the new API key column migration
+echo "--- Running API key column migration ---"
+node /app/dist/scripts/add-api-key-columns-to-users.js || echo "API key column migration completed or skipped"
+echo "--- API key column migration check complete ---"
+
+# Run the new granular API key migration
+echo "--- Running granular API key migration ---"
+node /app/dist/scripts/add-granular-api-key-columns.js || echo "Granular API key migration completed or skipped"
+echo "--- Granular API key migration check complete ---"
 
 # Use PUID/PGID from environment, or default to 1000 (common for 'node' user in base images)
 # Unraid should be passing PUID=99 and PGID=100

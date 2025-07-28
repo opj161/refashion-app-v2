@@ -12,7 +12,7 @@ node_modules
 .next/
 out/
 public/uploads/
-user_data/
+user_data/*
 
 # Explicitly INCLUDE files and folders needed for the build.
 # This prevents them from being accidentally ignored.
@@ -29,3 +29,4 @@ user_data/
 !/entrypoint.sh
 !/Dockerfile
 !/.dockerignore
+

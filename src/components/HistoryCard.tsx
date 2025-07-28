@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { HistoryItem } from "@/lib/types";
 import { getDisplayableImageUrl } from "@/lib/utils";
-import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle, MoreVertical, Trash2 } from "lucide-react";
+import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle, MoreVertical, Trash2, Download } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from 'motion/react';
+import { useToast } from "@/hooks/use-toast";
 
 interface HistoryCardProps {
   item: HistoryItem;
@@ -21,6 +22,7 @@ interface HistoryCardProps {
 }
 
 export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDeleteItem, username }: HistoryCardProps) {
+  const { toast } = useToast();
   const [isInView, setIsInView] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -31,9 +33,9 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
   let status: 'completed' | 'processing' | 'failed' | null = null;
   let statusText = "";
 
-  if (isVideoItem && item.videoGenerationParams?.status) {
-    status = item.videoGenerationParams.status;
-    statusText = status.charAt(0).toUpperCase() + status.slice(1);
+  if (isVideoItem && (item.videoGenerationParams as any)?.status) {
+    status = (item.videoGenerationParams as any).status;
+    statusText = status ? status.charAt(0).toUpperCase() + status.slice(1) : "";
   } else if (!isVideoItem && item.editedImageUrls && item.editedImageUrls.every(url => url === null) && item.constructedPrompt) {
     // This is a basic heuristic for failed image jobs if all URLs are null but a prompt existed.
     // More robust status would require adding it to HistoryItem for images.
@@ -90,11 +92,45 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
     }
   }, [isInView, isVideoItem, videoUrl]);
 
-  // Add more sophisticated status detection if needed, e.g. for image processing steps
+  const triggerDownload = (url: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    
+    if (isVideoItem) {
+      const localVideoUrl = item.videoGenerationParams?.localVideoUrl;
+      if (localVideoUrl) {
+        const downloadUrl = getDisplayableImageUrl(localVideoUrl);
+        if (downloadUrl) {
+          triggerDownload(downloadUrl, `RefashionAI_video_${item.id.substring(0, 8)}.mp4`);
+        }
+      }
+    } else {
+      const imageUrls = item.editedImageUrls.filter((url): url is string => !!url);
+      if (imageUrls.length > 0) {
+        imageUrls.forEach((url, index) => {
+          const downloadUrl = getDisplayableImageUrl(url);
+          if (downloadUrl) {
+            triggerDownload(downloadUrl, `RefashionAI_image_${item.id.substring(0, 8)}_${index + 1}.png`);
+          }
+        });
+      } else {
+        toast({ title: "No images to download", variant: "destructive" });
+      }
+    }
+  };
 
   return (
     <motion.div
       layout
+      layoutId={`history-card-${item.id}`}
       whileHover={{ scale: 1.02, y: -4 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 20 }}
@@ -106,14 +142,13 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
               {item.constructedPrompt || (isVideoItem ? "Video Generation" : "Image Generation")}
             </CardTitle>
             <Badge variant={
-              status === 'completed' ? 'default' : // 'success' if you have it
+              status === 'completed' ? 'default' :
               status === 'processing' ? 'secondary' :
               status === 'failed' ? 'destructive' : 'outline'
             } className="ml-2 text-xs whitespace-nowrap">
               {isVideoItem ? <Video className="h-3 w-3 mr-1.5" /> : <ImageIcon className="h-3 w-3 mr-1.5" />}
               {isVideoItem ? "Video" : "Image"}
             </Badge>
-            {/* Render username badge if provided */}
             {username && (
               <Badge variant="secondary" className="ml-2 text-xs font-medium">{username}</Badge>
             )}
@@ -126,12 +161,8 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
           className="p-3 sm:p-4 flex-grow relative cursor-pointer"
           onClick={() => onViewDetails(item)}
         >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.97 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="aspect-[2/3] w-full bg-muted rounded-md overflow-hidden relative pointer-events-none"
+          <div
+            className="aspect-[2/3] w-full bg-muted rounded-md overflow-hidden relative"
           >
             {isVideoItem && videoUrl ? (
               <>
@@ -158,7 +189,7 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
                 alt={isVideoItem ? "Video thumbnail" : "Generated image"}
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className={`object-cover object-top transition-transform duration-300 ease-in-out`}
+                className={`object-cover object-top transition-transform duration-300 ease-in-out group-hover:scale-105`}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -171,34 +202,29 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
                 <PlayCircle className="h-12 w-12 text-white/80" />
               </div>
             )}
-             {status && status !== 'completed' && (
-             <div className="absolute top-2 right-2">
+            {status && status !== 'completed' && (
+              <div className="absolute top-2 right-2">
                 <Badge variant={status === 'failed' ? 'destructive' : 'secondary'} className="text-xs">
                     {status === 'processing' && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
                     {status === 'failed' && <AlertTriangle className="h-3 w-3 mr-1.5" />}
                     {statusText}
                 </Badge>
-             </div>
-           )}
-          </motion.div>
-
-          {/* Display a few key parameters if available */}
+              </div>
+            )}
+          </div>
           <div className="mt-2 space-y-1 text-xs text-muted-foreground">
             {item.attributes?.fashionStyle && item.attributes.fashionStyle !== "default_style" && (
               <p className="truncate">Style: {item.attributes.fashionStyle.replace(/_/g, ' ')}</p>
             )}
           </div>
         </CardContent>
-
         <CardFooter className="p-3 sm:p-4 flex gap-2 bg-muted/30 border-t">
           <Button variant="outline" size="sm" onClick={() => onViewDetails(item)} className="flex-1">
             <Eye className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">View Details</span>
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => onReloadConfig(item)} className="flex-1">
-            <RefreshCw className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Reload Config</span>
+          <Button variant="secondary" size="sm" onClick={handleDownload} className="flex-1">
+            <Download className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Download</span>
           </Button>
-
-          {/* Options Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-9 w-9">
@@ -207,9 +233,17 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReloadConfig(item);
+                }}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                <span>Reload Config</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
                 onClick={(e) => {
-                  e.stopPropagation(); // Prevent card click events
+                  e.stopPropagation();
                   onDeleteItem(item);
                 }}
               >

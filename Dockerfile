@@ -1,5 +1,5 @@
 # Use an official Node.js runtime as a parent image
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 
 # 1. ---- Dependencies Stage ----
 # Only re-run when package.json or package-lock.json changes
@@ -14,20 +14,12 @@ RUN npm ci
 FROM base AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 # 3. ---- Builder Stage ----
 # This stage builds the Next.js application
 FROM base AS builder
 WORKDIR /app
-
-# Accept build-time arguments for Next.js public environment variables
-ARG NEXT_PUBLIC_FAL_KEY
-ENV NEXT_PUBLIC_FAL_KEY=$NEXT_PUBLIC_FAL_KEY
-
-# Accept build-time argument for ENCRYPTION_SECRET
-ARG ENCRYPTION_SECRET
-ENV ENCRYPTION_SECRET=$ENCRYPTION_SECRET
 
 # Copy dependencies from the 'deps' stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -51,7 +43,6 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000

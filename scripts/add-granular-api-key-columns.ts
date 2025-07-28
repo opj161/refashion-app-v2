@@ -1,9 +1,25 @@
 // scripts/add-granular-api-key-columns.ts
-import { getDb } from '../src/services/database.service';
+import { getDb } from '@/services/database.service';
 
 function runMigration() {
   const db = getDb();
   console.log('Running granular API key migration...');
+
+  // --- START OF FIX ---
+  // Idempotency Check: Verify if the migration has already run.
+  try {
+    const columns = db.pragma('table_info(users)') as Array<{ name: string }>;
+
+    const hasNewColumn = columns.some((col: { name: string }) => col.name === 'gemini_api_key_1_mode');
+    if (hasNewColumn) {
+      console.log('Granular API key columns already exist. Migration not needed.');
+      return; // Exit the script gracefully
+    }
+  } catch (e) {
+    // This might happen if the users table doesn't exist yet, which is fine.
+    console.log('Users table not found, proceeding with creation.');
+  }
+  // --- END OF FIX ---
 
   try {
     // We will build a new table and copy data, as altering tables in SQLite is limited.

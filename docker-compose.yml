@@ -4,9 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_FAL_KEY: ${NEXT_PUBLIC_FAL_KEY}
-        ENCRYPTION_SECRET: ${ENCRYPTION_SECRET}
     ports:
       - "3000:3000" # Map host port 3000 to container port 3000
     volumes:
@@ -21,7 +18,8 @@ services:
     environment:
       - NODE_ENV=production # Or 'production' if you want to test production build behavior
       - PORT=3000
-      - FORCE_HTTPS=false # Set to true if using HTTPS
+      - NEXT_PUBLIC_APP_URL=https://app.refashion.cc
+      - FORCE_HTTPS=false 
       # STORAGE_PROVIDER will be picked from .env file
     # If you need to ensure Genkit dev server runs, you might need a more complex setup
     # or run it separately. This setup focuses on running the Next.js app.

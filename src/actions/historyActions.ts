@@ -6,11 +6,12 @@ import * as dbService from '@/services/database.service';
 
 export async function updateHistoryItem(
   historyItemId: string,
-  updates: Partial<Pick<HistoryItem, 'editedImageUrls' | 'originalImageUrls' | 'constructedPrompt' | 'generatedVideoUrls' | 'videoGenerationParams'>>
+  updates: Partial<HistoryItem>,
+  username?: string // NEW optional username parameter for API context
 ): Promise<{ success: boolean; error?: string }> {
-  const user = await getCurrentUser();
-  if (!user) {
-    return { success: false, error: 'User not authenticated' };
+  const user = username ? { username } : await getCurrentUser();
+  if (!user || !user.username) {
+    return { success: false, error: 'User not authenticated or username not provided' };
   }
 
   try {
@@ -26,11 +27,9 @@ export async function updateHistoryItem(
 
     // Perform the atomic update
     dbService.updateHistoryItem(historyItemId, updates);
-
     return { success: true };
   } catch (error) {
-    console.error(`Error updating history item ${historyItemId} for user ${user.username}:`, error);
-    return { success: false, error: 'Failed to update history item.' };
+    return { success: false, error: (error as Error).message };
   }
 }
 
@@ -71,11 +70,15 @@ export async function addHistoryItem(
   constructedPrompt: string,
   originalClothingUrl: string,
   editedImageUrls: (string | null)[],
-  settingsMode: 'basic' | 'advanced'
+  settingsMode: 'basic' | 'advanced',
+  status: 'processing' | 'completed' | 'failed' = 'completed',
+  error?: string,
+  username?: string, // NEW optional username parameter for API context
+  webhookUrl?: string // NEW optional webhookUrl
 ): Promise<string> {
-  const user = await getCurrentUser();
-  if (!user) {
-    throw new Error('User not authenticated');
+  const user = username ? { username } : await getCurrentUser();
+  if (!user || !user.username) {
+    throw new Error('User not authenticated or username not provided.');
   }
   
   const newItem: HistoryItem = {
@@ -86,7 +89,10 @@ export async function addHistoryItem(
     originalClothingUrl,
     editedImageUrls,
     username: user.username,
-    settingsMode
+    settingsMode,
+    status,
+    error,
+    webhookUrl,
   };
   
   dbService.insertHistoryItem(newItem);

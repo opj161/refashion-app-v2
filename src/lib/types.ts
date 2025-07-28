@@ -34,10 +34,10 @@ export interface HistoryItem {
     cameraFixed: boolean;
     // Webhook-related fields
     localVideoUrl?: string | null;
-    status?: 'processing' | 'completed' | 'failed';
-    error?: string;
-    taskId?: string;
   };
+  status?: 'processing' | 'completed' | 'failed';
+  error?: string;
+  webhookUrl?: string;
 }
 
 export interface ModelAttributes {

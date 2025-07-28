@@ -7,9 +7,8 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string[] }> }
 ) {
-  const resolvedParams = await params;
-  const slug = resolvedParams.slug;
-
+  const { slug } = await params;
+  
   if (!slug || !Array.isArray(slug)) {
     return new NextResponse('Invalid image path', { status: 400 });
   }
@@ -41,15 +40,19 @@ export async function GET(
     try {
       const fileBuffer = fs.readFileSync(requestedFilePath);
       const mimeType = mime.lookup(requestedFilePath) || 'application/octet-stream';
-      
+      const fileName = path.basename(requestedFilePath);
+
       console.log(`[IMAGE-PROXY] Successfully serving ${requestedFilePath} as ${mimeType}`);
-      
+
+      // Build headers with Content-Disposition for download
+      const headers = new Headers();
+      headers.set('Content-Type', mimeType);
+      headers.set('Cache-Control', 'public, max-age=3600');
+      headers.set('Content-Disposition', `attachment; filename="${fileName}"`);
+
       return new NextResponse(fileBuffer, {
         status: 200,
-        headers: { 
-          'Content-Type': mimeType,
-          'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
-        },
+        headers: headers,
       });
     } catch (error) {
       console.error('[IMAGE-PROXY] Error serving image:', error);

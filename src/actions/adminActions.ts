@@ -9,6 +9,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import * as settingsService from '@/services/settings.service';
 import { encrypt } from '@/services/encryption.service';
+import crypto from 'crypto';
 
 const SALT_ROUNDS = 12;
 
@@ -212,4 +213,27 @@ export async function getGlobalApiKeysForDisplay() {
     gemini3: mask(decrypt(settings.global_gemini_api_key_3)),
     fal: mask(decrypt(settings.global_fal_api_key)),
   };
+}
+
+export async function generateApiKeyForUser(username: string): Promise<{ success: boolean; apiKey?: string; error?: string }> {
+  await verifyAdmin();
+
+  try {
+    const db = dbService.getDb();
+    const apiKey = `rf_${crypto.randomBytes(24).toString('hex')}`;
+    
+    const stmt = db.prepare('UPDATE users SET app_api_key = ? WHERE username = ?');
+    const result = stmt.run(apiKey, username);
+
+    if (result.changes === 0) {
+      return { success: false, error: 'User not found.' };
+    }
+    
+    revalidatePath('/admin/users');
+    return { success: true, apiKey };
+
+  } catch (error) {
+    console.error(`Error generating API key for ${username}:`, error);
+    return { success: false, error: 'Database error occurred.' };
+  }
 }

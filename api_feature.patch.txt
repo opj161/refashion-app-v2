@@ -1,0 +1,1241 @@
+diff --git a/entrypoint.sh b/entrypoint.sh
+index 56fb765..c59d102 100644
+--- a/entrypoint.sh
++++ b/entrypoint.sh
+@@ -22,6 +22,11 @@ echo "--- Running granular API key migration ---"
+ node /app/dist/scripts/add-granular-api-key-columns.js || echo "Granular API key migration completed or skipped"
+ echo "--- Granular API key migration check complete ---"
+ 
++# Run the new API features migration
++echo "--- Running API Features migration ---"
++node /app/dist/scripts/migrate-api-features.js || echo "API features migration completed or skipped"
++echo "--- API features migration check complete ---"
++
+ # Use PUID/PGID from environment, or default to 1000 (common for 'node' user in base images)
+ # Unraid should be passing PUID=99 and PGID=100
+ PUID_TO_USE=${PUID:-1000}
+diff --git a/scripts/add-granular-api-key-columns.ts b/scripts/add-granular-api-key-columns.ts
+index e3e6c13..c55f9aa 100644
+--- a/scripts/add-granular-api-key-columns.ts
++++ b/scripts/add-granular-api-key-columns.ts
+@@ -5,6 +5,22 @@ function runMigration() {
+   const db = getDb();
+   console.log('Running granular API key migration...');
+ 
++  // --- START OF FIX ---
++  // Idempotency Check: Verify if the migration has already run.
++  try {
++    const columns = db.pragma('table_info(users)') as Array<{ name: string }>;
++
++    const hasNewColumn = columns.some((col: { name: string }) => col.name === 'gemini_api_key_1_mode');
++    if (hasNewColumn) {
++      console.log('Granular API key columns already exist. Migration not needed.');
++      return; // Exit the script gracefully
++    }
++  } catch (e) {
++    // This might happen if the users table doesn't exist yet, which is fine.
++    console.log('Users table not found, proceeding with creation.');
++  }
++  // --- END OF FIX ---
++
+   try {
+     // We will build a new table and copy data, as altering tables in SQLite is limited.
+     db.exec('BEGIN TRANSACTION;');
+diff --git a/scripts/migrate-api-features.ts b/scripts/migrate-api-features.ts
+new file mode 100644
+index 0000000..439b9db
+--- /dev/null
++++ b/scripts/migrate-api-features.ts
+@@ -0,0 +1,58 @@
++// scripts/migrate-api-features.ts
++import { getDb } from '../src/services/database.service';
++
++function runApiMigration() {
++  const db = getDb();
++  console.log('Running API features migration...');
++
++  // Add status and error columns to the history table
++  try {
++    db.exec(`
++      ALTER TABLE history ADD COLUMN status TEXT NOT NULL DEFAULT 'completed';
++    `);
++    console.log('Added "status" column to history table.');
++  } catch (e) {
++    if ((e as Error).message.includes('duplicate column name')) {
++      console.log('Column "status" already exists. Skipping.');
++    } else { throw e; }
++  }
++
++  try {
++    db.exec(`
++      ALTER TABLE history ADD COLUMN error TEXT;
++    `);
++    console.log('Added "error" column to history table.');
++  } catch (e) {
++    if ((e as Error).message.includes('duplicate column name')) {
++      console.log('Column "error" already exists. Skipping.');
++    } else { throw e; }
++  }
++  
++  // Add app_api_key column to the users table
++  try {
++    db.exec(`
++      ALTER TABLE users ADD COLUMN app_api_key TEXT;
++    `);
++    console.log('Added "app_api_key" column to users table.');
++  } catch (e) {
++    if ((e as Error).message.includes('duplicate column name')) {
++      console.log('Column "app_api_key" already exists. Skipping.');
++    } else { throw e; }
++  }
++
++  // Add unique constraint to app_api_key if it doesn't exist
++  try {
++    db.exec(`
++      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_app_api_key ON users(app_api_key) WHERE app_api_key IS NOT NULL;
++    `);
++    console.log('Added unique constraint to "app_api_key" column.');
++  } catch (e) {
++    console.log('Unique constraint may already exist. Skipping.');
++  }
++
++  console.log('API features migration finished.');
++}
++
++if (require.main === module) {
++  runApiMigration();
++}
+diff --git a/src/services/database.service.ts b/src/services/database.service.ts
+index 25eb89f..2caaa5d 100644
+--- a/src/services/database.service.ts
++++ b/src/services/database.service.ts
+@@ -135,8 +135,8 @@ function getPreparedStatements() {
+     
+     preparedStatements.insertHistory = db.prepare(`
+       INSERT OR REPLACE INTO history 
+-      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams)
+-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
++      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error)
++      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     `);
+     
+     preparedStatements.insertImage = db.prepare(`
+@@ -251,6 +251,8 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
+     originalImageUrls,
+     generatedVideoUrls,
+     videoGenerationParams,
++    status: row.status as 'processing' | 'completed' | 'failed',
++    error: row.error || undefined,
+   };
+ }
+ 
+@@ -268,7 +270,9 @@ export function insertHistoryItem(item: HistoryItem): void {
+       item.originalClothingUrl,
+       item.settingsMode,
+       JSON.stringify(item.attributes),
+-      item.videoGenerationParams ? JSON.stringify(item.videoGenerationParams) : null
++      item.videoGenerationParams ? JSON.stringify(item.videoGenerationParams) : null,
++      item.status || 'completed',
++      item.error || null
+     );
+     
+     // Insert edited images
+@@ -317,14 +321,22 @@ export function updateHistoryItem(id: string, updates: Partial<HistoryItem>): vo
+ 
+   const updateTransaction = db.transaction(() => {
+     // Update simple text fields if provided
+-    if (updates.constructedPrompt !== undefined || updates.settingsMode !== undefined) {
++    if (updates.constructedPrompt !== undefined || updates.settingsMode !== undefined || updates.status !== undefined || updates.error !== undefined) {
+       const updateMainStmt = db.prepare(`
+         UPDATE history
+         SET constructedPrompt = COALESCE(?, constructedPrompt),
+-            settingsMode = COALESCE(?, settingsMode)
++            settingsMode = COALESCE(?, settingsMode),
++            status = COALESCE(?, status),
++            error = COALESCE(?, error)
+         WHERE id = ?
+       `);
+-      updateMainStmt.run(updates.constructedPrompt, updates.settingsMode, id);
++      updateMainStmt.run(
++        updates.constructedPrompt,
++        updates.settingsMode,
++        updates.status,
++        updates.error,
++        id
++      );
+     }
+ 
+     // Atomically patch JSON fields
+@@ -551,6 +563,30 @@ export function findUserByUsername(username: string): FullUser | null {
+   };
+ }
+ 
++export function findUserByApiKey(apiKey: string): FullUser | null {
++  const db = getDb();
++  const stmt = db.prepare('SELECT * FROM users WHERE app_api_key = ?');
++  const row: any = stmt.get(apiKey);
++
++  if (!row) {
++    return null;
++  }
++  return {
++    username: row.username,
++    passwordHash: row.password_hash,
++    role: row.role as 'admin' | 'user',
++    isLoggedIn: true, // For session compatibility
++    gemini_api_key_1: row.gemini_api_key_1,
++    gemini_api_key_1_mode: row.gemini_api_key_1_mode,
++    gemini_api_key_2: row.gemini_api_key_2,
++    gemini_api_key_2_mode: row.gemini_api_key_2_mode,
++    gemini_api_key_3: row.gemini_api_key_3,
++    gemini_api_key_3_mode: row.gemini_api_key_3_mode,
++    fal_api_key: row.fal_api_key,
++    fal_api_key_mode: row.fal_api_key_mode
++  };
++}
++
+ // Cleanup function for graceful shutdown
+ export function closeDb(): void {
+   if (db) {
+diff --git a/src/actions/apiActions.ts b/src/actions/apiActions.ts
+new file mode 100644
+index 0000000..763e0cc
+--- /dev/null
++++ b/src/actions/apiActions.ts
+@@ -0,0 +1,59 @@
++// src/actions/apiActions.ts
++'use server';
++
++import { generateImageEdit } from "@/ai/flows/generate-image-edit";
++import { addHistoryItem, updateHistoryItem } from "./historyActions";
++import type { ModelAttributes } from "@/lib/types";
++
++interface ApiJobPayload {
++  username: string;
++  imageDataUri: string;
++  parameters: ModelAttributes;
++  settingsMode: 'basic' | 'advanced';
++}
++
++/**
++ * Creates a new job record in the database with a 'processing' status.
++ * @returns The new job ID (which is a history_id).
++ */
++export async function createApiJob(payload: ApiJobPayload): Promise<string> {
++  const { username, parameters, imageDataUri, settingsMode } = payload;
++  const newHistoryId = await addHistoryItem(
++    parameters,
++    "Job created via API. Prompt to be generated.", // Placeholder prompt
++    imageDataUri, // Using this as the original clothing URL
++    [], // No edited images yet
++    settingsMode,
++    'processing', // Initial status
++    undefined,    // No error
++    username      // Pass the authenticated username from API key
++  );
++  return newHistoryId;
++}
++
++/**
++ * This function is designed to be called without 'await'.
++ * It runs the full generation and updates the DB record upon completion or failure.
++ */
++export async function processApiGenerationJob(jobId: string, payload: Omit<ApiJobPayload, 'username'>, username: string): Promise<void> {
++  try {
++    const result = await generateImageEdit({ 
++      parameters: payload.parameters,
++      settingsMode: payload.settingsMode,
++      imageDataUriOrUrl: payload.imageDataUri 
++    }, username);
++
++    // Update history item with results AND the constructed prompt
++    await updateHistoryItem(jobId, {
++      editedImageUrls: result.editedImageUrls,
++      constructedPrompt: result.constructedPrompt,
++      status: 'completed',
++    }, username);
++    console.log(`API Job ${jobId} completed successfully.`);
++
++  } catch (e) {
++    console.error(`API Job ${jobId} failed:`, e);
++    // Update history item with error status
++    await updateHistoryItem(jobId, { status: 'failed', error: (e as Error).message }, username);
++  }
++}
+diff --git a/src/app/api/v1/generate/route.ts b/src/app/api/v1/generate/route.ts
+new file mode 100644
+index 0000000..6af8277
+--- /dev/null
++++ b/src/app/api/v1/generate/route.ts
+@@ -0,0 +1,89 @@
++// src/app/api/v1/generate/route.ts
++import { NextRequest, NextResponse } from 'next/server';
++import { authenticateApiRequest } from '@/lib/api-auth';
++import { createApiJob, processApiGenerationJob } from '@/actions/apiActions';
++import { z } from 'zod';
++
++const ModelAttributesSchema = z.object({
++  gender: z.string(),
++  bodyType: z.string(),
++  bodySize: z.string(),
++  ageRange: z.string(),
++  ethnicity: z.string(),
++  poseStyle: z.string(),
++  background: z.string(),
++  fashionStyle: z.string(),
++  hairStyle: z.string(),
++  modelExpression: z.string(),
++  lightingType: z.string(),
++  lightQuality: z.string(),
++  cameraAngle: z.string(),
++  lensEffect: z.string(),
++  depthOfField: z.string(),
++  timeOfDay: z.string(),
++  overallMood: z.string(),
++  fabricRendering: z.string(),
++});
++
++const GenerateRequestSchema = z.object({
++  imageDataUri: z.string().optional(),
++  imageUrl: z.string().url().optional(),
++  parameters: ModelAttributesSchema,
++  settingsMode: z.enum(['basic', 'advanced']).default('basic'),
++});
++
++export async function POST(request: NextRequest) {
++  try {
++    // Authenticate
++    const user = await authenticateApiRequest(request);
++    if (!user) {
++      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
++    }
++
++    // Parse and validate request body
++    const body = await request.json();
++    const validatedData = GenerateRequestSchema.parse(body);
++
++    // Use imageUrl if provided, otherwise imageDataUri
++    const imageDataSource = validatedData.imageUrl || validatedData.imageDataUri;
++    if (!imageDataSource) {
++      return NextResponse.json({
++        error: 'Either imageDataUri or imageUrl is required.'
++      }, { status: 400 });
++    }
++
++    // Create job record
++    const jobId = await createApiJob({
++      username: user.username,
++      imageDataUri: imageDataSource,
++      parameters: validatedData.parameters,
++      settingsMode: validatedData.settingsMode,
++    });
++
++    // Start processing in background (don't await)
++    processApiGenerationJob(jobId, {
++      imageDataUri: imageDataSource,
++      parameters: validatedData.parameters,
++      settingsMode: validatedData.settingsMode,
++    }, user.username).catch(console.error);
++
++    // Return immediately with job ID
++    return NextResponse.json({
++      jobId,
++      status: 'processing'
++    }, { status: 202 });
++
++  } catch (error) {
++    if (error instanceof z.ZodError) {
++      return NextResponse.json({
++        error: 'Invalid request data',
++        details: error.errors
++      }, { status: 400 });
++    }
++
++    console.error('API generate error:', error);
++    return NextResponse.json({
++      error: 'Internal server error'
++    }, { status: 500 });
++  }
++}
+diff --git a/src/app/api/v1/status/[jobId]/route.ts b/src/app/api/v1/status/[jobId]/route.ts
+new file mode 100644
+index 0000000..7e86ecb
+--- /dev/null
++++ b/src/app/api/v1/status/[jobId]/route.ts
+@@ -0,0 +1,77 @@
++// src/app/api/v1/status/[jobId]/route.ts
++import { NextRequest, NextResponse } from 'next/server';
++import { authenticateApiRequest } from '@/lib/api-auth';
++import { findHistoryItemById } from '@/services/database.service';
++import { getDisplayableImageUrl } from '@/lib/utils';
++
++export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
++  try {
++    // Authenticate
++    const user = await authenticateApiRequest(request);
++    if (!user) {
++      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
++    }
++
++    // Extract jobId from params
++    const { jobId } = await params;
++
++    // Look up job status
++    const historyItem = findHistoryItemById(jobId);
++    if (!historyItem) {
++      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
++    }
++
++    // Verify ownership
++    if (historyItem.username !== user.username) {
++      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
++    }
++
++    // Return response based on status
++    if (historyItem.status === 'processing') {
++      return NextResponse.json({
++        jobId,
++        status: 'processing'
++      });
++    } else if (historyItem.status === 'completed') {
++      // Use the public app URL from environment variables for correct URL construction.
++      const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
++      if (!baseUrl) {
++        console.error('CRITICAL: NEXT_PUBLIC_APP_URL is not set. Cannot form absolute URLs for API response.');
++        return NextResponse.json({ error: 'Server configuration error: App URL not set.' }, { status: 500 });
++      }
++
++      // Use the getDisplayableImageUrl utility to create PROXY URLs
++      const proxiedUrls = historyItem.editedImageUrls
++        .filter((url): url is string => !!url) // Ensure we only process non-null URLs
++        .map(url => getDisplayableImageUrl(url));
++        
++      // Make sure the URLs are absolute before sending them to the external plugin
++      const absoluteImageUrls = proxiedUrls
++        .filter((url): url is string => !!url)
++        .map(url => url.startsWith('http') ? url : `${baseUrl}${url}`);
++
++      return NextResponse.json({
++        jobId,
++        status: 'completed',
++        generatedImageUrls: absoluteImageUrls
++      });
++    } else if (historyItem.status === 'failed') {
++      return NextResponse.json({
++        jobId,
++        status: 'failed',
++        error: historyItem.error || 'Unknown error occurred'
++      });
++    } else {
++      return NextResponse.json({
++        jobId,
++        status: 'unknown'
++      });
++    }
++
++  } catch (error) {
++    console.error('API status error:', error);
++    return NextResponse.json({
++      error: 'Internal server error'
++    }, { status: 500 });
++  }
++}
+diff --git a/src/lib/api-auth.ts b/src/lib/api-auth.ts
+new file mode 100644
+index 0000000..ce230d5
+--- /dev/null
++++ b/src/lib/api-auth.ts
+@@ -0,0 +1,27 @@
++// src/lib/api-auth.ts
++import { NextRequest } from 'next/server';
++import { findUserByApiKey } from '@/services/database.service';
++import type { SessionUser } from '@/lib/types';
++
++export async function authenticateApiRequest(request: NextRequest): Promise<SessionUser | null> {
++  const authHeader = request.headers.get('Authorization');
++  if (!authHeader || !authHeader.startsWith('Bearer ')) {
++    return null;
++  }
++  const apiKey = authHeader.substring(7);
++  if (!apiKey) {
++    return null;
++  }
++
++  const user = findUserByApiKey(apiKey);
++  
++  if (user) {
++    return {
++      username: user.username,
++      role: user.role as 'admin' | 'user',
++      isLoggedIn: true,
++    };
++  }
++  
++  return null;
++}
+diff --git a/src/actions/historyActions.ts b/src/actions/historyActions.ts
+index 42b3dee..5ede90a 100644
+--- a/src/actions/historyActions.ts
++++ b/src/actions/historyActions.ts
+@@ -6,11 +6,12 @@ import * as dbService from '@/services/database.service';
+ 
+ export async function updateHistoryItem(
+   historyItemId: string,
+-  updates: Partial<Pick<HistoryItem, 'editedImageUrls' | 'originalImageUrls' | 'constructedPrompt' | 'generatedVideoUrls' | 'videoGenerationParams'>>
++  updates: Partial<HistoryItem>,
++  username?: string // NEW optional username parameter for API context
+ ): Promise<{ success: boolean; error?: string }> {
+-  const user = await getCurrentUser();
+-  if (!user) {
+-    return { success: false, error: 'User not authenticated' };
++  const user = username ? { username } : await getCurrentUser();
++  if (!user || !user.username) {
++    return { success: false, error: 'User not authenticated or username not provided' };
+   }
+ 
+   try {
+@@ -26,11 +27,9 @@ export async function updateHistoryItem(
+ 
+     // Perform the atomic update
+     dbService.updateHistoryItem(historyItemId, updates);
+-
+     return { success: true };
+   } catch (error) {
+-    console.error(`Error updating history item ${historyItemId} for user ${user.username}:`, error);
+-    return { success: false, error: 'Failed to update history item.' };
++    return { success: false, error: (error as Error).message };
+   }
+ }
+ 
+@@ -71,11 +70,14 @@ export async function addHistoryItem(
+   constructedPrompt: string,
+   originalClothingUrl: string,
+   editedImageUrls: (string | null)[],
+-  settingsMode: 'basic' | 'advanced'
++  settingsMode: 'basic' | 'advanced',
++  status: 'processing' | 'completed' | 'failed' = 'completed',
++  error?: string,
++  username?: string // NEW optional username parameter for API context
+ ): Promise<string> {
+-  const user = await getCurrentUser();
+-  if (!user) {
+-    throw new Error('User not authenticated');
++  const user = username ? { username } : await getCurrentUser();
++  if (!user || !user.username) {
++    throw new Error('User not authenticated or username not provided.');
+   }
+   
+   const newItem: HistoryItem = {
+@@ -86,7 +88,9 @@ export async function addHistoryItem(
+     originalClothingUrl,
+     editedImageUrls,
+     username: user.username,
+-    settingsMode
++    settingsMode,
++    status,
++    error
+   };
+   
+   dbService.insertHistoryItem(newItem);
+diff --git a/src/actions/adminActions.ts b/src/actions/adminActions.ts
+index 2e56ed8..2f995eb 100644
+--- a/src/actions/adminActions.ts
++++ b/src/actions/adminActions.ts
+@@ -9,6 +9,7 @@ import fs from 'fs/promises';
+ import path from 'path';
+ import * as settingsService from '@/services/settings.service';
+ import { encrypt } from '@/services/encryption.service';
++import crypto from 'crypto';
+ 
+ const SALT_ROUNDS = 12;
+ 
+@@ -213,3 +214,26 @@ export async function getGlobalApiKeysForDisplay() {
+     fal: mask(decrypt(settings.global_fal_api_key)),
+   };
+ }
++
++export async function generateApiKeyForUser(username: string): Promise<{ success: boolean; apiKey?: string; error?: string }> {
++  await verifyAdmin();
++
++  try {
++    const db = dbService.getDb();
++    const apiKey = `rf_${crypto.randomBytes(24).toString('hex')}`;
++    
++    const stmt = db.prepare('UPDATE users SET app_api_key = ? WHERE username = ?');
++    const result = stmt.run(apiKey, username);
++
++    if (result.changes === 0) {
++      return { success: false, error: 'User not found.' };
++    }
++    
++    revalidatePath('/admin/users');
++    return { success: true, apiKey };
++
++  } catch (error) {
++    console.error(`Error generating API key for ${username}:`, error);
++    return { success: false, error: 'Database error occurred.' };
++  }
++}
+diff --git a/src/ai/flows/generate-image-edit.ts b/src/ai/flows/generate-image-edit.ts
+index 1b347f5..20b09ca 100644
+--- a/src/ai/flows/generate-image-edit.ts
++++ b/src/ai/flows/generate-image-edit.ts
+@@ -17,6 +17,7 @@ import fs from 'fs';
+ import path from 'path';
+ import { saveDataUriLocally } from '@/services/storage.service';
+ import { getApiKeyForUser } from '@/services/apiKey.service';
++import { buildAIPrompt } from '@/lib/prompt-builder';
+ 
+ // NEW: Import Axios and HttpsProxyAgent for explicit proxy control
+ import axios, { AxiosError } from 'axios';
+@@ -124,7 +125,9 @@ async function makeGeminiApiCall(apiKey: string, requestBody: GeminiApiRequestBo
+ }
+ 
+ const GenerateImageEditInputSchema = z.object({
+-  prompt: z.string().describe('The prompt to use for generating or editing the image.'),
++  prompt: z.string().optional().describe('The prompt to use for generating or editing the image.'),
++  parameters: z.any().optional().describe('The parameters object to build the prompt from.'),
++  settingsMode: z.enum(['basic', 'advanced']).optional().describe('The settings mode for prompt construction.'),
+   imageDataUriOrUrl: z
+     .string()
+     .optional()
+@@ -325,6 +328,7 @@ async function generateImageFlow3(input: GenerateImageEditInput, username: strin
+ const GenerateMultipleImagesOutputSchema = z.object({
+   editedImageUrls: z.array(z.string().nullable()).length(3)
+     .describe('An array of three generated or edited image URLs/paths (or null for failures).'),
++  constructedPrompt: z.string().describe('The final prompt that was sent to the AI.'),
+   errors: z.array(z.string().nullable()).optional()
+     .describe('An array of error messages if any generation or storage failed.'),
+ });
+@@ -335,10 +339,33 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
+   if (!username) {
+     throw new Error('Username is required to generate images.');
+   }
++
++  // Construct the prompt from parameters if provided
++  let constructedPrompt: string;
++  if (input.parameters) {
++    constructedPrompt = buildAIPrompt({
++      type: 'image',
++      params: {
++        ...input.parameters,
++        settingsMode: input.settingsMode || 'basic'
++      }
++    });
++  } else if (input.prompt) {
++    constructedPrompt = input.prompt;
++  } else {
++    throw new Error('Either parameters or prompt must be provided');
++  }
++
++  // Create input with the constructed prompt for the generation flows
++  const inputForGeneration: GenerateImageEditInput = {
++    ...input,
++    prompt: constructedPrompt,
++  };
++
+   const results = await Promise.allSettled([
+-    generateImageFlow1(input, username),
+-    generateImageFlow2(input, username),
+-    generateImageFlow3(input, username),
++    generateImageFlow1(inputForGeneration, username),
++    generateImageFlow2(inputForGeneration, username),
++    generateImageFlow3(inputForGeneration, username),
+   ]);
+ 
+   const editedImageUrlsResult: (string | null)[] = [null, null, null];
+@@ -357,6 +384,7 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
+ 
+   return {
+     editedImageUrls: editedImageUrlsResult,
++    constructedPrompt: constructedPrompt,
+     errors: errorsResult.some(e => e !== null) ? errorsResult : undefined
+   };
+ }
+diff --git a/src/lib/types.ts b/src/lib/types.ts
+index 1a5da97..6c7869f 100644
+--- a/src/lib/types.ts
++++ b/src/lib/types.ts
+@@ -34,10 +34,9 @@ export interface HistoryItem {
+     cameraFixed: boolean;
+     // Webhook-related fields
+     localVideoUrl?: string | null;
+-    status?: 'processing' | 'completed' | 'failed';
+-    error?: string;
+-    taskId?: string;
+   };
++  status?: 'processing' | 'completed' | 'failed';
++  error?: string;
+ }
+ 
+ export interface ModelAttributes {
+diff --git a/src/middleware.ts b/src/middleware.ts
+index c935c78..bac70e6 100644
+--- a/src/middleware.ts
++++ b/src/middleware.ts
+@@ -5,7 +5,29 @@ import { cookies } from 'next/headers';
+ import { sessionOptions } from '@/lib/session';
+ import type { SessionData } from '@/lib/types';
+ 
++const ALLOWED_ORIGINS = [
++  'https://marcodirenzo.ch',
++  'https://demo.marcodirenzo.ch',
++];
++
+ export async function middleware(request: NextRequest) {
++  const origin = request.headers.get('origin');
++  const isApiV1Route = request.nextUrl.pathname.startsWith('/api/v1/');
++
++  // Handle CORS preflight requests for the API
++  if (isApiV1Route && request.method === 'OPTIONS') {
++    if (origin && ALLOWED_ORIGINS.includes(origin)) {
++      return new NextResponse(null, {
++        status: 204,
++        headers: {
++          'Access-Control-Allow-Origin': origin,
++          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
++          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
++        },
++      });
++    }
++  }
++
+   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
+   const { user } = session;
+ 
+@@ -14,10 +36,18 @@ export async function middleware(request: NextRequest) {
+   // Allow access to login page and public assets/API routes
+   if (pathname.startsWith('/login') || 
+       pathname.startsWith('/_next/') || 
+-      pathname.startsWith('/api/') || // All API routes allowed
++      pathname.startsWith('/api/') || 
+       pathname.startsWith('/uploads/') || // Allow access to uploaded files
+       pathname.includes('.')) { // Allows requests for static files like .png, .css
+-    return NextResponse.next();
++    
++    const response = NextResponse.next();
++    
++    // Add CORS headers for API v1 routes on actual requests
++    if (isApiV1Route && origin && ALLOWED_ORIGINS.includes(origin)) {
++      response.headers.set('Access-Control-Allow-Origin', origin);
++    }
++    
++    return response;
+   }
+ 
+   if (!user?.isLoggedIn) {
+@@ -36,22 +66,20 @@ export async function middleware(request: NextRequest) {
+     // This prevents automatic redirects to admin areas
+   }
+ 
+-  return NextResponse.next();
++  const response = NextResponse.next();
++  
++  // Add CORS headers for API v1 routes on actual requests
++  if (isApiV1Route && origin && ALLOWED_ORIGINS.includes(origin)) {
++    response.headers.set('Access-Control-Allow-Origin', origin);
++  }
++  
++  return response;
+ }
+ 
+ // Define which paths the middleware should run on
+ export const config = {
+   matcher: [
+-    /*
+-     * Match all request paths except for the ones starting with:
+-     * - api (API routes)
+-     * - _next/static (static files)
+-     * - _next/image (image optimization files)
+-     * - favicon.ico (favicon file)
+-     * - login page itself
+-     *
+-     * Or files with extensions (e.g. .png)
+-     */
+-    '/((?!api|_next/static|_next/image|favicon.ico|login|.*\\.).*)',
++    // Match all paths except for static files and image optimization
++    '/((?!_next/static|_next/image|favicon.ico).*)',
+   ],
+ };
+diff --git a/src/components/admin/UserManagementTable.tsx b/src/components/admin/UserManagementTable.tsx
+index 6ddf4f2..301d11b 100644
+--- a/src/components/admin/UserManagementTable.tsx
++++ b/src/components/admin/UserManagementTable.tsx
+@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
+ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+ import { useToast } from '@/hooks/use-toast';
+ import { PlusCircle, Trash2, Loader2, Edit } from 'lucide-react';
+-import { createUser, deleteUser, updateUserConfiguration } from '@/actions/adminActions';
++import { createUser, deleteUser, updateUserConfiguration, generateApiKeyForUser } from '@/actions/adminActions';
+ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+ import { Card, CardContent } from '@/components/ui/card';
+ 
+@@ -42,6 +42,7 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps)
+   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+   const [userToEdit, setUserToEdit] = useState<User | null>(null);
++  const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
+ 
+   const handleCreateUser = async (event: React.FormEvent<HTMLFormElement>) => {
+     event.preventDefault();
+@@ -111,6 +112,19 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps)
+     setIsSubmitting(false);
+   };
+ 
++  const handleGenerateKey = async () => {
++    if (!userToEdit) return;
++    setIsSubmitting(true);
++    const result = await generateApiKeyForUser(userToEdit.username);
++    if (result.success && result.apiKey) {
++      setGeneratedApiKey(result.apiKey);
++      toast({ title: 'API Key Generated', description: `A new key has been generated for ${userToEdit.username}.` });
++    } else {
++      toast({ title: 'Error', description: result.error, variant: 'destructive' });
++    }
++    setIsSubmitting(false);
++  };
++
+   const getApiKeyModeSummary = (user: User) => {
+     const modes = [
+       user.gemini_api_key_1_mode,
+@@ -288,6 +302,13 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps)
+                   </AccordionContent>
+                 </AccordionItem>
+               </Accordion>
++              <div className="pt-4 border-t">
++                <Label>External API Key</Label>
++                <p className="text-xs text-muted-foreground pb-2">Generate a key for integrations like WordPress.</p>
++                <Button type="button" variant="secondary" onClick={handleGenerateKey} disabled={isSubmitting}>
++                  Generate New API Key
++                </Button>
++              </div>
+             </div>
+             <DialogFooter>
+               <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes</Button>
+@@ -312,6 +333,27 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps)
+           </AlertDialogFooter>
+         </AlertDialogContent>
+       </AlertDialog>
++
++      <AlertDialog open={!!generatedApiKey} onOpenChange={() => setGeneratedApiKey(null)}>
++        <AlertDialogContent>
++          <AlertDialogHeader>
++            <AlertDialogTitle>API Key Generated</AlertDialogTitle>
++            <AlertDialogDescription>
++              Copy this key and store it securely. You will not see it again.
++            </AlertDialogDescription>
++          </AlertDialogHeader>
++          <div className="p-4 bg-muted rounded-md font-mono text-sm break-all">{generatedApiKey}</div>
++          <AlertDialogFooter>
++            <AlertDialogAction onClick={() => {
++              navigator.clipboard.writeText(generatedApiKey || '');
++              toast({ title: 'Copied!' });
++              setGeneratedApiKey(null);
++            }}>
++              Copy & Close
++            </AlertDialogAction>
++          </AlertDialogFooter>
++        </AlertDialogContent>
++      </AlertDialog>
+     </>
+   );
+ }
+diff --git a/src/components/HistoryCard.tsx b/src/components/HistoryCard.tsx
+index c0f3b0f..28aa2d2 100644
+--- a/src/components/HistoryCard.tsx
++++ b/src/components/HistoryCard.tsx
+@@ -31,9 +31,9 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
+   let status: 'completed' | 'processing' | 'failed' | null = null;
+   let statusText = "";
+ 
+-  if (isVideoItem && item.videoGenerationParams?.status) {
+-    status = item.videoGenerationParams.status;
+-    statusText = status.charAt(0).toUpperCase() + status.slice(1);
++  if (isVideoItem && (item.videoGenerationParams as any)?.status) {
++    status = (item.videoGenerationParams as any).status;
++    statusText = status ? status.charAt(0).toUpperCase() + status.slice(1) : "";
+   } else if (!isVideoItem && item.editedImageUrls && item.editedImageUrls.every(url => url === null) && item.constructedPrompt) {
+     // This is a basic heuristic for failed image jobs if all URLs are null but a prompt existed.
+     // More robust status would require adding it to HistoryItem for images.
+diff --git a/src/components/VideoHistoryCard.tsx b/src/components/VideoHistoryCard.tsx
+index 5897c8e..3f1a333 100644
+--- a/src/components/VideoHistoryCard.tsx
++++ b/src/components/VideoHistoryCard.tsx
+@@ -23,8 +23,8 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
+     item.videoGenerationParams?.sourceImageUrl || item.originalClothingUrl || ''
+   );
+   const videoUrl = getDisplayableImageUrl(item.generatedVideoUrls?.[0] || '');
+-  const status = item.videoGenerationParams?.status;
+-  const error = item.videoGenerationParams?.error;
++  const status = (item.videoGenerationParams as any)?.status;
++  const error = (item.videoGenerationParams as any)?.error;
+ 
+   // IntersectionObserver for autoplay-in-view
+   useEffect(() => {
+diff --git a/src/app/api/debug/history/route.ts b/src/app/api/debug/history/route.ts
+index 49935ef..1b97172 100644
+--- a/src/app/api/debug/history/route.ts
++++ b/src/app/api/debug/history/route.ts
+@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
+         id: item.id,
+         timestamp: item.timestamp,
+         hasVideoGenerationParams: !!item.videoGenerationParams,
+-        videoGenerationStatus: item.videoGenerationParams?.status,
++        videoGenerationStatus: (item.videoGenerationParams as any)?.status,
+         hasLocalVideoUrl: !!item.videoGenerationParams?.localVideoUrl,
+         hasGeneratedVideoUrls: !!item.generatedVideoUrls,
+         generatedVideoUrlsCount: item.generatedVideoUrls?.length || 0,
+@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
+       itemsWithVideoParams: imageHistory.filter(item => !!item.videoGenerationParams).map(item => ({
+         id: item.id,
+         timestamp: item.timestamp,
+-        status: item.videoGenerationParams?.status,
++        status: (item.videoGenerationParams as any)?.status,
+         hasLocalVideoUrl: !!item.videoGenerationParams?.localVideoUrl,
+         localVideoUrl: item.videoGenerationParams?.localVideoUrl
+       }))
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 2c0b45f..8ab9861 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -21,6 +21,7 @@ services:
+     environment:
+       - NODE_ENV=production # Or 'production' if you want to test production build behavior
+       - PORT=3000
++      - NEXT_PUBLIC_APP_URL=https://app.refashion.cc
+       - FORCE_HTTPS=false # Set to true if using HTTPS
+       # STORAGE_PROVIDER will be picked from .env file
+     # If you need to ensure Genkit dev server runs, you might need a more complex setup
+diff --git a/docs/api_v1.md b/docs/api_v1.md
+new file mode 100644
+index 0000000..0cf3fe3
+--- /dev/null
++++ b/docs/api_v1.md
+@@ -0,0 +1,327 @@
++# RefashionAI API v1 Documentation
++
++## Overview
++
++The RefashionAI API v1 provides a RESTful, asynchronous interface for image generation tasks. The API follows a job-based pattern where clients submit generation requests and poll for completion status.
++
++### Base URL
++```
++https://your-domain.com/api/v1
++```
++
++### API Pattern
++1. **Submit Job**: POST to `/generate` → Receive `jobId` immediately
++2. **Poll Status**: GET `/status/{jobId}` → Check completion status
++3. **Retrieve Results**: Results are provided in the status response when complete
++
++---
++
++## Authentication
++
++All API requests require authentication via API keys.
++
++### Getting an API Key
++API keys must be generated by an administrator through the RefashionAI admin interface:
++1. Admin logs into RefashionAI
++2. Navigates to Admin → Users
++3. Edits the target user
++4. Clicks "Generate New API Key"
++5. Copies the generated key (shown only once)
++
++### Using the API Key
++Include the API key in the `Authorization` header of all requests:
++
++```http
++Authorization: Bearer rf_your_api_key_here
++```
++
++---
++
++## Endpoints
++
++### POST /api/v1/generate
++
++Submits a new image generation job.
++
++#### Request
++
++**Method:** `POST`  
++**Content-Type:** `application/json`  
++**Headers:**
++```http
++Authorization: Bearer rf_your_api_key_here
++Content-Type: application/json
++```
++
++**Body:**
++```json
++{
++  "imageDataUri": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...",
++  "parameters": {
++    "gender": "female",
++    "bodyType": "athletic",
++    "bodySize": "medium",
++    "ageRange": "25-35",
++    "ethnicity": "caucasian",
++    "poseStyle": "standing",
++    "background": "studio",
++    "fashionStyle": "casual",
++    "hairStyle": "long",
++    "modelExpression": "neutral",
++    "lightingType": "natural",
++    "lightQuality": "soft",
++    "cameraAngle": "front",
++    "lensEffect": "standard",
++    "depthOfField": "normal",
++    "timeOfDay": "day",
++    "overallMood": "bright",
++    "fabricRendering": "realistic"
++  },
++  "settingsMode": "basic"
++}
++```
++
++**Parameter Descriptions:**
++- `imageDataUri`: Base64-encoded image data URI of the clothing item
++- `parameters`: Model generation parameters (all fields required)
++- `settingsMode`: Either "basic" or "advanced" (optional, defaults to "basic")
++
++#### Response
++
++**Success (202 Accepted):**
++```json
++{
++  "jobId": "uuid-string",
++  "status": "processing"
++}
++```
++
++**Error (400 Bad Request):**
++```json
++{
++  "error": "Invalid request data",
++  "details": [
++    {
++      "code": "invalid_type",
++      "expected": "string",
++      "received": "undefined",
++      "path": ["imageDataUri"],
++      "message": "Image data URI is required"
++    }
++  ]
++}
++```
++
++**Error (401 Unauthorized):**
++```json
++{
++  "error": "Unauthorized"
++}
++```
++
++**Error (500 Internal Server Error):**
++```json
++{
++  "error": "Internal server error"
++}
++```
++
++---
++
++### GET /api/v1/status/{jobId}
++
++Polls the status of a generation job.
++
++#### Request
++
++**Method:** `GET`  
++**Headers:**
++```http
++Authorization: Bearer rf_your_api_key_here
++```
++
++**Path Parameters:**
++- `jobId`: The job ID returned from the generate endpoint
++
++#### Response
++
++**Processing (200 OK):**
++```json
++{
++  "jobId": "uuid-string",
++  "status": "processing"
++}
++```
++
++**Completed (200 OK):**
++```json
++{
++  "jobId": "uuid-string",
++  "status": "completed",
++  "generatedImageUrls": [
++    "https://your-domain.com/uploads/generated_images/image1.jpg",
++    "https://your-domain.com/uploads/generated_images/image2.jpg",
++    "https://your-domain.com/uploads/generated_images/image3.jpg"
++  ]
++}
++```
++
++**Failed (200 OK):**
++```json
++{
++  "jobId": "uuid-string",
++  "status": "failed",
++  "error": "Error message describing what went wrong"
++}
++```
++
++**Job Not Found (404 Not Found):**
++```json
++{
++  "error": "Job not found"
++}
++```
++
++**Unauthorized (401 Unauthorized):**
++```json
++{
++  "error": "Unauthorized"
++}
++```
++
++---
++
++## CORS Support
++
++The API supports Cross-Origin Resource Sharing (CORS) for the following domains:
++- `https://marcodirenzo.ch`
++- `https://demo.marcodirenzo.ch`
++
++If you need additional domains whitelisted, contact the system administrator.
++
++---
++
++## Rate Limiting
++
++Currently, there are no specific rate limits implemented. However, the asynchronous nature of the API naturally throttles requests since each job must complete before new results are available.
++
++---
++
++## Error Handling
++
++### HTTP Status Codes
++- `202 Accepted`: Job submitted successfully
++- `200 OK`: Status retrieved successfully
++- `400 Bad Request`: Invalid request data or format
++- `401 Unauthorized`: Invalid or missing API key
++- `404 Not Found`: Job not found or not accessible
++- `500 Internal Server Error`: Server-side error occurred
++
++### Error Response Format
++All error responses follow this format:
++```json
++{
++  "error": "Human-readable error message",
++  "details": "Optional additional error details"
++}
++```
++
++---
++
++## Example Usage
++
++### Complete Workflow Example
++
++1. **Submit a generation job:**
++```bash
++curl -X POST https://your-domain.com/api/v1/generate \
++  -H "Authorization: Bearer rf_your_api_key_here" \
++  -H "Content-Type: application/json" \
++  -d '{
++    "imageDataUri": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...",
++    "parameters": {
++      "gender": "female",
++      "bodyType": "athletic",
++      "bodySize": "medium",
++      "ageRange": "25-35",
++      "ethnicity": "caucasian",
++      "poseStyle": "standing",
++      "background": "studio",
++      "fashionStyle": "casual",
++      "hairStyle": "long",
++      "modelExpression": "neutral",
++      "lightingType": "natural",
++      "lightQuality": "soft",
++      "cameraAngle": "front",
++      "lensEffect": "standard",
++      "depthOfField": "normal",
++      "timeOfDay": "day",
++      "overallMood": "bright",
++      "fabricRendering": "realistic"
++    },
++    "settingsMode": "basic"
++  }'
++```
++
++2. **Poll for status (repeat until status is not "processing"):**
++```bash
++curl -X GET https://your-domain.com/api/v1/status/your-job-id-here \
++  -H "Authorization: Bearer rf_your_api_key_here"
++```
++
++3. **Retrieve results from the completed status response**
++
++### WordPress Plugin Integration
++
++For WordPress plugin developers:
++
++```php
++// Submit generation job
++$response = wp_remote_post('https://your-domain.com/api/v1/generate', [
++    'headers' => [
++        'Authorization' => 'Bearer ' . $api_key,
++        'Content-Type' => 'application/json',
++    ],
++    'body' => json_encode($job_data),
++    'timeout' => 30,
++]);
++
++$job = json_decode(wp_remote_retrieve_body($response), true);
++$job_id = $job['jobId'];
++
++// Poll for completion
++do {
++    sleep(5); // Wait 5 seconds between polls
++    
++    $status_response = wp_remote_get(
++        'https://your-domain.com/api/v1/status/' . $job_id,
++        [
++            'headers' => [
++                'Authorization' => 'Bearer ' . $api_key,
++            ],
++            'timeout' => 15,
++        ]
++    );
++    
++    $status = json_decode(wp_remote_retrieve_body($status_response), true);
++    
++} while ($status['status'] === 'processing');
++
++// Handle results
++if ($status['status'] === 'completed') {
++    $image_urls = $status['generatedImageUrls'];
++    // Process the generated images
++} else if ($status['status'] === 'failed') {
++    $error = $status['error'];
++    // Handle the error
++}
++```
++
++---
++
++## Support
++
++For technical support or to request additional API features, please contact the system administrator.
++
++**API Version:** 1.0  
++**Last Updated:** July 8, 2025
