@@ -148,7 +148,7 @@ export default function VideoParameters({
   
   // Get prepared image from store instead of props
   const activeImage = useActiveImage();
-  const preparedImageUrl = activeImage?.dataUri || null;
+  const preparedImageUrl = activeImage?.imageUrl || null;
 
   // State for video parameters
   const [videoModel, setVideoModel] = useState<VideoModel>('lite');

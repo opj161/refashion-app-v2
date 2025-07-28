@@ -8,8 +8,8 @@ import { getDisplayableImageUrl } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 interface ImageComparatorProps {
-  leftImageUri: string;
-  rightImageUri: string;
+  leftImageUrl: string;
+  rightImageUrl: string;
 }
 
 const CustomHandle = () => (
@@ -25,8 +25,8 @@ const ComparisonSkeleton = () => (
 );
 
 export default function ImageComparator({
-  leftImageUri,
-  rightImageUri,
+  leftImageUrl,
+  rightImageUrl,
 }: ImageComparatorProps) {
   return (
     // This div makes the component fill its parent container.
@@ -43,8 +43,8 @@ export default function ImageComparator({
         }
       `}</style>
       <ReactCompareImage
-        leftImage={getDisplayableImageUrl(leftImageUri) || ''}
-        rightImage={getDisplayableImageUrl(rightImageUri) || ''}
+        leftImage={getDisplayableImageUrl(leftImageUrl) || ''}
+        rightImage={getDisplayableImageUrl(rightImageUrl) || ''}
         hover={true}
         handle={<CustomHandle />}
         sliderLineWidth={3}

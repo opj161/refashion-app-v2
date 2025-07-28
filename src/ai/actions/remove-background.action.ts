@@ -14,17 +14,17 @@ import { getCurrentUser } from '@/actions/authActions';
 
 /**
  * Remove background from a user-uploaded image
- * @param imageUrlOrDataUri The original image as a data URI or public URL
+ * @param imageUrl The original image as a server-relative URL path
  * @param imageHash Optional hash of the original image for caching
  * @param originalFileName Optional original filename for reference
  * @returns Promise an object containing the local relative path of the background-removed image
  */
 export async function removeBackgroundAction(
-  imageUrlOrDataUri: string,
+  imageUrl: string,
   imageHash?: string
 ): Promise<{ savedPath: string; outputHash: string }> {
-  if (!imageUrlOrDataUri) {
-    throw new Error('Image data URI or URL is required for background removal');
+  if (!imageUrl) {
+    throw new Error('Image URL is required for background removal');
   }
   const user = await getCurrentUser();
   if (!user) {
@@ -44,8 +44,11 @@ export async function removeBackgroundAction(
   try {
     console.log('Starting background removal process with Fal.ai...');
 
+    // Construct an absolute URL for the image on our own server to pass to Fal.ai
+    const absoluteImageUrl = new URL(imageUrl, process.env.NEXT_PUBLIC_APP_URL!).href;
+
     // Remove background using Fal.ai service
-    const outputImageUrl = await falImageService.removeBackground(imageUrlOrDataUri, user.username);
+    const outputImageUrl = await falImageService.removeBackground(absoluteImageUrl, user.username);
     
     console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
 

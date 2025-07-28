@@ -58,7 +58,7 @@ export default function ImageParameters({
   // Get prepared image from store instead of props
   const activeImage = useActiveImage();
   const resetImageState = useImageStore((state) => state.reset);
-  const preparedImageUrl = activeImage?.dataUri || null;
+  const preparedImageUrl = activeImage?.imageUrl || null;
 
   // State for parameters
   const [gender, setGender] = useState<string>(GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value);

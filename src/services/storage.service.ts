@@ -9,7 +9,7 @@
  */
 
 import { promises as fs } from 'fs';
-import path from 'path';
+import path, { parse } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
@@ -82,6 +82,58 @@ export async function saveFileFromUrl(
   } catch (error) {
     console.error(`Error saving file from ${sourceUrl}:`, error);
     throw new Error(`Failed to save file from URL: ${(error as Error).message}`);
+  }
+}
+
+/**
+ * Saves a Buffer locally with proper permissions and calculates its hash.
+ * @param buffer The file buffer to save
+ * @param fileNamePrefix The prefix to use for the generated filename
+ * @param subfolder The subfolder within /public/uploads/ to save to
+ * @param extension The file extension for the output file
+ * @returns Promise<{ relativeUrl: string; hash: string }> The relative URL path and hash of the saved file
+ */
+export async function saveFileFromBuffer(
+  buffer: Buffer,
+  fileNamePrefix: string,
+  subfolder: string,
+  extension: string
+): Promise<{ relativeUrl: string; hash: string }> {
+  console.log(`Saving buffer to /uploads/${subfolder}`);
+  try {
+    const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
+    const uniqueFileName = `${fileNamePrefix}_${uuidv4()}.${extension}`;
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', subfolder);
+
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    const filePath = path.join(uploadDir, uniqueFileName);
+    await fs.writeFile(filePath, buffer);
+
+    try {
+      await fs.chmod(filePath, 0o664);
+      console.log(`Set file permissions to 664 for: ${filePath}`);
+    } catch (chmodError) {
+      console.warn(`Warning: Could not set file permissions for ${filePath}:`, chmodError);
+    }
+
+    const puid = process.env.PUID;
+    const pgid = process.env.PGID;
+    if (puid && pgid) {
+      try {
+        await fs.chown(filePath, parseInt(puid), parseInt(pgid));
+        console.log(`Set file ownership to ${puid}:${pgid} for: ${filePath}`);
+      } catch (chownError) {
+        console.warn(`Warning: Could not set file ownership for ${filePath}:`, chownError);
+      }
+    }
+
+    const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
+    console.log(`Buffer saved to: ${filePath}, accessible at: ${relativeUrl}`);
+    return { relativeUrl, hash: fileHash };
+  } catch (error) {
+    console.error(`Error saving buffer:`, error);
+    throw new Error(`Failed to save buffer: ${(error as Error).message}`);
   }
 }
 

@@ -9,7 +9,7 @@ import { getDisplayableImageUrl } from "@/lib/utils";
 
 interface DisplayImage {
   id: string;
-  dataUri: string;
+  imageUrl: string; // Changed from dataUri
 }
 
 interface ImageEditorCanvasProps {
@@ -143,7 +143,7 @@ export default function ImageEditorCanvas({
     return null;
   }
 
-  const imageUrlToDisplay = getDisplayableImageUrl(image.dataUri);
+  const imageUrlToDisplay = getDisplayableImageUrl(image.imageUrl);
 
   return (
     <>

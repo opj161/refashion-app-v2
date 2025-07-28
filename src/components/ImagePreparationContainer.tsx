@@ -24,59 +24,6 @@ import {
 // --- Constants ---
 const SERVER_IMAGE_PATH_PREFIX = '/uploads/';
 
-// --- Helper function to get the default aspect based on mode ---
-const getDefaultAspect = (mode: 'image' | 'video') => {
-  return mode === 'video' ? 9 / 16 : 3 / 4;
-};
-
-// --- Hashing Helper Function ---
-const generateDataUriHash = async (dataUri: string): Promise<string> => {
-  const base64 = dataUri.split(',')[1];
-  if (!base64) throw new Error('Invalid data URI for hashing');
-  const buffer = Uint8Array.from(atob(base64), c => c.charCodeAt(0)).buffer;
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-};
-
-// --- Cropping Helper Function ---
-async function getCroppedImgDataUrl(
-  displayedImage: HTMLImageElement,
-  crop: PixelCrop,
-  sourceDataUri: string
-): Promise<string> {
-  const offscreenImage = new window.Image();
-  offscreenImage.src = sourceDataUri;
-
-  return new Promise((resolve, reject) => {
-    offscreenImage.onload = () => {
-      const canvas = document.createElement('canvas');
-      const scaleX = offscreenImage.naturalWidth / displayedImage.width;
-      const scaleY = offscreenImage.naturalHeight / displayedImage.height;
-
-      canvas.width = Math.floor(crop.width * scaleX);
-      canvas.height = Math.floor(crop.height * scaleY);
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        return reject(new Error('Failed to get canvas context'));
-      }
-
-      ctx.drawImage(
-        offscreenImage,
-        crop.x * scaleX,
-        crop.y * scaleY,
-        crop.width * scaleX,
-        crop.height * scaleY,
-        0, 0, canvas.width, canvas.height
-      );
-
-      resolve(canvas.toDataURL('image/jpeg', 0.9));
-    };
-    offscreenImage.onerror = (err) => reject(err);
-  });
-}
-
 interface ImagePreparationContainerProps {
   sourceImageUrl?: string | null;
   preparationMode: 'image' | 'video';
@@ -99,10 +46,8 @@ export default function ImagePreparationContainer({
     activeVersionId, 
     isProcessing, 
     processingStep,
-    setActiveVersion,
-    reset: resetStore,
-    setProcessing,
-    addVersion
+    reset: resetStore, // Keep alias for clarity
+    applyCrop
   } = useImageStore();
   
   const activeImage = useActiveImage();
@@ -208,31 +153,19 @@ export default function ImagePreparationContainer({
   // --- Cropping Handlers ---
   
   const handleApplyCrop = useCallback(async () => {
-    if (!completedCrop || !imgRef.current || !activeImage) return;
+    if (!completedCrop) return;
     
     try {
-      const croppedDataUrl = await getCroppedImgDataUrl(
-        imgRef.current,
-        completedCrop,
-        activeImage.dataUri
-      );
-      
-      const croppedHash = await generateDataUriHash(croppedDataUrl);
-
-      addVersion({
-        dataUri: croppedDataUrl,
-        label: 'Cropped',
-        sourceVersionId: activeImage.id,
-        hash: croppedHash,
-      });
+      // Call the store action which will trigger the server-side crop
+      await applyCrop(completedCrop);
       
       toast({ title: "Crop Applied", description: "A new cropped version has been added to your history." });
       setAspect(undefined); // Deactivate cropping mode
     } catch (error) {
       console.error('Cropping failed:', error);
-      toast({ title: "Cropping Failed", description: "Could not apply the crop.", variant: "destructive" });
+      toast({ title: "Cropping Failed", description: (error as Error).message, variant: "destructive" });
     }
-  }, [completedCrop, activeImage, addVersion, toast]);
+  }, [completedCrop, applyCrop, toast]);
 
   const handleCancelCrop = () => {
     setAspect(undefined); // This will clear the crop UI

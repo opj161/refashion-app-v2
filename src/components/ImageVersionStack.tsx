@@ -18,7 +18,7 @@ import { useImageStore } from "@/stores/imageStore";
 
 interface ImageVersion {
   id: string;
-  dataUri: string;
+  imageUrl: string; // Changed from dataUri
   label: string;
   sourceVersionId: string;
   createdAt: number;

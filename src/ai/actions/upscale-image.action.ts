@@ -14,17 +14,17 @@ import { getCurrentUser } from '@/actions/authActions';
 
 /**
  * Upscale and enhance a user-uploaded image
- * @param imageUrlOrDataUri The original image as a data URI or public URL
+ * @param imageUrl The original image as a server-relative URL path
  * @param imageHash Optional hash of the original image for caching
  * @param originalFileName Optional original filename for reference
  * @returns Promise an object containing the local relative path of the upscaled image
  */
 export async function upscaleImageAction(
-  imageUrlOrDataUri: string,
+  imageUrl: string,
   imageHash?: string
 ): Promise<{ savedPath: string; outputHash: string }> {
-  if (!imageUrlOrDataUri) {
-    throw new Error('Image data URI or URL is required for upscaling');
+  if (!imageUrl) {
+    throw new Error('Image URL is required for upscaling');
   }
   const user = await getCurrentUser();
   if (!user) {
@@ -44,8 +44,11 @@ export async function upscaleImageAction(
   try {
     console.log('Starting image upscaling process with Fal.ai...');
 
+    // Construct an absolute URL for the image on our own server to pass to Fal.ai
+    const absoluteImageUrl = new URL(imageUrl, process.env.NEXT_PUBLIC_APP_URL!).href;
+
     // Process image using Fal.ai service
-    const outputImageUrl = await falImageService.upscaleAndEnhance(imageUrlOrDataUri, user.username);
+    const outputImageUrl = await falImageService.upscaleAndEnhance(absoluteImageUrl, user.username);
     
     console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
 
@@ -74,17 +77,17 @@ export async function upscaleImageAction(
 
 /**
  * Face detailer action - now calls the dedicated face-detailer API
- * @param imageUrlOrDataUri The original image as a data URI or public URL
+ * @param imageUrl The original image as a server-relative URL path
  * @param imageHash Optional hash of the original image for caching
  * @param originalFileName Optional original filename for reference
  * @returns Promise an object containing the local relative path of the processed image
  */
 export async function faceDetailerAction(
-  imageUrlOrDataUri: string,
+  imageUrl: string,
   imageHash?: string
 ): Promise<{ savedPath: string; outputHash: string }> {
-  if (!imageUrlOrDataUri) {
-    throw new Error('Image data URI or URL is required for face detailing');
+  if (!imageUrl) {
+    throw new Error('Image URL is required for face detailing');
   }
   const user = await getCurrentUser();
   if (!user) {
@@ -104,8 +107,11 @@ export async function faceDetailerAction(
   try {
     console.log('Starting face enhancement process with Fal.ai...');
 
+    // Construct an absolute URL for the image on our own server to pass to Fal.ai
+    const absoluteImageUrl = new URL(imageUrl, process.env.NEXT_PUBLIC_APP_URL!).href;
+
     // Call the new, specific service function
-    const outputImageUrl = await falImageService.detailFaces(imageUrlOrDataUri, user.username);
+    const outputImageUrl = await falImageService.detailFaces(absoluteImageUrl, user.username);
 
     console.log(`Fal.ai face-detailer processed image URL: ${outputImageUrl}`);
 

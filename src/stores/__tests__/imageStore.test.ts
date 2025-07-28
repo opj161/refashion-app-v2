@@ -77,7 +77,7 @@ describe('ImageStore', () => {
       
       expect(state.original).toEqual({
         file: mockFile,
-        dataUri: testDataUri,
+        imageUrl: testDataUri,
         hash: testHash
       });
       
@@ -104,7 +104,7 @@ describe('ImageStore', () => {
 
     it('should add new version and set as active', () => {
       const newVersionData = {
-        dataUri: 'data:cropped',
+        imageUrl: '/uploads/processed_images/cropped.webp',
         label: 'Cropped',
         sourceVersionId: 'original',
         hash: 'test-hash-123'
@@ -126,7 +126,7 @@ describe('ImageStore', () => {
       let versionId: string = '';
       act(() => {
         versionId = useImageStore.getState().addVersion({
-          dataUri: 'data:cropped',
+          imageUrl: '/uploads/processed_images/cropped.webp',
           label: 'Cropped', 
           sourceVersionId: 'original',
           hash: 'test-hash-456'
@@ -215,13 +215,10 @@ describe('ImageStore', () => {
         v.label === 'Background Removed'
       );
       expect(bgRemovedVersion).toBeDefined();
-      expect(bgRemovedVersion?.dataUri).toBe('/test/bg-removed.jpg');
+      expect(bgRemovedVersion?.imageUrl).toBe('/test/bg-removed.jpg');
       
-      // Should set up comparison
-      expect(state.comparison).toEqual({
-        left: 'data:original',
-        right: '/test/bg-removed.jpg'
-      });
+      // Comparison is handled separately in the UI
+      expect(state.comparison).toBeNull();
       
       // Should not be processing
       expect(state.isProcessing).toBe(false);
@@ -238,7 +235,7 @@ describe('ImageStore', () => {
         v.label === 'Upscaled'
       );
       expect(upscaledVersion).toBeDefined();
-      expect(upscaledVersion?.dataUri).toBe('/test/upscaled.jpg');
+      expect(upscaledVersion?.imageUrl).toBe('/test/upscaled.jpg');
     });
 
     it('should handle face detailing', async () => {
@@ -252,7 +249,7 @@ describe('ImageStore', () => {
         v.label === 'Face Enhanced'
       );
       expect(faceDetailedVersion).toBeDefined();
-      expect(faceDetailedVersion?.dataUri).toBe('/test/face-detailed.jpg');
+      expect(faceDetailedVersion?.imageUrl).toBe('/test/face-detailed.jpg');
     });
 
     it('should handle errors in async actions', async () => {

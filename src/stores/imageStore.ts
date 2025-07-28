@@ -5,12 +5,13 @@ import { devtools } from 'zustand/middleware';
 // Server Actions
 import { removeBackgroundAction } from "@/ai/actions/remove-background.action";
 import { upscaleImageAction, faceDetailerAction } from "@/ai/actions/upscale-image.action";
-import { uploadAndResizeImageAction } from "@/ai/actions/upload-and-resize-image.action";
+import { prepareInitialImage, cropImage } from "@/actions/imageActions"; // Updated/new Server Actions
+import type { PixelCrop } from 'react-image-crop';
 
 // --- Types ---
 export interface ImageVersion {
   id: string;
-  dataUri: string;
+  imageUrl: string; // Changed from dataUri
   label: string;
   sourceVersionId: string;
   createdAt: number;
@@ -20,7 +21,7 @@ export interface ImageVersion {
 export interface ImageState {
   original: {
     file: File;
-    dataUri: string;
+    imageUrl: string; // Changed from dataUri
     hash: string;
   } | null;
   versions: Record<string, ImageVersion>;
@@ -35,7 +36,7 @@ export interface ImageState {
 
 export interface ImageActions {
   // Synchronous actions
-  setOriginalImage: (file: File, dataUri: string, hash: string) => void;
+  setOriginalImage: (file: File, imageUrl: string, hash: string) => void;
   addVersion: (version: Omit<ImageVersion, 'id' | 'createdAt'>) => string;
   setActiveVersion: (versionId: string) => void;
   setComparison: (comparison: { left: string; right: string } | null) => void;
@@ -47,36 +48,11 @@ export interface ImageActions {
   upscaleImage: (username: string) => Promise<void>;
   faceDetailer: (username: string) => Promise<void>;
   uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
-
+  applyCrop: (crop: PixelCrop) => Promise<void>;
 }
 
 export type ImageStore = ImageState & ImageActions;
 
-// --- Helper Functions ---
-const fileToDataUri = (file: File): Promise<string> => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(reader.result as string);
-  reader.onerror = reject;
-  reader.readAsDataURL(file);
-});
-
-const generateHash = async (file: File): Promise<string> => {
-  const buffer = await file.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-};
-
-const dataUriToBlob = (dataUri: string): Blob => {
-  const byteString = atob(dataUri.split(',')[1]);
-  const mimeString = dataUri.split(',')[0].split(':')[1].split(';')[0];
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mimeString });
-};
 
 // --- Initial State ---
 const initialState: ImageState = {
@@ -95,10 +71,10 @@ export const useImageStore = create<ImageStore>()(
       ...initialState,
 
       // --- Synchronous Actions ---
-      setOriginalImage: async (file: File, dataUri: string, hash: string) => {
+      setOriginalImage: (file: File, imageUrl: string, hash: string) => {
         const originalVersion: ImageVersion = {
           id: 'original',
-          dataUri,
+          imageUrl,
           label: 'Original',
           sourceVersionId: '',
           createdAt: Date.now(),
@@ -106,7 +82,7 @@ export const useImageStore = create<ImageStore>()(
         };
 
         set({
-          original: { file, dataUri, hash },
+          original: { file, imageUrl, hash },
           versions: { original: originalVersion },
           activeVersionId: 'original',
           comparison: null,
@@ -129,8 +105,6 @@ export const useImageStore = create<ImageStore>()(
             [id]: newVersion,
           },
           activeVersionId: id,
-          isProcessing: false,
-          processingStep: null,
         }), false, 'addVersion');
 
         return id;
@@ -164,23 +138,18 @@ export const useImageStore = create<ImageStore>()(
         }
         const currentVersion = versions[activeVersionId];
         set({ isProcessing: true, processingStep: 'bg' }, false, 'removeBackground:start');
+
         try {
-          let imageUrlOrDataUri = currentVersion.dataUri;
-          if (imageUrlOrDataUri.startsWith('/uploads/')) {
-            imageUrlOrDataUri = new URL(imageUrlOrDataUri, window.location.origin).href;
-          }
-          const { savedPath, outputHash } = await removeBackgroundAction(
-            imageUrlOrDataUri,
-            currentVersion.hash
-          ); // username is now handled inside removeBackgroundAction
+          const { savedPath, outputHash } = await removeBackgroundAction(currentVersion.imageUrl, currentVersion.hash);
           get().addVersion({
-            dataUri: savedPath,
+            imageUrl: savedPath,
             label: 'Background Removed',
             sourceVersionId: activeVersionId,
             hash: outputHash,
           });
         } catch (error) {
           console.error('Error removing background:', error);
+          throw error;
         } finally {
           set({ isProcessing: false, processingStep: null }, false, 'removeBackground:end');
         }
@@ -193,23 +162,18 @@ export const useImageStore = create<ImageStore>()(
         }
         const currentVersion = versions[activeVersionId];
         set({ isProcessing: true, processingStep: 'upscale' }, false, 'upscaleImage:start');
+
         try {
-          let imageUrlOrDataUri = currentVersion.dataUri;
-          if (imageUrlOrDataUri.startsWith('/uploads/')) {
-            imageUrlOrDataUri = new URL(imageUrlOrDataUri, window.location.origin).href;
-          }
-          const { savedPath, outputHash } = await upscaleImageAction(
-            imageUrlOrDataUri,
-            currentVersion.hash
-          ); // username is now handled inside upscaleImageAction
+          const { savedPath, outputHash } = await upscaleImageAction(currentVersion.imageUrl, currentVersion.hash);
           get().addVersion({
-            dataUri: savedPath,
+            imageUrl: savedPath,
             label: 'Upscaled',
             sourceVersionId: activeVersionId,
             hash: outputHash,
           });
         } catch (error) {
           console.error('Error upscaling image:', error);
+          throw error;
         } finally {
           set({ isProcessing: false, processingStep: null }, false, 'upscaleImage:end');
         }
@@ -222,23 +186,18 @@ export const useImageStore = create<ImageStore>()(
         }
         const currentVersion = versions[activeVersionId];
         set({ isProcessing: true, processingStep: 'face' }, false, 'faceDetailer:start');
+
         try {
-          let imageUrlOrDataUri = currentVersion.dataUri;
-          if (imageUrlOrDataUri.startsWith('/uploads/')) {
-            imageUrlOrDataUri = new URL(imageUrlOrDataUri, window.location.origin).href;
-          }
-          const { savedPath, outputHash } = await faceDetailerAction(
-            imageUrlOrDataUri,
-            currentVersion.hash
-          ); // username is now handled inside faceDetailerAction
+          const { savedPath, outputHash } = await faceDetailerAction(currentVersion.imageUrl, currentVersion.hash);
           get().addVersion({
-            dataUri: savedPath,
+            imageUrl: savedPath,
             label: 'Face Enhanced',
             sourceVersionId: activeVersionId,
             hash: outputHash,
           });
         } catch (error) {
           console.error('Error enhancing face details:', error);
+          throw error;
         } finally {
           set({ isProcessing: false, processingStep: null }, false, 'faceDetailer:end');
         }
@@ -250,19 +209,54 @@ export const useImageStore = create<ImageStore>()(
           const formData = new FormData();
           formData.append('file', file);
 
-          const { dataUri, hash, resized, originalWidth, originalHeight } = await uploadAndResizeImageAction(formData);
+          const result = await prepareInitialImage(formData);
 
-          const blob = dataUriToBlob(dataUri);
-          const resizedFile = new File([blob], file.name, { type: blob.type });
+          if (!result.success) {
+            throw new Error(result.error);
+          }
 
-          get().setOriginalImage(resizedFile, dataUri, hash);
+          const { imageUrl, hash, resized, originalWidth, originalHeight } = result;
+
+          // We still need the file object for potential future use, but state holds the URL
+          get().setOriginalImage(file, imageUrl, hash);
           return { resized, originalWidth, originalHeight };
         } catch (error) {
           console.error('Upload and resize failed in store action:', error);
           get().setProcessing(false, null);
           throw error;
         } finally {
-          get().setProcessing(false, null);
+          // On successful upload, we are ready to crop, not idle.
+          get().setProcessing(false, 'crop');
+        }
+      },
+      
+      applyCrop: async (crop: PixelCrop) => {
+        const { activeVersionId, versions } = get();
+        if (!activeVersionId || !versions[activeVersionId]) {
+          console.warn('No active version to crop');
+          return;
+        }
+        const currentVersion = versions[activeVersionId];
+        set({ isProcessing: true, processingStep: 'crop' }, false, 'applyCrop:start');
+
+        try {
+          const result = await cropImage(currentVersion.imageUrl, crop);
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+
+          get().addVersion({
+            imageUrl: result.imageUrl,
+            label: 'Cropped',
+            sourceVersionId: activeVersionId,
+            hash: result.hash,
+          });
+
+        } catch (error) {
+          console.error('Error applying crop:', error);
+          throw error;
+        } finally {
+          set({ isProcessing: false, processingStep: null }, false, 'applyCrop:end');
         }
       },
     }),
