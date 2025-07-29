@@ -7,6 +7,7 @@ import type { HistoryItem, ModelAttributes, SessionUser } from '@/lib/types';
 export interface VideoStatusPayload {
   status: 'processing' | 'completed' | 'failed' | 'unknown';
   videoUrl?: string | null;
+  localVideoUrl?: string | null;
   error?: string;
   seed?: number;
 }
@@ -532,7 +533,8 @@ export function getHistoryItemStatus(id: string, username: string): VideoStatusP
 
   return {
     status: params.status || 'processing', // Default to processing if status not set
-    videoUrl: row.video_url || params.localVideoUrl || null,
+    videoUrl: row.video_url || null, // Remote Fal.ai URL
+    localVideoUrl: params.localVideoUrl || null, // Local URL for downloads
     error: params.error,
     seed: params.seed,
   };

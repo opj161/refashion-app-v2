@@ -55,16 +55,6 @@ interface VideoGenerationParams {
 
 // --- Options & Constants are now imported from prompt-builder.ts ---
 
-// Service availability is now checked via server action
-  // Service availability state
-  const [isServiceAvailable, setIsServiceAvailable] = useState(true); // Assume available initially
-  // Effect to check for service availability on the server
-  useEffect(() => {
-    isFalVideoGenerationAvailable().then(result => {
-      setIsServiceAvailable(result.available);
-    });
-  }, []);
-
 // Helper function to convert data URI to Blob
 function dataUriToBlob(dataUri: string): Blob {
   const arr = dataUri.split(',');
@@ -158,6 +148,9 @@ export default function VideoParameters({
   const activeImage = useActiveImage();
   const preparedImageUrl = activeImage?.imageUrl || null;
 
+  // Service availability state
+  const [isServiceAvailable, setIsServiceAvailable] = useState(true); // Assume available initially
+
   // State for video parameters
   const [videoModel, setVideoModel] = useState<VideoModel>('lite');
   const [resolution, setResolution] = useState<VideoResolution>('480p');
@@ -178,6 +171,7 @@ export default function VideoParameters({
   const [isUploadingToFal, setIsUploadingToFal] = useState<boolean>(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+  const [generatedLocalVideoUrl, setGeneratedLocalVideoUrl] = useState<string | null>(null);
   const [generatedSeedValue, setGeneratedSeedValue] = useState<number | null>(null);
 
   // For webhook-based flow
@@ -209,7 +203,14 @@ export default function VideoParameters({
     generationParams: currentVideoGenParams,
   });
 
-  // Effect to calculate and update the estimated cost
+  // Effect to check for service availability on the server
+  useEffect(() => {
+    isFalVideoGenerationAvailable().then(result => {
+      setIsServiceAvailable(result.available);
+    });
+  }, []);
+
+  // Effect to calculate and update the estimated cost  
   useEffect(() => {
     const cost = calculateVideoCost(videoModel, resolution, duration);
     setEstimatedCost(cost);
@@ -303,6 +304,7 @@ export default function VideoParameters({
     setIsGenerating(true);
     setGenerationError(null);
     setGeneratedVideoUrl(null);
+    setGeneratedLocalVideoUrl(null);
     setGeneratedSeedValue(null);
     setGenerationTaskId(null);
     setHistoryItemId(null);
@@ -414,6 +416,7 @@ export default function VideoParameters({
 
         if (data.status === 'completed') {
           setGeneratedVideoUrl(data.videoUrl || null);
+          setGeneratedLocalVideoUrl(data.localVideoUrl || null);
           setGeneratedSeedValue(data.seed || null);
           setIsGenerating(false);
           toast({ title: "Video Generated!", description: "Video is ready." });
@@ -704,7 +707,7 @@ export default function VideoParameters({
               <video src={getDisplayableImageUrl(generatedVideoUrl) || undefined} controls autoPlay loop playsInline className="w-full h-full object-contain" />
             </div>
             <Button asChild variant="outline" className="w-full">
-              <a href={getDisplayableImageUrl(generatedVideoUrl) || undefined} download={`RefashionAI_video_${generatedSeedValue || Date.now()}.mp4`}><Download className="h-4 w-4 mr-2" />Download Video</a>
+              <a href={getDisplayableImageUrl(generatedLocalVideoUrl || generatedVideoUrl) || undefined} download={`RefashionAI_video_${generatedSeedValue || Date.now()}.mp4`}><Download className="h-4 w-4 mr-2" />Download Video</a>
             </Button>
           </CardContent>
         </Card>
