@@ -31,8 +31,8 @@ export default function CreationHub({ children }: { children: React.ReactNode })
       {/* Tabs at the top */}
       <Tabs defaultValue="image" value={defaultTab} onValueChange={setDefaultTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="image">Image Generation</TabsTrigger>
-          <TabsTrigger value="video">Video Generation</TabsTrigger>
+          <TabsTrigger value="image">Create Image</TabsTrigger>
+          <TabsTrigger value="video">Create Video</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
