@@ -3,6 +3,7 @@ import { getAllSettings, getGlobalApiKeysForDisplay } from '@/actions/adminActio
 import { PageHeader } from '@/components/ui/page-header';
 import { Settings } from 'lucide-react';
 import { SettingsForm } from './_components/SettingsForm';
+import { ExportTool } from './_components/ExportTool';
 
 export default async function AdminSettingsPage() {
   const initialSettings = await getAllSettings();
@@ -17,6 +18,7 @@ export default async function AdminSettingsPage() {
         className="text-left py-0"
       />
       <SettingsForm initialSettings={initialSettings} maskedApiKeys={maskedApiKeys} />
+      <ExportTool />
     </div>
   );
 }
