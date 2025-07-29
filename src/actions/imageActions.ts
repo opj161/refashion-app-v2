@@ -104,7 +104,9 @@ export async function cropImage(
   }
 
   try {
-    const imagePath = path.join(process.cwd(), 'public', imageUrl);
+    // FIX: The imageUrl is already the correct relative path from the project root (e.g., /uploads/...).
+    // We no longer need to add the 'public' directory segment.
+    const imagePath = path.join(process.cwd(), imageUrl);
     const originalBuffer = await fs.readFile(imagePath);
     
     const originalImage = sharp(originalBuffer);

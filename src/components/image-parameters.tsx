@@ -1,7 +1,7 @@
 // src/components/image-parameters.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -88,6 +88,9 @@ export default function ImageParameters({
   const [outputImageUrls, setOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
   const [originalOutputImageUrls, setOriginalOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
 
+  // Ref for auto-scroll to results
+  const resultsRef = useRef<HTMLDivElement>(null);
+
   // Load form fields from history when historyItemToLoad changes
   useEffect(() => {
     if (historyItemToLoad && historyItemToLoad.attributes) {
@@ -116,12 +119,26 @@ export default function ImageParameters({
       setLoadedHistoryItemId(historyItemToLoad.id);
     }
   }, [historyItemToLoad]);
+  
   const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isReRollingSlot, setIsReRollingSlot] = useState<number | null>(null);
   const [isUpscalingSlot, setIsUpscalingSlot] = useState<number | null>(null);
   const [comparingSlotIndex, setComparingSlotIndex] = useState<number | null>(null);
   const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
+
+  // Auto-scroll to results when generation starts
+  useEffect(() => {
+    if (isLoading && resultsRef.current) {
+      const timer = setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100); // Small delay to ensure the results section is rendered
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
 
   const commonFormDisabled = !preparedImageUrl || isLoading;
 
@@ -740,7 +757,7 @@ export default function ImageParameters({
 
       {/* Generated Images Display */}
       {(outputImageUrls.some(uri => uri !== null) || generationErrors.some(err => err !== null) || isLoading) && (
-        <Card variant="glass">
+        <Card variant="glass" ref={resultsRef}>
           <CardHeader>
             <CardTitle className="text-xl flex items-center gap-2">
               <Palette className="h-6 w-6 text-primary" />
@@ -775,7 +792,7 @@ export default function ImageParameters({
                   const displayUrl = getDisplayableImageUrl(comparingSlotIndex === index ? originalOutputImageUrls[index] : uri) || '';
                   return (
                     <motion.div key={index} variants={itemAnim} className="group rounded-md overflow-hidden flex flex-col border border-border/20">
-                      <div className="relative aspect-[3/4] w-full">
+                      <div className="relative aspect-[2/3] w-full">
                         <Image
                           src={displayUrl || ''}
                           alt={`Generated Image ${index + 1}`}

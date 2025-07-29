@@ -175,8 +175,10 @@ async function performSingleImageGeneration(
       }
     } else if (input.imageDataUriOrUrl.startsWith('/')) {
       try {
-        const absolutePath = path.join(process.cwd(), 'public', input.imageDataUriOrUrl);
-        if (fs.existsSync(absolutePath)) {
+        // FIX: The 'uploads' directory is now at the root, not inside 'public'.
+        // We construct the path relative to the project root.
+        const absolutePath = path.join(process.cwd(), input.imageDataUriOrUrl);
+        if (fs.existsSync(absolutePath)) { // Note: existsSync is not async, consider fs.promises.access for full async pattern
           const imageBuffer = fs.readFileSync(absolutePath);
           let mimeType = 'image/png';
           if (input.imageDataUriOrUrl.endsWith('.jpg') || input.imageDataUriOrUrl.endsWith('.jpeg')) mimeType = 'image/jpeg';

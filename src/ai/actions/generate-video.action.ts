@@ -19,6 +19,7 @@ if (!process.env.FAL_KEY) {
 export interface GenerateVideoInput {
   prompt: string;
   image_url: string; // This can be a public URL or a base64 data URI
+  local_image_path?: string; // The original local path for history storage
   resolution?: '480p' | '720p' | '1080p';
   duration?: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12'; // Duration as strings for Fal.ai API
   videoModel?: 'lite' | 'pro';
@@ -79,7 +80,7 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
     videoModel: input.videoModel || 'lite',
     duration: input.duration || '5',
     seed: input.seed || -1,
-    sourceImageUrl: input.image_url,
+    sourceImageUrl: input.local_image_path || input.image_url, // Prefer local path for history
     selectedPredefinedPrompt: input.selectedPredefinedPrompt || 'custom',
     modelMovement: input.modelMovement || '',
     fabricMotion: input.fabricMotion || '',
@@ -98,27 +99,29 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
   // 2. Prepare the webhook URL for fal_webhook query parameter
   const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/video/webhook?historyItemId=${historyItemId}&username=${encodeURIComponent(user.username)}`;
 
-  // 3. Construct an absolute, publicly accessible URL for the image.
-  // Fal.ai will fetch the image from this URL.
-  const absoluteImageUrl = new URL(getDisplayableImageUrl(input.image_url)!, process.env.NEXT_PUBLIC_APP_URL!).href;
-
   // Submit the job using the new service function
   try {
-    // --- START: NEW UPLOAD LOGIC ---
-    // The input.image_url is a local path like /uploads/processed_images/image.png
-    // We need to read this file and upload it to Fal Storage to get a public URL.
-    console.log(`Preparing to upload local image for video generation: ${input.image_url}`);
-    const localFilePath = path.join(process.cwd(), 'uploads', input.image_url.replace('/uploads/', ''));
-    const fileBuffer = await fs.readFile(localFilePath);
-    const imageBlob = new Blob([fileBuffer]);
+    let falPublicUrl: string;
     
-    // Use your existing helper to upload to Fal.ai
-    const falPublicUrl = await uploadToFalStorage(
-      imageBlob,
-      user.username
-    );
-    console.log(`Image uploaded to Fal Storage. Public URL: ${falPublicUrl}`);
-    // --- END: NEW UPLOAD LOGIC ---
+    // Check if image_url is already a Fal.ai URL or needs to be uploaded
+    if (input.image_url.startsWith('https://v3.fal.media/') || input.image_url.startsWith('https://fal.media/')) {
+      // Already a Fal.ai URL, use it directly
+      falPublicUrl = input.image_url;
+      console.log(`Using existing Fal.ai URL: ${falPublicUrl}`);
+    } else if (input.image_url.startsWith('/uploads/')) {
+      // Local path - read file and upload to Fal.ai
+      console.log(`Uploading local image for video generation: ${input.image_url}`);
+      const localFilePath = path.join(process.cwd(), 'public', input.image_url);
+      const fileBuffer = await fs.readFile(localFilePath);
+      const imageBlob = new Blob([fileBuffer]);
+      
+      falPublicUrl = await uploadToFalStorage(imageBlob, user.username);
+      console.log(`Image uploaded to Fal Storage. Public URL: ${falPublicUrl}`);
+    } else {
+      // Assume it's some other URL format - try to use directly
+      falPublicUrl = input.image_url;
+      console.log(`Using provided image URL directly: ${falPublicUrl}`);
+    }
 
     const videoServiceInput = {
       prompt: input.prompt,

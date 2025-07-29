@@ -1,7 +1,7 @@
 // src/components/video-parameters.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle
@@ -172,6 +172,22 @@ export default function VideoParameters({
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [generatedLocalVideoUrl, setGeneratedLocalVideoUrl] = useState<string | null>(null);
+
+  // Ref for auto-scroll to results
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to results when generation starts
+  useEffect(() => {
+    if (isGenerating && resultsRef.current) {
+      const timer = setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100); // Small delay to ensure the results section is rendered
+      return () => clearTimeout(timer);
+    }
+  }, [isGenerating]);
 
   // Load form fields from history when historyItemToLoad changes
   useEffect(() => {
@@ -367,6 +383,7 @@ export default function VideoParameters({
       const videoInput = {
         prompt: currentPrompt,
         image_url: imageUrlForVideo,
+        local_image_path: preparedImageUrl, // Always pass the original local path for history storage
         videoModel,
         resolution,
         duration,
@@ -666,11 +683,13 @@ export default function VideoParameters({
                 Generating...
               </>
             ) : (
-              <div className="flex items-center justify-center w-full">
-                <Video className="mr-2 h-5 w-5" />
-                <span>Generate Video</span>
+              <div className="flex items-center justify-center w-full relative">
+                <div className="flex items-center justify-center">
+                  <Video className="mr-2 h-5 w-5" />
+                  <span>Generate Video</span>
+                </div>
                 {estimatedCost !== null && !isGenerating && (
-                  <Badge variant="secondary" className="ml-auto text-base">
+                  <Badge variant="secondary" className="absolute right-0 text-base">
                     {formatPrice(estimatedCost)}
                   </Badge>
                 )}
@@ -695,7 +714,7 @@ export default function VideoParameters({
       )}
 
       {isGenerating && !generatedVideoUrl && (
-        <Card>
+        <Card ref={resultsRef}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Loader2 className="h-6 w-6 text-primary animate-spin" />

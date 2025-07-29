@@ -45,7 +45,7 @@
   <Config Name="NO_PROXY" Target="NO_PROXY" Default="localhost,127.0.0.1" Mode="" Description="No proxy hosts" Type="Variable" Display="advanced" Required="false" Mask="false">localhost,127.0.0.1</Config>
   
   <!-- Volume Mappings -->
-  <Config Name="App Data" Target="/app/public/uploads" Default="/mnt/user/appdata/refashion-app/uploads" Mode="rw" Description="Directory for uploaded and generated images" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/refashion-app/uploads</Config>
+  <Config Name="App Data" Target="/app/uploads" Default="/mnt/user/appdata/refashion-app/uploads" Mode="rw" Description="Directory for uploaded and generated images" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/refashion-app/uploads</Config>
   <Config Name="User Data" Target="/app/user_data" Default="/mnt/user/appdata/refashion-app/user_data" Mode="rw" Description="Directory for user-specific data including history files" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/refashion-app/user_data</Config>
   
   <!-- Port Mapping -->
