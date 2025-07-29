@@ -4,6 +4,7 @@ import { saveFileFromBuffer } from '@/services/storage.service';
 import sharp, { type Region } from 'sharp';
 import path from 'path';
 import fs from 'fs/promises';
+import crypto from 'crypto';
 
 const MAX_DIMENSION = 2048;
 
@@ -147,5 +148,41 @@ export async function cropImage(
     console.error('Error cropping image:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return { success: false, error: `Failed to crop image: ${errorMessage}` };
+  }
+}
+
+/**
+ * Fetches an image from a public URL on the server-side to bypass client-side CORS issues.
+ * @param imageUrl The public URL of the image to fetch.
+ * @returns An object containing the image as a data URI and a generated hash.
+ */
+export async function fetchImageAndConvertToDataUri(
+  imageUrl: string
+): Promise<{ success: true; dataUri: string; hash: string } | { success: false; error: string }> {
+  try {
+    const response = await fetch(imageUrl, {
+      signal: AbortSignal.timeout(15000), 
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.startsWith('image/')) {
+      throw new Error('Fetched content is not a valid image type.');
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const dataUri = `data:${contentType};base64,${buffer.toString('base64')}`;
+
+    const hash = crypto.createHash('sha256').update(imageUrl).digest('hex');
+
+    return { success: true, dataUri, hash };
+
+  } catch (error) {
+    console.error(`Error fetching image from URL on server: ${imageUrl}`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown server error during image fetch.';
+    return { success: false, error: errorMessage };
   }
 }

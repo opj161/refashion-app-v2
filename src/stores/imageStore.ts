@@ -6,7 +6,7 @@ import { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-ima
 // Server Actions
 import { removeBackgroundAction } from "@/ai/actions/remove-background.action";
 import { upscaleImageAction, faceDetailerAction } from "@/ai/actions/upscale-image.action";
-import { prepareInitialImage, cropImage } from "@/actions/imageActions"; // Updated/new Server Actions
+import { prepareInitialImage, cropImage, fetchImageAndConvertToDataUri } from "@/actions/imageActions"; // Updated/new Server Actions
 
 // --- Types ---
 export interface ImageVersion {
@@ -65,6 +65,19 @@ export interface ImageActions {
 
 export type ImageStore = ImageState & ImageActions;
 
+// Helper function to convert data URI to Blob
+function dataUriToBlob(dataURI: string): Blob {
+  const [header, data] = dataURI.split(',');
+  const mimeMatch = header.match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const byteString = atob(data);
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  return new Blob([ab], { type: mime });
+}
 
 // --- Initial State ---
 const initialState: ImageState = {
@@ -315,23 +328,40 @@ export const useImageStore = create<ImageStore>()(
         set({ isProcessing: true, processingStep: 'upload' }, false, 'loadImageFromUrl:start');
         
         try {
-          // Create a fake File object for the URL-based image
-          const response = await fetch(imageUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.statusText}`);
+          let imageDataUri: string;
+          let imageHash: string;
+
+          // Check if it's an external URL that needs server-side fetching
+          if (imageUrl.startsWith('http')) {
+            console.log('Fetching external image via server action:', imageUrl);
+            const result = await fetchImageAndConvertToDataUri(imageUrl);
+            if (!result.success) {
+              throw new Error(result.error);
+            }
+            imageDataUri = result.dataUri;
+            imageHash = result.hash;
+          } else {
+            // Assume it's a local relative URL, which can be used directly.
+            // Create a simple hash from the local URL.
+            console.log('Using local image URL directly:', imageUrl);
+            imageDataUri = imageUrl;
+            imageHash = btoa(imageUrl).replace(/[/+=]/g, '').substring(0, 16);
           }
-          
-          const blob = await response.blob();
-          const fileName = imageUrl.split('/').pop() || 'loaded-image.jpg';
+
+          // Create a File object from the (potentially fetched) data URI
+          const blob = dataUriToBlob(imageDataUri);
+          const fileName = imageUrl.split('/').pop()?.split('?')[0] || 'loaded-image.jpg';
           const file = new File([blob], fileName, { type: blob.type });
-          
-          // Generate a simple hash from the URL
-          const hash = btoa(imageUrl).replace(/[/+=]/g, '').substring(0, 16);
-          
-          get().setOriginalImage(file, imageUrl, hash);
+
+          // Set the image in the store
+          get().setOriginalImage(file, imageDataUri, imageHash);
+          console.log('Successfully loaded image into store from URL:', imageUrl);
           
         } catch (error) {
-          console.error('Error loading image from URL:', error);
+          console.error('Error loading image from URL:', {
+            url: imageUrl,
+            error: error instanceof Error ? error.message : String(error),
+          });
           throw error;
         } finally {
           set({ isProcessing: false, processingStep: null }, false, 'loadImageFromUrl:end');
