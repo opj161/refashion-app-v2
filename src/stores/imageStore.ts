@@ -1,12 +1,12 @@
 // src/stores/imageStore.ts
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 
 // Server Actions
 import { removeBackgroundAction } from "@/ai/actions/remove-background.action";
 import { upscaleImageAction, faceDetailerAction } from "@/ai/actions/upscale-image.action";
 import { prepareInitialImage, cropImage } from "@/actions/imageActions"; // Updated/new Server Actions
-import type { PixelCrop } from 'react-image-crop';
 
 // --- Types ---
 export interface ImageVersion {
@@ -32,6 +32,11 @@ export interface ImageState {
   } | null;
   isProcessing: boolean;
   processingStep: 'upload' | 'crop' | 'bg' | 'upscale' | 'face' | 'confirm' | null;
+  // Crop-related state
+  crop?: Crop;
+  completedCrop?: PixelCrop;
+  aspect?: number;
+  imageDimensions?: { width: number; height: number };
 }
 
 export interface ImageActions {
@@ -43,12 +48,18 @@ export interface ImageActions {
   setProcessing: (isProcessing: boolean, step: ImageState['processingStep']) => void;
   reset: () => void;
   
+  // Crop-related actions
+  setCrop: (crop?: Crop) => void;
+  setCompletedCrop: (crop?: PixelCrop) => void;
+  setAspect: (aspect?: number) => void;
+  setImageDimensions: (dimensions: { width: number; height: number }) => void;
+  
   // Async actions
   removeBackground: (username: string) => Promise<void>;
   upscaleImage: (username: string) => Promise<void>;
   faceDetailer: (username: string) => Promise<void>;
   uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
-  applyCrop: (crop: PixelCrop) => Promise<void>;
+  applyCrop: () => Promise<void>; // Updated to not require crop parameter
 }
 
 export type ImageStore = ImageState & ImageActions;
@@ -62,6 +73,10 @@ const initialState: ImageState = {
   comparison: null,
   isProcessing: false,
   processingStep: null,
+  crop: undefined,
+  completedCrop: undefined,
+  aspect: undefined,
+  imageDimensions: undefined,
 };
 
 // --- Store Implementation ---
@@ -113,7 +128,12 @@ export const useImageStore = create<ImageStore>()(
       setActiveVersion: (versionId: string) => {
         set({
           activeVersionId: versionId,
-          comparison: null, // Clear comparison when switching versions
+          comparison: null,
+          // IMPORTANT: Reset dimensions and crop when switching images.
+          imageDimensions: undefined,
+          crop: undefined,
+          completedCrop: undefined,
+          // The currently selected aspect ratio is preserved as an "intent".
         }, false, 'setActiveVersion');
       },
 
@@ -127,6 +147,33 @@ export const useImageStore = create<ImageStore>()(
 
       reset: () => {
         set(initialState, false, 'reset');
+      },
+
+      // --- Crop Actions ---
+      setCrop: (crop) => set({ crop }, false, 'setCrop'),
+      setCompletedCrop: (completedCrop) => set({ completedCrop }, false, 'setCompletedCrop'),
+      setImageDimensions: (dimensions) => set({ imageDimensions: dimensions }, false, 'setImageDimensions'),
+
+      setAspect: (aspect) => {
+        const { imageDimensions } = get();
+        
+        // If dimensions are already available (e.g., image is loaded and user changes aspect),
+        // calculate the crop immediately.
+        if (imageDimensions) {
+          const { width, height } = imageDimensions;
+          const newCrop = aspect
+            ? centerCrop(
+                makeAspectCrop({ unit: '%', width: 90 }, aspect, width, height),
+                width,
+                height
+              )
+            : undefined; // Reset to undefined for free crop
+          set({ aspect, crop: newCrop, completedCrop: undefined }, false, 'setAspect');
+        } else {
+          // If dimensions aren't ready, just set the desired aspect.
+          // The onImageLoad handler in the component will take care of the initial crop calculation.
+          set({ aspect, crop: undefined, completedCrop: undefined }, false, 'setAspect');
+        }
       },
 
       // --- Async Actions ---
@@ -204,7 +251,7 @@ export const useImageStore = create<ImageStore>()(
       },
 
       uploadOriginalImage: async (file: File) => {
-        get().setProcessing(true, 'upload');
+        set({ isProcessing: true, processingStep: 'upload' }, false, 'uploadOriginalImage:start');
         try {
           const formData = new FormData();
           formData.append('file', file);
@@ -217,34 +264,34 @@ export const useImageStore = create<ImageStore>()(
 
           const { imageUrl, hash, resized, originalWidth, originalHeight } = result;
 
-          // We still need the file object for potential future use, but state holds the URL
+          // Set original image and dimensions
           get().setOriginalImage(file, imageUrl, hash);
+          get().setImageDimensions({ width: originalWidth, height: originalHeight });
+          
           return { resized, originalWidth, originalHeight };
         } catch (error) {
-          console.error('Upload and resize failed in store action:', error);
-          get().setProcessing(false, null);
+          console.error('Upload failed in store:', error);
           throw error;
         } finally {
-          // On successful upload, we are ready to crop, not idle.
-          get().setProcessing(false, 'crop');
+          set({ isProcessing: false, processingStep: null }, false, 'uploadOriginalImage:end');
         }
       },
       
-      applyCrop: async (crop: PixelCrop) => {
-        const { activeVersionId, versions } = get();
-        if (!activeVersionId || !versions[activeVersionId]) {
-          console.warn('No active version to crop');
-          return;
+      applyCrop: async () => {
+        const { completedCrop, activeVersionId, versions } = get();
+        if (!completedCrop || !activeVersionId) {
+          throw new Error('Cannot apply crop: No active image or crop selection.');
         }
+
         const currentVersion = versions[activeVersionId];
         set({ isProcessing: true, processingStep: 'crop' }, false, 'applyCrop:start');
 
         try {
-          const result = await cropImage(currentVersion.imageUrl, crop);
+          const result = await cropImage(currentVersion.imageUrl, completedCrop);
           if (!result.success) {
             throw new Error(result.error);
           }
-
+          
           get().addVersion({
             imageUrl: result.imageUrl,
             label: 'Cropped',
@@ -252,9 +299,12 @@ export const useImageStore = create<ImageStore>()(
             hash: result.hash,
           });
 
+          // After cropping, reset aspect ratio to freeform for the new version
+          get().setAspect(undefined);
+
         } catch (error) {
           console.error('Error applying crop:', error);
-          throw error;
+          throw error; // Re-throw to be caught in the component for a toast
         } finally {
           set({ isProcessing: false, processingStep: null }, false, 'applyCrop:end');
         }
