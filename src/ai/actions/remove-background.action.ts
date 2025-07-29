@@ -11,6 +11,9 @@ import * as falImageService from '@/services/fal-api/image.service';
 import { saveFileFromUrl } from '@/services/storage.service';
 import { getCachedImage, setCachedImage } from './cache-manager';
 import { getCurrentUser } from '@/actions/authActions';
+import fs from 'fs/promises';
+import path from 'path';
+import mime from 'mime-types';
 
 /**
  * Remove background from a user-uploaded image
@@ -44,11 +47,15 @@ export async function removeBackgroundAction(
   try {
     console.log('Starting background removal process with Fal.ai...');
 
-    // Construct an absolute URL for the image on our own server to pass to Fal.ai
-    const absoluteImageUrl = new URL(imageUrl, process.env.NEXT_PUBLIC_APP_URL!).href;
+    // Read the local file and convert it to a data URI
+    // This ensures Fal.ai receives the image data directly, avoiding localhost access issues.
+    const filePath = path.join(process.cwd(), 'uploads', imageUrl.replace('/uploads/', ''));
+    const buffer = await fs.readFile(filePath);
+    const mimeType = mime.lookup(filePath) || 'image/png';
+    const imageDataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
     // Remove background using Fal.ai service
-    const outputImageUrl = await falImageService.removeBackground(absoluteImageUrl, user.username);
+    const outputImageUrl = await falImageService.removeBackground(imageDataUri, user.username);
     
     console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
 

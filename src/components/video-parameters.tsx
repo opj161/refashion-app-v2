@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { uploadToFalStorage } from '@/ai/actions/generate-video.action';
+import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
 import { useActiveImage } from "@/stores/imageStore";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -55,7 +55,15 @@ interface VideoGenerationParams {
 
 // --- Options & Constants are now imported from prompt-builder.ts ---
 
-const isVideoServiceAvailable = !!process.env.NEXT_PUBLIC_FAL_KEY; // Or however it's determined globally
+// Service availability is now checked via server action
+  // Service availability state
+  const [isServiceAvailable, setIsServiceAvailable] = useState(true); // Assume available initially
+  // Effect to check for service availability on the server
+  useEffect(() => {
+    isFalVideoGenerationAvailable().then(result => {
+      setIsServiceAvailable(result.available);
+    });
+  }, []);
 
 // Helper function to convert data URI to Blob
 function dataUriToBlob(dataUri: string): Blob {
@@ -180,7 +188,7 @@ export default function VideoParameters({
 
   // Check if data URI is provided (not a server URL)
   const isDataUri = preparedImageUrl?.startsWith('data:') || false;
-  const commonFormDisabled = isGenerating || isUploadingToFal || !isVideoServiceAvailable || !preparedImageUrl;
+  const commonFormDisabled = isGenerating || isUploadingToFal || !isServiceAvailable || !preparedImageUrl;
 
   const currentVideoGenParams = React.useMemo((): VideoGenerationParams => ({
     selectedPredefinedPrompt,
@@ -635,7 +643,7 @@ export default function VideoParameters({
         </CardFooter>
       </Card>
 
-      {!isVideoServiceAvailable && (
+      {!isServiceAvailable && (
         <Card variant="glass" className="border-amber-500 bg-amber-50 text-amber-700">
           <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle /> Service Not Available</CardTitle></CardHeader>
           <CardContent><p>Video generation service is not configured.</p></CardContent>

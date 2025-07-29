@@ -11,6 +11,9 @@ import * as falImageService from '@/services/fal-api/image.service';
 import { saveFileFromUrl } from '@/services/storage.service';
 import { getCachedImage, setCachedImage } from './cache-manager';
 import { getCurrentUser } from '@/actions/authActions';
+import fs from 'fs/promises';
+import path from 'path';
+import mime from 'mime-types';
 
 /**
  * Upscale and enhance a user-uploaded image
@@ -44,11 +47,15 @@ export async function upscaleImageAction(
   try {
     console.log('Starting image upscaling process with Fal.ai...');
 
-    // Construct an absolute URL for the image on our own server to pass to Fal.ai
-    const absoluteImageUrl = new URL(imageUrl, process.env.NEXT_PUBLIC_APP_URL!).href;
+    // Read the local file and convert it to a data URI
+    // This ensures Fal.ai receives the image data directly, avoiding localhost access issues.
+    const filePath = path.join(process.cwd(), 'uploads', imageUrl.replace('/uploads/', ''));
+    const buffer = await fs.readFile(filePath);
+    const mimeType = mime.lookup(filePath) || 'image/png';
+    const imageDataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
     // Process image using Fal.ai service
-    const outputImageUrl = await falImageService.upscaleAndEnhance(absoluteImageUrl, user.username);
+    const outputImageUrl = await falImageService.upscaleAndEnhance(imageDataUri, user.username);
     
     console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
 
@@ -107,11 +114,15 @@ export async function faceDetailerAction(
   try {
     console.log('Starting face enhancement process with Fal.ai...');
 
-    // Construct an absolute URL for the image on our own server to pass to Fal.ai
-    const absoluteImageUrl = new URL(imageUrl, process.env.NEXT_PUBLIC_APP_URL!).href;
+    // Read the local file and convert it to a data URI
+    // This ensures Fal.ai receives the image data directly, avoiding localhost access issues.
+    const filePath = path.join(process.cwd(), 'uploads', imageUrl.replace('/uploads/', ''));
+    const buffer = await fs.readFile(filePath);
+    const mimeType = mime.lookup(filePath) || 'image/png';
+    const imageDataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
     // Call the new, specific service function
-    const outputImageUrl = await falImageService.detailFaces(absoluteImageUrl, user.username);
+    const outputImageUrl = await falImageService.detailFaces(imageDataUri, user.username);
 
     console.log(`Fal.ai face-detailer processed image URL: ${outputImageUrl}`);
 

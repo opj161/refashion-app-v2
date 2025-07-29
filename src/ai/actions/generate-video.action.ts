@@ -5,6 +5,9 @@ import { getCurrentUser } from '@/actions/authActions';
 import { addStandaloneVideoHistoryItem, updateVideoHistoryItem } from '@/actions/historyActions';
 import * as videoService from '@/services/fal-api/video.service'; // Use the service layer
 import { getApiKeyForUser } from '@/services/apiKey.service';
+import fs from 'fs/promises';
+import path from 'path';
+import mime from 'mime-types';
 
 // Ensure FAL_KEY is available, otherwise Fal.ai calls will fail
 if (!process.env.FAL_KEY) {
@@ -38,9 +41,11 @@ export interface GenerateVideoOutput {
 
 /**
  * Checks if the Fal.ai video generation service is configured and available.
+ * Returns an object for clarity and future expansion.
  */
-export async function isFalVideoGenerationAvailable(): Promise<boolean> {
-  return await videoService.isVideoServiceAvailable();
+export async function isFalVideoGenerationAvailable(): Promise<{ available: boolean }> {
+  const isAvailable = await videoService.isVideoServiceAvailable();
+  return { available: isAvailable };
 }
 
 /**
@@ -93,11 +98,28 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
   // 2. Prepare the webhook URL for fal_webhook query parameter
   const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/video/webhook?historyItemId=${historyItemId}&username=${encodeURIComponent(user.username)}`;
 
-  // 3. Submit the job using the new service function
+  // 3. Process the image URL - convert local URLs to data URIs
+  let processedImageUrl = input.image_url;
+  
+  // If the image_url is a local path, read the file and convert to data URI
+  if (input.image_url.startsWith('/uploads/')) {
+    try {
+      const filePath = path.join(process.cwd(), 'uploads', input.image_url.replace('/uploads/', ''));
+      const buffer = await fs.readFile(filePath);
+      const mimeType = mime.lookup(filePath) || 'image/png';
+      processedImageUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;
+      console.log('Converted local image URL to data URI for Fal.ai video generation');
+    } catch (error) {
+      console.error('Error reading local image file for video generation:', error);
+      throw new Error(`Failed to read local image file: ${(error as Error).message}`);
+    }
+  }
+
+  // Submit the job using the new service function
   try {
     const videoServiceInput = {
       prompt: input.prompt,
-      image_url: input.image_url,
+      image_url: processedImageUrl,
       videoModel: input.videoModel,
       resolution: input.resolution,
       duration: input.duration,
