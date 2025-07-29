@@ -709,7 +709,7 @@ export default function ImageParameters({
               id="imagePromptTextarea"
               value={currentPrompt}
               onChange={(e) => handlePromptChange(e.target.value)}
-              rows={5}
+              rows={8}
               className="text-xs font-mono"
               placeholder="Prompt will be generated here based on your selections, or you can type your own."
               disabled={commonFormDisabled}
