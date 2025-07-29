@@ -87,6 +87,35 @@ export default function ImageParameters({
   // State for generation results
   const [outputImageUrls, setOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
   const [originalOutputImageUrls, setOriginalOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+
+  // Load form fields from history when historyItemToLoad changes
+  useEffect(() => {
+    if (historyItemToLoad && historyItemToLoad.attributes) {
+      const attrs = historyItemToLoad.attributes;
+      
+      setGender(attrs.gender || GENDER_OPTIONS[0].value);
+      setBodyType(attrs.bodyType || BODY_TYPE_OPTIONS[0].value);
+      setBodySize(attrs.bodySize || BODY_SIZE_OPTIONS[0].value);
+      setAgeRange(attrs.ageRange || AGE_RANGE_OPTIONS[0].value);
+      setEthnicity(attrs.ethnicity || ETHNICITY_OPTIONS[0].value);
+      setPoseStyle(attrs.poseStyle || POSE_STYLE_OPTIONS[0].value);
+      setBackground(attrs.background || BACKGROUND_OPTIONS[0].value);
+      setFashionStyle(attrs.fashionStyle || FASHION_STYLE_OPTIONS[0].value);
+      setHairStyle(attrs.hairStyle || HAIR_STYLE_OPTIONS[0].value);
+      setModelExpression(attrs.modelExpression || MODEL_EXPRESSION_OPTIONS[0].value);
+      setLightingType(attrs.lightingType || LIGHTING_TYPE_OPTIONS[0].value);
+      setLightQuality(attrs.lightQuality || LIGHT_QUALITY_OPTIONS[0].value);
+      setCameraAngle(attrs.cameraAngle || CAMERA_ANGLE_OPTIONS[0].value);
+      setLensEffect(attrs.lensEffect || LENS_EFFECT_OPTIONS[0].value);
+      setDepthOfField(attrs.depthOfField || DEPTH_OF_FIELD_OPTIONS[0].value);
+      setTimeOfDay(attrs.timeOfDay || TIME_OF_DAY_OPTIONS[0].value);
+      setOverallMood(attrs.overallMood || OVERALL_MOOD_OPTIONS[0].value);
+      setFabricRendering(attrs.fabricRendering || FABRIC_RENDERING_OPTIONS[0].value);
+      
+      setSettingsMode(historyItemToLoad.settingsMode || 'basic');
+      setLoadedHistoryItemId(historyItemToLoad.id);
+    }
+  }, [historyItemToLoad]);
   const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isReRollingSlot, setIsReRollingSlot] = useState<number | null>(null);

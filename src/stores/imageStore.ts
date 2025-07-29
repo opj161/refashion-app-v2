@@ -60,6 +60,7 @@ export interface ImageActions {
   faceDetailer: (username: string) => Promise<void>;
   uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
   applyCrop: () => Promise<void>; // Updated to not require crop parameter
+  loadImageFromUrl: (imageUrl: string) => Promise<void>;
 }
 
 export type ImageStore = ImageState & ImageActions;
@@ -307,6 +308,33 @@ export const useImageStore = create<ImageStore>()(
           throw error; // Re-throw to be caught in the component for a toast
         } finally {
           set({ isProcessing: false, processingStep: null }, false, 'applyCrop:end');
+        }
+      },
+
+      loadImageFromUrl: async (imageUrl: string) => {
+        set({ isProcessing: true, processingStep: 'upload' }, false, 'loadImageFromUrl:start');
+        
+        try {
+          // Create a fake File object for the URL-based image
+          const response = await fetch(imageUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.statusText}`);
+          }
+          
+          const blob = await response.blob();
+          const fileName = imageUrl.split('/').pop() || 'loaded-image.jpg';
+          const file = new File([blob], fileName, { type: blob.type });
+          
+          // Generate a simple hash from the URL
+          const hash = btoa(imageUrl).replace(/[/+=]/g, '').substring(0, 16);
+          
+          get().setOriginalImage(file, imageUrl, hash);
+          
+        } catch (error) {
+          console.error('Error loading image from URL:', error);
+          throw error;
+        } finally {
+          set({ isProcessing: false, processingStep: null }, false, 'loadImageFromUrl:end');
         }
       },
     }),

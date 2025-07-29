@@ -172,6 +172,32 @@ export default function VideoParameters({
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [generatedLocalVideoUrl, setGeneratedLocalVideoUrl] = useState<string | null>(null);
+
+  // Load form fields from history when historyItemToLoad changes
+  useEffect(() => {
+    if (historyItemToLoad && historyItemToLoad.videoGenerationParams) {
+      const videoParams = historyItemToLoad.videoGenerationParams;
+      
+      setVideoModel((videoParams.videoModel as VideoModel) || 'lite');
+      setResolution((videoParams.resolution as VideoResolution) || '480p');
+      setDuration((videoParams.duration as VideoDuration) || '5');
+      setSeed(videoParams.seed?.toString() || '-1');
+      setCameraFixed(videoParams.cameraFixed || false);
+      
+      setModelMovement(videoParams.modelMovement || MODEL_MOVEMENT_OPTIONS[0].value);
+      setFabricMotion(videoParams.fabricMotion || FABRIC_MOTION_OPTIONS_VIDEO[0].value);
+      setCameraAction(videoParams.cameraAction || CAMERA_ACTION_OPTIONS[0].value);
+      setAestheticVibe(videoParams.aestheticVibe || AESTHETIC_STYLE_OPTIONS[0].value);
+      
+      // If we have a generated video, set it
+      if (historyItemToLoad.generatedVideoUrls && historyItemToLoad.generatedVideoUrls[0]) {
+        setGeneratedVideoUrl(historyItemToLoad.generatedVideoUrls[0]);
+      }
+      if (videoParams.localVideoUrl) {
+        setGeneratedLocalVideoUrl(videoParams.localVideoUrl);
+      }
+    }
+  }, [historyItemToLoad]);
   const [generatedSeedValue, setGeneratedSeedValue] = useState<number | null>(null);
 
   // For webhook-based flow

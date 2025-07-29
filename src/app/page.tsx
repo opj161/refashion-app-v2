@@ -3,11 +3,25 @@ import CreationHub from '@/components/creation-hub';
 import { PageHeader } from "@/components/ui/page-header";
 import { Palette } from "lucide-react";
 import HistoryGallery from '@/components/history-gallery';
-import { getHistoryPaginated } from '@/actions/historyActions';
+import { getHistoryPaginated, getHistoryItemById } from '@/actions/historyActions';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { HistoryItem } from '@/lib/types';
 
-// This is now an async Server Component
-export default async function CreatePage() {
+// This is now an async Server Component that accepts searchParams
+export default async function CreatePage({ searchParams }: { searchParams?: { historyItemId?: string } }) {
+  let historyItemToLoad: HistoryItem | null = null;
+  
+  const historyItemId = searchParams?.historyItemId;
+
+  if (historyItemId) {
+    // Fetch the history item on the server if an ID is present in the URL
+    const result = await getHistoryItemById(historyItemId);
+    if (result.success && result.item) {
+      historyItemToLoad = result.item;
+    } else {
+      console.warn(`Could not load history item ${historyItemId}: ${result.error}`);
+    }
+  }
   return (
     <div className="container mx-auto max-w-7xl px-4 py-10 space-y-8">
       <PageHeader
@@ -15,8 +29,8 @@ export default async function CreatePage() {
         title="Creation Hub"
         description="Generate new fashion images and videos using your uploaded clothing."
       />
-      {/* CreationHub is now a child that receives the server-rendered history as children */}
-      <CreationHub>
+      {/* Pass the loaded history item down to the client component */}
+      <CreationHub historyItemToLoad={historyItemToLoad}>
         <Suspense fallback={<HistoryGallerySkeleton />}>
           <UserHistory />
         </Suspense>
