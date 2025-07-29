@@ -9,6 +9,7 @@ import type { SessionUser } from '@/lib/types';
 import { cookies } from 'next/headers';
 import { SiteHeader } from '@/components/SiteHeader'; // Import the new header
 import PageTransitionWrapper from '@/components/PageTransitionWrapper';
+import { SplashScreen } from '@/components/SplashScreen';
 
 // Force dynamic rendering to ensure authentication state is determined at request time
 export const dynamic = 'force-dynamic';
@@ -70,15 +71,17 @@ export default async function RootLayout({
         } as React.CSSProperties}
       >
         <div className="aurora-bg"></div>
-        <AuthProvider initialUser={initialUser}>
-          <ThemeProvider>
-            <SiteHeader /> {/* Use the new header component here */}
-            <main className="flex-1 flex flex-col">
-              <PageTransitionWrapper>{children}</PageTransitionWrapper>
-            </main>
-            <Toaster />
-          </ThemeProvider>
-        </AuthProvider>
+        <SplashScreen>
+          <AuthProvider initialUser={initialUser}>
+            <ThemeProvider>
+              <SiteHeader /> {/* Use the new header component here */}
+              <main className="flex-1 flex flex-col">
+                <PageTransitionWrapper>{children}</PageTransitionWrapper>
+              </main>
+              <Toaster />
+            </ThemeProvider>
+          </AuthProvider>
+        </SplashScreen>
       </body>
     </html>
   );
