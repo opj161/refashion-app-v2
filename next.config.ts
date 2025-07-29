@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'refashion.cc',
+        hostname: '**.refashion.cc',
         pathname: '/**',
       },
       {
@@ -68,6 +68,12 @@ const nextConfig: NextConfig = {
         protocol: 'http',
         hostname: '0.0.0.0',
         port: '3000', 
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '9002',
         pathname: '/**',
       },
     ],

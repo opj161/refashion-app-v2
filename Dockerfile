@@ -1,11 +1,14 @@
 # Use an official Node.js runtime as a parent image
 FROM node:24-alpine AS base
 
-# 1. ---- Dependencies Stage ----
+# --- FIX: Install sharp's native dependencies and other tools in the base stage ---
+# This ensures they are available for all subsequent stages.
+RUN apk add --no-cache vips-dev build-base su-exec libc6-compat \
+    --repository https://alpine.global.ssl.fastly.net/alpine/edge/community/
+
 # Only re-run when package.json or package-lock.json changes
 FROM base AS deps
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
 RUN npm ci
 
@@ -46,8 +49,6 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000
-
-RUN apk add --no-cache su-exec
 
 # Copy production dependencies from the 'prod-deps' stage
 COPY --from=prod-deps /app/node_modules ./node_modules

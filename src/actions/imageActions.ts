@@ -16,7 +16,7 @@ interface PixelCrop {
 
 type PrepareImageResult = {
   success: true;
-  imageUrl: string; // e.g., /uploads/user_uploaded_clothing/user_upload_..._webp
+  imageUrl: string; // e.g., /uploads/user_uploaded_clothing/user_upload_..._.png
   hash: string;
   originalWidth: number;
   originalHeight: number;
@@ -49,7 +49,6 @@ export async function prepareInitialImage(formData: FormData): Promise<PrepareIm
 
     let finalBuffer = buffer;
     let resized = false;
-    let finalFormat: keyof sharp.FormatEnum = metadata.format === 'gif' ? 'gif' : 'webp';
 
     if (metadata.width > MAX_DIMENSION || metadata.height > MAX_DIMENSION) {
       finalBuffer = Buffer.from(await image
@@ -63,20 +62,15 @@ export async function prepareInitialImage(formData: FormData): Promise<PrepareIm
       resized = true;
     }
 
-    // Convert to a modern format for optimization, unless it's a gif
-    if (finalFormat === 'webp') {
-        // --- CHANGE FOR LOSSLESS ---
-        // Use lossless compression to preserve maximum image quality for AI processing.
-        // The `quality` setting is ignored when `lossless` is true.
-        finalBuffer = Buffer.from(await sharp(finalBuffer).webp({ lossless: true }).toBuffer());
-    }
+    // Save as PNG instead of lossless WEBP for Next.js Image Optimizer compatibility
+    const outputBuffer = await sharp(finalBuffer).png().toBuffer();
 
     // Use the storage service to save the processed buffer and get a URL
     const { relativeUrl, hash } = await saveFileFromBuffer(
-      finalBuffer,
+      outputBuffer,
       'user_upload',
       'user_uploaded_clothing',
-      finalFormat as string
+      'png'
     );
 
     return {
@@ -131,15 +125,14 @@ export async function cropImage(
       return { success: false, error: 'Crop dimensions are out of bounds.' };
     }
 
-    // --- CHANGE FOR LOSSLESS ---
-    // Ensure the cropped image is also saved losslessly to maintain fidelity.
-    const croppedBuffer = await originalImage.extract(cropRegion).webp({ lossless: true }).toBuffer();
+    // Save cropped image as PNG for consistency and Next.js Image Optimizer compatibility
+    const croppedBuffer = await originalImage.extract(cropRegion).png().toBuffer();
 
     const { relativeUrl, hash } = await saveFileFromBuffer(
       croppedBuffer,
       'cropped',
       'processed_images',
-      'webp'
+      'png'
     );
 
     return {

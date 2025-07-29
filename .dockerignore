@@ -13,6 +13,7 @@ node_modules
 out/
 public/uploads/
 user_data/*
+uploads/
 
 # Explicitly INCLUDE files and folders needed for the build.
 # This prevents them from being accidentally ignored.
