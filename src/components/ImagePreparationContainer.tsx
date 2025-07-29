@@ -1,12 +1,11 @@
 // src/components/ImagePreparationContainer.tsx
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useImageStore, useActiveImage } from "@/stores/imageStore";
 import { useToast } from "@/hooks/use-toast";
-import { getDisplayableImageUrl } from "@/lib/utils";
 import { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import { motion, AnimatePresence } from "motion/react";
 
@@ -18,176 +17,105 @@ import AspectRatioSelector from "./AspectRatioSelector";
 import ImageVersionStack from "./ImageVersionStack";
 
 import { 
-  UploadCloud, CheckCircle, RefreshCw, Loader2, Trash2, Eye, X, Check, Edit 
+  UploadCloud, Trash2, X, Check
 } from "lucide-react";
 
-// --- Constants ---
-const SERVER_IMAGE_PATH_PREFIX = '/uploads/';
-
 interface ImagePreparationContainerProps {
-  sourceImageUrl?: string | null;
   preparationMode: 'image' | 'video';
   onReset: () => void;
-  isLoadingHistory?: boolean;
 }
 
-export default function ImagePreparationContainer({ 
-  sourceImageUrl, 
+export default function ImagePreparationContainer({
   preparationMode,
   onReset,
-  isLoadingHistory = false
 }: ImagePreparationContainerProps) {
   const { toast } = useToast();
   
   // Store state
   const { 
-    original, 
-    versions, 
-    activeVersionId, 
-    isProcessing, 
-    processingStep,
-    reset: resetStore, // Keep alias for clarity
+    original,
+    versions,
+    activeVersionId,
+    isProcessing,
     applyCrop
   } = useImageStore();
   
   const activeImage = useActiveImage();
 
-  // Local UI state
+  // --- State Management: All state is centralized here ---
   const [aspect, setAspect] = useState<number | undefined>(undefined);
-  const [isComparing, setIsComparing] = useState(false);
-  const [isLoadingFromUrl, setIsLoadingFromUrl] = useState(false);
   
   // Cropping state
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const imgRef = useRef<HTMLImageElement | null>(null);
 
-  // Logic to determine if comparison is possible
-  const sourceVersion = activeImage?.sourceVersionId ? versions[activeImage.sourceVersionId] : null;
+  // --- Core Logic: Event-driven calculation ---
+  const handleAspectChange = useCallback((newAspect: number | undefined) => {
+    setAspect(newAspect);
+    const imageElement = imgRef.current;
 
-  // --- Effects ---
-
-  // Recalculation logic when aspect ratio changes
-  const recalculateCrop = useCallback((aspectRatio: number | undefined, imageElement: HTMLImageElement) => {
-    const { naturalWidth: imgWidth, naturalHeight: imgHeight } = imageElement;
-    let newCrop: Crop;
-
-    if (aspectRatio) {
-      // Check if a full-height crop with the target aspect ratio fits within the image width
-      const requiredWidthForFullHeight = imgHeight * aspectRatio;
-      if (requiredWidthForFullHeight <= imgWidth) {
-        // It fits, so use full height
-        newCrop = centerCrop(
-          makeAspectCrop(
-            { unit: '%', height: 100 },
-            aspectRatio, imgWidth, imgHeight
-          ),
-          imgWidth, imgHeight
-        );
-      } else {
-        // It doesn't fit (image is too narrow/tall), so use full width instead
-        newCrop = centerCrop(
-          makeAspectCrop(
-            { unit: '%', width: 100 },
-            aspectRatio, imgWidth, imgHeight
-          ),
-          imgWidth, imgHeight
-        );
-      }
-    } else {
-      // Fallback for "free" aspect ratio
-      newCrop = centerCrop(
-        makeAspectCrop(
-          { unit: '%', width: 90 },
-          imgWidth / imgHeight, imgWidth, imgHeight
-        ),
-        imgWidth, imgHeight
+    if (imageElement && newAspect) {
+      const { naturalWidth: width, naturalHeight: height } = imageElement;
+      
+      const newCrop = centerCrop(
+        makeAspectCrop({ unit: '%', width: 90 }, newAspect, width, height),
+        width,
+        height
       );
-    }
 
-    setCrop(newCrop as Crop);
-    setCompletedCrop({
-      unit: 'px',
-      x: (newCrop.x / 100) * imgWidth,
-      y: (newCrop.y / 100) * imgHeight,
-      width: (newCrop.width / 100) * imgWidth,
-      height: (newCrop.height / 100) * imgHeight,
-    });
+      setCrop(newCrop);
+      // Also set a completedCrop immediately for instant apply-ability
+      setCompletedCrop({
+          unit: 'px',
+          x: (newCrop.x / 100) * width,
+          y: (newCrop.y / 100) * height,
+          width: (newCrop.width / 100) * width,
+          height: (newCrop.height / 100) * height,
+      });
+    } else {
+      // If switching to "Free" aspect, clear the crop to allow free selection
+      setCrop(undefined);
+      setCompletedCrop(undefined);
+    }
   }, []);
+
+  const handleImageLoad = useCallback((img: HTMLImageElement) => {
+    imgRef.current = img;
+    // When a new image is loaded (e.g., from version stack), if an aspect ratio is
+    // already selected, we should re-calculate and apply the crop for the new image.
+    if (aspect) {
+      handleAspectChange(aspect);
+    }
+  }, [aspect, handleAspectChange]); // Dependency on aspect is intentional here
   
-  useEffect(() => {
-    setAspect(undefined);
-  }, [preparationMode]);
-
-  // Handle crop activation and deactivation based on aspect ratio
-  useEffect(() => {
-    if (imgRef.current && aspect !== undefined) {
-      recalculateCrop(aspect, imgRef.current);
-    }
-  }, [aspect, recalculateCrop]);
-
-  // Effect to load image from URL, moved from ImageUploader
-  useEffect(() => {
-    if (sourceImageUrl && !original && !isLoadingFromUrl) {
-      const loadImageFromUrl = async () => {
-        setIsLoadingFromUrl(true);
-        try {
-          const displayUrl = getDisplayableImageUrl(sourceImageUrl);
-          if (!displayUrl) throw new Error("Could not generate displayable URL.");
-          const response = await fetch(displayUrl);
-          if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
-          const blob = await response.blob();
-          const file = new File([blob], 'loaded-image.jpg', { type: blob.type });
-          await useImageStore.getState().uploadOriginalImage(file);
-        } catch (error) {
-          console.error('Error loading image from sourceImageUrl:', error);
-          toast({ title: "Load Error", description: "Failed to load the image from history.", variant: "destructive" });
-        } finally {
-          setIsLoadingFromUrl(false);
-        }
-      };
-      loadImageFromUrl();
-    }
-  }, [sourceImageUrl, original, isLoadingFromUrl, toast]);
-
-  // --- Cropping Handlers ---
   
   const handleApplyCrop = useCallback(async () => {
-    if (!completedCrop) return;
+    if (!completedCrop) {
+      toast({ title: "No Crop Selected", description: "Please select an area to crop.", variant: "destructive" });
+      return;
+    }
     
     try {
-      // Call the store action which will trigger the server-side crop
       await applyCrop(completedCrop);
-      
-      toast({ title: "Crop Applied", description: "A new cropped version has been added to your history." });
-      setAspect(undefined); // Deactivate cropping mode
+      toast({ title: "Crop Applied", description: "A new cropped version of your image has been created." });
+      setAspect(undefined); // Deactivate cropping mode after applying
+      setCrop(undefined);
+      setCompletedCrop(undefined);
     } catch (error) {
-      console.error('Cropping failed:', error);
       toast({ title: "Cropping Failed", description: (error as Error).message, variant: "destructive" });
     }
   }, [completedCrop, applyCrop, toast]);
 
   const handleCancelCrop = () => {
-    setAspect(undefined); // This will clear the crop UI
-  };
-
-  const handleImageLoad = (img: HTMLImageElement) => {
-    imgRef.current = img;
+    setAspect(undefined);
+    setCrop(undefined);
+    setCompletedCrop(undefined);
+    toast({ title: "Crop Canceled" });
   };
 
   // --- Render Logic ---
   
-  // Show a loading skeleton if loading from URL or waiting for history data
-  if (isLoadingFromUrl || (isLoadingHistory && sourceImageUrl)) {
-    return (
-      <Card variant="glass">
-        <CardContent className="flex items-center justify-center p-10 min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </CardContent>
-      </Card>
-    );
-  }
-
   // Show uploader if no image
   if (!original) {
     return (
@@ -198,9 +126,6 @@ export default function ImagePreparationContainer({
       </AnimatePresence>
     );
   }
-
-  // Determine which image data to pass to the canvas
-  const imageForCanvas = isComparing && sourceVersion ? sourceVersion : activeImage;
 
   // Main editor interface
   return (
@@ -213,8 +138,8 @@ export default function ImagePreparationContainer({
                 <UploadCloud className="h-6 w-6 text-primary" />
                 Prepare Your Image
               </CardTitle>
-              <CardDescription className="hidden lg:block">
-                Upload, crop, and process your clothing image. The canvas shows the version that will be used for generation.
+              <CardDescription>
+                Upload, crop, and process your clothing image before generation.
               </CardDescription>
             </div>
             {activeImage && (
@@ -231,91 +156,73 @@ export default function ImagePreparationContainer({
           </div>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <AnimatePresence mode="wait">
-            <motion.div key="editor" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Main View Area: Now with a unified container */}
-                <div className="lg:col-span-3 relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border">
-                  <ImageEditorCanvas 
-                    image={imageForCanvas}
-                    preparationMode={preparationMode}
-                    aspect={aspect}
-                    disabled={false}
-                    onAspectChange={setAspect}
-                    crop={crop}
-                    onCropChange={setCrop}
-                    onCropComplete={setCompletedCrop}
-                    onImageLoad={handleImageLoad}
-                  />
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Main Canvas Area */}
+            <div className="lg:col-span-3 relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border">
+              <ImageEditorCanvas 
+                image={activeImage}
+                crop={crop}
+                aspect={aspect}
+                onCropChange={setCrop} // Directly pass the setter
+                onCropComplete={setCompletedCrop} // Directly pass the setter
+                onImageLoad={handleImageLoad} // Pass the handler to get the img element
+                disabled={isProcessing}
+              />
+            </div>
 
-                  {/* 'Hold to Compare' button */}
-                  {sourceVersion && (
-                    <Button 
-                      variant="outline" 
-                      className="absolute bottom-4 right-4 z-10 bg-background/80 backdrop-blur-sm select-none"
-                      onMouseDown={() => setIsComparing(true)}
-                      onMouseUp={() => setIsComparing(false)}
-                      onMouseLeave={() => setIsComparing(false)}
-                      onTouchStart={(e) => { e.preventDefault(); setIsComparing(true); }}
-                      onTouchEnd={() => setIsComparing(false)}
+            {/* Controls Panel */}
+            <div className="lg:col-span-1 flex flex-col space-y-6">
+              <AspectRatioSelector
+                preparationMode={preparationMode}
+                aspect={aspect}
+                onAspectChange={handleAspectChange} // The logic is now handled here
+                disabled={isProcessing}
+              />
+
+              <ImageProcessingTools 
+                preparationMode={preparationMode} 
+                disabled={isProcessing || aspect !== undefined} 
+              />
+
+              {/* Contextual Crop Action Bar */}
+              <AnimatePresence>
+                {aspect !== undefined && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex gap-2"
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleCancelCrop}
+                      disabled={isProcessing}
                     >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Compare
+                      <X className="mr-2 h-4 w-4" /> Cancel
                     </Button>
-                  )}
-                </div>
-
-                {/* Controls Panel: Conditionally render controls based on view */}
-                <div className="lg:col-span-1 flex flex-col space-y-6">
-                  {/* Only editor controls, no comparison controls */}
-                  <AspectRatioSelector
-                    preparationMode={preparationMode}
-                    aspect={aspect}
-                    onAspectChange={setAspect}
-                    disabled={false}
-                  />
-
-                  {/* Processing Tools are always visible but disabled during crop */}
-                  <ImageProcessingTools 
-                    preparationMode={preparationMode} 
-                    disabled={isProcessing || aspect !== undefined} 
-                  />
-
-                  {/* Contextual Crop Action Bar */}
-                  {aspect !== undefined && (
-                    <div className="flex gap-2 animate-in fade-in">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={handleCancelCrop}
-                        disabled={isProcessing}
-                      >
-                        <X className="mr-2 h-4 w-4" /> Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        onClick={handleApplyCrop}
-                        disabled={isProcessing}
-                      >
-                        <Check className="mr-2 h-4 w-4" /> Apply Crop
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Version Stack - Always visible when there are images */}
-              {Object.keys(versions).length > 0 && (
-                <ImageVersionStack
-                  versions={versions}
-                  activeVersionId={activeVersionId}
-                  isProcessing={isProcessing}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={handleApplyCrop}
+                      disabled={isProcessing || !completedCrop}
+                    >
+                      <Check className="mr-2 h-4 w-4" /> Apply Crop
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+          
+          {Object.keys(versions).length > 1 && (
+            <ImageVersionStack
+              versions={versions}
+              activeVersionId={activeVersionId}
+              isProcessing={isProcessing}
+            />
+          )}
         </CardContent>
       </Card>
     </motion.div>
