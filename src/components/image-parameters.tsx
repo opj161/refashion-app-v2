@@ -592,9 +592,9 @@ export default function ImageParameters({
           <div>
             <CardTitle className="text-xl flex items-center gap-2">
               <Palette className="h-6 w-6 text-primary" />
-              Configure Image Parameters
+              Style Your Model
             </CardTitle>
-            <CardDescription className="hidden lg:block">Define the model, style, and scene for your fashion images.</CardDescription>
+            <CardDescription className="hidden lg:block">Choose a model and scene to showcase your clothing.</CardDescription>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
@@ -694,7 +694,7 @@ export default function ImageParameters({
           {/* Prompt Textarea */}
           <div className="space-y-2 pt-4 border-t">
             <div className="flex justify-between items-center">
-              <Label htmlFor="imagePromptTextarea" className="text-sm font-medium">Full Prompt</Label>
+              <Label htmlFor="imagePromptTextarea" className="text-sm font-medium">Prompt Preview</Label>
               {isManualPromptOutOfSync() && (
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />

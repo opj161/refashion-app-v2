@@ -27,8 +27,8 @@ export default async function CreatePage({ searchParams }: { searchParams?: Prom
     <div className="container mx-auto max-w-7xl px-4 py-10 space-y-8">
       <PageHeader
         icon={Palette}
-        title="Creation Hub"
-        description="Generate new fashion images and videos using your uploaded clothing."
+        title="Creative Studio"
+        description="Bring your clothing to life in new images and videos."
       />
       {/* Pass the loaded history item down to the client component */}
       <CreationHub historyItemToLoad={historyItemToLoad}>

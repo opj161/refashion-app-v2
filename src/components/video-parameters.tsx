@@ -534,9 +534,9 @@ export default function VideoParameters({
           {!preparedImageUrl && (
             <Alert className="md:col-span-2">
               <Info className="h-4 w-4" />
-              <AlertTitle>Image Required</AlertTitle>
+              <AlertTitle>Start with an Image</AlertTitle>
               <AlertDescription>
-                Please prepare an image in the previous step to enable video generation.
+                First, create an image to bring it to life with video.
               </AlertDescription>
             </Alert>
           )}
@@ -613,9 +613,9 @@ export default function VideoParameters({
         <CardHeader>
           <CardTitle className="text-xl flex items-center gap-2">
             <Settings2 className="h-6 w-6 text-primary" />
-            Technical Parameters
+            Video Settings
           </CardTitle>
-          <CardDescription className="hidden lg:block">Configure resolution, duration, and other technical settings.</CardDescription>
+          <CardDescription className="hidden lg:block">Fine-tune your video's quality, length, and style.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

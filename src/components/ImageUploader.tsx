@@ -160,7 +160,7 @@ export default function ImageUploader() {
             Upload Your Image
           </CardTitle>
           <CardDescription>
-            Upload your clothing image to get started. Drag and drop or click to browse.
+            Drag and drop your clothing image, or click to browse.
           </CardDescription>
         </CardHeader>
 
