@@ -671,7 +671,7 @@ export default function VideoParameters({
         </CardContent>
         <CardFooter>
           <Button
-            variant="gradient"
+            variant="default"
             onClick={handleGenerateVideo}
             disabled={commonFormDisabled || isGenerating || !currentPrompt.trim()}
             className="w-full text-lg hover:animate-shimmer"

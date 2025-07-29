@@ -719,7 +719,7 @@ export default function ImageParameters({
         <CardFooter className="flex-col items-stretch space-y-4">
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             <Button
-              variant="gradient"
+              variant="default"
               onClick={handleSubmit}
               disabled={isLoading || !preparedImageUrl || isReRollingSlot !== null || !currentPrompt.trim()}
               className="w-full text-lg hover:animate-shimmer"

@@ -31,13 +31,14 @@
     --popover-foreground: 210 10% 23%;
     --primary: 173 71% 38%; /* Darker Teal for contrast on light BG */
     --primary-foreground: 173 50% 98%;
+    --primary-gradient-end: 175 70% 44%;
     --secondary: 210 15% 90%;
     --secondary-foreground: 210 10% 23%;
     --muted: 210 15% 94%;
     --muted-foreground: 210 10% 45%;
     --accent: 177 63% 48%;
     --accent-foreground: 210 10% 23%;
-    --destructive: 0 84% 60%;
+    --destructive: 12 64% 49%;
     --destructive-foreground: 0 0% 98%;
     --border: 210 10% 88%;
     --input: 210 10% 92%;
@@ -59,6 +60,7 @@
 
     --primary: 173 71% 42%;            /* #1fab99 */
     --primary-foreground: 224 20% 98%; /* Very light, almost white */
+    --primary-gradient-end: 237 92% 76%; /* A bit lighter and more cyan */
 
     --secondary: 210 15% 23%;          /* hsl(210, 15%, 23%) - Muted dark blue */
     --secondary-foreground: 210 20% 92%;
@@ -69,7 +71,7 @@
     --accent: 177 63% 48%;             /* #2abab1 */
     --accent-foreground: 224 20% 98%;
 
-    --destructive: 19 87% 51%;         /* #ef571a */
+    --destructive: 12 64% 49%;         /* #ef571a */
     --destructive-foreground: 0 0% 98%;
 
     --border: 210 10% 23%;             /* A slightly lighter blue-gray */

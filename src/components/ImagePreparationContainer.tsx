@@ -115,7 +115,7 @@ export default function ImagePreparationContainer({
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3 relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border min-h-[70vh]">
+            <div className="lg:col-span-3 relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg min-h-[70vh] shadow-[0_0_20px_theme(colors.primary/20%),0_0_40px_theme(colors.primary/10%)] transition-shadow duration-300 hover:shadow-[0_0_25px_theme(colors.primary/25%),0_0_50px_theme(colors.primary/15%)]">
               <ImageEditorCanvas
                 key={activeImage.id} // Re-mounts when active image changes, triggering onLoad
                 image={activeImage}
@@ -136,27 +136,27 @@ export default function ImagePreparationContainer({
                 onAspectChange={setAspect} // Directly calls the store action
                 disabled={isProcessing}
               />
-              <ImageProcessingTools 
+              <ImageProcessingTools
                 preparationMode={preparationMode}
                 disabled={isProcessing || aspect !== undefined}
               />
-              <AnimatePresence>
-                {aspect !== undefined && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="flex gap-2"
-                  >
-                    <Button variant="outline" size="sm" className="flex-1" onClick={handleCancelCrop} disabled={isProcessing}>
-                      <X className="mr-2 h-4 w-4" /> Cancel
-                    </Button>
-                    <Button size="sm" className="flex-1" onClick={handleApplyCrop} disabled={isProcessing}>
-                      <Check className="mr-2 h-4 w-4" /> Apply Crop
-                    </Button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                <AnimatePresence>
+                  {aspect !== undefined && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="flex gap-2"
+                    >
+                      <Button variant="outline" size="sm" className="flex-1" onClick={handleCancelCrop} disabled={isProcessing}>
+                        <X className="mr-2 h-4 w-4" /> Cancel
+                      </Button>
+                      <Button size="sm" className="flex-1" onClick={handleApplyCrop} disabled={isProcessing}>
+                        <Check className="mr-2 h-4 w-4" /> Apply Crop
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
             </div>
           </div>
           {Object.keys(versions).length > 1 && (

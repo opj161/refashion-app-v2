@@ -24,10 +24,10 @@ export default function AspectRatioSelector({
 }: AspectRatioSelectorProps) {
   const aspectRatios = useMemo(() => {
     return [
-      { name: "Free", value: undefined, icon: <CropIcon /> },
-      { name: "Square", value: 1, icon: <Square /> },
-      { name: "Video (9:16)", value: 9 / 16, icon: <RectangleVertical /> },
-      { name: "Portrait (3:4)", value: 3 / 4, icon: <RectangleVertical /> },
+      { name: "Free", tooltip: "Free Crop", value: undefined, icon: <CropIcon /> },
+      { name: "Square", tooltip: "Square (1:1)", value: 1, icon: <Square /> },
+      { name: "9:16", tooltip: "Video (9:16)", value: 9 / 16, icon: <RectangleVertical /> },
+      { name: "3:4", tooltip: "Portrait (3:4)", value: 3 / 4, icon: <RectangleVertical /> },
     ];
   }, []);
 
@@ -36,7 +36,7 @@ export default function AspectRatioSelector({
       <div className="flex justify-between items-center mb-2">
         <Label className="font-semibold">Aspect Ratio</Label>
       </div>
-      <div className="flex flex-row gap-1 w-full">
+      <div className="flex flex-row gap-2 w-full">
         {aspectRatios.map(ar => {
           const isActive = ar.value === aspect;
           return (
@@ -53,7 +53,7 @@ export default function AspectRatioSelector({
                     <span>{ar.name}</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>{ar.name}</TooltipContent>
+                <TooltipContent>{ar.tooltip}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           );

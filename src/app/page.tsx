@@ -28,7 +28,7 @@ export default async function CreatePage({ searchParams }: { searchParams?: Prom
       <PageHeader
         icon={Palette}
         title="Creative Studio"
-        description="Bring your clothing to life in new images and videos."
+        description="Bring your clothing to life with new images and videos "
       />
       {/* Pass the loaded history item down to the client component */}
       <CreationHub historyItemToLoad={historyItemToLoad}>

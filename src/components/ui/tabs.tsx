@@ -59,7 +59,7 @@ const TabsTrigger = React.forwardRef<
       className={cn(
         "relative inline-flex items-center justify-center whitespace-nowrap rounded-full px-6 py-2.5 text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
         isActive
-          ? "text-primary-foreground"
+          ? "text-primary-foreground [text-shadow:0_1px_2px_theme(colors.black/60%)]"
           : "text-muted-foreground hover:text-foreground",
         className
       )}
@@ -69,7 +69,7 @@ const TabsTrigger = React.forwardRef<
       {isActive && (
         <motion.div
           layoutId="active-tab-indicator"
-          className="absolute inset-0 z-0 rounded-full bg-primary"
+          className="absolute inset-0 z-0 rounded-full bg-gradient-to-br from-primary to-primary-gradient-end"
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
         />
       )}
