@@ -8,10 +8,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { HistoryItem } from '@/lib/types';
 
 // This is now an async Server Component that accepts searchParams
-export default async function CreatePage({ searchParams }: { searchParams?: { historyItemId?: string } }) {
+export default async function CreatePage({ searchParams }: { searchParams?: Promise<{ historyItemId?: string }> }) {
   let historyItemToLoad: HistoryItem | null = null;
   
-  const historyItemId = searchParams?.historyItemId;
+  const resolvedSearchParams = await searchParams;
+  const historyItemId = resolvedSearchParams?.historyItemId;
 
   if (historyItemId) {
     // Fetch the history item on the server if an ID is present in the URL
