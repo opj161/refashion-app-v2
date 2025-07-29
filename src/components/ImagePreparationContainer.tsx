@@ -115,7 +115,7 @@ export default function ImagePreparationContainer({
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3 relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border">
+            <div className="lg:col-span-3 relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg border min-h-[70vh]">
               <ImageEditorCanvas
                 key={activeImage.id} // Re-mounts when active image changes, triggering onLoad
                 image={activeImage}
