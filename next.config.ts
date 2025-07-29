@@ -77,6 +77,9 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+    // Allow the Image Optimizer to process images from our own API routes
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
   },
 };
 

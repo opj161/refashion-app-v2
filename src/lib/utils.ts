@@ -6,20 +6,22 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Returns displayable image URLs for serving static files directly from Next.js
- * Serves images directly from the /public directory using Next.js's optimized static file server
- * @param originalPath - The original path like '/uploads/generated_images/image.png'
- * @returns The direct path for Next.js static file serving
+ * Returns a URL that the client can use to display an image.
+ * This function now transparently proxies local file paths through a dedicated API route.
+ * @param originalPath - The internal storage path, e.g., '/uploads/generated_images/image.png'
+ * @returns A publicly accessible URL for the image.
  */
 export function getDisplayableImageUrl(originalPath: string | null): string | null {
   if (!originalPath) return null;
 
-  // Handle data URIs (base64 images) - return as-is
   if (originalPath.startsWith("data:")) {
     return originalPath;
   }
+  
+  // For local files, point to the new dynamic image serving API route
+  if (originalPath.startsWith("/uploads/")) {
+    return `/api/images${originalPath.substring('/uploads'.length)}`;
+  }
 
-  // Return the original path directly - Next.js will serve files from /public directory
-  // Files in /public/uploads/... are accessible at /uploads/... URLs
-  return originalPath;
+  return originalPath; // Return other paths (like external Fal URLs) as is.
 }

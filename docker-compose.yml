@@ -7,7 +7,7 @@ services:
     ports:
       - "3000:3000" # Map host port 3000 to container port 3000
     volumes:
-      - ./public/uploads:/app/public/uploads # Persist uploads on the host machine
+      - ./uploads:/app/uploads # Persist uploads on the host machine at the root
       - ./user_data:/app/user_data 
       # For development, you might want to mount your source code
       # - .:/app 

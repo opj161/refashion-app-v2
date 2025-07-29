@@ -66,10 +66,8 @@ COPY --from=builder /app/dist/src ./dist/src
 
 # Create directories for volumes. Ownership will be set by entrypoint.sh
 RUN mkdir -p /app/user_data/history && \
-    mkdir -p /app/public/uploads/user_uploaded_clothing && \
-    mkdir -p /app/public/uploads/generated_images && \
-    mkdir -p /app/public/uploads/generated_videos && \
-    chmod -R 755 /app/user_data /app/public/uploads
+    mkdir -p /app/uploads && \
+    chmod -R 755 /app/user_data /app/uploads
 
 # Copy and set up the entrypoint script
 COPY entrypoint.sh /entrypoint.sh

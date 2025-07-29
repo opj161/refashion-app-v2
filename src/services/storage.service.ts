@@ -17,7 +17,7 @@ import crypto from 'crypto';
  * Downloads a file from a URL and saves it locally with proper permissions
  * @param sourceUrl The URL to download the file from
  * @param fileNamePrefix The prefix to use for the generated filename
- * @param subfolder The subfolder within /public/uploads/ to save to
+ * @param subfolder The subfolder within /uploads/ to save to
  * @param extension The file extension (defaults to 'png')
  * @returns Promise<string> The relative URL path to the saved file
  */
@@ -45,7 +45,7 @@ export async function saveFileFromUrl(
     const uniqueFileName = `${fileNamePrefix}_${uuidv4()}.${extension}`;
     
     // Create upload directory path
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', subfolder);
+    const uploadDir = path.join(process.cwd(), 'uploads', subfolder);
     
     // Ensure directory exists
     await fs.mkdir(uploadDir, { recursive: true });
@@ -89,7 +89,7 @@ export async function saveFileFromUrl(
  * Saves a Buffer locally with proper permissions and calculates its hash.
  * @param buffer The file buffer to save
  * @param fileNamePrefix The prefix to use for the generated filename
- * @param subfolder The subfolder within /public/uploads/ to save to
+ * @param subfolder The subfolder within /uploads/ to save to
  * @param extension The file extension for the output file
  * @returns Promise<{ relativeUrl: string; hash: string }> The relative URL path and hash of the saved file
  */
@@ -103,7 +103,7 @@ export async function saveFileFromBuffer(
   try {
     const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
     const uniqueFileName = `${fileNamePrefix}_${uuidv4()}.${extension}`;
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', subfolder);
+    const uploadDir = path.join(process.cwd(), 'uploads', subfolder);
 
     await fs.mkdir(uploadDir, { recursive: true });
 
@@ -141,7 +141,7 @@ export async function saveFileFromBuffer(
  * Saves a data URI (base64 encoded image) locally with proper permissions
  * @param dataUri The data URI to save (e.g., "data:image/png;base64,...")
  * @param fileNamePrefix The prefix to use for the generated filename
- * @param subfolder The subfolder within /public/uploads/ to save to
+ * @param subfolder The subfolder within /uploads/ to save to
  * @returns Promise<string> The relative URL path to the saved file
  */
 export async function saveDataUriLocally(
@@ -166,7 +166,7 @@ export async function saveDataUriLocally(
     const uniqueFileName = `${fileNamePrefix}_${uuidv4()}.${extension}`;
     
     // Create upload directory path
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', subfolder);
+    const uploadDir = path.join(process.cwd(), 'uploads', subfolder);
     
     // Ensure directory exists
     await fs.mkdir(uploadDir, { recursive: true });
