@@ -711,7 +711,7 @@ export default function VideoParameters({
             {generatedSeedValue !== null && (<CardDescription>Seed used: {generatedSeedValue}</CardDescription>)}
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="bg-muted rounded-md overflow-hidden w-full aspect-video">
+            <div className="rounded-md overflow-hidden w-full aspect-video">
               <video src={getDisplayableImageUrl(generatedVideoUrl) || undefined} controls autoPlay loop playsInline className="w-full h-full object-contain" />
             </div>
             <Button asChild variant="outline" className="w-full">

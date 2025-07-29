@@ -7,7 +7,7 @@ import * as videoService from '@/services/fal-api/video.service'; // Use the ser
 import { getApiKeyForUser } from '@/services/apiKey.service';
 import fs from 'fs/promises';
 import path from 'path';
-import mime from 'mime-types';
+import { getDisplayableImageUrl } from '@/lib/utils';
 
 // Ensure FAL_KEY is available, otherwise Fal.ai calls will fail
 if (!process.env.FAL_KEY) {
@@ -98,28 +98,31 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
   // 2. Prepare the webhook URL for fal_webhook query parameter
   const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/video/webhook?historyItemId=${historyItemId}&username=${encodeURIComponent(user.username)}`;
 
-  // 3. Process the image URL - convert local URLs to data URIs
-  let processedImageUrl = input.image_url;
-  
-  // If the image_url is a local path, read the file and convert to data URI
-  if (input.image_url.startsWith('/uploads/')) {
-    try {
-      const filePath = path.join(process.cwd(), 'uploads', input.image_url.replace('/uploads/', ''));
-      const buffer = await fs.readFile(filePath);
-      const mimeType = mime.lookup(filePath) || 'image/png';
-      processedImageUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;
-      console.log('Converted local image URL to data URI for Fal.ai video generation');
-    } catch (error) {
-      console.error('Error reading local image file for video generation:', error);
-      throw new Error(`Failed to read local image file: ${(error as Error).message}`);
-    }
-  }
+  // 3. Construct an absolute, publicly accessible URL for the image.
+  // Fal.ai will fetch the image from this URL.
+  const absoluteImageUrl = new URL(getDisplayableImageUrl(input.image_url)!, process.env.NEXT_PUBLIC_APP_URL!).href;
 
   // Submit the job using the new service function
   try {
+    // --- START: NEW UPLOAD LOGIC ---
+    // The input.image_url is a local path like /uploads/processed_images/image.png
+    // We need to read this file and upload it to Fal Storage to get a public URL.
+    console.log(`Preparing to upload local image for video generation: ${input.image_url}`);
+    const localFilePath = path.join(process.cwd(), 'uploads', input.image_url.replace('/uploads/', ''));
+    const fileBuffer = await fs.readFile(localFilePath);
+    const imageBlob = new Blob([fileBuffer]);
+    
+    // Use your existing helper to upload to Fal.ai
+    const falPublicUrl = await uploadToFalStorage(
+      imageBlob,
+      user.username
+    );
+    console.log(`Image uploaded to Fal Storage. Public URL: ${falPublicUrl}`);
+    // --- END: NEW UPLOAD LOGIC ---
+
     const videoServiceInput = {
       prompt: input.prompt,
-      image_url: processedImageUrl,
+      image_url: falPublicUrl, // Use the new, public Fal URL
       videoModel: input.videoModel,
       resolution: input.resolution,
       duration: input.duration,
