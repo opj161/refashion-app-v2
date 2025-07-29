@@ -3,11 +3,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const NAV_ITEMS = [
-  { href: '/admin/all-history', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/all-history', label: 'All History', icon: History },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
@@ -21,7 +22,12 @@ export function AdminNav() {
         <Button
           key={item.label}
           asChild
-          variant={pathname.startsWith(item.href) ? 'secondary' : 'ghost'}
+          variant={
+            // Exact match for the root dashboard link
+            (item.href === '/admin' && pathname === '/admin') || (item.href !== '/admin' && pathname.startsWith(item.href))
+              ? 'secondary'
+              : 'ghost'
+          }
           className="justify-start"
         >
           <Link href={item.href}>

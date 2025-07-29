@@ -12,6 +12,13 @@ import { encrypt } from '@/services/encryption.service';
 import crypto from 'crypto';
 import archiver from 'archiver';
 import os from 'os';
+import * as analyticsService from '@/services/analytics.service';
+import type {
+  KpiData,
+  GenerationActivityData,
+  TopParameterUsageData,
+  UserActivityData,
+} from '@/services/analytics.service';
 
 const SALT_ROUNDS = 12;
 
@@ -21,6 +28,16 @@ async function verifyAdmin() {
     throw new Error('Unauthorized: Admin access required.');
   }
   return user;
+}
+
+// --- Dashboard Analytics Action ---
+
+export interface DashboardAnalyticsData {
+  kpis: KpiData;
+  activity: GenerationActivityData[];
+  userStats: UserActivityData[];
+  topStyles: TopParameterUsageData[];
+  topBackgrounds: TopParameterUsageData[];
 }
 
 export async function getAllUsers() {
@@ -321,3 +338,46 @@ export async function exportAllData(): Promise<{ success: boolean; downloadUrl?:
     return { success: false, error: (error as Error).message };
   }
 }
+
+export async function getDashboardAnalytics(
+  activityDays: 7 | 30 = 7
+): Promise<{ success: boolean; data?: DashboardAnalyticsData; error?: string }> {
+  await verifyAdmin();
+
+  try {
+    // Fetch all data points in parallel for maximum performance
+    const [kpiData, storageUsed, activity, userStats, topStyles, topBackgrounds] = await Promise.all([
+      analyticsService.getDashboardKpis(),
+      analyticsService.getTotalMediaStorage(),
+      analyticsService.getGenerationActivity(activityDays),
+      analyticsService.getUserActivity(),
+      analyticsService.getTopParameterUsage('fashionStyle'),
+      analyticsService.getTopParameterUsage('background'),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        kpis: { ...kpiData, totalStorageUsed: storageUsed },
+        activity, userStats, topStyles, topBackgrounds
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching dashboard analytics:", error);
+    return { success: false, error: "Failed to load dashboard analytics data." };
+  }
+}
+
+export async function getGenerationActivityAction(
+  days: 7 | 30
+): Promise<{ success: boolean; data?: GenerationActivityData[]; error?: string }> {
+  await verifyAdmin();
+  try {
+    const activityData = await analyticsService.getGenerationActivity(days);
+    return { success: true, data: activityData };
+  } catch (error) {
+    console.error(`Error fetching activity for ${days} days:`, error);
+    return { success: false, error: 'Failed to fetch activity data.' };
+  }
+}
+
