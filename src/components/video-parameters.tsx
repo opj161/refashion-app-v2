@@ -602,8 +602,16 @@ export default function VideoParameters({
               value={duration}
               onChange={(v) => setDuration(v as VideoDuration)}
               options={[
+                { value: '3', displayLabel: '3 seconds', promptSegment: '' },
+                { value: '4', displayLabel: '4 seconds', promptSegment: '' },
                 { value: '5', displayLabel: '5 seconds', promptSegment: '' },
-                { value: '10', displayLabel: '10 seconds', promptSegment: '' }
+                { value: '6', displayLabel: '6 seconds', promptSegment: '' },
+                { value: '7', displayLabel: '7 seconds', promptSegment: '' },
+                { value: '8', displayLabel: '8 seconds', promptSegment: '' },
+                { value: '9', displayLabel: '9 seconds', promptSegment: '' },
+                { value: '10', displayLabel: '10 seconds', promptSegment: '' },
+                { value: '11', displayLabel: '11 seconds', promptSegment: '' },
+                { value: '12', displayLabel: '12 seconds', promptSegment: '' }
               ]}
               disabled={commonFormDisabled}
               priceData={{ model: videoModel, resolution, duration }}

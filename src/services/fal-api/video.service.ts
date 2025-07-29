@@ -19,9 +19,10 @@ export interface VideoGenerationInput {
   image_url: string;
   videoModel?: 'lite' | 'pro';
   resolution?: '480p' | '720p' | '1080p';
-  duration?: '5' | '10';
+  duration?: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
   camera_fixed?: boolean;
   seed?: number;
+  end_image_url?: string;
 }
 
 export interface VideoGenerationResult {
@@ -58,6 +59,9 @@ export async function startVideoGeneration(input: VideoGenerationInput): Promise
     }
     if (typeof input.seed === 'number' && input.seed !== undefined) {
       falInput.seed = input.seed;
+    }
+    if (input.end_image_url) {
+      falInput.end_image_url = input.end_image_url;
     }
     
     console.log('Fal.ai input parameters:', JSON.stringify(falInput, null, 2));
@@ -125,6 +129,7 @@ export async function startVideoGenerationWithWebhook(input: VideoGenerationInpu
     if (input.duration) falInput.duration = input.duration;
     if (typeof input.camera_fixed === 'boolean') falInput.camera_fixed = input.camera_fixed;
     if (typeof input.seed === 'number' && input.seed !== undefined) falInput.seed = input.seed;
+    if (input.end_image_url) falInput.end_image_url = input.end_image_url;
     console.log('Fal.ai input parameters:', JSON.stringify(falInput, null, 2));
     const falKey = await getApiKeyForUser(username, 'fal');
     const response = await fetch(`https://queue.fal.run/${modelId}?fal_webhook=${encodeURIComponent(webhookUrl)}`, {

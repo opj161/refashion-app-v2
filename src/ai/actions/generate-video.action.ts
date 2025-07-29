@@ -20,7 +20,7 @@ export interface GenerateVideoInput {
   prompt: string;
   image_url: string; // This can be a public URL or a base64 data URI
   resolution?: '480p' | '720p' | '1080p';
-  duration?: '5' | '10'; // Duration as strings for Fal.ai API
+  duration?: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12'; // Duration as strings for Fal.ai API
   videoModel?: 'lite' | 'pro';
   camera_fixed?: boolean;
   seed?: number; // Use -1 for random
