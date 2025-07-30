@@ -17,8 +17,9 @@ import fs from 'fs';
 import path from 'path';
 import { saveDataUriLocally } from '@/services/storage.service';
 import { getApiKeyForUser } from '@/services/apiKey.service';
-import { buildAIPrompt } from '@/lib/prompt-builder';
+import { buildAIPrompt, GENDER_OPTIONS, BODY_TYPE_OPTIONS, BODY_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS } from '@/lib/prompt-builder';
 import { generatePromptWithAI } from '@/ai/actions/generate-prompt.action';
+import type { ModelAttributes } from '@/lib/types';
 
 // NEW: Import Axios and HttpsProxyAgent for explicit proxy control
 import axios, { AxiosError } from 'axios';
@@ -82,6 +83,24 @@ interface GeminiErrorData { // Renamed from GeminiErrorResponse to avoid conflic
 }
 // --- END Defined Types ---
 
+/**
+ * Generate random parameters for stylistic settings only
+ * Excludes core model attributes (gender, bodyType, bodySize, ageRange) which should remain as user selected
+ * Only randomizes: ethnicity, hairStyle, modelExpression, poseStyle, background
+ */
+function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAttributes {
+  const pickRandom = (options: any[]) => options[Math.floor(Math.random() * options.length)].value;
+  
+  return {
+    ...baseParameters, // Keep all existing parameters (including gender, bodyType, bodySize, ageRange)
+    // Randomize only the stylistic settings
+    ethnicity: pickRandom(ETHNICITY_OPTIONS),
+    hairStyle: pickRandom(HAIR_STYLE_OPTIONS),
+    modelExpression: pickRandom(MODEL_EXPRESSION_OPTIONS),
+    poseStyle: pickRandom(POSE_STYLE_OPTIONS),
+    background: pickRandom(BACKGROUND_OPTIONS),
+  };
+}
 
 /**
  * Make a direct API call to Gemini API with explicit proxy support using axios
@@ -136,6 +155,7 @@ const GenerateImageEditInputSchema = z.object({
       "Optional: The image to edit, as a data URI (e.g., 'data:image/png;base64,...') or a publicly accessible HTTPS URL."
     ),
   useAIPrompt: z.boolean().optional().default(false).describe('Whether to use AI to generate the prompt itself.'),
+  useRandomizedAIPrompts: z.boolean().optional().default(false).describe('Whether to use different random parameters for each of the 3 AI prompts.'),
 });
 export type GenerateImageEditInput = z.infer<typeof GenerateImageEditInputSchema>;
 
@@ -350,10 +370,34 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
 
   if (input.useAIPrompt && input.parameters && input.imageDataUriOrUrl) {
     console.log("Using AI to generate prompts...");
+    
+    let parametersForPrompts: ModelAttributes[];
+    if (input.useRandomizedAIPrompts) {
+      console.log("🎲 RANDOMIZATION ENABLED: Generating 3 different random parameter sets for AI prompts");
+      // Generate 3 different random parameter sets
+      parametersForPrompts = [
+        generateRandomBasicParameters(input.parameters),
+        generateRandomBasicParameters(input.parameters),
+        generateRandomBasicParameters(input.parameters)
+      ];
+      
+      // Log the randomized parameters for each prompt
+      parametersForPrompts.forEach((params, index) => {
+        console.log(`\n🎲 RANDOM PARAMETERS SET ${index + 1}:`);
+        console.log(`Ethnicity: ${params.ethnicity}, Hair: ${params.hairStyle}`);
+        console.log(`Expression: ${params.modelExpression}, Pose: ${params.poseStyle}`);
+        console.log(`Background: ${params.background}`);
+        console.log(`[Keeping user's: Gender: ${params.gender}, Body: ${params.bodyType}, Age: ${params.ageRange}]`);
+      });
+    } else {
+      // Use the same parameters for all 3 prompts
+      parametersForPrompts = [input.parameters, input.parameters, input.parameters];
+    }
+    
     const promptPromises = [
-      generatePromptWithAI(input.parameters, input.imageDataUriOrUrl, username, 1),
-      generatePromptWithAI(input.parameters, input.imageDataUriOrUrl, username, 2),
-      generatePromptWithAI(input.parameters, input.imageDataUriOrUrl, username, 3),
+      generatePromptWithAI(parametersForPrompts[0], input.imageDataUriOrUrl, username, 1),
+      generatePromptWithAI(parametersForPrompts[1], input.imageDataUriOrUrl, username, 2),
+      generatePromptWithAI(parametersForPrompts[2], input.imageDataUriOrUrl, username, 3),
     ];
     const promptResults = await Promise.allSettled(promptPromises);
     prompts = promptResults.map(res => res.status === 'fulfilled' ? res.value : null);

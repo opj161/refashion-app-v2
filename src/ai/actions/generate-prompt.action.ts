@@ -80,7 +80,7 @@ function formatParametersForAI(params: ModelAttributes): string {
 
   // Model description line using actual option constants
   const genderOption = GENDER_OPTIONS.find(opt => opt.value === params.gender);
-  let modelLine = (genderOption?.promptSegment || 'fashion') + ' fashion model';
+  let modelLine = 'a stunning ' + (genderOption?.promptSegment || 'fashion') + ' fashion model';
 
   // Add model attributes
   const ageText = getOptionText(AGE_RANGE_OPTIONS, params.ageRange);
@@ -109,26 +109,35 @@ function formatParametersForAI(params: ModelAttributes): string {
 
   lines.push(poseLine);
 
-  // Setting line using actual options
+  // Setting line - only create if background is chosen or other setting elements exist
   const backgroundText = getOptionText(BACKGROUND_OPTIONS, params.background);
-  let settingLine = 'setting: ' + (backgroundText || 'neutral background');
+  let settingElements: string[] = [];
+  
+  // Only add background if it's actually set
+  if (backgroundText) {
+    settingElements.push(backgroundText);
+  }
 
+  // Add other setting elements only if they exist
   const timeText = getOptionText(TIME_OF_DAY_OPTIONS, params.timeOfDay);
-  if (timeText) settingLine += ', ' + timeText;
+  if (timeText) settingElements.push(timeText);
 
   const lightingText = getOptionText(LIGHTING_TYPE_OPTIONS, params.lightingType);
-  if (lightingText) settingLine += ', ' + lightingText;
+  if (lightingText) settingElements.push(lightingText);
 
   const moodText = getOptionText(OVERALL_MOOD_OPTIONS, params.overallMood);
-  if (moodText) settingLine += ', ' + moodText;
+  if (moodText) settingElements.push(moodText);
 
   // Add fashion style to setting
   const fashionStyleOption = FASHION_STYLE_OPTIONS.find(opt => opt.value === params.fashionStyle);
   if (fashionStyleOption && fashionStyleOption.value !== 'default_style' && fashionStyleOption.promptSegment) {
-    settingLine += ', in ' + fashionStyleOption.displayLabel.toLowerCase() + ' style';
+    settingElements.push('in ' + fashionStyleOption.displayLabel.toLowerCase() + ' style');
   }
 
-  lines.push(settingLine);
+  // Only add setting line if there are elements to include
+  if (settingElements.length > 0) {
+    lines.push('setting: ' + settingElements.join(', '));
+  }
 
   // Clothing line with fabric rendering
   let clothingLine = 'wearing this clothing item in the image. The clothing has a clean, precise fit, with photorealistic fabric texture';
@@ -179,7 +188,7 @@ export async function generatePromptWithAI(
     const ai = new GoogleGenAI({ apiKey });
     
     const config = {
-      temperature: 2,
+      temperature: 1,
       systemInstruction: [
         {
           text: PROMPT_ENGINEER_SYSTEM_INSTRUCTION,

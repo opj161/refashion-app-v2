@@ -87,6 +87,7 @@ export default function ImageParameters({
 
   // NEW STATE for the AI prompt feature
   const [useAIPrompt, setUseAIPrompt] = useState<boolean>(false);
+  const [useRandomizedAIPrompts, setUseRandomizedAIPrompts] = useState<boolean>(false);
 
   // State for generation results
   const [outputImageUrls, setOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
@@ -337,14 +338,24 @@ export default function ImageParameters({
   };
 
   const handleRandomizeConfiguration = () => {
-    const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
-    Object.values(PARAMETER_CONFIG).forEach(config => {
-        if (settingsMode === 'advanced' ||
-            ['gender', 'bodyType', 'bodySize', 'ageRange', 'ethnicity', 'poseStyle', 'background'].includes(Object.keys(PARAMETER_CONFIG).find(k => PARAMETER_CONFIG[k as keyof ModelAttributes] === config) || "")) {
-            config.setter(pickRandom(config.options));
-        }
-    });
-    toast({ title: "Configuration Randomized!" });
+    if (useAIPrompt) {
+      // When AI Prompt is enabled, don't change UI fields - set flag for AI generation instead
+      setUseRandomizedAIPrompts(true);
+      toast({ 
+        title: "AI Randomization Activated!", 
+        description: "Each of the 3 AI prompts will use different random parameters." 
+      });
+    } else {
+      // Original behavior: randomize UI fields directly
+      const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
+      Object.values(PARAMETER_CONFIG).forEach(config => {
+          if (settingsMode === 'advanced' ||
+              ['gender', 'bodyType', 'bodySize', 'ageRange', 'ethnicity', 'hairStyle', 'modelExpression', 'poseStyle', 'background'].includes(Object.keys(PARAMETER_CONFIG).find(k => PARAMETER_CONFIG[k as keyof ModelAttributes] === config) || "")) {
+              config.setter(pickRandom(config.options));
+          }
+      });
+      toast({ title: "Configuration Randomized!" });
+    }
   };
 
   const handleSubmit = async () => {
@@ -365,12 +376,13 @@ export default function ImageParameters({
     };
 
     try {
-      // PASS THE NEW FLAG to the server action
+      // PASS THE NEW FLAGS to the server action
       const input: GenerateImageEditInput = { 
         prompt: finalPromptToUse, 
         imageDataUriOrUrl: preparedImageUrl,
         parameters: currentAttributes, // Pass parameters for AI prompter
-        useAIPrompt: useAIPrompt // The new flag
+        useAIPrompt: useAIPrompt, // The AI prompt flag
+        useRandomizedAIPrompts: useRandomizedAIPrompts // The randomization flag
       };
       const result: GenerateMultipleImagesOutput = await generateImageEdit(input, currentUser?.username || '');
       setOutputImageUrls(result.editedImageUrls);
@@ -395,6 +407,8 @@ export default function ImageParameters({
       toast({ title: "Generation Failed", description: errorMessage, variant: "destructive" });
     } finally {
       setIsLoading(false);
+      // Reset randomization flag after generation
+      setUseRandomizedAIPrompts(false);
     }
   };
 
@@ -409,7 +423,8 @@ export default function ImageParameters({
         const inputForReroll: GenerateImageEditInput = { 
           prompt: currentPrompt, 
           imageDataUriOrUrl: preparedImageUrl,
-          useAIPrompt: false // Don't use AI prompt for re-rolls
+          useAIPrompt: false, // Don't use AI prompt for re-rolls
+          useRandomizedAIPrompts: false // Don't use randomized prompts for re-rolls
         };
         const result = await regenerateSingleImage(inputForReroll, slotIndex, currentUser?.username || '');
 
@@ -683,16 +698,12 @@ export default function ImageParameters({
                         {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS, disabled: commonFormDisabled })}
                         {renderSelect({ id: "bodyType", label: "Body Type", value: bodyType, onChange: setBodyType, options: BODY_TYPE_OPTIONS, disabled: commonFormDisabled })}
                         {renderSelect({ id: "bodySize", label: "Body Frame/Stature", value: bodySize, onChange: setBodySize, options: BODY_SIZE_OPTIONS, disabled: commonFormDisabled })}
-                        {renderSelect({ id: "hairStyle", label: "Hair Style", value: hairStyle, onChange: setHairStyle, options: HAIR_STYLE_OPTIONS, disabled: commonFormDisabled })}
-                        {renderSelect({ id: "modelExpression", label: "Model Expression", value: modelExpression, onChange: setModelExpression, options: MODEL_EXPRESSION_OPTIONS, disabled: commonFormDisabled })}
-                        {renderSelect({ id: "poseStyle", label: "Pose Style", value: poseStyle, onChange: setPoseStyle, options: POSE_STYLE_OPTIONS, disabled: commonFormDisabled })}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="scene-photographic">
                   <AccordionTrigger className="text-lg"><Settings2 className="h-5 w-5 mr-2 text-primary" />Scene & Photographic Details</AccordionTrigger>
                   <AccordionContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 pt-4">
-                    {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS, disabled: commonFormDisabled })}
                     {renderSelect({ id: "timeOfDay", label: "Time of Day", value: timeOfDay, onChange:setTimeOfDay, options: TIME_OF_DAY_OPTIONS, disabled: commonFormDisabled })}
                     {renderSelect({ id: "lightingType", label: "Lighting Type/Setup", value: lightingType, onChange: setLightingType, options: LIGHTING_TYPE_OPTIONS, disabled: commonFormDisabled })}
                     {renderSelect({ id: "lightQuality", label: "Light Quality", value: lightQuality, onChange: setLightQuality, options: LIGHT_QUALITY_OPTIONS, disabled: commonFormDisabled })}
@@ -722,6 +733,10 @@ export default function ImageParameters({
                 {renderSelect({ id: "bodySize", label: "Body Frame/Stature", value: bodySize, onChange: setBodySize, options: BODY_SIZE_OPTIONS, disabled: commonFormDisabled })}
                 {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS, disabled: commonFormDisabled })}
                 {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS, disabled: commonFormDisabled })}
+                {renderSelect({ id: "hairStyle", label: "Hair Style", value: hairStyle, onChange: setHairStyle, options: HAIR_STYLE_OPTIONS, disabled: commonFormDisabled })}
+                {renderSelect({ id: "modelExpression", label: "Model Expression", value: modelExpression, onChange: setModelExpression, options: MODEL_EXPRESSION_OPTIONS, disabled: commonFormDisabled })}
+                {renderSelect({ id: "poseStyle", label: "Pose Style", value: poseStyle, onChange: setPoseStyle, options: POSE_STYLE_OPTIONS, disabled: commonFormDisabled })}
+                {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS, disabled: commonFormDisabled })}
               </div>
             </div>
           )}
