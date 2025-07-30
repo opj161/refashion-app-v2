@@ -17,7 +17,7 @@ import fs from 'fs';
 import path from 'path';
 import { saveDataUriLocally } from '@/services/storage.service';
 import { getApiKeyForUser } from '@/services/apiKey.service';
-import { buildAIPrompt, GENDER_OPTIONS, BODY_TYPE_OPTIONS, BODY_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS } from '@/lib/prompt-builder';
+import { buildAIPrompt, GENDER_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS } from '@/lib/prompt-builder';
 import { generatePromptWithAI } from '@/ai/actions/generate-prompt.action';
 import type { ModelAttributes } from '@/lib/types';
 
@@ -86,20 +86,35 @@ interface GeminiErrorData { // Renamed from GeminiErrorResponse to avoid conflic
 /**
  * Generate random parameters for stylistic settings only
  * Excludes core model attributes (gender, bodyType, bodySize, ageRange) which should remain as user selected
- * Only randomizes: ethnicity, hairStyle, modelExpression, poseStyle, background
+ * Always randomizes background, and randomly selects 2 of the other 4 parameters to randomize
  */
 function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAttributes {
   const pickRandom = (options: any[]) => options[Math.floor(Math.random() * options.length)].value;
   
-  return {
-    ...baseParameters, // Keep all existing parameters (including gender, bodyType, bodySize, ageRange)
-    // Randomize only the stylistic settings
-    ethnicity: pickRandom(ETHNICITY_OPTIONS),
-    hairStyle: pickRandom(HAIR_STYLE_OPTIONS),
-    modelExpression: pickRandom(MODEL_EXPRESSION_OPTIONS),
-    poseStyle: pickRandom(POSE_STYLE_OPTIONS),
+  // Always randomize background
+  const result = {
+    ...baseParameters, // Keep all existing parameters
     background: pickRandom(BACKGROUND_OPTIONS),
   };
+  
+  // Define the 4 optional parameters to choose from
+  const optionalParams = [
+    { key: 'ethnicity', options: ETHNICITY_OPTIONS },
+    { key: 'hairStyle', options: HAIR_STYLE_OPTIONS },
+    { key: 'modelExpression', options: MODEL_EXPRESSION_OPTIONS },
+    { key: 'poseStyle', options: POSE_STYLE_OPTIONS },
+  ];
+  
+  // Randomly shuffle and select 2 of the 4 optional parameters
+  const shuffled = optionalParams.sort(() => Math.random() - 0.5);
+  const selectedParams = shuffled.slice(0, 2);
+  
+  // Randomize only the 2 selected parameters
+  selectedParams.forEach(param => {
+    (result as any)[param.key] = pickRandom(param.options);
+  });
+  
+  return result;
 }
 
 /**
@@ -387,7 +402,7 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
         console.log(`Ethnicity: ${params.ethnicity}, Hair: ${params.hairStyle}`);
         console.log(`Expression: ${params.modelExpression}, Pose: ${params.poseStyle}`);
         console.log(`Background: ${params.background}`);
-        console.log(`[Keeping user's: Gender: ${params.gender}, Body: ${params.bodyType}, Age: ${params.ageRange}]`);
+        console.log(`[Keeping user's: Gender: ${params.gender}, Body: ${params.bodyShapeAndSize}, Age: ${params.ageRange}]`);
       });
     } else {
       // Use the same parameters for all 3 prompts
@@ -484,6 +499,95 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
     editedImageUrls: editedImageUrlsResult,
     constructedPrompt: finalConstructedPromptForHistory,
     errors: errorsResult.some(e => e !== null) ? errorsResult : undefined
+  };
+}
+
+export async function generateSingleImageSlot(
+  input: GenerateImageEditInput, 
+  slotIndex: 0 | 1 | 2, 
+  username: string
+): Promise<{ slotIndex: number; result: SingleImageOutput; constructedPrompt: string }> {
+  if (!username) {
+    throw new Error('Username is required to generate images.');
+  }
+
+  // Generate prompt for this specific slot
+  let promptForSlot: string;
+  let finalConstructedPromptForHistory: string;
+
+  if (input.useAIPrompt && input.parameters && input.imageDataUriOrUrl) {
+    console.log(`🎨 Generating AI prompt for slot ${slotIndex + 1}...`);
+    
+    let parametersForPrompt: ModelAttributes;
+    if (input.useRandomizedAIPrompts) {
+      console.log(`🎲 Using randomized parameters for slot ${slotIndex + 1}`);
+      parametersForPrompt = generateRandomBasicParameters(input.parameters);
+      
+      // Log the randomized parameters for this slot
+      console.log(`\n🎲 RANDOM PARAMETERS FOR SLOT ${slotIndex + 1}:`);
+      console.log(`Ethnicity: ${parametersForPrompt.ethnicity}, Hair: ${parametersForPrompt.hairStyle}`);
+      console.log(`Expression: ${parametersForPrompt.modelExpression}, Pose: ${parametersForPrompt.poseStyle}`);
+      console.log(`Background: ${parametersForPrompt.background}`);
+      console.log(`[Keeping user's: Gender: ${parametersForPrompt.gender}, Body: ${parametersForPrompt.bodyShapeAndSize}, Age: ${parametersForPrompt.ageRange}]`);
+    } else {
+      parametersForPrompt = input.parameters;
+    }
+    
+    try {
+      promptForSlot = await generatePromptWithAI(parametersForPrompt, input.imageDataUriOrUrl, username, (slotIndex + 1) as 1 | 2 | 3);
+      finalConstructedPromptForHistory = promptForSlot;
+      
+      console.log(`\n🚀 AI-GENERATED PROMPT FOR SLOT ${slotIndex + 1}:`);
+      console.log('='.repeat(60));
+      console.log(promptForSlot);
+      console.log('='.repeat(60));
+    } catch (error) {
+      console.error(`Failed to generate AI prompt for slot ${slotIndex + 1}:`, error);
+      throw new Error(`AI prompt generation failed for slot ${slotIndex + 1}: ${(error as Error).message}`);
+    }
+  } else {
+    console.log(`Using local prompt builder for slot ${slotIndex + 1}...`);
+    if (input.parameters) {
+      promptForSlot = buildAIPrompt({
+        type: 'image',
+        params: {
+          ...input.parameters,
+          settingsMode: input.settingsMode || 'basic'
+        }
+      });
+    } else if (input.prompt) {
+      promptForSlot = input.prompt;
+    } else {
+      throw new Error('Either parameters or prompt must be provided');
+    }
+    finalConstructedPromptForHistory = promptForSlot;
+  }
+
+  // Generate the image for this slot
+  const inputForGeneration: GenerateImageEditInput = {
+    ...input,
+    prompt: promptForSlot,
+  };
+
+  let result: SingleImageOutput;
+  switch (slotIndex) {
+    case 0:
+      result = await generateImageFlow1(inputForGeneration, username);
+      break;
+    case 1:
+      result = await generateImageFlow2(inputForGeneration, username);
+      break;
+    case 2:
+      result = await generateImageFlow3(inputForGeneration, username);
+      break;
+    default:
+      throw new Error(`Invalid slot index: ${slotIndex}`);
+  }
+
+  return {
+    slotIndex,
+    result,
+    constructedPrompt: finalConstructedPromptForHistory
   };
 }
 

@@ -12,7 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { generateImageEdit, regenerateSingleImage, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
+import { generateImageEdit, generateSingleImageSlot, regenerateSingleImage, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
 import { upscaleImageAction } from "@/ai/actions/upscale-image.action";
 import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useActiveImage, useImageStore } from "@/stores/imageStore";
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
-    BODY_TYPE_OPTIONS, BODY_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
+    BODY_SHAPE_AND_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
     POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS, TIME_OF_DAY_OPTIONS, OVERALL_MOOD_OPTIONS,
     LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, CAMERA_ANGLE_OPTIONS, LENS_EFFECT_OPTIONS,
     DEPTH_OF_FIELD_OPTIONS, FABRIC_RENDERING_OPTIONS, OptionWithPromptSegment
@@ -63,11 +63,10 @@ export default function ImageParameters({
 
   // State for parameters
   const [gender, setGender] = useState<string>(GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value);
-  const [bodyType, setBodyType] = useState<string>(BODY_TYPE_OPTIONS[0].value);
-  const [bodySize, setBodySize] = useState<string>(BODY_SIZE_OPTIONS[0].value);
+  const [bodyShapeAndSize, setBodyShapeAndSize] = useState<string>(BODY_SHAPE_AND_SIZE_OPTIONS[0].value);
   const [ageRange, setAgeRange] = useState<string>(AGE_RANGE_OPTIONS[0].value);
   const [ethnicity, setEthnicity] = useState<string>(ETHNICITY_OPTIONS[0].value);
-  const [poseStyle, setPoseStyle] = useState<string>(POSE_STYLE_OPTIONS.find(o => o.value === "natural_relaxed_pose")?.value || POSE_STYLE_OPTIONS[0].value);
+  const [poseStyle, setPoseStyle] = useState<string>(POSE_STYLE_OPTIONS[0].value);
   const [background, setBackground] = useState<string>(BACKGROUND_OPTIONS.find(o => o.value === "outdoor_nature_elements")?.value || BACKGROUND_OPTIONS[0].value);
   const [fashionStyle, setFashionStyle] = useState<string>(FASHION_STYLE_OPTIONS[0].value);
   const [hairStyle, setHairStyle] = useState<string>(HAIR_STYLE_OPTIONS[0].value);
@@ -86,8 +85,8 @@ export default function ImageParameters({
   const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
 
   // NEW STATE for the AI prompt feature
-  const [useAIPrompt, setUseAIPrompt] = useState<boolean>(false);
-  const [useRandomizedAIPrompts, setUseRandomizedAIPrompts] = useState<boolean>(false);
+  const [useAIPrompt, setUseAIPrompt] = useState<boolean>(true);
+  const [useRandomizedAIPrompts, setUseRandomizedAIPrompts] = useState<boolean>(true);
 
   // State for generation results
   const [outputImageUrls, setOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
@@ -102,8 +101,7 @@ export default function ImageParameters({
       const attrs = historyItemToLoad.attributes;
       
       setGender(attrs.gender || GENDER_OPTIONS[0].value);
-      setBodyType(attrs.bodyType || BODY_TYPE_OPTIONS[0].value);
-      setBodySize(attrs.bodySize || BODY_SIZE_OPTIONS[0].value);
+      setBodyShapeAndSize(attrs.bodyShapeAndSize || BODY_SHAPE_AND_SIZE_OPTIONS[0].value);
       setAgeRange(attrs.ageRange || AGE_RANGE_OPTIONS[0].value);
       setEthnicity(attrs.ethnicity || ETHNICITY_OPTIONS[0].value);
       setPoseStyle(attrs.poseStyle || POSE_STYLE_OPTIONS[0].value);
@@ -127,10 +125,12 @@ export default function ImageParameters({
   
   const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isGeneratingSlots, setIsGeneratingSlots] = useState<boolean[]>([false, false, false]); // Track each slot independently
   const [isReRollingSlot, setIsReRollingSlot] = useState<number | null>(null);
   const [isUpscalingSlot, setIsUpscalingSlot] = useState<number | null>(null);
   const [comparingSlotIndex, setComparingSlotIndex] = useState<number | null>(null);
   const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
+  const [lastUsedPrompt, setLastUsedPrompt] = useState<string>(''); // Store the last constructed prompt for history
 
   // Auto-scroll to results when generation starts
   useEffect(() => {
@@ -150,11 +150,10 @@ export default function ImageParameters({
   // Initial default values for all configurable parameters
   const initialAppDefaults = React.useRef({
     gender: GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value,
-    bodyType: BODY_TYPE_OPTIONS[0].value,
-    bodySize: BODY_SIZE_OPTIONS[0].value,
+    bodyShapeAndSize: BODY_SHAPE_AND_SIZE_OPTIONS[0].value,
     ageRange: AGE_RANGE_OPTIONS[0].value,
     ethnicity: ETHNICITY_OPTIONS[0].value,
-    poseStyle: POSE_STYLE_OPTIONS.find(o => o.value === "natural_relaxed_pose")?.value || POSE_STYLE_OPTIONS[0].value,
+    poseStyle: POSE_STYLE_OPTIONS[0].value,
     background: BACKGROUND_OPTIONS.find(o => o.value === "outdoor_nature_elements")?.value || BACKGROUND_OPTIONS[0].value,
     fashionStyle: FASHION_STYLE_OPTIONS[0].value,
     hairStyle: HAIR_STYLE_OPTIONS[0].value,
@@ -171,8 +170,7 @@ export default function ImageParameters({
 
   const PARAMETER_CONFIG = React.useMemo(() => ({
     gender: { setter: setGender, options: GENDER_OPTIONS, defaultVal: initialAppDefaults.gender },
-    bodyType: { setter: setBodyType, options: BODY_TYPE_OPTIONS, defaultVal: initialAppDefaults.bodyType },
-    bodySize: { setter: setBodySize, options: BODY_SIZE_OPTIONS, defaultVal: initialAppDefaults.bodySize },
+    bodyShapeAndSize: { setter: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS, defaultVal: initialAppDefaults.bodyShapeAndSize },
     ageRange: { setter: setAgeRange, options: AGE_RANGE_OPTIONS, defaultVal: initialAppDefaults.ageRange },
     ethnicity: { setter: setEthnicity, options: ETHNICITY_OPTIONS, defaultVal: initialAppDefaults.ethnicity },
     poseStyle: { setter: setPoseStyle, options: POSE_STYLE_OPTIONS, defaultVal: initialAppDefaults.poseStyle },
@@ -225,7 +223,7 @@ export default function ImageParameters({
       ];
       const advancedSettingsAreActive = advancedParams.some(param => {
         const stateValue = { 
-          gender, bodyType, bodySize, ageRange, ethnicity, poseStyle, background,
+          gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
           fashionStyle, hairStyle, modelExpression, lightingType, lightQuality, 
           cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering 
         }[param];
@@ -235,16 +233,16 @@ export default function ImageParameters({
     } else {
       setShowAdvancedSettingsActiveMessage(false);
     }
-  }, [settingsMode, initialAppDefaults, gender, bodyType, bodySize, ageRange, ethnicity, poseStyle, background, fashionStyle, hairStyle, modelExpression, lightingType, lightQuality, cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering]);
+  }, [settingsMode, initialAppDefaults, gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background, fashionStyle, hairStyle, modelExpression, lightingType, lightQuality, cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering]);
 
   // Consolidate all params for the hook
   const currentImageGenParams = React.useMemo((): ImageGenerationParams => ({
-    gender, bodyType, bodySize, ageRange, ethnicity, poseStyle, background,
+    gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
     fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
     cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering,
     settingsMode,
   }), [
-    gender, bodyType, bodySize, ageRange, ethnicity, poseStyle, background,
+    gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
     fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
     cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering,
     settingsMode
@@ -267,11 +265,10 @@ export default function ImageParameters({
       const { attributes, constructedPrompt, settingsMode, editedImageUrls, originalImageUrls, id } = historyItemToLoad;
       // Set all attribute states from the loaded history item
       setGender(attributes.gender || GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value);
-      setBodyType(attributes.bodyType || BODY_TYPE_OPTIONS[0].value);
-      setBodySize(attributes.bodySize || BODY_SIZE_OPTIONS[0].value);
+      setBodyShapeAndSize(attributes.bodyShapeAndSize || BODY_SHAPE_AND_SIZE_OPTIONS[0].value);
       setAgeRange(attributes.ageRange || AGE_RANGE_OPTIONS[0].value);
       setEthnicity(attributes.ethnicity || ETHNICITY_OPTIONS[0].value);
-      setPoseStyle(attributes.poseStyle || POSE_STYLE_OPTIONS.find(o => o.value === "natural_relaxed_pose")?.value || POSE_STYLE_OPTIONS[0].value);
+      setPoseStyle(attributes.poseStyle || POSE_STYLE_OPTIONS[0].value);
       setBackground(attributes.background || BACKGROUND_OPTIONS.find(o => o.value === "outdoor_nature_elements")?.value || BACKGROUND_OPTIONS[0].value);
       setFashionStyle(attributes.fashionStyle || FASHION_STYLE_OPTIONS[0].value);
       setHairStyle(attributes.hairStyle || HAIR_STYLE_OPTIONS[0].value);
@@ -312,7 +309,7 @@ export default function ImageParameters({
   const handleSaveDefaults = () => {
     if (typeof window === 'undefined') return;
     const currentSettingsToSave: ModelAttributes = {
-      gender, bodyType, bodySize, ageRange, ethnicity, poseStyle, background,
+      gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
       fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
       cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering,
     };
@@ -350,7 +347,7 @@ export default function ImageParameters({
       const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
       Object.values(PARAMETER_CONFIG).forEach(config => {
           if (settingsMode === 'advanced' ||
-              ['gender', 'bodyType', 'bodySize', 'ageRange', 'ethnicity', 'hairStyle', 'modelExpression', 'poseStyle', 'background'].includes(Object.keys(PARAMETER_CONFIG).find(k => PARAMETER_CONFIG[k as keyof ModelAttributes] === config) || "")) {
+              ['gender', 'bodyShapeAndSize', 'ageRange', 'ethnicity', 'hairStyle', 'modelExpression', 'poseStyle', 'background'].includes(Object.keys(PARAMETER_CONFIG).find(k => PARAMETER_CONFIG[k as keyof ModelAttributes] === config) || "")) {
               config.setter(pickRandom(config.options));
           }
       });
@@ -363,53 +360,131 @@ export default function ImageParameters({
       toast({ title: "Image Not Prepared", description: "Please prepare an image in the previous step.", variant: "destructive" });
       return;
     }
+    
+    // Reset all states for new generation
     setIsLoading(true);
     setOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
     setOriginalOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
     setGenerationErrors(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+    setIsGeneratingSlots([true, true, true]); // All slots start generating
 
     const finalPromptToUse = currentPrompt;
     const currentAttributes: ModelAttributes = {
-      gender, bodyType, bodySize, ageRange, ethnicity, poseStyle, background,
+      gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
       fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
       cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering
     };
 
-    try {
-      // PASS THE NEW FLAGS to the server action
-      const input: GenerateImageEditInput = { 
-        prompt: finalPromptToUse, 
-        imageDataUriOrUrl: preparedImageUrl,
-        parameters: currentAttributes, // Pass parameters for AI prompter
-        useAIPrompt: useAIPrompt, // The AI prompt flag
-        useRandomizedAIPrompts: useRandomizedAIPrompts // The randomization flag
-      };
-      const result: GenerateMultipleImagesOutput = await generateImageEdit(input, currentUser?.username || '');
-      setOutputImageUrls(result.editedImageUrls);
-      setGenerationErrors(result.errors || Array(NUM_IMAGES_TO_GENERATE).fill(null));
+    // Prepare input for generation
+    const input: GenerateImageEditInput = { 
+      prompt: finalPromptToUse, 
+      imageDataUriOrUrl: preparedImageUrl,
+      parameters: currentAttributes, // Pass parameters for AI prompter
+      useAIPrompt: useAIPrompt, // The AI prompt flag
+      useRandomizedAIPrompts: useRandomizedAIPrompts // The randomization flag
+    };
 
-      if (result.errors && result.errors.some(e => e !== null)) {
-        toast({ title: "Generation Issues", description: `${result.errors.filter(e => e !== null).length} image(s) failed.`, variant: "destructive" });
+    let completedCount = 0;
+    const finalUrls: (string | null)[] = [null, null, null];
+    let historyPrompt = finalPromptToUse; // Default to manual prompt
+
+    // Function to handle completion of individual slots
+    const handleSlotCompletion = (slotIndex: number, imageUrl: string | null, error: string | null, constructedPrompt?: string) => {
+      // Update individual slot state
+      setIsGeneratingSlots(prev => {
+        const newState = [...prev];
+        newState[slotIndex] = false;
+        return newState;
+      });
+
+      if (imageUrl) {
+        // Success - update the image URL immediately
+        setOutputImageUrls(prev => {
+          const newUrls = [...prev];
+          newUrls[slotIndex] = imageUrl;
+          return newUrls;
+        });
+        finalUrls[slotIndex] = imageUrl;
+
+        // Store the constructed prompt from the first successful generation for history
+        if (constructedPrompt && !historyPrompt.includes('PHOTOREALISTIC')) {
+          historyPrompt = constructedPrompt;
+          setLastUsedPrompt(constructedPrompt);
+        }
+
+        toast({ 
+          title: `Image ${slotIndex + 1} Complete!`, 
+          description: "Generated successfully.",
+          duration: 2000 
+        });
       } else {
-        toast({ title: "Images Generated!", description: "Your edited images are ready." });
+        // Error - update error state immediately
+        setGenerationErrors(prev => {
+          const newErrors = [...prev];
+          newErrors[slotIndex] = error || `Image ${slotIndex + 1} generation failed`;
+          return newErrors;
+        });
+
+        toast({ 
+          title: `Image ${slotIndex + 1} Failed`, 
+          description: error || "Generation failed",
+          variant: "destructive",
+          duration: 3000
+        });
       }
 
-      // Add to history
-      if (currentUser && preparedImageUrl) {
-        const newHistoryId = await addHistoryItem(currentAttributes, finalPromptToUse, preparedImageUrl, result.editedImageUrls, settingsMode);
-        setActiveHistoryItemId(newHistoryId);
-      }
+      completedCount++;
 
-    } catch (error) {
-      console.error("Error generating images:", error);
-      const errorMessage = (error as Error).message || "Unexpected error during image generation.";
-      setGenerationErrors(Array(NUM_IMAGES_TO_GENERATE).fill(errorMessage));
-      toast({ title: "Generation Failed", description: errorMessage, variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-      // Reset randomization flag after generation
-      setUseRandomizedAIPrompts(false);
-    }
+      // When all 3 slots are complete, handle final operations
+      if (completedCount === NUM_IMAGES_TO_GENERATE) {
+        const successCount = finalUrls.filter(url => url !== null).length;
+        
+        if (successCount > 0) {
+          toast({ 
+            title: "Generation Complete!", 
+            description: `${successCount} out of ${NUM_IMAGES_TO_GENERATE} images generated successfully.`
+          });
+
+          // Add to history
+          if (currentUser && preparedImageUrl) {
+            addHistoryItem(currentAttributes, historyPrompt, preparedImageUrl, finalUrls, settingsMode)
+              .then(newHistoryId => {
+                setActiveHistoryItemId(newHistoryId);
+              })
+              .catch(error => {
+                console.error("Failed to save to history:", error);
+              });
+          }
+        } else {
+          toast({ 
+            title: "All Generations Failed", 
+            description: "Please try again.",
+            variant: "destructive"
+          });
+        }
+
+        // Final cleanup
+        setIsLoading(false);
+        setUseRandomizedAIPrompts(false);
+      }
+    };
+
+    // Start independent generation for each slot
+    [0, 1, 2].forEach(async (slotIndex) => {
+      try {
+        const slotResult = await generateSingleImageSlot(input, slotIndex as 0 | 1 | 2, currentUser?.username || '');
+        handleSlotCompletion(
+          slotIndex, 
+          slotResult.result.editedImageUrl, 
+          null, 
+          slotResult.constructedPrompt
+        );
+      } catch (error) {
+        console.error(`Error generating image for slot ${slotIndex}:`, error);
+        const errorMessage = (error as Error).message || `Slot ${slotIndex + 1} generation failed`;
+        handleSlotCompletion(slotIndex, null, errorMessage);
+      }
+    });
   };
 
   const handleReRollImage = async (slotIndex: number) => {
@@ -664,8 +739,18 @@ export default function ImageParameters({
                     aria-label="Toggle settings mode"
                 />
             </div>
-            <Button variant="outline" size="icon" onClick={handleRandomizeConfiguration} disabled={commonFormDisabled} aria-label="Randomize Configuration" title="Randomize Settings">
-                <Shuffle className="h-5 w-5" />
+            <Button 
+                variant={useAIPrompt && useRandomizedAIPrompts ? "default" : "outline"} 
+                size="icon" 
+                onClick={handleRandomizeConfiguration} 
+                disabled={commonFormDisabled} 
+                aria-label="Randomize Configuration" 
+                title={useAIPrompt 
+                    ? (useRandomizedAIPrompts ? "AI Randomization Activated - Each prompt will use random parameters" : "Click to activate AI randomization") 
+                    : "Randomize Settings"}
+                className={useAIPrompt && useRandomizedAIPrompts ? "bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg" : ""}
+            >
+                <Shuffle className={`h-5 w-5 ${useAIPrompt && useRandomizedAIPrompts ? 'animate-pulse' : ''}`} />
             </Button>
           </div>
         </CardHeader>
@@ -696,8 +781,7 @@ export default function ImageParameters({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                         {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS, disabled: commonFormDisabled })}
                         {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS, disabled: commonFormDisabled })}
-                        {renderSelect({ id: "bodyType", label: "Body Type", value: bodyType, onChange: setBodyType, options: BODY_TYPE_OPTIONS, disabled: commonFormDisabled })}
-                        {renderSelect({ id: "bodySize", label: "Body Frame/Stature", value: bodySize, onChange: setBodySize, options: BODY_SIZE_OPTIONS, disabled: commonFormDisabled })}
+                        {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS, disabled: commonFormDisabled })}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -729,8 +813,7 @@ export default function ImageParameters({
                 ))}
               </RadioGroup>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                {renderSelect({ id: "bodyType", label: "Body Type", value: bodyType, onChange: setBodyType, options: BODY_TYPE_OPTIONS, disabled: commonFormDisabled })}
-                {renderSelect({ id: "bodySize", label: "Body Frame/Stature", value: bodySize, onChange: setBodySize, options: BODY_SIZE_OPTIONS, disabled: commonFormDisabled })}
+                {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS, disabled: commonFormDisabled })}
                 {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS, disabled: commonFormDisabled })}
                 {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS, disabled: commonFormDisabled })}
                 {renderSelect({ id: "hairStyle", label: "Hair Style", value: hairStyle, onChange: setHairStyle, options: HAIR_STYLE_OPTIONS, disabled: commonFormDisabled })}
@@ -776,12 +859,12 @@ export default function ImageParameters({
             <Button
               variant="default"
               onClick={handleSubmit}
-              disabled={isLoading || !preparedImageUrl || isReRollingSlot !== null || !currentPrompt.trim()}
+              disabled={isGeneratingSlots.some(loading => loading) || !preparedImageUrl || isReRollingSlot !== null || !currentPrompt.trim()}
               className="w-full text-lg hover:animate-shimmer"
               size="lg"
             >
               <AnimatePresence mode="wait" initial={false}>
-                {isLoading ? (
+                {isGeneratingSlots.some(loading => loading) ? (
                   <motion.span
                     key="loading"
                     initial={{ opacity: 0, y: -5 }}
@@ -811,7 +894,7 @@ export default function ImageParameters({
       </Card>
 
       {/* Generated Images Display */}
-      {(outputImageUrls.some(uri => uri !== null) || generationErrors.some(err => err !== null) || isLoading) && (
+      {(outputImageUrls.some(uri => uri !== null) || generationErrors.some(err => err !== null) || isGeneratingSlots.some(loading => loading)) && (
         <Card variant="glass" ref={resultsRef}>
           <CardHeader>
             <CardTitle className="text-xl flex items-center gap-2">
@@ -827,97 +910,116 @@ export default function ImageParameters({
               initial="hidden"
               animate="visible"
             >
-              {/* If loading, render placeholders. Otherwise, map over results. */}
-              {isLoading ? (
-                Array.from({ length: NUM_IMAGES_TO_GENERATE }).map((_, index) => (
-                  <div key={`loader-${index}`} className="aspect-[3/4] bg-muted/50 rounded-md border animate-pulse flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                ))
-              ) : (
-                outputImageUrls.map((uri, index) => {
-                  if (uri === null) {
-                    return (
-                      <div key={index} className="aspect-[3/4] bg-muted/50 rounded-md border flex items-center justify-center">
-                        <p className="text-sm text-muted-foreground">Image {index + 1} not generated</p>
-                      </div>
-                    );
-                  }
-                  const isError = generationErrors[index] !== null;
-                  const displayUrl = getDisplayableImageUrl(comparingSlotIndex === index ? originalOutputImageUrls[index] : uri) || '';
+              {/* Render slots with independent loading states */}
+              {Array.from({ length: NUM_IMAGES_TO_GENERATE }).map((_, index) => {
+                const uri = outputImageUrls[index];
+                const isSlotGenerating = isGeneratingSlots[index];
+                const hasError = generationErrors[index] !== null;
+
+                // Show loading state for this specific slot
+                if (isSlotGenerating && uri === null) {
                   return (
-                    <motion.div key={index} variants={itemAnim} className="group rounded-md overflow-hidden flex flex-col border border-border/20">
-                      <div className="relative aspect-[2/3] w-full">
-                        <Image
-                          src={displayUrl || ''}
-                          alt={`Generated Image ${index + 1}`}
-                          fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        {/* Loading overlay for reroll/upscale */}
-                        {(isReRollingSlot === index || isUpscalingSlot === index) && (
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                            <Loader2 className="h-8 w-8 text-white animate-spin" />
-                          </div>
-                        )}
+                    <div key={`loader-${index}`} className="aspect-[3/4] bg-muted/50 rounded-md border animate-pulse flex items-center justify-center">
+                      <div className="text-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-2" />
+                        <p className="text-xs text-muted-foreground">Generating Image {index + 1}...</p>
                       </div>
-                      <div className="p-2 bg-card/80 backdrop-blur-md space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleReRollImage(index)}
-                            disabled={isLoading || isReRollingSlot !== null || isUpscalingSlot !== null}
-                          >
-                            <RefreshCw className="mr-2 h-4 w-4" /> Re-roll
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleUpscale(index)}
-                            disabled={isLoading || isUpscalingSlot !== null || isReRollingSlot !== null || !!originalOutputImageUrls[index]}
-                          >
-                            <Sparkles className="mr-2 h-4 w-4" /> Upscale
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDownloadOutput(uri, index)}
-                            className="flex-1"
-                            disabled={isLoading || isReRollingSlot !== null || isUpscalingSlot !== null}
-                          >
-                            <Download className="mr-2 h-4 w-4" /> Download
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleSendToVideoPage(uri)}
-                            className="flex-1"
-                            disabled={isLoading || isReRollingSlot !== null || isUpscalingSlot !== null}
-                          >
-                            <VideoIcon className="mr-2 h-4 w-4" /> Video
-                          </Button>
-                        </div>
-                        {originalOutputImageUrls[index] && (
-                          <Button variant="ghost" size="sm" className="w-full select-none"
-                            onMouseDown={() => setComparingSlotIndex(index)}
-                            onMouseUp={() => setComparingSlotIndex(null)}
-                            onMouseLeave={() => setComparingSlotIndex(null)}
-                            onTouchStart={(e) => { e.preventDefault(); setComparingSlotIndex(index); }}
-                            onTouchEnd={() => setComparingSlotIndex(null)}
-                          >
-                            <Eye className="mr-2 h-4 w-4" /> Hold to Compare
-                          </Button>
-                        )}
-                        {isError ? (
-                          <p className="mt-2 text-sm text-red-500">{generationErrors[index]}</p>
-                        ) : null}
-                      </div>
-                    </motion.div>
+                    </div>
                   );
-                })
-              )}
+                }
+
+                // Show error state
+                if (hasError && uri === null) {
+                  return (
+                    <div key={index} className="aspect-[3/4] bg-red-50 rounded-md border border-red-200 flex items-center justify-center">
+                      <div className="text-center p-4">
+                        <p className="text-sm text-red-600 font-medium mb-1">Image {index + 1} Failed</p>
+                        <p className="text-xs text-red-500">{generationErrors[index]}</p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Show empty state (not started or failed without error)
+                if (uri === null) {
+                  return (
+                    <div key={index} className="aspect-[3/4] bg-muted/50 rounded-md border flex items-center justify-center">
+                      <p className="text-sm text-muted-foreground">Image {index + 1} pending...</p>
+                    </div>
+                  );
+                }
+
+                // Show completed image
+                const displayUrl = getDisplayableImageUrl(comparingSlotIndex === index ? originalOutputImageUrls[index] : uri) || '';
+                return (
+                  <motion.div key={index} variants={itemAnim} className="group rounded-md overflow-hidden flex flex-col border border-border/20">
+                    <div className="relative aspect-[2/3] w-full">
+                      <Image
+                        src={displayUrl || ''}
+                        alt={`Generated Image ${index + 1}`}
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        className="object-cover group-hover:scale-90 group-hover:object-contain transition-all duration-300"
+                      />
+                      {/* Loading overlay for reroll/upscale */}
+                      {(isReRollingSlot === index || isUpscalingSlot === index) && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <Loader2 className="h-8 w-8 text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-2 bg-card/80 backdrop-blur-md space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleReRollImage(index)}
+                          disabled={isGeneratingSlots.some(loading => loading) || isReRollingSlot !== null || isUpscalingSlot !== null}
+                        >
+                          <RefreshCw className="mr-2 h-4 w-4" /> Re-roll
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleUpscale(index)}
+                          disabled={isGeneratingSlots.some(loading => loading) || isUpscalingSlot !== null || isReRollingSlot !== null || !!originalOutputImageUrls[index]}
+                        >
+                          <Sparkles className="mr-2 h-4 w-4" /> Upscale
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadOutput(uri, index)}
+                          className="flex-1"
+                          disabled={isGeneratingSlots.some(loading => loading) || isReRollingSlot !== null || isUpscalingSlot !== null}
+                        >
+                          <Download className="mr-2 h-4 w-4" /> Download
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleSendToVideoPage(uri)}
+                          className="flex-1"
+                          disabled={isGeneratingSlots.some(loading => loading) || isReRollingSlot !== null || isUpscalingSlot !== null}
+                        >
+                          <VideoIcon className="mr-2 h-4 w-4" /> Video
+                        </Button>
+                      </div>
+                      {originalOutputImageUrls[index] && (
+                        <Button variant="ghost" size="sm" className="w-full select-none"
+                          onMouseDown={() => setComparingSlotIndex(index)}
+                          onMouseUp={() => setComparingSlotIndex(null)}
+                          onMouseLeave={() => setComparingSlotIndex(null)}
+                          onTouchStart={(e) => { e.preventDefault(); setComparingSlotIndex(index); }}
+                          onTouchEnd={() => setComparingSlotIndex(null)}
+                        >
+                          <Eye className="mr-2 h-4 w-4" /> Hold to Compare
+                        </Button>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
             </motion.div>
           </CardContent>
         </Card>
