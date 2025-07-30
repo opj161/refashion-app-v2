@@ -143,7 +143,7 @@ export const POSE_STYLE_OPTIONS: OptionWithPromptSegment[] = [
 ];
 export const BACKGROUND_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default Background", promptSegment: "" },
-  { value: "outdoor_nature_elements", displayLabel: "Outdoor & Nature", promptSegment: "an outdoor nature setting with appropriate natural elements" },
+  { value: "outdoor_nature_elements", displayLabel: "Outdoor & Nature", promptSegment: "a serene and lush outdoor nature scene." },
   { value: "beach_ocean_waves", displayLabel: "Beach & Ocean", promptSegment: "a beautiful beach setting with ocean waves and soft sand" },
   { value: "studio_white_seamless_minimalist", displayLabel: "Studio - White", promptSegment: "a modern minimalist photo studio with a seamless white background" },
   { value: "studio_grey_clean", displayLabel: "Studio - Clean Grey", promptSegment: "a minimalist studio setting with a light grey, clean background" },
@@ -338,7 +338,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
       }
 
       const stylePartOld = "\n\nStyle: The model should look authentic and relatable, with a natural expression and subtle smile. The clothing must fit perfectly and be the visual focus of the image.";
-      const techPartOld = "\n\nTechnical details: Professional fashion photography with perfect exposure and color accuracy.";
+      const techPartOld = "\n\nTechnical details: Fashion magazine editorial, full-body shot. Superior clarity, high-contrast, well-exposed, and masterful composition.";
 
       return `${modelDescriptionPart}${settingPart}${stylePartOld}${techPartOld}`;
     } else { // Advanced mode
