@@ -615,7 +615,7 @@ export default function VideoParameters({
             <Settings2 className="h-6 w-6 text-primary" />
             Video Settings
           </CardTitle>
-          <CardDescription className="hidden lg:block">Fine-tune your video's quality, length, and style.</CardDescription>
+          <CardDescription className="hidden lg:block">Fine-tune your video&apos;s quality, length, and style.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

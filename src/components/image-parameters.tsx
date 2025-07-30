@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle } from 'lucide-react';
+import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { generateImageEdit, regenerateSingleImage, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
 import { upscaleImageAction } from "@/ai/actions/upscale-image.action";
 import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
@@ -83,6 +84,9 @@ export default function ImageParameters({
   const [settingsMode, setSettingsMode] = useState<'basic' | 'advanced'>('basic');
   const [showAdvancedSettingsActiveMessage, setShowAdvancedSettingsActiveMessage] = useState<boolean>(false);
   const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
+
+  // NEW STATE for the AI prompt feature
+  const [useAIPrompt, setUseAIPrompt] = useState<boolean>(false);
 
   // State for generation results
   const [outputImageUrls, setOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
@@ -361,7 +365,13 @@ export default function ImageParameters({
     };
 
     try {
-      const input: GenerateImageEditInput = { prompt: finalPromptToUse, imageDataUriOrUrl: preparedImageUrl };
+      // PASS THE NEW FLAG to the server action
+      const input: GenerateImageEditInput = { 
+        prompt: finalPromptToUse, 
+        imageDataUriOrUrl: preparedImageUrl,
+        parameters: currentAttributes, // Pass parameters for AI prompter
+        useAIPrompt: useAIPrompt // The new flag
+      };
       const result: GenerateMultipleImagesOutput = await generateImageEdit(input, currentUser?.username || '');
       setOutputImageUrls(result.editedImageUrls);
       setGenerationErrors(result.errors || Array(NUM_IMAGES_TO_GENERATE).fill(null));
@@ -396,7 +406,11 @@ export default function ImageParameters({
     setIsReRollingSlot(slotIndex);
     
     try {
-        const inputForReroll: GenerateImageEditInput = { prompt: currentPrompt, imageDataUriOrUrl: preparedImageUrl };
+        const inputForReroll: GenerateImageEditInput = { 
+          prompt: currentPrompt, 
+          imageDataUriOrUrl: preparedImageUrl,
+          useAIPrompt: false // Don't use AI prompt for re-rolls
+        };
         const result = await regenerateSingleImage(inputForReroll, slotIndex, currentUser?.username || '');
 
         const updatedUrls = [...outputImageUrls];
@@ -597,6 +611,32 @@ export default function ImageParameters({
             <CardDescription className="hidden lg:block">Choose a model and scene to showcase your clothing.</CardDescription>
           </div>
           <div className="flex items-center gap-3">
+            {/* NEW AI PROMPT SWITCH */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="ai-prompt-switch" className="text-sm font-medium whitespace-nowrap flex items-center gap-1">
+                      <BrainCircuit className="h-4 w-4" /> AI Prompt
+                    </Label>
+                    <Switch
+                        id="ai-prompt-switch"
+                        checked={useAIPrompt}
+                        onCheckedChange={setUseAIPrompt}
+                        disabled={commonFormDisabled}
+                        aria-label="Toggle AI Prompt Generation"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">
+                    Enable to use a powerful AI to creatively write your prompt based on your settings. 
+                    This can produce more artistic and varied results.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
             <div className="flex items-center gap-2">
                 <Label htmlFor="settings-mode-switch" className="text-sm font-medium whitespace-nowrap">
                     {settingsMode === 'basic' ? 'Basic' : 'Advanced'}

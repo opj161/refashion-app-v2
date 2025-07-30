@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { encrypt } from './encryption.service';
 import type { HistoryItem, ModelAttributes, SessionUser } from '@/lib/types';
 
 // Video status payload type for efficient polling
@@ -38,6 +39,33 @@ export function getDb(): Database.Database {
   initSchema(db);
 
   return db;
+}
+
+// Load environment variables into database settings if they exist and database values are empty
+function initializeApiKeysFromEnv(db: Database.Database) {
+  const envKeys = [
+    { env: 'GEMINI_API_KEY_1', db: 'global_gemini_api_key_1' },
+    { env: 'GEMINI_API_KEY_2', db: 'global_gemini_api_key_2' }, 
+    { env: 'GEMINI_API_KEY_3', db: 'global_gemini_api_key_3' },
+    { env: 'FAL_KEY', db: 'global_fal_api_key' }
+  ];
+
+  for (const { env, db: dbKey } of envKeys) {
+    const envValue = process.env[env];
+    if (envValue) {
+      // Check if database value is empty
+      const stmt = db.prepare('SELECT value FROM settings WHERE key = ?');
+      const result = stmt.get(dbKey) as { value: string } | undefined;
+      
+      if (!result?.value) {
+        // Encrypt and store the environment variable value
+        const encryptedValue = encrypt(envValue);
+        const updateStmt = db.prepare('UPDATE settings SET value = ? WHERE key = ?');
+        updateStmt.run(encryptedValue, dbKey);
+        console.log(`Initialized ${dbKey} from environment variable ${env}`);
+      }
+    }
+  }
 }
 
 function initSchema(db: Database.Database) {
@@ -101,6 +129,9 @@ function initSchema(db: Database.Database) {
       ('global_gemini_api_key_3', ''),
       ('global_fal_api_key', '')
   `);
+
+  // Load environment variables into database settings if they exist and database values are empty
+  initializeApiKeysFromEnv(db);
   console.log('Database schema initialized.');
 }
 

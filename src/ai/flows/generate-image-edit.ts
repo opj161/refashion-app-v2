@@ -18,6 +18,7 @@ import path from 'path';
 import { saveDataUriLocally } from '@/services/storage.service';
 import { getApiKeyForUser } from '@/services/apiKey.service';
 import { buildAIPrompt } from '@/lib/prompt-builder';
+import { generatePromptWithAI } from '@/ai/actions/generate-prompt.action';
 
 // NEW: Import Axios and HttpsProxyAgent for explicit proxy control
 import axios, { AxiosError } from 'axios';
@@ -134,6 +135,7 @@ const GenerateImageEditInputSchema = z.object({
     .describe(
       "Optional: The image to edit, as a data URI (e.g., 'data:image/png;base64,...') or a publicly accessible HTTPS URL."
     ),
+  useAIPrompt: z.boolean().optional().default(false).describe('Whether to use AI to generate the prompt itself.'),
 });
 export type GenerateImageEditInput = z.infer<typeof GenerateImageEditInputSchema>;
 
@@ -342,33 +344,83 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
     throw new Error('Username is required to generate images.');
   }
 
-  // Construct the prompt from parameters if provided
-  let constructedPrompt: string;
-  if (input.parameters) {
-    constructedPrompt = buildAIPrompt({
-      type: 'image',
-      params: {
-        ...input.parameters,
-        settingsMode: input.settingsMode || 'basic'
+  // NEW LOGIC: PROMPT GENERATION
+  let prompts: (string | null)[];
+  let finalConstructedPromptForHistory: string;
+
+  if (input.useAIPrompt && input.parameters && input.imageDataUriOrUrl) {
+    console.log("Using AI to generate prompts...");
+    const promptPromises = [
+      generatePromptWithAI(input.parameters, input.imageDataUriOrUrl, username, 1),
+      generatePromptWithAI(input.parameters, input.imageDataUriOrUrl, username, 2),
+      generatePromptWithAI(input.parameters, input.imageDataUriOrUrl, username, 3),
+    ];
+    const promptResults = await Promise.allSettled(promptPromises);
+    prompts = promptResults.map(res => res.status === 'fulfilled' ? res.value : null);
+    
+    // Log all received optimized prompts together
+    console.log(`\n🚀 ALL AI-GENERATED PROMPTS SUMMARY:`);
+    console.log('='.repeat(100));
+    prompts.forEach((prompt, index) => {
+      console.log(`\n📝 PROMPT ${index + 1}:`);
+      if (prompt) {
+        console.log(prompt);
+      } else {
+        console.log('❌ FAILED TO GENERATE');
       }
+      console.log('-'.repeat(60));
     });
-  } else if (input.prompt) {
-    constructedPrompt = input.prompt;
+    console.log('='.repeat(100));
+    
+    // For history, we'll save the first successfully generated prompt.
+    finalConstructedPromptForHistory = prompts.find(p => p !== null) ?? "AI prompt generation failed.";
   } else {
-    throw new Error('Either parameters or prompt must be provided');
+    console.log("Using local prompt builder...");
+    let constructedPrompt: string;
+    if (input.parameters) {
+      constructedPrompt = buildAIPrompt({
+        type: 'image',
+        params: {
+          ...input.parameters,
+          settingsMode: input.settingsMode || 'basic'
+        }
+      });
+    } else if (input.prompt) {
+      constructedPrompt = input.prompt;
+    } else {
+      throw new Error('Either parameters or prompt must be provided');
+    }
+    prompts = Array(3).fill(constructedPrompt);
+    finalConstructedPromptForHistory = constructedPrompt;
   }
+  
+  console.log("Generated Prompts:", prompts);
 
-  // Create input with the constructed prompt for the generation flows
-  const inputForGeneration: GenerateImageEditInput = {
-    ...input,
-    prompt: constructedPrompt,
-  };
+  // MODIFIED LOGIC: IMAGE GENERATION
+  const imageGenerationPromises = prompts.map((prompt, index) => {
+    if (prompt) {
+      // Create a specific input object for each generation with its unique prompt
+      const inputForGeneration: GenerateImageEditInput = {
+        ...input,
+        prompt: prompt,
+      };
+      // Call the appropriate generation function
+      switch (index) {
+        case 0:
+          return generateImageFlow1(inputForGeneration, username);
+        case 1:
+          return generateImageFlow2(inputForGeneration, username);
+        case 2:
+          return generateImageFlow3(inputForGeneration, username);
+        default:
+          throw new Error(`Invalid flow index: ${index}`);
+      }
+    }
+    // If prompt generation failed for this slot, return a rejected promise
+    return Promise.reject(new Error('Prompt was not generated for this slot.'));
+  });
 
-  const results = await Promise.allSettled([
-    generateImageFlow1(inputForGeneration, username),
-    generateImageFlow2(inputForGeneration, username),
-    generateImageFlow3(inputForGeneration, username),
-  ]);
+  const results = await Promise.allSettled(imageGenerationPromises);
 
   const editedImageUrlsResult: (string | null)[] = [null, null, null];
   const errorsResult: (string | null)[] = [null, null, null];
@@ -386,7 +438,7 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
 
   return {
     editedImageUrls: editedImageUrlsResult,
-    constructedPrompt: constructedPrompt,
+    constructedPrompt: finalConstructedPromptForHistory,
     errors: errorsResult.some(e => e !== null) ? errorsResult : undefined
   };
 }
