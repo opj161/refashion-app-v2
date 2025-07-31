@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit } from 'lucide-react';
+import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit, X, AlertCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { generateImageEdit, generateSingleImageSlot, regenerateSingleImage, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
-import { upscaleImageAction } from "@/ai/actions/upscale-image.action";
+import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
+import { generateImageEdit, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
+import { upscaleImageAction, faceDetailerAction, isFaceDetailerAvailable } from "@/ai/actions/upscale-image.action";
 import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ModelAttributes, HistoryItem } from "@/lib/types";
@@ -126,10 +127,16 @@ export default function ImageParameters({
   const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isGeneratingSlots, setIsGeneratingSlots] = useState<boolean[]>([false, false, false]); // Track each slot independently
-  const [isReRollingSlot, setIsReRollingSlot] = useState<number | null>(null);
   const [isUpscalingSlot, setIsUpscalingSlot] = useState<number | null>(null);
+  const [isFaceRetouchingSlot, setIsFaceRetouchingSlot] = useState<number | null>(null);
+  const [isFaceDetailerServiceAvailable, setIsFaceDetailerServiceAvailable] = useState<boolean>(false);
   const [comparingSlotIndex, setComparingSlotIndex] = useState<number | null>(null);
   const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
+  
+  // Image viewer modal state
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState<boolean>(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [lastUsedPrompt, setLastUsedPrompt] = useState<string>(''); // Store the last constructed prompt for history
 
   // Auto-scroll to results when generation starts
@@ -306,6 +313,39 @@ export default function ImageParameters({
     }
   }, [historyItemToLoad, isLoadingHistory, loadedHistoryItemId, handlePromptChange, toast]);
 
+  // Check Face Detailer service availability on mount
+  useEffect(() => {
+    isFaceDetailerAvailable().then(setIsFaceDetailerServiceAvailable);
+  }, []);
+
+  // Handler for opening image viewer modal
+  const handleImageClick = (imageUrl: string, index: number) => {
+    setSelectedImageUrl(imageUrl);
+    setSelectedImageIndex(index);
+    setIsImageViewerOpen(true);
+  };
+
+  // Handler for closing image viewer modal
+  const handleCloseImageViewer = () => {
+    setIsImageViewerOpen(false);
+    setSelectedImageUrl(null);
+    setSelectedImageIndex(null);
+  };
+
+  // Keyboard support for image viewer modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isImageViewerOpen && event.key === 'Escape') {
+        handleCloseImageViewer();
+      }
+    };
+
+    if (isImageViewerOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isImageViewerOpen]);
+
   const handleSaveDefaults = () => {
     if (typeof window === 'undefined') return;
     const currentSettingsToSave: ModelAttributes = {
@@ -360,183 +400,84 @@ export default function ImageParameters({
       toast({ title: "Image Not Prepared", description: "Please prepare an image in the previous step.", variant: "destructive" });
       return;
     }
-    
-    // Reset all states for new generation
+
+    // 1. Set global loading state
     setIsLoading(true);
     setOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
     setOriginalOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
     setGenerationErrors(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-    setIsGeneratingSlots([true, true, true]); // All slots start generating
+    
+    // Start all slots in a "generating" visual state
+    setIsGeneratingSlots([true, true, true]);
 
-    const finalPromptToUse = currentPrompt;
     const currentAttributes: ModelAttributes = {
       gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
       fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
       cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering
     };
 
-    // Prepare input for generation
-    const input: GenerateImageEditInput = { 
-      prompt: finalPromptToUse, 
+    // 2. Prepare a single input object for the batch action
+    const input: GenerateImageEditInput = {
+      prompt: currentPrompt, // The manually edited prompt, if any
       imageDataUriOrUrl: preparedImageUrl,
-      parameters: currentAttributes, // Pass parameters for AI prompter
-      useAIPrompt: useAIPrompt, // The AI prompt flag
-      useRandomizedAIPrompts: useRandomizedAIPrompts // The randomization flag
+      parameters: currentAttributes,
+      settingsMode,
+      useAIPrompt: useAIPrompt,
+      useRandomizedAIPrompts: useRandomizedAIPrompts
     };
 
-    let completedCount = 0;
-    const finalUrls: (string | null)[] = [null, null, null];
-    let historyPrompt = finalPromptToUse; // Default to manual prompt
-
-    // Function to handle completion of individual slots
-    const handleSlotCompletion = (slotIndex: number, imageUrl: string | null, error: string | null, constructedPrompt?: string) => {
-      // Update individual slot state
-      setIsGeneratingSlots(prev => {
-        const newState = [...prev];
-        newState[slotIndex] = false;
-        return newState;
-      });
-
-      if (imageUrl) {
-        // Success - update the image URL immediately
-        setOutputImageUrls(prev => {
-          const newUrls = [...prev];
-          newUrls[slotIndex] = imageUrl;
-          return newUrls;
-        });
-        finalUrls[slotIndex] = imageUrl;
-
-        // Store the constructed prompt from the first successful generation for history
-        if (constructedPrompt && !historyPrompt.includes('PHOTOREALISTIC')) {
-          historyPrompt = constructedPrompt;
-          setLastUsedPrompt(constructedPrompt);
-        }
-
-        toast({ 
-          title: `Image ${slotIndex + 1} Complete!`, 
-          description: "Generated successfully.",
-          duration: 2000 
-        });
-      } else {
-        // Error - update error state immediately
-        setGenerationErrors(prev => {
-          const newErrors = [...prev];
-          newErrors[slotIndex] = error || `Image ${slotIndex + 1} generation failed`;
-          return newErrors;
-        });
-
-        toast({ 
-          title: `Image ${slotIndex + 1} Failed`, 
-          description: error || "Generation failed",
-          variant: "destructive",
-          duration: 3000
-        });
-      }
-
-      completedCount++;
-
-      // When all 3 slots are complete, handle final operations
-      if (completedCount === NUM_IMAGES_TO_GENERATE) {
-        const successCount = finalUrls.filter(url => url !== null).length;
-        
-        if (successCount > 0) {
-          toast({ 
-            title: "Generation Complete!", 
-            description: `${successCount} out of ${NUM_IMAGES_TO_GENERATE} images generated successfully.`
-          });
-
-          // Add to history
-          if (currentUser && preparedImageUrl) {
-            addHistoryItem(currentAttributes, historyPrompt, preparedImageUrl, finalUrls, settingsMode)
-              .then(newHistoryId => {
-                setActiveHistoryItemId(newHistoryId);
-              })
-              .catch(error => {
-                console.error("Failed to save to history:", error);
-              });
-          }
-        } else {
-          toast({ 
-            title: "All Generations Failed", 
-            description: "Please try again.",
-            variant: "destructive"
-          });
-        }
-
-        // Final cleanup
-        setIsLoading(false);
-        setUseRandomizedAIPrompts(false);
-      }
-    };
-
-    // Start independent generation for each slot
-    [0, 1, 2].forEach(async (slotIndex) => {
-      try {
-        const slotResult = await generateSingleImageSlot(input, slotIndex as 0 | 1 | 2, currentUser?.username || '');
-        handleSlotCompletion(
-          slotIndex, 
-          slotResult.result.editedImageUrl, 
-          null, 
-          slotResult.constructedPrompt
-        );
-      } catch (error) {
-        console.error(`Error generating image for slot ${slotIndex}:`, error);
-        const errorMessage = (error as Error).message || `Slot ${slotIndex + 1} generation failed`;
-        handleSlotCompletion(slotIndex, null, errorMessage);
-      }
-    });
-  };
-
-  const handleReRollImage = async (slotIndex: number) => {
-    if (!preparedImageUrl) {
-      toast({ title: "Image Not Prepared", variant: "destructive" });
-      return;
-    }
-    setIsReRollingSlot(slotIndex);
-    
     try {
-        const inputForReroll: GenerateImageEditInput = { 
-          prompt: currentPrompt, 
-          imageDataUriOrUrl: preparedImageUrl,
-          useAIPrompt: false, // Don't use AI prompt for re-rolls
-          useRandomizedAIPrompts: false // Don't use randomized prompts for re-rolls
-        };
-        const result = await regenerateSingleImage(inputForReroll, slotIndex, currentUser?.username || '');
+      // 3. Make a SINGLE call to the batch server action
+      const result: GenerateMultipleImagesOutput = await generateImageEdit(input, currentUser?.username || '');
 
-        const updatedUrls = [...outputImageUrls];
-        const newImageUrl = result.editedImageUrl;
-        updatedUrls[slotIndex] = newImageUrl;
-        setOutputImageUrls(updatedUrls);
-
-        const updatedErrors = [...generationErrors];
-        updatedErrors[slotIndex] = null; // Clear previous error on success
-        setGenerationErrors(updatedErrors);
-
-        // After re-rolling, the original for comparison might be gone.
-        // We should clear the original URL for this slot.
-        const currentOriginals = [...originalOutputImageUrls];
-        currentOriginals[slotIndex] = null;
-        setOriginalOutputImageUrls(currentOriginals);
-
-        if (activeHistoryItemId && newImageUrl) {
-            await updateHistoryItem(activeHistoryItemId, { 
-              editedImageUrls: updatedUrls,
-              originalImageUrls: currentOriginals 
-            });
-        }
-        toast({ 
-          title: `Image ${slotIndex + 1} Re-rolled`,
-          description: "A new version of the image has been generated."
+      // 4. Process the complete result at once
+      setOutputImageUrls(result.editedImageUrls);
+      
+      // Store the prompt for history
+      setLastUsedPrompt(result.constructedPrompt);
+      
+      if (result.errors) {
+        setGenerationErrors(result.errors);
+      }
+      
+      const successCount = result.editedImageUrls.filter(url => url !== null).length;
+      if (successCount > 0) {
+        toast({
+          title: "Generation Complete!",
+          description: `${successCount} out of ${NUM_IMAGES_TO_GENERATE} images generated successfully.`
         });
+        
+        // Add to history
+        if (currentUser && preparedImageUrl) {
+          try {
+            const newHistoryId = await addHistoryItem(currentAttributes, result.constructedPrompt, preparedImageUrl, result.editedImageUrls, settingsMode);
+            setActiveHistoryItemId(newHistoryId);
+          } catch (error) {
+            console.error("Failed to save to history:", error);
+          }
+        }
+      } else {
+        toast({
+          title: "All Generations Failed",
+          description: "Please check the errors or try again.",
+          variant: "destructive"
+        });
+      }
+
     } catch (error) {
-        toast({title: `Re-roll Failed (Slot ${slotIndex+1})`, description: (error as Error).message, variant: "destructive"});
-        const updatedErrors = [...generationErrors];
-        updatedErrors[slotIndex] = (error as Error).message || "Unknown re-roll error";
-        setGenerationErrors(updatedErrors);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred during generation.";
+      console.error("Error calling generateImageEdit:", error);
+      toast({ title: "Generation Failed", description: errorMessage, variant: "destructive" });
+      setGenerationErrors(Array(NUM_IMAGES_TO_GENERATE).fill(errorMessage));
     } finally {
-        setIsReRollingSlot(null);
+      // 5. Reset all loading states
+      setIsLoading(false);
+      setIsGeneratingSlots([false, false, false]);
+      // Keep randomization setting as-is until manually toggled by user
     }
   };
+
+  // Re-roll functionality has been replaced with Face Retouch
 
   const handleUpscale = async (slotIndex: number) => {
     // Capture the URL to be upscaled at the beginning of the action.
@@ -604,6 +545,53 @@ export default function ImageParameters({
       toast({ title: "Upscaling Failed", description: errorMessage, variant: "destructive" });
     } finally {
       setIsUpscalingSlot(null);
+    }
+  };
+
+  const handleFaceRetouch = async (slotIndex: number) => {
+    // Capture the URL to be face retouched at the beginning of the action.
+    const imageUrlToRetouch = outputImageUrls[slotIndex];
+    if (!imageUrlToRetouch) {
+      toast({ title: "Image Not Available", variant: "destructive" });
+      return;
+    }
+    setIsFaceRetouchingSlot(slotIndex);
+    try {
+      // Face detailer works directly with image URLs, no need for data URI conversion
+      const { savedPath } = await faceDetailerAction(imageUrlToRetouch, undefined);
+
+      if (activeHistoryItemId) {
+        // The state isn't updated yet, so we build the arrays manually for the DB update
+        const finalOriginals = [...originalOutputImageUrls];
+        finalOriginals[slotIndex] = imageUrlToRetouch;
+        const finalOutputs = [...outputImageUrls];
+        finalOutputs[slotIndex] = savedPath;
+        await updateHistoryItem(activeHistoryItemId, {
+          editedImageUrls: finalOutputs,
+          originalImageUrls: finalOriginals,
+        });
+      }
+
+      // Use functional updates to prevent stale state issues in the UI.
+      setOriginalOutputImageUrls(prev => {
+        const newOriginals = [...prev];
+        newOriginals[slotIndex] = imageUrlToRetouch;
+        return newOriginals;
+      });
+
+      setOutputImageUrls(prev => {
+        const newUrls = [...prev];
+        newUrls[slotIndex] = savedPath;
+        return newUrls;
+      });
+
+      toast({ title: `Image ${slotIndex + 1} Face Retouched Successfully` });
+    } catch (error) {
+      console.error(`Error face retouching image ${slotIndex}:`, error);
+      const errorMessage = (error as Error).message || "Unexpected error during face retouching.";
+      toast({ title: "Face Retouch Failed", description: errorMessage, variant: "destructive" });
+    } finally {
+      setIsFaceRetouchingSlot(null);
     }
   };
 
@@ -859,7 +847,7 @@ export default function ImageParameters({
             <Button
               variant="default"
               onClick={handleSubmit}
-              disabled={isGeneratingSlots.some(loading => loading) || !preparedImageUrl || isReRollingSlot !== null || !currentPrompt.trim()}
+              disabled={isLoading || !preparedImageUrl || isFaceRetouchingSlot !== null || !currentPrompt.trim()}
               className="w-full text-lg hover:animate-shimmer"
               size="lg"
             >
@@ -931,10 +919,11 @@ export default function ImageParameters({
                 // Show error state
                 if (hasError && uri === null) {
                   return (
-                    <div key={index} className="aspect-[3/4] bg-red-50 rounded-md border border-red-200 flex items-center justify-center">
-                      <div className="text-center p-4">
-                        <p className="text-sm text-red-600 font-medium mb-1">Image {index + 1} Failed</p>
-                        <p className="text-xs text-red-500">{generationErrors[index]}</p>
+                    <div key={index} className="aspect-[3/4] bg-muted/30 rounded-md border border-muted-foreground/20 flex items-center justify-center">
+                      <div className="text-center p-4 max-w-[80%]">
+                        <AlertCircle className="h-5 w-5 text-muted-foreground/60 mx-auto mb-2" />
+                        <p className="text-xs text-muted-foreground/80 mb-1">Generation incomplete</p>
+                        <p className="text-xs text-muted-foreground/60 leading-relaxed">{generationErrors[index]}</p>
                       </div>
                     </div>
                   );
@@ -953,16 +942,19 @@ export default function ImageParameters({
                 const displayUrl = getDisplayableImageUrl(comparingSlotIndex === index ? originalOutputImageUrls[index] : uri) || '';
                 return (
                   <motion.div key={index} variants={itemAnim} className="group rounded-md overflow-hidden flex flex-col border border-border/20">
-                    <div className="relative aspect-[2/3] w-full">
+                    <div 
+                      className="relative aspect-[2/3] w-full cursor-pointer"
+                      onClick={() => handleImageClick(displayUrl || '', index)}
+                    >
                       <Image
                         src={displayUrl || ''}
                         alt={`Generated Image ${index + 1}`}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        className="object-cover group-hover:scale-90 group-hover:object-contain transition-all duration-300"
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                      {/* Loading overlay for reroll/upscale */}
-                      {(isReRollingSlot === index || isUpscalingSlot === index) && (
+                      {/* Loading overlay for face retouch/upscale */}
+                      {(isFaceRetouchingSlot === index || isUpscalingSlot === index) && (
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                           <Loader2 className="h-8 w-8 text-white animate-spin" />
                         </div>
@@ -970,19 +962,22 @@ export default function ImageParameters({
                     </div>
                     <div className="p-2 bg-card/80 backdrop-blur-md space-y-2">
                       <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleReRollImage(index)}
-                          disabled={isGeneratingSlots.some(loading => loading) || isReRollingSlot !== null || isUpscalingSlot !== null}
-                        >
-                          <RefreshCw className="mr-2 h-4 w-4" /> Re-roll
-                        </Button>
+                        {/* Face Retouch button - only show if service is available */}
+                        {isFaceDetailerServiceAvailable && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleFaceRetouch(index)}
+                            disabled={isGeneratingSlots.some(loading => loading) || isFaceRetouchingSlot !== null || isUpscalingSlot !== null || !!originalOutputImageUrls[index]}
+                          >
+                            <UserCheck className="mr-2 h-4 w-4" /> Face Retouch
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleUpscale(index)}
-                          disabled={isGeneratingSlots.some(loading => loading) || isUpscalingSlot !== null || isReRollingSlot !== null || !!originalOutputImageUrls[index]}
+                          disabled={isGeneratingSlots.some(loading => loading) || isUpscalingSlot !== null || isFaceRetouchingSlot !== null || !!originalOutputImageUrls[index]}
                         >
                           <Sparkles className="mr-2 h-4 w-4" /> Upscale
                         </Button>
@@ -991,7 +986,7 @@ export default function ImageParameters({
                           size="sm"
                           onClick={() => handleDownloadOutput(uri, index)}
                           className="flex-1"
-                          disabled={isGeneratingSlots.some(loading => loading) || isReRollingSlot !== null || isUpscalingSlot !== null}
+                          disabled={isGeneratingSlots.some(loading => loading) || isFaceRetouchingSlot !== null || isUpscalingSlot !== null}
                         >
                           <Download className="mr-2 h-4 w-4" /> Download
                         </Button>
@@ -1000,7 +995,7 @@ export default function ImageParameters({
                           size="sm"
                           onClick={() => handleSendToVideoPage(uri)}
                           className="flex-1"
-                          disabled={isGeneratingSlots.some(loading => loading) || isReRollingSlot !== null || isUpscalingSlot !== null}
+                          disabled={isGeneratingSlots.some(loading => loading) || isFaceRetouchingSlot !== null || isUpscalingSlot !== null}
                         >
                           <VideoIcon className="mr-2 h-4 w-4" /> Video
                         </Button>
@@ -1024,6 +1019,43 @@ export default function ImageParameters({
           </CardContent>
         </Card>
       )}
+
+      {/* Image Viewer Modal */}
+      <Dialog open={isImageViewerOpen} onOpenChange={setIsImageViewerOpen}>
+        <DialogContent className="max-w-7xl w-[95vw] h-[95vh] p-0 border-0 bg-transparent shadow-none">
+          <DialogOverlay className="bg-black/90 backdrop-blur-sm" />
+          <div className="relative w-full h-full flex items-center justify-center">
+            {/* Close button */}
+            <button
+              onClick={handleCloseImageViewer}
+              className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors duration-200"
+              aria-label="Close image viewer"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            
+            {/* Image container */}
+            {selectedImageUrl && (
+              <div className="relative max-w-full max-h-full">
+                <Image
+                  src={selectedImageUrl}
+                  alt={`Generated Image ${(selectedImageIndex ?? 0) + 1} - Large View`}
+                  width={1200}
+                  height={1600}
+                  className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg shadow-2xl"
+                  quality={95}
+                  priority
+                />
+                
+                {/* Image info overlay */}
+                <div className="absolute bottom-4 left-4 bg-black/70 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm">
+                  Image {(selectedImageIndex ?? 0) + 1} of {NUM_IMAGES_TO_GENERATE}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

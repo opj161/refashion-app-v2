@@ -21,67 +21,11 @@ import { buildAIPrompt, GENDER_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS, AGE_RANGE_O
 import { generatePromptWithAI } from '@/ai/actions/generate-prompt.action';
 import type { ModelAttributes } from '@/lib/types';
 
-// NEW: Import Axios and HttpsProxyAgent for explicit proxy control
-import axios, { AxiosError } from 'axios';
-import { HttpsProxyAgent } from 'https-proxy-agent';
+// UPDATED: Import the official Google GenAI SDK instead of manual HTTP clients
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
+import { withGeminiRetry } from '@/lib/api-retry';
 
-// Direct API configuration matching Python implementation
-const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
-
-// --- START Defined Types ---
-interface GeminiPart {
-  inlineData?: {
-    mimeType: string;
-    data: string;
-  };
-  text?: string;
-}
-
-interface GeminiContent {
-  role: string;
-  parts: GeminiPart[];
-}
-
-interface GeminiGenerationConfig {
-  temperature: number;
-  topP: number;
-  topK: number;
-  maxOutputTokens: number;
-  responseModalities: string[];
-}
-
-interface GeminiSafetySetting {
-  category: string;
-  threshold: string;
-}
-
-interface GeminiApiRequestBody {
-  contents: GeminiContent[];
-  generationConfig: GeminiGenerationConfig;
-  safetySettings: GeminiSafetySetting[];
-}
-
-interface GeminiApiSuccessResponseCandidate {
-  finishReason?: string;
-  content?: {
-    parts?: Array<GeminiPart>;
-  };
-  // Other candidate properties if relevant
-}
-interface GeminiApiSuccessResponse {
-  candidates?: Array<GeminiApiSuccessResponseCandidate>;
-  // Other top-level response properties if relevant
-}
-
-interface GeminiErrorDetail {
-  message: string;
-  // other fields like code, status if they exist
-}
-
-interface GeminiErrorData { // Renamed from GeminiErrorResponse to avoid conflict with actual HTTP response
-  error?: GeminiErrorDetail | string;
-}
-// --- END Defined Types ---
+// The SDK handles all types internally, so we no longer need manual type definitions
 
 /**
  * Generate random parameters for stylistic settings only
@@ -117,47 +61,7 @@ function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAt
   return result;
 }
 
-/**
- * Make a direct API call to Gemini API with explicit proxy support using axios
- * This provides better proxy control than node-fetch's automatic detection
- */
-async function makeGeminiApiCall(apiKey: string, requestBody: GeminiApiRequestBody): Promise<GeminiApiSuccessResponse> {
-  const url = `${BASE_URL}?key=${apiKey}`;
-  
-  let httpsAgent;
-  const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy;
-  if (proxyUrl) {
-    console.log(`Using proxy: ${proxyUrl.replace(/\/\/.*@/, '//***:***@')}`);
-    httpsAgent = new HttpsProxyAgent(proxyUrl);
-  } else {
-    console.log('No HTTPS_PROXY environment variable set. Making direct call.');
-  }
-
-  console.log(`Making Axios API call to: ${url.replace(/key=.*/, 'key=***')}`);
-  
-  try {
-    const response = await axios.post<GeminiApiSuccessResponse>(url, requestBody, { // Added type to axios.post
-      headers: { 'Content-Type': 'application/json' },
-      httpsAgent: httpsAgent,
-    });
-
-    console.log(`Gemini API response status: ${response.status}`);
-    return response.data;
-
-  } catch (error) {
-    console.error('Error calling Gemini API:', axios.isAxiosError(error) ? error.toJSON() : error);
-    
-    if (axios.isAxiosError<GeminiErrorData>(error) && error.response) {
-      console.error("Axios error response data:", error.response.data);
-      const errData = error.response.data.error;
-      const message = (typeof errData === 'string' ? errData : errData?.message) || JSON.stringify(error.response.data);
-      throw new Error(`Gemini API Error (${error.response.status}): ${message}`);
-    }
-    
-    const generalError = error as Error;
-    throw new Error(`Failed to call Gemini API: ${generalError.message}`);
-  }
-}
+// The makeGeminiApiCall function is replaced by the SDK's built-in methods
 
 const GenerateImageEditInputSchema = z.object({
   prompt: z.string().optional().describe('The prompt to use for generating or editing the image.'),
@@ -188,6 +92,9 @@ async function performSingleImageGeneration(
   keyIndex: 1 | 2 | 3
 ): Promise<SingleImageOutput> {
   const apiKey = await getApiKeyForUser(username, 'gemini', keyIndex);
+  
+  // Initialize the SDK
+  const ai = new GoogleGenAI({ apiKey });
 
   let sourceImageDataForModelProcessing: { mimeType: string; data: string; } | null = null;
   if (input.imageDataUriOrUrl) {
@@ -238,7 +145,7 @@ async function performSingleImageGeneration(
         console.warn(`Could not parse processed image data URI for ${flowIdentifier}. Original input: ${input.imageDataUriOrUrl}`);
     }
   }
-  const parts: GeminiPart[] = []; // Typed parts
+  const parts: any[] = [];
   
   if (sourceImageDataForModelProcessing) {
     parts.push({
@@ -249,28 +156,7 @@ async function performSingleImageGeneration(
     });
   }
   parts.push({ text: input.prompt });
-  const requestBody: GeminiApiRequestBody = { // Typed requestBody
-    contents: [
-      {
-        role: "user",
-        parts: parts
-      }
-    ],
-    generationConfig: {
-      temperature: 1,
-      topP: 0.95,
-      topK: 40,
-      maxOutputTokens: 8192,
-      responseModalities: ["image", "text"]
-    },
-    safetySettings: [
-      {
-        "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
-        "threshold": "BLOCK_NONE"
-      }
-    ]
-  };
-  console.log(`Calling Gemini API directly for ${flowIdentifier} with model gemini-2.0-flash-exp`);
+  console.log(`Calling Gemini API via SDK for ${flowIdentifier} with model gemini-2.0-flash-exp`);
   console.log(`With API Key: ${apiKey ? 'SET' : 'NOT SET'}`);
   if (sourceImageDataForModelProcessing) {
     console.log(`WITH IMAGE: ${sourceImageDataForModelProcessing.mimeType}`);
@@ -278,78 +164,72 @@ async function performSingleImageGeneration(
     console.log(`Performing text-to-image generation for ${flowIdentifier} as no source image was provided or processed.`);
   }
   
-  const maxAttempts = 3;
-  let attempt = 0;
-  
-  while (attempt < maxAttempts) {
-    attempt++;
-    try {
-      console.log(`🔍 ATTEMPT ${attempt}/${maxAttempts} to generate image for ${flowIdentifier}`);
-      const result = await makeGeminiApiCall(apiKey, requestBody);
+  // Use centralized retry logic for image generation
+  return withGeminiRetry(async () => {
+    console.log(`🔍 Generating image for ${flowIdentifier} using SDK`);
+    
+    const config = {
+      temperature: 1,
+      topP: 0.95,
+      topK: 40,
+      maxOutputTokens: 8192,
+      responseModalities: ["IMAGE", "TEXT"],
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.BLOCK_NONE }
+      ],
+    };
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash-exp",
+      config,
+      contents: [{ role: 'user', parts }],
+    });
+    
+    let generatedImageDataUri: string | null = null;
+    
+    if (response && response.candidates && response.candidates.length > 0) {
+      const candidate = response.candidates[0];
       
-      let generatedImageDataUri: string | null = null;
+      if (candidate.finishReason === 'SAFETY') {
+        console.warn(`Image generation blocked by safety settings for ${flowIdentifier}. Candidate:`, JSON.stringify(candidate, null, 2));
+        throw new Error(`Image generation blocked by safety settings for ${flowIdentifier}.`);
+      }
       
-      if (result && result.candidates && result.candidates.length > 0) {
-        const candidate = result.candidates[0];
-        
-        if (candidate.finishReason === 'SAFETY') {
-          console.warn(`Image generation blocked by safety settings for ${flowIdentifier}. Candidate:`, JSON.stringify(candidate, null, 2));
-          throw new Error(`Image generation blocked by safety settings for ${flowIdentifier}.`);
-        }
-        
-        if (candidate.content && candidate.content.parts) {
-          for (const part of candidate.content.parts) {
-            if (part.inlineData) {
-              const mimeType = part.inlineData.mimeType;
-              const base64Data = part.inlineData.data;
-              generatedImageDataUri = `data:${mimeType};base64,${base64Data}`;
-              console.log(`🔍 Image received from ${flowIdentifier} via REST. MimeType: ${mimeType}`);
-              break;
-            } else if (part.text) {
-              console.log(`🔍 Text response from ${flowIdentifier}: ${part.text}`);
-            }
+      if (candidate.content && candidate.content.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.inlineData) {
+            const mimeType = part.inlineData.mimeType;
+            const base64Data = part.inlineData.data;
+            generatedImageDataUri = `data:${mimeType};base64,${base64Data}`;
+            console.log(`🔍 Image received from ${flowIdentifier} via SDK. MimeType: ${mimeType}`);
+            break;
+          } else if (part.text) {
+            console.log(`🔍 Text response from ${flowIdentifier}: ${part.text}`);
           }
         }
       }
-
-      if (!generatedImageDataUri) {
-        console.error(`🔍 AI for ${flowIdentifier} (REST) did not return an image. Full API Response:`, JSON.stringify(result, null, 2));
-        if (attempt < maxAttempts) {
-          console.log(`🔍 No image data in response, attempt ${attempt}/${maxAttempts}`);
-          continue;
-        } else {
-          throw new Error(`AI for ${flowIdentifier} (REST) did not return image data.`);
-        }
-      }      console.log(`🔍 Successfully generated image on attempt ${attempt}/${maxAttempts} for ${flowIdentifier}`);
-      
-      try {
-        const { relativeUrl: imageUrl } = await saveDataUriLocally(
-          generatedImageDataUri,
-          `RefashionAI_generated_${flowIdentifier}`,
-          'generated_images'
-        );
-        return { editedImageUrl: imageUrl };
-      } catch (uploadError: unknown) { // Changed to unknown
-        const knownUploadError = uploadError as Error;
-        console.error(`Error storing image from ${flowIdentifier} (axios):`, knownUploadError);
-        throw new Error(`Failed to store image from ${flowIdentifier} (axios): ${knownUploadError.message}`);
-      }
-      
-    } catch (error: unknown) { // Changed to unknown
-      const knownError = error as Error;
-      console.error(`🔍 Error in attempt ${attempt} for ${flowIdentifier}:`, knownError.message);
-      
-      if (attempt < maxAttempts) {
-        console.log(`Retrying in 1 second... (${attempt}/${maxAttempts})`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        continue;
-      } else {
-        throw error; // Rethrow the original error (now typed as unknown)
-      }
     }
-  }
-  
-  throw new Error(`Failed to generate image after ${maxAttempts} attempts for ${flowIdentifier}`);
+
+    if (!generatedImageDataUri) {
+      console.error(`🔍 AI for ${flowIdentifier} (SDK) did not return an image. Full API Response:`, JSON.stringify(response, null, 2));
+      throw new Error(`AI for ${flowIdentifier} (SDK) did not return image data.`);
+    }
+    
+    console.log(`🔍 Successfully generated image for ${flowIdentifier}`);
+    
+    try {
+      const { relativeUrl: imageUrl } = await saveDataUriLocally(
+        generatedImageDataUri,
+        `RefashionAI_generated_${flowIdentifier}`,
+        'generated_images'
+      );
+      return { editedImageUrl: imageUrl };
+    } catch (uploadError: unknown) {
+      const knownUploadError = uploadError as Error;
+      console.error(`Error storing image from ${flowIdentifier} (SDK):`, knownUploadError);
+      throw new Error(`Failed to store image from ${flowIdentifier} (SDK): ${knownUploadError.message}`);
+    }
+  }, `Image generation for ${flowIdentifier}`);
 }
 
 async function generateImageFlow1(input: GenerateImageEditInput, username: string): Promise<SingleImageOutput> {
@@ -415,7 +295,21 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
       generatePromptWithAI(parametersForPrompts[2], input.imageDataUriOrUrl, username, 3),
     ];
     const promptResults = await Promise.allSettled(promptPromises);
-    prompts = promptResults.map(res => res.status === 'fulfilled' ? res.value : null);
+    prompts = promptResults.map((res, index) => {
+      if (res.status === 'fulfilled') {
+        return res.value;
+      } else {
+        console.warn(`AI prompt generation failed for slot ${index + 1}, falling back to local prompt builder:`, res.reason);
+        // Fallback to local prompt builder for failed AI prompt generation
+        return buildAIPrompt({
+          type: 'image',
+          params: {
+            ...parametersForPrompts[index],
+            settingsMode: input.settingsMode || 'basic'
+          }
+        });
+      }
+    });
     
     // Log all received optimized prompts together
     console.log(`\n🚀 ALL AI-GENERATED PROMPTS SUMMARY:`);

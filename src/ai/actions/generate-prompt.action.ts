@@ -13,34 +13,35 @@ import {
   LENS_EFFECT_OPTIONS, DEPTH_OF_FIELD_OPTIONS, OVERALL_MOOD_OPTIONS, FABRIC_RENDERING_OPTIONS,
   FASHION_STYLE_OPTIONS, type OptionWithPromptSegment
 } from '@/lib/prompt-builder';
+import { withGeminiRetry } from '@/lib/api-retry';
 
 // The powerful system instruction provided in the request
 const PROMPT_ENGINEER_SYSTEM_INSTRUCTION = `You are an expert prompt engineer specializing in high-end, photorealistic fashion photography for an advanced text-to-image AI. Your primary mission is to transform a user's parameters into a focused and cohesive prompt that avoids being overloaded. Your output must be only the final, optimized prompt string, without any additional text, explanation, or formatting.
 
-The key to a successful prompt is strategic focus. Not every element should be described with equal detail. Follow this strict hierarchy of importance to allocate descriptive detail effectively:
+The key to a successful prompt is strategic focus. Follow this strict hierarchy of importance to allocate descriptive detail effectively:
 
 **1. The Core Subject (Highest Priority & Detail)**
 
 Your first and most important task is to define the subject and enforce the intended composition.
 
-*   **Intentional Framing:** Always begin the prompt with a phrase establishing the composition, such as "A photorealistic full-body photograph of...". Crucially, to anchor this composition and prevent the AI from defaulting to a cropped shot, **explicitly describe what is on the model's feet or the surface they are standing on** (e.g., "wearing black leather boots," or "standing barefoot on a sandy beach"). This forces the AI to render the entire figure from head to toe.
-*   **Model Persona:** Immediately following the opening, synthesize the user's description of the fashion model. Focus on creating a natural and believable persona by describing their expression and an elegant, natural pose.
-*   **Clothing Fidelity:** To ensure absolute accuracy to the attached clothing item, you must describe the model as wearing it using the explicit phrase "exactly as seen in the attached image". This instruction to replicate the garment's design, texture, and fit is the central pillar of the prompt and requires no further embellishment.
+*   **Model Persona:** Immediately following the opening, synthesize the user's description of the fashion model. Focus on creating a natural and believable persona by describing their expression and a natural pose.
+*   **Clothing Fidelity:** To ensure absolute accuracy to the attached clothing item, you must describe the model as wearing it using the explicit phrase "exactly as seen in the attached image". This instruction is central and requires no further embellishment.
+*   **Intentional Framing:** Always begin the prompt with a phrase establishing the composition, such as "A photorealistic full-body photograph of...". Crucially, to anchor this composition and prevent the AI from defaulting to a cropped shot, **you must always mention the model's footwear or the surface directly beneath their feet.** This forces the AI to render the entire figure from head to toe.
 
 **2. Photographic Qualities (Selective & Impactful Detail)**
 
 This layer elevates the image, but must be applied with precision to guide the AI's focus correctly.
 
-*   **Lighting & Mood:** Consider the user's desired style. Describe the quality of light in a way that creates a single, coherent mood. For example, you might focus on how the light sculpts the model's form or how it accentuates the texture of the fabric. You do not need to describe every shadow and highlight.
-*   **Holistic Focus & Composition:** To prevent the AI from cropping the head or limbs by over-focusing on the clothing, you must describe the focus holistically. Use phrases like **"tack-sharp focus on the entire figure"** and specify that this causes the background to fall away into a soft, pleasing blur. This ensures the entire model is treated as the primary subject.
+*   **Lighting & Mood:** Describe the lighting's primary effect using strong, active verbs. Your description should focus on how the light **interacts with the subject's contours and the material of the clothing** to create a single, coherent mood.
 
 **3. The Setting (Lowest Priority & Intentional Brevity)**
 
 The setting plays a supporting role. It should be described subtly to establish a mood without competing for attention.
 
-*   **Atmospheric Backdrop:** Treat the user's specified setting as an atmospheric backdrop, not a detailed scene. Use minimal, evocative language to provide context. For example, instead of describing every tree in a forest, you might simply state "in a serene, out-of-focus natural environment." This conserves the prompt's focus for the main subject.
+*   **Atmospheric Backdrop:** Treat the user's specified setting as an atmospheric backdrop, not a detailed scene. **Describe the location with brief, evocative language.** The goal is to suggest a mood and context, not to detail it.
 
-**Final Output Requirement:** Your entire output must be a single, cohesive, unformatted paragraph of text. Do not include titles, bullet points, explanations, or any markdown formatting. Simply provide the finished prompt.`
+**Final Output Requirement:** Your entire output must be a single, cohesive, unformatted paragraph of text. Do not include titles, bullet points, explanations, or any markdown formatting. Simply provide the finished prompt.
+`
 
 // Helper to convert an image path/URI to the format the SDK needs
 async function imageToGenerativePart(imageDataUriOrUrl: string) {
@@ -178,34 +179,12 @@ ${lines.join('\n')}
 \`\`\``;
 }
 
-// Helper function to check if an error is retryable
-function isRetryableError(error: any): boolean {
-  // Check for 503 (service unavailable), 429 (rate limit), or network errors
-  if (error?.status === 503 || error?.status === 429) return true;
-  if (error?.code === 503 || error?.code === 429) return true;
-  if (error?.message?.includes('overloaded')) return true;
-  if (error?.message?.includes('rate limit')) return true;
-  if (error?.message?.includes('UNAVAILABLE')) return true;
-  if (error?.message?.includes('RESOURCE_EXHAUSTED')) return true;
-  // Network/connection errors
-  if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNRESET' || error?.code === 'ETIMEDOUT') return true;
-  return false;
-}
-
-// Helper function to wait for a specified number of milliseconds
-function wait(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 export async function generatePromptWithAI(
   params: ModelAttributes,
   imageDataUriOrUrl: string,
   username: string,
   keyIndex: 1 | 2 | 3
 ): Promise<string> {
-  const maxRetries = 3;
-  const baseDelay = 2000; // 2 seconds
-  
   const apiKey = await getApiKeyForUser(username, 'gemini', keyIndex);
   const ai = new GoogleGenAI({ apiKey });
   
@@ -240,54 +219,27 @@ export async function generatePromptWithAI(
     },
   ];
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      if (attempt > 0) {
-        const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff: 2s, 4s, 8s
-        console.log(`🔄 Retrying AI prompt generation (attempt ${attempt + 1}/${maxRetries + 1}) after ${delay}ms delay...`);
-        await wait(delay);
-      }
+  // Use centralized retry logic
+  return withGeminiRetry(async () => {
+    const response = await ai.models.generateContent({
+      model,
+      config,
+      contents,
+    });
 
-      const response = await ai.models.generateContent({
-        model,
-        config,
-        contents,
-      });
+    const text = response.text;
 
-      const text = response.text;
-
-      if (!text) {
-        console.error("AI Prompt Generation Response:", JSON.stringify(response, null, 2));
-        throw new Error('The AI prompt generator did not return a valid prompt.');
-      }
-
-      // Log the received optimized prompt
-      console.log(`\n✨ AI PROMPT ENHANCER OUTPUT (Key ${keyIndex}):`);
-      console.log('='.repeat(80));
-      console.log(text.trim());
-      console.log('='.repeat(80));
-
-      return text.trim();
-      
-    } catch (error) {
-      const isLastAttempt = attempt === maxRetries;
-      const canRetry = isRetryableError(error);
-      
-      console.error(`Error generating prompt with AI for keyIndex ${keyIndex} (attempt ${attempt + 1}):`, error);
-      
-      if (!canRetry || isLastAttempt) {
-        // Either not a retryable error, or we've exhausted all retries
-        const errorMessage = canRetry 
-          ? `AI prompt generation failed after ${maxRetries + 1} attempts due to server overload. Please try again later.`
-          : `AI prompt generation failed: ${(error as Error).message}`;
-        throw new Error(errorMessage);
-      }
-      
-      // Continue to next retry attempt
-      console.log(`⏳ Will retry in ${baseDelay * Math.pow(2, attempt)}ms... (attempt ${attempt + 1}/${maxRetries + 1})`);
+    if (!text) {
+      console.error("AI Prompt Generation Response:", JSON.stringify(response, null, 2));
+      throw new Error('The AI prompt generator did not return a valid prompt.');
     }
-  }
-  
-  // This should never be reached, but TypeScript requires it
-  throw new Error('Unexpected error in retry logic');
+
+    // Log the received optimized prompt
+    console.log(`\n✨ AI PROMPT ENHANCER OUTPUT (Key ${keyIndex}):`);
+    console.log('='.repeat(80));
+    console.log(text.trim());
+    console.log('='.repeat(80));
+
+    return text.trim();
+  }, `AI prompt generation (Key ${keyIndex})`);
 }

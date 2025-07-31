@@ -175,23 +175,69 @@ export const HAIR_STYLE_OPTIONS: OptionWithPromptSegment[] = [
 ];
 export const MODEL_EXPRESSION_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default", promptSegment: "" },
-  { value: "serene_gentle_smile", displayLabel: "Serene, Gentle Smile", promptSegment: "with a serene and gentle smile" },
-  { value: "intense_captivating_gaze", displayLabel: "Intense, Captivating Gaze", promptSegment: "with an intense, captivating gaze, looking directly into the camera" },
-  { value: "joyful_exuberant_laugh", displayLabel: "Joyful, Exuberant Laugh", promptSegment: "with a joyful and exuberant laugh" },
-  { value: "thoughtful_contemplative", displayLabel: "Thoughtful, Contemplative", promptSegment: "with a thoughtful and contemplative expression" },
-  { value: "fierce_determined_look", displayLabel: "Fierce, Determined Look", promptSegment: "with a fierce and determined look" },
-  { value: "neutral_professional_expression", displayLabel: "Neutral, Professional", promptSegment: "with a neutral, professional expression" },
+  {
+    value: "neutral_professional",
+    displayLabel: "Neutral, Professional",
+    promptSegment: "with a neutral, professional expression, relaxed mouth",
+  },
+  {
+    value: "gentle_smile",
+    displayLabel: "Gentle Smile",
+    promptSegment: "with a soft and gentle, closed-mouth smile, looking warm and approachable",
+  },
+  {
+    value: "playful_smirk",
+    displayLabel: "Playful Smirk",
+    promptSegment: "with a playful and charming smirk, a hint of a fun-loving attitude",
+  },
+  {
+    value: "joyful_laugh",
+    displayLabel: "Joyful Laugh",
+    promptSegment: "with a genuine, joyful laugh, looking happy and radiant",
+  },
+  {
+    value: "confident_gaze",
+    displayLabel: "Confident, Engaging Gaze",
+    promptSegment: "with a warm, confident gaze, looking directly into the camera and connecting with the viewer",
+  },
+  {
+    value: "soft_natural",
+    displayLabel: "Soft, Natural Expression",
+    promptSegment: "with a soft and natural expression, as if caught in a pleasant, fleeting thought",
+  },
 ];
 export const POSE_STYLE_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default", promptSegment: "" },
-  { value: "natural_relaxed_pose", displayLabel: "Natural, Relaxed", promptSegment: "a natural, relaxed pose" },
-  { value: "professional_poised_stance", displayLabel: "Professional, Poised", promptSegment: "a professional and poised stance" },
-  { value: "editorial_dramatic_artistic", displayLabel: "Editorial, Dramatic, Artistic", promptSegment: "a dramatic, artistic editorial pose" },
-  { value: "active_dynamic_movement", displayLabel: "Active, Dynamic Movement", promptSegment: "an active, dynamic pose showcasing movement" },
-  { value: "confident_assertive_stance", displayLabel: "Confident, Assertive Stance", promptSegment: "a powerful, assertive stance with shoulders back, looking directly into the camera" },
-  { value: "elegant_contrapposto", displayLabel: "Elegant Contrapposto", promptSegment: "an elegant contrapposto pose" },
-  { value: "candid_moment_laughing", displayLabel: "Candid Moment, Laughing", promptSegment: "captured in a candid moment, laughing naturally" },
-  { value: "looking_off_distance_thoughtful", displayLabel: "Looking Off-Distance, Thoughtful", promptSegment: "looking off into the distance thoughtfully" },
+  {
+    value: "natural_relaxed",
+    displayLabel: "Natural, Relaxed",
+    promptSegment: "a natural and relaxed standing or seated pose, looking comfortable and at ease",
+  },
+  {
+    value: "candid_in_motion",
+    displayLabel: "Candid, In Motion",
+    promptSegment: "captured in a candid, unposed moment, as if walking, turning, or interacting naturally with the environment",
+  },
+  {
+    value: "confident_stance",
+    displayLabel: "Confident Stance",
+    promptSegment: "a strong, confident stance that conveys self-assurance and empowerment",
+  },
+  {
+    value: "playful_interactive",
+    displayLabel: "Playful, Interactive",
+    promptSegment: "a playful, interactive pose, such as adjusting a sleeve, hand in pocket, or gently touching their hair",
+  },
+  {
+    value: "effortless_poise",
+    displayLabel: "Effortless Poise",
+    promptSegment: "an effortlessly chic pose, relaxed yet poised, with a natural weight shift (contrapposto)",
+  },
+  {
+    value: "editorial_dramatic",
+    displayLabel: "Editorial, Dramatic",
+    promptSegment: "a bold, artistic, and dramatic editorial pose with strong lines and dynamic angles",
+  },
 ];
 export const BACKGROUND_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default Background", promptSegment: "" },
@@ -234,11 +280,6 @@ export const BACKGROUND_OPTIONS: OptionWithPromptSegment[] = [
     value: "urban_garden_juxtaposition", 
     displayLabel: "Urban Garden & Park", 
     promptSegment: "a setting that juxtaposes vibrant plant life with urban elements, such as a city park, a modern greenhouse, or a rooftop garden" 
-  },
-  { 
-    value: "relaxed_interior_space", 
-    displayLabel: "Relaxed Interior Space", 
-    promptSegment: "a stylish and light-filled interior space with a relaxed, authentic, lived-in feel, featuring natural materials and soft light" 
   },
 ];
 export const TIME_OF_DAY_OPTIONS: OptionWithPromptSegment[] = [
