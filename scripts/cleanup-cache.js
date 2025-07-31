@@ -45,7 +45,9 @@ async function cleanupCache(maxAgeDays = DEFAULT_MAX_AGE_DAYS) {
         for (const [type, filePath] of Object.entries(entry)) {
           if (type !== 'timestamp' && typeof filePath === 'string') {
             try {
-              const fullPath = path.join(process.cwd(), 'public', filePath);
+              // FIX: The filePath from the cache is already the correct relative path from the project root.
+              // We no longer need to add the 'public' directory segment.
+              const fullPath = path.join(process.cwd(), filePath);
               await fs.unlink(fullPath);
               console.log(`Deleted cached file: ${filePath}`);
             } catch (fileError) {

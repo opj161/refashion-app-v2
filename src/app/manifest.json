@@ -1,6 +1,9 @@
 {
-  "name": "MyWebSite",
-  "short_name": "MySite",
+  "name": "RefashionAI: Creative Studio",
+  "short_name": "RefashionAI",
+
+  "description": "Bring your clothing to life with AI-generated fashion models, image editing, and video creation. Your personal creative studio.",
+
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
@@ -15,7 +18,35 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#020410",
+  
+  "start_url": "/",
+  "scope": "/",
+
+  "display": "standalone",
   "background_color": "#020410",
-  "display": "standalone"
+  "theme_color": "#020410",
+
+  "shortcuts": [
+    {
+      "name": "Create New Image",
+      "short_name": "New Image",
+      "description": "Start a new image generation project",
+      "url": "/",
+      "icons": [{ "src": "/icons/shortcut-image.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Create New Video",
+      "short_name": "New Video",
+      "description": "Start a new video generation project",
+      "url": "/?defaultTab=video",
+      "icons": [{ "src": "/icons/shortcut-video.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "View History",
+      "short_name": "History",
+      "description": "Browse your past creations",
+      "url": "/history",
+      "icons": [{ "src": "/icons/shortcut-history.png", "sizes": "96x96" }]
+    }
+  ]
 }

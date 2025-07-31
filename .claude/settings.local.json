@@ -2,7 +2,19 @@
   "permissions": {
     "allow": [
       "Bash(npm run typecheck:*)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(rm:*)",
+      "Bash(npm test)",
+      "Bash(npm test:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm install:*)",
+      "Bash(mv:*)",
+      "Bash(mkdir:*)",
+      "Bash(move KpiCard.tsx dashboard )",
+      "Bash(move ActivityChart.tsx dashboard )",
+      "Bash(move UserActivityTable.tsx dashboard )",
+      "Bash(move:*)",
+      "Bash(move SystemStatusWidget.tsx dashboard)"
     ],
     "deny": []
   }

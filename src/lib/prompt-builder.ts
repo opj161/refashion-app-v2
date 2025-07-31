@@ -12,8 +12,7 @@ export interface OptionWithPromptSegment {
 export interface BaseGenerationParams {
   // Image specific (can be optional for video)
   gender?: string;
-  bodyType?: string;
-  bodySize?: string;
+  bodyShapeAndSize?: string;
   ageRange?: string;
   ethnicity?: string;
   poseStyle?: string;
@@ -86,31 +85,84 @@ export const AGE_RANGE_OPTIONS: OptionWithPromptSegment[] = [
 ];
 export const ETHNICITY_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default", promptSegment: "" },
-  { value: "caucasian", displayLabel: "Caucasian", promptSegment: "of Caucasian ethnicity" },
-  { value: "black", displayLabel: "Black", promptSegment: "of Black ethnicity" },
-  { value: "east_asian", displayLabel: "East Asian", promptSegment: "of East Asian ethnicity" },
-  { value: "south_asian", displayLabel: "South Asian", promptSegment: "of South Asian ethnicity" },
-  { value: "hispanic_latino", displayLabel: "Hispanic / Latino/a/x", promptSegment: "of Hispanic or Latino/a/x ethnicity" },
-  { value: "middle_eastern", displayLabel: "Middle Eastern", promptSegment: "of Middle Eastern ethnicity" },
-  { value: "indigenous", displayLabel: "Indigenous", promptSegment: "of Indigenous ethnicity" },
-  { value: "multiracial", displayLabel: "Multiracial", promptSegment: "of multiracial ethnicity" },
+  { 
+    value: "ambiguous_multiracial", 
+    displayLabel: "Multiracial Heritage", 
+    promptSegment: "with a multiracial or ethnically ambiguous appearance" 
+  },
+  { 
+    value: "white", 
+    displayLabel: "White", 
+    promptSegment: "of White ethnicity" 
+  },
+  { 
+    value: "black", 
+    displayLabel: "Black", 
+    promptSegment: "of Black ethnicity, representing the diversity of the African diaspora" 
+  },
+  { 
+    value: "east_asian", 
+    displayLabel: "East Asian", 
+    promptSegment: "of East Asian descent" 
+  },
+  { 
+    value: "south_asian", 
+    displayLabel: "South Asian", 
+    promptSegment: "of South Asian descent" 
+  },
+  { 
+    value: "latine", 
+    displayLabel: "Latina / Latino / Latine", 
+    promptSegment: "of Latino, Latina, or Latine heritage" 
+  },
+  { 
+    value: "middle_eastern_north_african", 
+    displayLabel: "Middle Eastern & North African", 
+    promptSegment: "with features from the Middle East or North Africa" 
+  },
+  { 
+    value: "indigenous", 
+    displayLabel: "Indigenous", 
+    promptSegment: "with Indigenous or First Nations features" 
+  },
 ];
-export const BODY_TYPE_OPTIONS: OptionWithPromptSegment[] = [
+export const BODY_SHAPE_AND_SIZE_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default", promptSegment: "" },
-  { value: "hourglass", displayLabel: "Hourglass", promptSegment: "with an hourglass body type" },
-  { value: "athletic", displayLabel: "Athletic", promptSegment: "with an athletic body type" },
-  { value: "pear", displayLabel: "Pear-shaped", promptSegment: "with a pear-shaped body type" },
-  { value: "apple", displayLabel: "Apple-shaped", promptSegment: "with an apple-shaped body type" },
-  { value: "rectangular", displayLabel: "Rectangular", promptSegment: "with a rectangular body type" },
-  { value: "slim_build", displayLabel: "Slim Build", promptSegment: "with a slim build" },
-  { value: "curvy_figure", displayLabel: "Curvy Figure", promptSegment: "with a curvy figure" },
-  { value: "plus_size_body", displayLabel: "Plus-size Body", promptSegment: "with a plus-size body type" },
-];
-export const BODY_SIZE_OPTIONS: OptionWithPromptSegment[] = [
-  { value: "default", displayLabel: "Default", promptSegment: "" },
-  { value: "petite_frame", displayLabel: "Petite Frame", promptSegment: "with a petite frame" },
-  { value: "average_build", displayLabel: "Average Build", promptSegment: "with an average build" },
-  { value: "tall_stature", displayLabel: "Tall Stature", promptSegment: "with a tall stature" },
+  { 
+    value: "slim", 
+    displayLabel: "Slim", 
+    promptSegment: "with a slim and slender body frame" 
+  },
+  { 
+    value: "athletic", 
+    displayLabel: "Athletic", 
+    promptSegment: "with an athletic and toned body build" 
+  },
+  { 
+    value: "medium_build", 
+    displayLabel: "Medium Build", 
+    promptSegment: "with a well-proportioned, medium body build" 
+  },
+  { 
+    value: "curvy", 
+    displayLabel: "Curvy", 
+    promptSegment: "with a curvy figure with a defined waist and hips" 
+  },
+  { 
+    value: "plus_size", 
+    displayLabel: "Plus-Size", 
+    promptSegment: "with a plus-size body, full-figured and confident" 
+  },
+  { 
+    value: "petite", 
+    displayLabel: "Petite", 
+    promptSegment: "with a petite body frame, shorter in stature with smaller proportions" 
+  },
+  { 
+    value: "tall_and_slender", 
+    displayLabel: "Tall & Slender", 
+    promptSegment: "with a tall and slender frame with long limbs" 
+  },
 ];
 export const HAIR_STYLE_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default", promptSegment: "" },
@@ -123,38 +175,112 @@ export const HAIR_STYLE_OPTIONS: OptionWithPromptSegment[] = [
 ];
 export const MODEL_EXPRESSION_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default", promptSegment: "" },
-  { value: "serene_gentle_smile", displayLabel: "Serene, Gentle Smile", promptSegment: "with a serene and gentle smile" },
-  { value: "intense_captivating_gaze", displayLabel: "Intense, Captivating Gaze", promptSegment: "with an intense, captivating gaze, looking directly into the camera" },
-  { value: "joyful_exuberant_laugh", displayLabel: "Joyful, Exuberant Laugh", promptSegment: "with a joyful and exuberant laugh" },
-  { value: "thoughtful_contemplative", displayLabel: "Thoughtful, Contemplative", promptSegment: "with a thoughtful and contemplative expression" },
-  { value: "fierce_determined_look", displayLabel: "Fierce, Determined Look", promptSegment: "with a fierce and determined look" },
-  { value: "neutral_professional_expression", displayLabel: "Neutral, Professional", promptSegment: "with a neutral, professional expression" },
+  {
+    value: "neutral_professional",
+    displayLabel: "Neutral, Professional",
+    promptSegment: "with a neutral, professional expression, relaxed mouth",
+  },
+  {
+    value: "gentle_smile",
+    displayLabel: "Gentle Smile",
+    promptSegment: "with a soft and gentle, closed-mouth smile, looking warm and approachable",
+  },
+  {
+    value: "playful_smirk",
+    displayLabel: "Playful Smirk",
+    promptSegment: "with a playful and charming smirk, a hint of a fun-loving attitude",
+  },
+  {
+    value: "joyful_laugh",
+    displayLabel: "Joyful Laugh",
+    promptSegment: "with a genuine, joyful laugh, looking happy and radiant",
+  },
+  {
+    value: "confident_gaze",
+    displayLabel: "Confident, Engaging Gaze",
+    promptSegment: "with a warm, confident gaze, looking directly into the camera and connecting with the viewer",
+  },
+  {
+    value: "soft_natural",
+    displayLabel: "Soft, Natural Expression",
+    promptSegment: "with a soft and natural expression, as if caught in a pleasant, fleeting thought",
+  },
 ];
 export const POSE_STYLE_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default", promptSegment: "" },
-  { value: "natural_relaxed_pose", displayLabel: "Natural, Relaxed", promptSegment: "a natural, relaxed pose" },
-  { value: "professional_poised_stance", displayLabel: "Professional, Poised", promptSegment: "a professional and poised stance" },
-  { value: "editorial_dramatic_artistic", displayLabel: "Editorial, Dramatic, Artistic", promptSegment: "a dramatic, artistic editorial pose" },
-  { value: "active_dynamic_movement", displayLabel: "Active, Dynamic Movement", promptSegment: "an active, dynamic pose showcasing movement" },
-  { value: "confident_assertive_stance", displayLabel: "Confident, Assertive Stance", promptSegment: "a powerful, assertive stance with shoulders back, looking directly into the camera" },
-  { value: "elegant_contrapposto", displayLabel: "Elegant Contrapposto", promptSegment: "an elegant contrapposto pose" },
-  { value: "candid_moment_laughing", displayLabel: "Candid Moment, Laughing", promptSegment: "captured in a candid moment, laughing naturally" },
-  { value: "looking_off_distance_thoughtful", displayLabel: "Looking Off-Distance, Thoughtful", promptSegment: "looking off into the distance thoughtfully" },
+  {
+    value: "natural_relaxed",
+    displayLabel: "Natural, Relaxed",
+    promptSegment: "a natural and relaxed standing or seated pose, looking comfortable and at ease",
+  },
+  {
+    value: "candid_in_motion",
+    displayLabel: "Candid, In Motion",
+    promptSegment: "captured in a candid, unposed moment, as if walking, turning, or interacting naturally with the environment",
+  },
+  {
+    value: "confident_stance",
+    displayLabel: "Confident Stance",
+    promptSegment: "a strong, confident stance that conveys self-assurance and empowerment",
+  },
+  {
+    value: "playful_interactive",
+    displayLabel: "Playful, Interactive",
+    promptSegment: "a playful, interactive pose, such as adjusting a sleeve, hand in pocket, or gently touching their hair",
+  },
+  {
+    value: "effortless_poise",
+    displayLabel: "Effortless Poise",
+    promptSegment: "an effortlessly chic pose, relaxed yet poised, with a natural weight shift (contrapposto)",
+  },
+  {
+    value: "editorial_dramatic",
+    displayLabel: "Editorial, Dramatic",
+    promptSegment: "a bold, artistic, and dramatic editorial pose with strong lines and dynamic angles",
+  },
 ];
 export const BACKGROUND_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default Background", promptSegment: "" },
-  { value: "outdoor_nature_elements", displayLabel: "Outdoor & Nature", promptSegment: "an outdoor nature setting with appropriate natural elements" },
-  { value: "beach_ocean_waves", displayLabel: "Beach & Ocean", promptSegment: "a beautiful beach setting with ocean waves and soft sand" },
-  { value: "studio_white_seamless_minimalist", displayLabel: "Studio - White", promptSegment: "a modern minimalist photo studio with a seamless white background" },
-  { value: "studio_grey_clean", displayLabel: "Studio - Clean Grey", promptSegment: "a minimalist studio setting with a light grey, clean background" },
-  { value: "studio_gradient_subtle", displayLabel: "Studio - Subtle Gradient", promptSegment: "a studio setting with a subtle gradient background" },
-  { value: "industrial_loft_exposed_brick", displayLabel: "Industrial Loft", promptSegment: "an industrial loft with exposed brick walls and large windows" },
-  { value: "urban_streetscape_night_city_lights", displayLabel: "Urban Night Scene", promptSegment: "a bustling urban streetscape at night, with blurred city lights creating bokeh" },
-  { value: "sun_dappled_forest_path", displayLabel: "Forest Path", promptSegment: "a sun-dappled forest path with light filtering through leaves" },
-  { value: "stark_dramatic_desert", displayLabel: "Desert Landscape", promptSegment: "a stark, dramatic desert landscape with expansive views" },
-  { value: "in_store_retail_environment", displayLabel: "Retail Store Environment", promptSegment: "a realistic in-store retail environment" },
-  { value: "lifestyle_cozy_home_interior", displayLabel: "Cozy Home Interior", promptSegment: "a comfortable and stylish lifestyle home interior setting" },
-  { value: "abstract_colored_background_moody", displayLabel: "Abstract Moody Background", promptSegment: "an abstract colored background focusing on mood and texture, rather than a specific location" },
+  { 
+    value: "studio_clean_minimalist", 
+    displayLabel: "Studio - Clean & Minimalist", 
+    promptSegment: "a minimalist studio with a clean, seamless background in a solid neutral color" 
+  },
+  { 
+    value: "studio_moody_textured", 
+    displayLabel: "Studio - Moody & Textured", 
+    promptSegment: "a studio setting with a moody, subtly textured backdrop like painted canvas or raw plaster, with dramatic lighting" 
+  },
+  { 
+    value: "lush_greenery_wild", 
+    displayLabel: "Lush & Wild Greenery", 
+    promptSegment: "a vibrant, lush natural setting of wild greenery, like an overgrown field, dense foliage, or a forest interior with rich, deep greens" 
+  },
+  { 
+    value: "sun_drenched_coastline", 
+    displayLabel: "Sun-Drenched Coastline", 
+    promptSegment: "a bright, sun-drenched coastline with a dynamic mix of soft sand, ocean water, and rugged natural rock formations" 
+  },
+  { 
+    value: "dramatic_natural_landscape", 
+    displayLabel: "Dramatic Natural Landscape", 
+    promptSegment: "a stark and expansive natural landscape with a sense of raw, untamed beauty, like a windswept desert, misty mountains, or open plains" 
+  },
+  { 
+    value: "urban_street_authentic", 
+    displayLabel: "Authentic Urban Street", 
+    promptSegment: "an authentic and raw city street scene with interesting textures like graffiti, aged brick, and weathered concrete" 
+  },
+  { 
+    value: "modern_architecture_lines", 
+    displayLabel: "Modern Architecture", 
+    promptSegment: "an outdoor setting featuring the clean lines and bold shapes of modern architecture, with materials like glass, steel, and polished concrete" 
+  },
+  { 
+    value: "urban_garden_juxtaposition", 
+    displayLabel: "Urban Garden & Park", 
+    promptSegment: "a setting that juxtaposes vibrant plant life with urban elements, such as a city park, a modern greenhouse, or a rooftop garden" 
+  },
 ];
 export const TIME_OF_DAY_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default", promptSegment: "" },
@@ -297,7 +423,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
   if (type === 'image') {
     // Logic from image-parameters.tsx constructPrompt
     const {
-        gender, bodyType, bodySize, ageRange, ethnicity, poseStyle, background,
+        gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
         fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
         cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering,
         settingsMode
@@ -308,11 +434,8 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
       let modelDescriptionPart = `Create a PHOTOREALISTIC image of a ${genderOption.promptSegment} fashion model`;
 
       const attributePhrases: string[] = [];
-      const bodyTypeOption = getSelectedOption(BODY_TYPE_OPTIONS, bodyType);
-      if (bodyTypeOption && bodyTypeOption.value !== "default" && bodyTypeOption.promptSegment) attributePhrases.push(bodyTypeOption.promptSegment);
-
-      const bodySizeOption = getSelectedOption(BODY_SIZE_OPTIONS, bodySize);
-      if (bodySizeOption && bodySizeOption.value !== "default" && bodySizeOption.promptSegment) attributePhrases.push(bodySizeOption.promptSegment);
+      const bodyShapeAndSizeOption = getSelectedOption(BODY_SHAPE_AND_SIZE_OPTIONS, bodyShapeAndSize);
+      if (bodyShapeAndSizeOption && bodyShapeAndSizeOption.value !== "default" && bodyShapeAndSizeOption.promptSegment) attributePhrases.push(bodyShapeAndSizeOption.promptSegment);
 
       const ageRangeOption = getSelectedOption(AGE_RANGE_OPTIONS, ageRange);
       if (ageRangeOption && ageRangeOption.value !== "default" && ageRangeOption.promptSegment) attributePhrases.push(ageRangeOption.promptSegment);
@@ -338,7 +461,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
       }
 
       const stylePartOld = "\n\nStyle: The model should look authentic and relatable, with a natural expression and subtle smile. The clothing must fit perfectly and be the visual focus of the image.";
-      const techPartOld = "\n\nTechnical details: Professional fashion photography with perfect exposure and color accuracy.";
+      const techPartOld = "\n\nTechnical details: full-body shot. Superior clarity, well-exposed, and masterful composition.";
 
       return `${modelDescriptionPart}${settingPart}${stylePartOld}${techPartOld}`;
     } else { // Advanced mode
@@ -356,8 +479,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
 
         addSegment(AGE_RANGE_OPTIONS, ageRange);
         addSegment(ETHNICITY_OPTIONS, ethnicity);
-        addSegment(BODY_TYPE_OPTIONS, bodyType);
-        addSegment(BODY_SIZE_OPTIONS, bodySize);
+        addSegment(BODY_SHAPE_AND_SIZE_OPTIONS, bodyShapeAndSize);
         addSegment(HAIR_STYLE_OPTIONS, hairStyle);
         addSegment(MODEL_EXPRESSION_OPTIONS, modelExpression);
 

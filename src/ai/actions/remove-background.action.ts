@@ -11,20 +11,23 @@ import * as falImageService from '@/services/fal-api/image.service';
 import { saveFileFromUrl } from '@/services/storage.service';
 import { getCachedImage, setCachedImage } from './cache-manager';
 import { getCurrentUser } from '@/actions/authActions';
+import fs from 'fs/promises';
+import path from 'path';
+import mime from 'mime-types';
 
 /**
  * Remove background from a user-uploaded image
- * @param imageUrlOrDataUri The original image as a data URI or public URL
+ * @param imageUrl The original image as a server-relative URL path
  * @param imageHash Optional hash of the original image for caching
  * @param originalFileName Optional original filename for reference
  * @returns Promise an object containing the local relative path of the background-removed image
  */
 export async function removeBackgroundAction(
-  imageUrlOrDataUri: string,
+  imageUrl: string,
   imageHash?: string
 ): Promise<{ savedPath: string; outputHash: string }> {
-  if (!imageUrlOrDataUri) {
-    throw new Error('Image data URI or URL is required for background removal');
+  if (!imageUrl) {
+    throw new Error('Image URL is required for background removal');
   }
   const user = await getCurrentUser();
   if (!user) {
@@ -44,8 +47,15 @@ export async function removeBackgroundAction(
   try {
     console.log('Starting background removal process with Fal.ai...');
 
+    // Read the local file and convert it to a data URI
+    // This ensures Fal.ai receives the image data directly, avoiding localhost access issues.
+    const filePath = path.join(process.cwd(), 'uploads', imageUrl.replace('/uploads/', ''));
+    const buffer = await fs.readFile(filePath);
+    const mimeType = mime.lookup(filePath) || 'image/png';
+    const imageDataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
+
     // Remove background using Fal.ai service
-    const outputImageUrl = await falImageService.removeBackground(imageUrlOrDataUri, user.username);
+    const outputImageUrl = await falImageService.removeBackground(imageDataUri, user.username);
     
     console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
 

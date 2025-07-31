@@ -1,7 +1,7 @@
 // src/components/video-parameters.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle
@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { uploadToFalStorage } from '@/ai/actions/generate-video.action';
+import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
 import { useActiveImage } from "@/stores/imageStore";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -54,8 +54,6 @@ interface VideoGenerationParams {
 // }
 
 // --- Options & Constants are now imported from prompt-builder.ts ---
-
-const isVideoServiceAvailable = !!process.env.NEXT_PUBLIC_FAL_KEY; // Or however it's determined globally
 
 // Helper function to convert data URI to Blob
 function dataUriToBlob(dataUri: string): Blob {
@@ -148,7 +146,10 @@ export default function VideoParameters({
   
   // Get prepared image from store instead of props
   const activeImage = useActiveImage();
-  const preparedImageUrl = activeImage?.dataUri || null;
+  const preparedImageUrl = activeImage?.imageUrl || null;
+
+  // Service availability state
+  const [isServiceAvailable, setIsServiceAvailable] = useState(true); // Assume available initially
 
   // State for video parameters
   const [videoModel, setVideoModel] = useState<VideoModel>('lite');
@@ -170,6 +171,49 @@ export default function VideoParameters({
   const [isUploadingToFal, setIsUploadingToFal] = useState<boolean>(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+  const [generatedLocalVideoUrl, setGeneratedLocalVideoUrl] = useState<string | null>(null);
+
+  // Ref for auto-scroll to results
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to results when generation starts
+  useEffect(() => {
+    if (isGenerating && resultsRef.current) {
+      const timer = setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100); // Small delay to ensure the results section is rendered
+      return () => clearTimeout(timer);
+    }
+  }, [isGenerating]);
+
+  // Load form fields from history when historyItemToLoad changes
+  useEffect(() => {
+    if (historyItemToLoad && historyItemToLoad.videoGenerationParams) {
+      const videoParams = historyItemToLoad.videoGenerationParams;
+      
+      setVideoModel((videoParams.videoModel as VideoModel) || 'lite');
+      setResolution((videoParams.resolution as VideoResolution) || '480p');
+      setDuration((videoParams.duration as VideoDuration) || '5');
+      setSeed(videoParams.seed?.toString() || '-1');
+      setCameraFixed(videoParams.cameraFixed || false);
+      
+      setModelMovement(videoParams.modelMovement || MODEL_MOVEMENT_OPTIONS[0].value);
+      setFabricMotion(videoParams.fabricMotion || FABRIC_MOTION_OPTIONS_VIDEO[0].value);
+      setCameraAction(videoParams.cameraAction || CAMERA_ACTION_OPTIONS[0].value);
+      setAestheticVibe(videoParams.aestheticVibe || AESTHETIC_STYLE_OPTIONS[0].value);
+      
+      // If we have a generated video, set it
+      if (historyItemToLoad.generatedVideoUrls && historyItemToLoad.generatedVideoUrls[0]) {
+        setGeneratedVideoUrl(historyItemToLoad.generatedVideoUrls[0]);
+      }
+      if (videoParams.localVideoUrl) {
+        setGeneratedLocalVideoUrl(videoParams.localVideoUrl);
+      }
+    }
+  }, [historyItemToLoad]);
   const [generatedSeedValue, setGeneratedSeedValue] = useState<number | null>(null);
 
   // For webhook-based flow
@@ -180,7 +224,7 @@ export default function VideoParameters({
 
   // Check if data URI is provided (not a server URL)
   const isDataUri = preparedImageUrl?.startsWith('data:') || false;
-  const commonFormDisabled = isGenerating || isUploadingToFal || !isVideoServiceAvailable || !preparedImageUrl;
+  const commonFormDisabled = isGenerating || isUploadingToFal || !isServiceAvailable || !preparedImageUrl;
 
   const currentVideoGenParams = React.useMemo((): VideoGenerationParams => ({
     selectedPredefinedPrompt,
@@ -201,7 +245,14 @@ export default function VideoParameters({
     generationParams: currentVideoGenParams,
   });
 
-  // Effect to calculate and update the estimated cost
+  // Effect to check for service availability on the server
+  useEffect(() => {
+    isFalVideoGenerationAvailable().then(result => {
+      setIsServiceAvailable(result.available);
+    });
+  }, []);
+
+  // Effect to calculate and update the estimated cost  
   useEffect(() => {
     const cost = calculateVideoCost(videoModel, resolution, duration);
     setEstimatedCost(cost);
@@ -295,6 +346,7 @@ export default function VideoParameters({
     setIsGenerating(true);
     setGenerationError(null);
     setGeneratedVideoUrl(null);
+    setGeneratedLocalVideoUrl(null);
     setGeneratedSeedValue(null);
     setGenerationTaskId(null);
     setHistoryItemId(null);
@@ -331,6 +383,7 @@ export default function VideoParameters({
       const videoInput = {
         prompt: currentPrompt,
         image_url: imageUrlForVideo,
+        local_image_path: preparedImageUrl, // Always pass the original local path for history storage
         videoModel,
         resolution,
         duration,
@@ -406,6 +459,7 @@ export default function VideoParameters({
 
         if (data.status === 'completed') {
           setGeneratedVideoUrl(data.videoUrl || null);
+          setGeneratedLocalVideoUrl(data.localVideoUrl || null);
           setGeneratedSeedValue(data.seed || null);
           setIsGenerating(false);
           toast({ title: "Video Generated!", description: "Video is ready." });
@@ -480,9 +534,9 @@ export default function VideoParameters({
           {!preparedImageUrl && (
             <Alert className="md:col-span-2">
               <Info className="h-4 w-4" />
-              <AlertTitle>Image Required</AlertTitle>
+              <AlertTitle>Start with an Image</AlertTitle>
               <AlertDescription>
-                Please prepare an image in the previous step to enable video generation.
+                First, create an image to bring it to life with video.
               </AlertDescription>
             </Alert>
           )}
@@ -559,9 +613,9 @@ export default function VideoParameters({
         <CardHeader>
           <CardTitle className="text-xl flex items-center gap-2">
             <Settings2 className="h-6 w-6 text-primary" />
-            Technical Parameters
+            Video Settings
           </CardTitle>
-          <CardDescription className="hidden lg:block">Configure resolution, duration, and other technical settings.</CardDescription>
+          <CardDescription className="hidden lg:block">Fine-tune your video&apos;s quality, length, and style.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -591,8 +645,16 @@ export default function VideoParameters({
               value={duration}
               onChange={(v) => setDuration(v as VideoDuration)}
               options={[
+                { value: '3', displayLabel: '3 seconds', promptSegment: '' },
+                { value: '4', displayLabel: '4 seconds', promptSegment: '' },
                 { value: '5', displayLabel: '5 seconds', promptSegment: '' },
-                { value: '10', displayLabel: '10 seconds', promptSegment: '' }
+                { value: '6', displayLabel: '6 seconds', promptSegment: '' },
+                { value: '7', displayLabel: '7 seconds', promptSegment: '' },
+                { value: '8', displayLabel: '8 seconds', promptSegment: '' },
+                { value: '9', displayLabel: '9 seconds', promptSegment: '' },
+                { value: '10', displayLabel: '10 seconds', promptSegment: '' },
+                { value: '11', displayLabel: '11 seconds', promptSegment: '' },
+                { value: '12', displayLabel: '12 seconds', promptSegment: '' }
               ]}
               disabled={commonFormDisabled}
               priceData={{ model: videoModel, resolution, duration }}
@@ -609,7 +671,7 @@ export default function VideoParameters({
         </CardContent>
         <CardFooter>
           <Button
-            variant="gradient"
+            variant="default"
             onClick={handleGenerateVideo}
             disabled={commonFormDisabled || isGenerating || !currentPrompt.trim()}
             className="w-full text-lg hover:animate-shimmer"
@@ -621,11 +683,13 @@ export default function VideoParameters({
                 Generating...
               </>
             ) : (
-              <div className="flex items-center justify-center w-full">
-                <Video className="mr-2 h-5 w-5" />
-                <span>Generate Video</span>
+              <div className="flex items-center justify-center w-full relative">
+                <div className="flex items-center justify-center">
+                  <Video className="mr-2 h-5 w-5" />
+                  <span>Generate Video</span>
+                </div>
                 {estimatedCost !== null && !isGenerating && (
-                  <Badge variant="secondary" className="ml-auto text-base">
+                  <Badge variant="secondary" className="absolute right-0 text-base">
                     {formatPrice(estimatedCost)}
                   </Badge>
                 )}
@@ -635,7 +699,7 @@ export default function VideoParameters({
         </CardFooter>
       </Card>
 
-      {!isVideoServiceAvailable && (
+      {!isServiceAvailable && (
         <Card variant="glass" className="border-amber-500 bg-amber-50 text-amber-700">
           <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle /> Service Not Available</CardTitle></CardHeader>
           <CardContent><p>Video generation service is not configured.</p></CardContent>
@@ -650,7 +714,7 @@ export default function VideoParameters({
       )}
 
       {isGenerating && !generatedVideoUrl && (
-        <Card>
+        <Card ref={resultsRef}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Loader2 className="h-6 w-6 text-primary animate-spin" />
@@ -692,11 +756,11 @@ export default function VideoParameters({
             {generatedSeedValue !== null && (<CardDescription>Seed used: {generatedSeedValue}</CardDescription>)}
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="bg-muted rounded-md overflow-hidden w-full aspect-video">
+            <div className="rounded-md overflow-hidden w-full aspect-video">
               <video src={getDisplayableImageUrl(generatedVideoUrl) || undefined} controls autoPlay loop playsInline className="w-full h-full object-contain" />
             </div>
             <Button asChild variant="outline" className="w-full">
-              <a href={getDisplayableImageUrl(generatedVideoUrl) || undefined} download={`RefashionAI_video_${generatedSeedValue || Date.now()}.mp4`}><Download className="h-4 w-4 mr-2" />Download Video</a>
+              <a href={getDisplayableImageUrl(generatedLocalVideoUrl || generatedVideoUrl) || undefined} download={`RefashionAI_video_${generatedSeedValue || Date.now()}.mp4`}><Download className="h-4 w-4 mr-2" />Download Video</a>
             </Button>
           </CardContent>
         </Card>

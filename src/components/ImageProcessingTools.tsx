@@ -2,22 +2,54 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useImageStore, useActiveImage } from "@/stores/imageStore";
 import { useToast } from "@/hooks/use-toast";
-import { 
+import {
   isBackgroundRemovalAvailable as checkBgAvailable,
 } from "@/ai/actions/remove-background.action";
-import { 
-  isUpscaleServiceAvailable as checkUpscaleAvailable, 
-  isFaceDetailerAvailable as checkFaceDetailerAvailable 
+import {
+  isUpscaleServiceAvailable as checkUpscaleAvailable,
+  isFaceDetailerAvailable as checkFaceDetailerAvailable
 } from "@/ai/actions/upscale-image.action";
 import { 
   Wand2, Sparkles, UserCheck, CheckCircle, Loader2 
 } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
+
+// --- Reusable Row Component for a consistent look ---
+interface ProcessingToolRowProps {
+  icon: React.ElementType;
+  label: string;
+  onApply: () => void;
+  isApplied: boolean;
+  isProcessing: boolean;
+  isDisabled: boolean;
+}
+
+const ProcessingToolRow: React.FC<ProcessingToolRowProps> = ({
+  icon: Icon, label, onApply, isApplied, isProcessing, isDisabled
+}) => (
+  <div className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 transition-colors">
+    <Label className="flex items-center gap-2 font-medium">
+      <Icon className="h-4 w-4 text-muted-foreground" />
+      {label}
+    </Label>
+    {isApplied ? (
+      <Badge variant="secondary" className="pointer-events-none">
+        <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+        Applied
+      </Badge>
+    ) : (
+      <Button onClick={onApply} variant="secondary" size="sm" disabled={isProcessing || isDisabled}>
+        {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Apply'}
+      </Button>
+    )}
+  </div>
+);
+
 
 interface ImageProcessingToolsProps {
   preparationMode: 'image' | 'video';
@@ -26,8 +58,8 @@ interface ImageProcessingToolsProps {
 
 export default function ImageProcessingTools({ preparationMode, disabled = false }: ImageProcessingToolsProps) {
   const { toast } = useToast();
-  const { 
-    removeBackground, 
+  const {
+    removeBackground,
     upscaleImage, 
     faceDetailer, 
     isProcessing, 
@@ -63,33 +95,17 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   const isFaceDetailed = activeImage.label.includes('Face Enhanced');
 
   // --- Event Handlers ---
-  const handleToggleBackgroundRemoval = async (checked: boolean) => {
+  const handleApplyBackgroundRemoval = async () => {
     if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
-    if (checked) {
-      try {
-        await removeBackground(user.username);
-        toast({ title: 'Background Removed', description: 'Background has been successfully removed.' });
-      } catch (error) {
-        toast({ 
-          title: 'Background Removal Failed', 
-          description: (error as Error).message, 
-          variant: 'destructive' 
-        });
-      }
-    } else {
-      // Find and switch to a version without background removal
-      if (activeImage.sourceVersionId && versions[activeImage.sourceVersionId]) {
-        setActiveVersion(activeImage.sourceVersionId);
-        toast({ 
-          title: "Switched to Previous Version", 
-          description: "Background restoration isn't needed - just select a different version." 
-        });
-      } else {
-        toast({ 
-          title: "Info", 
-          description: "Use the version history below to switch between different processed versions." 
-        });
-      }
+    try {
+      await removeBackground(user.username);
+      toast({ title: 'Background Removed', description: 'A new version has been created.' });
+    } catch (error) {
+      toast({
+        title: 'Background Removal Failed',
+        description: (error as Error).message,
+        variant: 'destructive'
+      });
     }
   };
 
@@ -126,81 +142,43 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   return (
     <div className="space-y-3">
       <h3 className="font-semibold text-sm">Processing Tools</h3>
-      
-      {/* Background Removal */}
-      {isBgRemovalAvailable && (
-        <div className="flex items-center justify-between p-3 border rounded-md">
-          <Label htmlFor="bg-remove-switch" className="flex items-center gap-2">
-            <Wand2 className="h-4 w-4" />
-            Remove Background
-          </Label>
-          <div className="flex items-center gap-2">
-            {isProcessing && processingStep === 'bg' && (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            )}
-            <Switch 
-              id="bg-remove-switch" 
-              checked={isBgRemoved} 
-              onCheckedChange={handleToggleBackgroundRemoval} 
-              disabled={isToolDisabled || isUpscaled} 
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Upscale Image - Only for video mode */}
-      {preparationMode === 'video' && isUpscalingAvailable && (
-        <Button 
-          onClick={handleUpscaleImage} 
-          variant="outline" 
-          disabled={isToolDisabled || isUpscaled} 
-          className="w-full"
-        >
-          {isProcessing && processingStep === 'upscale' ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Upscaling...
-            </>
-          ) : isUpscaled ? (
-            <>
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Upscaled
-            </>
-          ) : (
-            <>
-              <Sparkles className="mr-2 h-4 w-4" />
-              Upscale Image
-            </>
-          )}
-        </Button>
-      )}
-
-      {/* Face Detailer - Only for video mode */}
-      {preparationMode === 'video' && isFaceDetailerAvailable && (
-        <Button 
-          onClick={handleFaceDetailer} 
-          variant="outline" 
-          disabled={isToolDisabled || isFaceDetailed} 
-          className="w-full"
-        >
-          {isProcessing && processingStep === 'face' ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Enhancing...
-            </>
-          ) : isFaceDetailed ? (
-            <>
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Face Detailed
-            </>
-          ) : (
-            <>
-              <UserCheck className="mr-2 h-4 w-4" />
-              Face Detailer
-            </>
-          )}
-        </Button>
-      )}
+      <div className="space-y-2">
+        {/* Background Removal */}
+        {isBgRemovalAvailable && (
+          <ProcessingToolRow
+            icon={Wand2}
+            label="Remove Background"
+            onApply={handleApplyBackgroundRemoval}
+            isApplied={isBgRemoved}
+            isProcessing={isProcessing && processingStep === 'bg'}
+            isDisabled={isToolDisabled || isUpscaled} // Can't remove BG after upscaling
+          />
+        )}
+  
+        {/* Upscale Image - Only for video mode */}
+        {preparationMode === 'video' && isUpscalingAvailable && (
+          <ProcessingToolRow
+            icon={Sparkles}
+            label="Upscale Image"
+            onApply={handleUpscaleImage}
+            isApplied={isUpscaled}
+            isProcessing={isProcessing && processingStep === 'upscale'}
+            isDisabled={isToolDisabled}
+          />
+        )}
+  
+        {/* Face Detailer - Only for video mode */}
+        {preparationMode === 'video' && isFaceDetailerAvailable && (
+          <ProcessingToolRow
+            icon={UserCheck}
+            label="Face Detailer"
+            onApply={handleFaceDetailer}
+            isApplied={isFaceDetailed}
+            isProcessing={isProcessing && processingStep === 'face'}
+            isDisabled={isToolDisabled}
+          />
+        )}
+      </div>
     </div>
   );
 }

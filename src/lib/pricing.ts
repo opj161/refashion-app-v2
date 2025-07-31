@@ -2,7 +2,7 @@
 
 export type VideoModel = 'lite' | 'pro';
 export type VideoResolution = '480p' | '720p' | '1080p';
-export type VideoDuration = '5' | '10';
+export type VideoDuration = '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
 
 // Base prices for a 5-second video
 const PRICING_DATA: Record<VideoModel, Partial<Record<VideoResolution, number>>> = {
@@ -31,7 +31,9 @@ export function calculateVideoCost(
     return null; // Invalid combination (e.g., Lite model with 1080p)
   }
 
-  const durationMultiplier = duration === '10' ? 2 : 1;
+  // Calculate multiplier based on duration (5 seconds is the base)
+  const durationSeconds = parseInt(duration);
+  const durationMultiplier = durationSeconds / 5;
   return basePrice * durationMultiplier;
 }
 

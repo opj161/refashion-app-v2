@@ -6,7 +6,7 @@ services:
     ports:
       - "3000:3000"    
     volumes:
-      - /mnt/user/appdata/refashion-app/uploads:/app/public/uploads
+      - /mnt/user/appdata/refashion-app/uploads:/app/uploads
     environment:
       # Override only deployment-specific variables
       - NODE_ENV=production

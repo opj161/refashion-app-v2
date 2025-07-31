@@ -3,12 +3,9 @@ import { ReactNode, Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCurrentUser } from '@/actions/authActions';
-import { Home, LogOut, ShieldCheck, PanelLeft } from 'lucide-react';
+import { Home, ShieldCheck, PanelLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { AdminNav } from './_components/AdminNav';
-import { logoutUser } from '@/actions/authActions';
-import { ThemeToggleImproved as ThemeToggleCompact } from '@/components/ui/ThemeToggleImproved';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
@@ -39,12 +36,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             </div>
             <div className="flex items-center gap-2">
                 <Button asChild variant="outline" size="sm">
-                  <Link href="/create"><Home className="mr-2 h-4 w-4" />Back to App</Link>
+                  <Link href="/"><Home className="mr-2 h-4 w-4" />Back to App</Link>
                 </Button>
-                <ThemeToggleCompact />
-                <form action={logoutUser}>
-                    <Button variant="ghost" size="sm"><LogOut className="mr-2 h-4 w-4" />Logout</Button>
-                </form>
             </div>
         </div>
       </header>

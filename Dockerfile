@@ -1,11 +1,14 @@
 # Use an official Node.js runtime as a parent image
 FROM node:24-alpine AS base
 
-# 1. ---- Dependencies Stage ----
+# --- FIX: Install sharp's native dependencies and other tools in the base stage ---
+# This ensures they are available for all subsequent stages.
+RUN apk add --no-cache vips-dev build-base su-exec libc6-compat \
+    --repository https://alpine.global.ssl.fastly.net/alpine/edge/community/
+
 # Only re-run when package.json or package-lock.json changes
 FROM base AS deps
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
 RUN npm ci
 
@@ -47,8 +50,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000
 
-RUN apk add --no-cache su-exec
-
 # Copy production dependencies from the 'prod-deps' stage
 COPY --from=prod-deps /app/node_modules ./node_modules
 
@@ -65,10 +66,8 @@ COPY --from=builder /app/dist/src ./dist/src
 
 # Create directories for volumes. Ownership will be set by entrypoint.sh
 RUN mkdir -p /app/user_data/history && \
-    mkdir -p /app/public/uploads/user_uploaded_clothing && \
-    mkdir -p /app/public/uploads/generated_images && \
-    mkdir -p /app/public/uploads/generated_videos && \
-    chmod -R 755 /app/user_data /app/public/uploads
+    mkdir -p /app/uploads && \
+    chmod -R 755 /app/user_data /app/uploads
 
 # Copy and set up the entrypoint script
 COPY entrypoint.sh /entrypoint.sh

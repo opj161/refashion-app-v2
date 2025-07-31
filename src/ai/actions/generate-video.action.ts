@@ -5,6 +5,9 @@ import { getCurrentUser } from '@/actions/authActions';
 import { addStandaloneVideoHistoryItem, updateVideoHistoryItem } from '@/actions/historyActions';
 import * as videoService from '@/services/fal-api/video.service'; // Use the service layer
 import { getApiKeyForUser } from '@/services/apiKey.service';
+import fs from 'fs/promises';
+import path from 'path';
+import { getDisplayableImageUrl } from '@/lib/utils';
 
 // Ensure FAL_KEY is available, otherwise Fal.ai calls will fail
 if (!process.env.FAL_KEY) {
@@ -16,8 +19,9 @@ if (!process.env.FAL_KEY) {
 export interface GenerateVideoInput {
   prompt: string;
   image_url: string; // This can be a public URL or a base64 data URI
+  local_image_path?: string; // The original local path for history storage
   resolution?: '480p' | '720p' | '1080p';
-  duration?: '5' | '10'; // Duration as strings for Fal.ai API
+  duration?: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12'; // Duration as strings for Fal.ai API
   videoModel?: 'lite' | 'pro';
   camera_fixed?: boolean;
   seed?: number; // Use -1 for random
@@ -38,9 +42,11 @@ export interface GenerateVideoOutput {
 
 /**
  * Checks if the Fal.ai video generation service is configured and available.
+ * Returns an object for clarity and future expansion.
  */
-export async function isFalVideoGenerationAvailable(): Promise<boolean> {
-  return await videoService.isVideoServiceAvailable();
+export async function isFalVideoGenerationAvailable(): Promise<{ available: boolean }> {
+  const isAvailable = await videoService.isVideoServiceAvailable();
+  return { available: isAvailable };
 }
 
 /**
@@ -74,7 +80,7 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
     videoModel: input.videoModel || 'lite',
     duration: input.duration || '5',
     seed: input.seed || -1,
-    sourceImageUrl: input.image_url,
+    sourceImageUrl: input.local_image_path || input.image_url, // Prefer local path for history
     selectedPredefinedPrompt: input.selectedPredefinedPrompt || 'custom',
     modelMovement: input.modelMovement || '',
     fabricMotion: input.fabricMotion || '',
@@ -93,11 +99,33 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
   // 2. Prepare the webhook URL for fal_webhook query parameter
   const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/video/webhook?historyItemId=${historyItemId}&username=${encodeURIComponent(user.username)}`;
 
-  // 3. Submit the job using the new service function
+  // Submit the job using the new service function
   try {
+    let falPublicUrl: string;
+    
+    // Check if image_url is already a Fal.ai URL or needs to be uploaded
+    if (input.image_url.startsWith('https://v3.fal.media/') || input.image_url.startsWith('https://fal.media/')) {
+      // Already a Fal.ai URL, use it directly
+      falPublicUrl = input.image_url;
+      console.log(`Using existing Fal.ai URL: ${falPublicUrl}`);
+    } else if (input.image_url.startsWith('/uploads/')) {
+      // Local path - read file and upload to Fal.ai
+      console.log(`Uploading local image for video generation: ${input.image_url}`);
+      const localFilePath = path.join(process.cwd(), 'public', input.image_url);
+      const fileBuffer = await fs.readFile(localFilePath);
+      const imageBlob = new Blob([fileBuffer]);
+      
+      falPublicUrl = await uploadToFalStorage(imageBlob, user.username);
+      console.log(`Image uploaded to Fal Storage. Public URL: ${falPublicUrl}`);
+    } else {
+      // Assume it's some other URL format - try to use directly
+      falPublicUrl = input.image_url;
+      console.log(`Using provided image URL directly: ${falPublicUrl}`);
+    }
+
     const videoServiceInput = {
       prompt: input.prompt,
-      image_url: input.image_url,
+      image_url: falPublicUrl, // Use the new, public Fal URL
       videoModel: input.videoModel,
       resolution: input.resolution,
       duration: input.duration,

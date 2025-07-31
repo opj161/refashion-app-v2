@@ -2,11 +2,41 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
+  webpack(config: any) {
+    // Grab the existing rule that handles SVG imports
+    const fileLoaderRule = config.module.rules.find((rule: any) =>
+      rule.test?.test?.('.svg'),
+    )
+
+    config.module.rules.push(
+      // Re-apply the existing rule, but only for svg imports ending in ?url
+      {
+        ...fileLoaderRule,
+        test: /\.svg$/i,
+        resourceQuery: /url/, // *.svg?url
+      },
+      // Convert all other *.svg imports to React components
+      {
+        test: /\.svg$/i,
+        issuer: fileLoaderRule.issuer,
+        resourceQuery: { not: [...fileLoaderRule.resourceQuery.not, /url/] }, // exclude if *.svg?url
+        use: ['@svgr/webpack'],
+      }
+    )
+
+    // Modify the original rule to exclude `.svg` files
+    // so that it will be handled by our new rule
+    fileLoaderRule.exclude = /\.svg$/i
+
+    return config
+  },
   output: 'standalone',
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb', // Increase limit for image uploads
-    },  },images: {
+    },
+  },
+  images: {
     remotePatterns: [
       {
         protocol: 'https',
@@ -14,7 +44,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'refashion.cc',
+        hostname: '**.refashion.cc',
         pathname: '/**',
       },
       {
@@ -40,16 +70,16 @@ const nextConfig: NextConfig = {
         port: '3000', 
         pathname: '/**',
       },
-    ],
-  },
-  async redirects() {
-    return [
       {
-        source: '/',
-        destination: '/create',
-        permanent: true,
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '9002',
+        pathname: '/**',
       },
-    ];
+    ],
+    // Allow the Image Optimizer to process images from our own API routes
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
   },
 };
 

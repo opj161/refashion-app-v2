@@ -1,7 +1,7 @@
 // src/components/admin/UserManagementTable.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from '@/components/ui/table';
@@ -33,16 +33,34 @@ type User = {
 
 interface UserManagementTableProps {
   initialUsers: User[];
+  maskedGlobalKeys: {
+    gemini1: string;
+    gemini2: string;
+    gemini3: string;
+    fal: string;
+  };
 }
 
-export function UserManagementTable({ initialUsers }: UserManagementTableProps) {
+export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserManagementTableProps) {
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
+  const [editedUserConfig, setEditedUserConfig] = useState<User | null>(null);
   const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
+
+  // When the user to edit changes, we populate our local form state
+  useEffect(() => {
+    setEditedUserConfig(userToEdit);
+  }, [userToEdit]);
+
+  const handleConfigChange = (field: keyof User, value: string) => {
+    if (editedUserConfig) {
+      setEditedUserConfig({ ...editedUserConfig, [field]: value as any });
+    }
+  };
 
   const handleCreateUser = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -142,7 +160,7 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
   return (
     <>
       <div className="flex justify-end mb-4">
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => { setIsCreateDialogOpen(open); if (!open && document.querySelector('form')) document.querySelector('form')?.reset(); }}>
           <DialogTrigger asChild>
             <Button><PlusCircle className="mr-2 h-4 w-4" /> Create User</Button>
           </DialogTrigger>
@@ -246,7 +264,7 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
       </div>
 
       {/* Edit User Dialog */}
-      <Dialog open={!!userToEdit} onOpenChange={(open) => !open && setUserToEdit(null)}>
+      <Dialog open={!!userToEdit} onOpenChange={(open) => { if (!open) setUserToEdit(null); }}>
         <DialogContent>
           <form onSubmit={handleUpdateUser}>
             <DialogHeader>
@@ -258,8 +276,8 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
               <div className="space-y-2">
                 <Label htmlFor="edit-role">Role</Label>
-                <Select name="role" defaultValue={userToEdit?.role}>
-                  <SelectTrigger id="edit-role"><SelectValue /></SelectTrigger>
+                <Select name="role" value={editedUserConfig?.role} onValueChange={(value) => handleConfigChange('role', value)}>
+                  <SelectTrigger id="edit-role"><SelectValue placeholder="Select a role" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">User</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
@@ -273,14 +291,18 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
                     <AccordionContent className="space-y-4 pt-4">
                       <div className="space-y-2">
                         <Label htmlFor={`gemini_api_key_${i}_mode`}>Mode</Label>
-                        <Select name={`gemini_api_key_${i}_mode`} defaultValue={(userToEdit as any)?.[`gemini_api_key_${i}_mode`] || 'global'}>
+                        <Select name={`gemini_api_key_${i}_mode`} value={(editedUserConfig as any)?.[`gemini_api_key_${i}_mode`] || 'global'} onValueChange={(value) => handleConfigChange(`gemini_api_key_${i}_mode` as keyof User, value)}>
                           <SelectTrigger id={`gemini_api_key_${i}_mode`}><SelectValue/></SelectTrigger>
                           <SelectContent><SelectItem value="global">Global</SelectItem><SelectItem value="user_specific">User-Specific</SelectItem></SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor={`gemini_api_key_${i}`}>User-Specific Key (Optional)</Label>
-                        <Input id={`gemini_api_key_${i}`} name={`gemini_api_key_${i}`} type="password" placeholder="Leave blank to keep unchanged" />
+                        {(editedUserConfig as any)?.[`gemini_api_key_${i}_mode`] === 'user_specific' ? (
+                          <Input id={`gemini_api_key_${i}`} name={`gemini_api_key_${i}`} type="password" placeholder="Enter a new key, or leave blank to clear" />
+                        ) : (
+                          <Input id={`gemini_api_key_${i}_global`} name={`gemini_api_key_${i}_global`} disabled value={maskedGlobalKeys?.[`gemini${i}` as keyof typeof maskedGlobalKeys] || 'Global Key Not Set'} />
+                        )}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -290,14 +312,18 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
                   <AccordionContent className="space-y-4 pt-4">
                     <div className="space-y-2">
                       <Label htmlFor="fal_api_key_mode">Mode</Label>
-                      <Select name="fal_api_key_mode" defaultValue={userToEdit?.fal_api_key_mode || 'global'}>
+                      <Select name="fal_api_key_mode" value={editedUserConfig?.fal_api_key_mode || 'global'} onValueChange={(value) => handleConfigChange('fal_api_key_mode', value)}>
                         <SelectTrigger id="fal_api_key_mode"><SelectValue/></SelectTrigger>
                         <SelectContent><SelectItem value="global">Global</SelectItem><SelectItem value="user_specific">User-Specific</SelectItem></SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="fal_api_key">User-Specific Key (Optional)</Label>
-                      <Input id="fal_api_key" name="fal_api_key" type="password" placeholder="Leave blank to keep unchanged" />
+                      {editedUserConfig?.fal_api_key_mode === 'user_specific' ? (
+                        <Input id="fal_api_key" name="fal_api_key" type="password" placeholder="Enter a new key, or leave blank to clear" />
+                      ) : (
+                        <Input id="fal_api_key_global" name="fal_api_key_global" disabled value={maskedGlobalKeys?.fal || 'Global Key Not Set'} />
+                      )}
                     </div>
                   </AccordionContent>
                 </AccordionItem>

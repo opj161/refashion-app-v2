@@ -16,37 +16,32 @@ export async function loginUser(formData: FormData): Promise<{ error: string } |
   const username = formData.get('username') as string;
   const submittedPassword = formData.get('password') as string;
 
+  let user;
   try {
-    const user = dbService.findUserByUsername(username);
+    user = dbService.findUserByUsername(username);
 
-    if (user && await bcrypt.compare(submittedPassword, user.passwordHash)) {
-      // Save session and prepare for redirect
-      session.user = {
-        username: username,
-        role: user.role,
-        isLoggedIn: true,
-      };
-      await session.save();
-      revalidatePath('/', 'layout');
-      
-      // Only redirect after successful login and session save
-      redirect('/');
-    } else {
+    // --- FIX: Check for invalid user or password inside the try block and return early ---
+    if (!user || !(await bcrypt.compare(submittedPassword, user.passwordHash))) {
       return { error: 'Invalid username or password.' };
     }
   } catch (error) {
-    // Re-throw redirect errors so they can work properly (this is expected behavior)
-    if (error instanceof Error && (
-      error.message === 'NEXT_REDIRECT' || 
-      (error as any).digest?.startsWith('NEXT_REDIRECT')
-    )) {
-      throw error; // This is normal and expected
-    }
-    
-    // Handle actual errors
+    // --- FIX: Simplified catch block for unexpected server errors ---
     console.error("Login action error:", error instanceof Error ? error.message : String(error));
     return { error: 'An unexpected server error occurred.' };
   }
+
+  // --- FIX: Success path is now outside the try...catch block ---
+  // This code only runs if authentication was successful and no exceptions were thrown.
+  session.user = {
+    username: user.username,
+    role: user.role,
+    isLoggedIn: true,
+  };
+  await session.save();
+  revalidatePath('/', 'layout');
+  
+  // The redirect call is now safe and won't be caught by our logic.
+  redirect('/');
 }
 
 export async function logoutUser() {

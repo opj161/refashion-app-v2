@@ -6,8 +6,7 @@ import { z } from 'zod';
 
 const ModelAttributesSchema = z.object({
   gender: z.string(),
-  bodyType: z.string(),
-  bodySize: z.string(),
+  bodyShapeAndSize: z.string(),
   ageRange: z.string(),
   ethnicity: z.string(),
   poseStyle: z.string(),

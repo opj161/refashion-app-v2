@@ -6,26 +6,22 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Converts upload URLs to use the image-proxy API route
- * This ensures images are served directly from filesystem, bypassing Next.js static file caching issues
- * @param originalPath - The original path like '/uploads/generated_images/image.png'
- * @returns The proxy path like '/api/image-proxy/generated_images/image.png'
+ * Returns a URL that the client can use to display an image.
+ * This function now transparently proxies local file paths through a dedicated API route.
+ * @param originalPath - The internal storage path, e.g., '/uploads/generated_images/image.png'
+ * @returns A publicly accessible URL for the image.
  */
 export function getDisplayableImageUrl(originalPath: string | null): string | null {
   if (!originalPath) return null;
 
-  // Handle data URIs (base64 images) - return as-is
   if (originalPath.startsWith("data:")) {
     return originalPath;
   }
-
-  // Convert /uploads/... paths to /api/image-proxy/... paths
+  
+  // For local files, point to the new dynamic image serving API route
   if (originalPath.startsWith("/uploads/")) {
-    // Remove '/uploads/' prefix and add '/api/image-proxy/' prefix
-    const subPath = originalPath.substring("/uploads/".length);
-    return `/api/image-proxy/${subPath}`;
+    return `/api/images${originalPath.substring('/uploads'.length)}`;
   }
 
-  // For any other paths, return as-is
-  return originalPath;
+  return originalPath; // Return other paths (like external Fal URLs) as is.
 }

@@ -17,112 +17,51 @@ import fs from 'fs';
 import path from 'path';
 import { saveDataUriLocally } from '@/services/storage.service';
 import { getApiKeyForUser } from '@/services/apiKey.service';
-import { buildAIPrompt } from '@/lib/prompt-builder';
+import { buildAIPrompt, GENDER_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS } from '@/lib/prompt-builder';
+import { generatePromptWithAI } from '@/ai/actions/generate-prompt.action';
+import type { ModelAttributes } from '@/lib/types';
 
-// NEW: Import Axios and HttpsProxyAgent for explicit proxy control
-import axios, { AxiosError } from 'axios';
-import { HttpsProxyAgent } from 'https-proxy-agent';
+// UPDATED: Import the official Google GenAI SDK instead of manual HTTP clients
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
+import { withGeminiRetry } from '@/lib/api-retry';
 
-// Direct API configuration matching Python implementation
-const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
-
-// --- START Defined Types ---
-interface GeminiPart {
-  inlineData?: {
-    mimeType: string;
-    data: string;
-  };
-  text?: string;
-}
-
-interface GeminiContent {
-  role: string;
-  parts: GeminiPart[];
-}
-
-interface GeminiGenerationConfig {
-  temperature: number;
-  topP: number;
-  topK: number;
-  maxOutputTokens: number;
-  responseModalities: string[];
-}
-
-interface GeminiSafetySetting {
-  category: string;
-  threshold: string;
-}
-
-interface GeminiApiRequestBody {
-  contents: GeminiContent[];
-  generationConfig: GeminiGenerationConfig;
-  safetySettings: GeminiSafetySetting[];
-}
-
-interface GeminiApiSuccessResponseCandidate {
-  finishReason?: string;
-  content?: {
-    parts?: Array<GeminiPart>;
-  };
-  // Other candidate properties if relevant
-}
-interface GeminiApiSuccessResponse {
-  candidates?: Array<GeminiApiSuccessResponseCandidate>;
-  // Other top-level response properties if relevant
-}
-
-interface GeminiErrorDetail {
-  message: string;
-  // other fields like code, status if they exist
-}
-
-interface GeminiErrorData { // Renamed from GeminiErrorResponse to avoid conflict with actual HTTP response
-  error?: GeminiErrorDetail | string;
-}
-// --- END Defined Types ---
-
+// The SDK handles all types internally, so we no longer need manual type definitions
 
 /**
- * Make a direct API call to Gemini API with explicit proxy support using axios
- * This provides better proxy control than node-fetch's automatic detection
+ * Generate random parameters for stylistic settings only
+ * Excludes core model attributes (gender, bodyType, bodySize, ageRange) which should remain as user selected
+ * Always randomizes background, and randomly selects 2 of the other 4 parameters to randomize
  */
-async function makeGeminiApiCall(apiKey: string, requestBody: GeminiApiRequestBody): Promise<GeminiApiSuccessResponse> {
-  const url = `${BASE_URL}?key=${apiKey}`;
+function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAttributes {
+  const pickRandom = (options: any[]) => options[Math.floor(Math.random() * options.length)].value;
   
-  let httpsAgent;
-  const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy;
-  if (proxyUrl) {
-    console.log(`Using proxy: ${proxyUrl.replace(/\/\/.*@/, '//***:***@')}`);
-    httpsAgent = new HttpsProxyAgent(proxyUrl);
-  } else {
-    console.log('No HTTPS_PROXY environment variable set. Making direct call.');
-  }
-
-  console.log(`Making Axios API call to: ${url.replace(/key=.*/, 'key=***')}`);
+  // Always randomize background
+  const result = {
+    ...baseParameters, // Keep all existing parameters
+    background: pickRandom(BACKGROUND_OPTIONS),
+  };
   
-  try {
-    const response = await axios.post<GeminiApiSuccessResponse>(url, requestBody, { // Added type to axios.post
-      headers: { 'Content-Type': 'application/json' },
-      httpsAgent: httpsAgent,
-    });
-
-    console.log(`Gemini API response status: ${response.status}`);
-    return response.data;
-
-  } catch (error) {
-    console.error('Error calling Gemini API:', axios.isAxiosError(error) ? error.toJSON() : error);
-    
-    if (axios.isAxiosError<GeminiErrorData>(error) && error.response) {
-      console.error("Axios error response data:", error.response.data);
-      const errData = error.response.data.error;
-      const message = (typeof errData === 'string' ? errData : errData?.message) || JSON.stringify(error.response.data);
-      throw new Error(`Gemini API Error (${error.response.status}): ${message}`);
-    }
-    
-    const generalError = error as Error;
-    throw new Error(`Failed to call Gemini API: ${generalError.message}`);
-  }
+  // Define the 4 optional parameters to choose from
+  const optionalParams = [
+    { key: 'ethnicity', options: ETHNICITY_OPTIONS },
+    { key: 'hairStyle', options: HAIR_STYLE_OPTIONS },
+    { key: 'modelExpression', options: MODEL_EXPRESSION_OPTIONS },
+    { key: 'poseStyle', options: POSE_STYLE_OPTIONS },
+  ];
+  
+  // Randomly shuffle and select 2 of the 4 optional parameters
+  const shuffled = optionalParams.sort(() => Math.random() - 0.5);
+  const selectedParams = shuffled.slice(0, 2);
+  
+  // Randomize only the 2 selected parameters
+  selectedParams.forEach(param => {
+    (result as any)[param.key] = pickRandom(param.options);
+  });
+  
+  return result;
 }
+
+// The makeGeminiApiCall function is replaced by the SDK's built-in methods
 
 const GenerateImageEditInputSchema = z.object({
   prompt: z.string().optional().describe('The prompt to use for generating or editing the image.'),
@@ -134,6 +73,8 @@ const GenerateImageEditInputSchema = z.object({
     .describe(
       "Optional: The image to edit, as a data URI (e.g., 'data:image/png;base64,...') or a publicly accessible HTTPS URL."
     ),
+  useAIPrompt: z.boolean().optional().default(false).describe('Whether to use AI to generate the prompt itself.'),
+  useRandomizedAIPrompts: z.boolean().optional().default(false).describe('Whether to use different random parameters for each of the 3 AI prompts.'),
 });
 export type GenerateImageEditInput = z.infer<typeof GenerateImageEditInputSchema>;
 
@@ -151,6 +92,9 @@ async function performSingleImageGeneration(
   keyIndex: 1 | 2 | 3
 ): Promise<SingleImageOutput> {
   const apiKey = await getApiKeyForUser(username, 'gemini', keyIndex);
+  
+  // Initialize the SDK
+  const ai = new GoogleGenAI({ apiKey });
 
   let sourceImageDataForModelProcessing: { mimeType: string; data: string; } | null = null;
   if (input.imageDataUriOrUrl) {
@@ -175,8 +119,10 @@ async function performSingleImageGeneration(
       }
     } else if (input.imageDataUriOrUrl.startsWith('/')) {
       try {
-        const absolutePath = path.join(process.cwd(), 'public', input.imageDataUriOrUrl);
-        if (fs.existsSync(absolutePath)) {
+        // FIX: The 'uploads' directory is now at the root, not inside 'public'.
+        // We construct the path relative to the project root.
+        const absolutePath = path.join(process.cwd(), input.imageDataUriOrUrl);
+        if (fs.existsSync(absolutePath)) { // Note: existsSync is not async, consider fs.promises.access for full async pattern
           const imageBuffer = fs.readFileSync(absolutePath);
           let mimeType = 'image/png';
           if (input.imageDataUriOrUrl.endsWith('.jpg') || input.imageDataUriOrUrl.endsWith('.jpeg')) mimeType = 'image/jpeg';
@@ -199,7 +145,7 @@ async function performSingleImageGeneration(
         console.warn(`Could not parse processed image data URI for ${flowIdentifier}. Original input: ${input.imageDataUriOrUrl}`);
     }
   }
-  const parts: GeminiPart[] = []; // Typed parts
+  const parts: any[] = [];
   
   if (sourceImageDataForModelProcessing) {
     parts.push({
@@ -210,28 +156,7 @@ async function performSingleImageGeneration(
     });
   }
   parts.push({ text: input.prompt });
-  const requestBody: GeminiApiRequestBody = { // Typed requestBody
-    contents: [
-      {
-        role: "user",
-        parts: parts
-      }
-    ],
-    generationConfig: {
-      temperature: 1,
-      topP: 0.95,
-      topK: 40,
-      maxOutputTokens: 8192,
-      responseModalities: ["image", "text"]
-    },
-    safetySettings: [
-      {
-        "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
-        "threshold": "BLOCK_NONE"
-      }
-    ]
-  };
-  console.log(`Calling Gemini API directly for ${flowIdentifier} with model gemini-2.0-flash-exp`);
+  console.log(`Calling Gemini API via SDK for ${flowIdentifier} with model gemini-2.0-flash-exp`);
   console.log(`With API Key: ${apiKey ? 'SET' : 'NOT SET'}`);
   if (sourceImageDataForModelProcessing) {
     console.log(`WITH IMAGE: ${sourceImageDataForModelProcessing.mimeType}`);
@@ -239,78 +164,72 @@ async function performSingleImageGeneration(
     console.log(`Performing text-to-image generation for ${flowIdentifier} as no source image was provided or processed.`);
   }
   
-  const maxAttempts = 3;
-  let attempt = 0;
-  
-  while (attempt < maxAttempts) {
-    attempt++;
-    try {
-      console.log(`🔍 ATTEMPT ${attempt}/${maxAttempts} to generate image for ${flowIdentifier}`);
-      const result = await makeGeminiApiCall(apiKey, requestBody);
+  // Use centralized retry logic for image generation
+  return withGeminiRetry(async () => {
+    console.log(`🔍 Generating image for ${flowIdentifier} using SDK`);
+    
+    const config = {
+      temperature: 1,
+      topP: 0.95,
+      topK: 40,
+      maxOutputTokens: 8192,
+      responseModalities: ["IMAGE", "TEXT"],
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.BLOCK_NONE }
+      ],
+    };
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash-exp",
+      config,
+      contents: [{ role: 'user', parts }],
+    });
+    
+    let generatedImageDataUri: string | null = null;
+    
+    if (response && response.candidates && response.candidates.length > 0) {
+      const candidate = response.candidates[0];
       
-      let generatedImageDataUri: string | null = null;
+      if (candidate.finishReason === 'SAFETY') {
+        console.warn(`Image generation blocked by safety settings for ${flowIdentifier}. Candidate:`, JSON.stringify(candidate, null, 2));
+        throw new Error(`Image generation blocked by safety settings for ${flowIdentifier}.`);
+      }
       
-      if (result && result.candidates && result.candidates.length > 0) {
-        const candidate = result.candidates[0];
-        
-        if (candidate.finishReason === 'SAFETY') {
-          console.warn(`Image generation blocked by safety settings for ${flowIdentifier}. Candidate:`, JSON.stringify(candidate, null, 2));
-          throw new Error(`Image generation blocked by safety settings for ${flowIdentifier}.`);
-        }
-        
-        if (candidate.content && candidate.content.parts) {
-          for (const part of candidate.content.parts) {
-            if (part.inlineData) {
-              const mimeType = part.inlineData.mimeType;
-              const base64Data = part.inlineData.data;
-              generatedImageDataUri = `data:${mimeType};base64,${base64Data}`;
-              console.log(`🔍 Image received from ${flowIdentifier} via REST. MimeType: ${mimeType}`);
-              break;
-            } else if (part.text) {
-              console.log(`🔍 Text response from ${flowIdentifier}: ${part.text}`);
-            }
+      if (candidate.content && candidate.content.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.inlineData) {
+            const mimeType = part.inlineData.mimeType;
+            const base64Data = part.inlineData.data;
+            generatedImageDataUri = `data:${mimeType};base64,${base64Data}`;
+            console.log(`🔍 Image received from ${flowIdentifier} via SDK. MimeType: ${mimeType}`);
+            break;
+          } else if (part.text) {
+            console.log(`🔍 Text response from ${flowIdentifier}: ${part.text}`);
           }
         }
       }
-
-      if (!generatedImageDataUri) {
-        console.error(`🔍 AI for ${flowIdentifier} (REST) did not return an image. Full API Response:`, JSON.stringify(result, null, 2));
-        if (attempt < maxAttempts) {
-          console.log(`🔍 No image data in response, attempt ${attempt}/${maxAttempts}`);
-          continue;
-        } else {
-          throw new Error(`AI for ${flowIdentifier} (REST) did not return image data.`);
-        }
-      }      console.log(`🔍 Successfully generated image on attempt ${attempt}/${maxAttempts} for ${flowIdentifier}`);
-      
-      try {
-        const { relativeUrl: imageUrl } = await saveDataUriLocally(
-          generatedImageDataUri,
-          `RefashionAI_generated_${flowIdentifier}`,
-          'generated_images'
-        );
-        return { editedImageUrl: imageUrl };
-      } catch (uploadError: unknown) { // Changed to unknown
-        const knownUploadError = uploadError as Error;
-        console.error(`Error storing image from ${flowIdentifier} (axios):`, knownUploadError);
-        throw new Error(`Failed to store image from ${flowIdentifier} (axios): ${knownUploadError.message}`);
-      }
-      
-    } catch (error: unknown) { // Changed to unknown
-      const knownError = error as Error;
-      console.error(`🔍 Error in attempt ${attempt} for ${flowIdentifier}:`, knownError.message);
-      
-      if (attempt < maxAttempts) {
-        console.log(`Retrying in 1 second... (${attempt}/${maxAttempts})`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        continue;
-      } else {
-        throw error; // Rethrow the original error (now typed as unknown)
-      }
     }
-  }
-  
-  throw new Error(`Failed to generate image after ${maxAttempts} attempts for ${flowIdentifier}`);
+
+    if (!generatedImageDataUri) {
+      console.error(`🔍 AI for ${flowIdentifier} (SDK) did not return an image. Full API Response:`, JSON.stringify(response, null, 2));
+      throw new Error(`AI for ${flowIdentifier} (SDK) did not return image data.`);
+    }
+    
+    console.log(`🔍 Successfully generated image for ${flowIdentifier}`);
+    
+    try {
+      const { relativeUrl: imageUrl } = await saveDataUriLocally(
+        generatedImageDataUri,
+        `RefashionAI_generated_${flowIdentifier}`,
+        'generated_images'
+      );
+      return { editedImageUrl: imageUrl };
+    } catch (uploadError: unknown) {
+      const knownUploadError = uploadError as Error;
+      console.error(`Error storing image from ${flowIdentifier} (SDK):`, knownUploadError);
+      throw new Error(`Failed to store image from ${flowIdentifier} (SDK): ${knownUploadError.message}`);
+    }
+  }, `Image generation for ${flowIdentifier}`);
 }
 
 async function generateImageFlow1(input: GenerateImageEditInput, username: string): Promise<SingleImageOutput> {
@@ -340,33 +259,130 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
     throw new Error('Username is required to generate images.');
   }
 
-  // Construct the prompt from parameters if provided
-  let constructedPrompt: string;
-  if (input.parameters) {
-    constructedPrompt = buildAIPrompt({
-      type: 'image',
-      params: {
-        ...input.parameters,
-        settingsMode: input.settingsMode || 'basic'
+  // NEW LOGIC: PROMPT GENERATION
+  let prompts: (string | null)[];
+  let finalConstructedPromptForHistory: string;
+
+  if (input.useAIPrompt && input.parameters && input.imageDataUriOrUrl) {
+    console.log("Using AI to generate prompts...");
+    
+    let parametersForPrompts: ModelAttributes[];
+    if (input.useRandomizedAIPrompts) {
+      console.log("🎲 RANDOMIZATION ENABLED: Generating 3 different random parameter sets for AI prompts");
+      // Generate 3 different random parameter sets
+      parametersForPrompts = [
+        generateRandomBasicParameters(input.parameters),
+        generateRandomBasicParameters(input.parameters),
+        generateRandomBasicParameters(input.parameters)
+      ];
+      
+      // Log the randomized parameters for each prompt
+      parametersForPrompts.forEach((params, index) => {
+        console.log(`\n🎲 RANDOM PARAMETERS SET ${index + 1}:`);
+        console.log(`Ethnicity: ${params.ethnicity}, Hair: ${params.hairStyle}`);
+        console.log(`Expression: ${params.modelExpression}, Pose: ${params.poseStyle}`);
+        console.log(`Background: ${params.background}`);
+        console.log(`[Keeping user's: Gender: ${params.gender}, Body: ${params.bodyShapeAndSize}, Age: ${params.ageRange}]`);
+      });
+    } else {
+      // Use the same parameters for all 3 prompts
+      parametersForPrompts = [input.parameters, input.parameters, input.parameters];
+    }
+    
+    const promptPromises = [
+      generatePromptWithAI(parametersForPrompts[0], input.imageDataUriOrUrl, username, 1),
+      generatePromptWithAI(parametersForPrompts[1], input.imageDataUriOrUrl, username, 2),
+      generatePromptWithAI(parametersForPrompts[2], input.imageDataUriOrUrl, username, 3),
+    ];
+    const promptResults = await Promise.allSettled(promptPromises);
+    prompts = promptResults.map((res, index) => {
+      if (res.status === 'fulfilled') {
+        return res.value;
+      } else {
+        console.warn(`AI prompt generation failed for slot ${index + 1}. Using high-quality fallback prompt. Reason:`, res.reason);
+        
+        // Fallback to a high-quality, locally-built prompt
+        const fallbackParams: Omit<ModelAttributes, 'settingsMode'> = {
+          ...parametersForPrompts[index],
+          // Ensure some safe, high-quality defaults are set if not present
+          poseStyle: parametersForPrompts[index].poseStyle === 'default' ? 'standing_relaxed' : parametersForPrompts[index].poseStyle,
+          modelExpression: parametersForPrompts[index].modelExpression === 'default' ? 'neutral_subtle_smile' : parametersForPrompts[index].modelExpression,
+          background: parametersForPrompts[index].background === 'default' ? 'studio_neutral_gray' : parametersForPrompts[index].background,
+          lightingType: 'studio_lighting',
+          lightQuality: 'soft_even_light',
+          cameraAngle: 'eye_level',
+        };
+
+        return buildAIPrompt({
+          type: 'image',
+          params: fallbackParams
+        });
       }
     });
-  } else if (input.prompt) {
-    constructedPrompt = input.prompt;
+    
+    // Log all received optimized prompts together
+    console.log(`\n🚀 ALL AI-GENERATED PROMPTS SUMMARY:`);
+    console.log('='.repeat(100));
+    prompts.forEach((prompt, index) => {
+      console.log(`\n📝 PROMPT ${index + 1}:`);
+      if (prompt) {
+        console.log(prompt);
+      } else {
+        console.log('❌ FAILED TO GENERATE');
+      }
+      console.log('-'.repeat(60));
+    });
+    console.log('='.repeat(100));
+    
+    // For history, we'll save the first successfully generated prompt.
+    finalConstructedPromptForHistory = prompts.find(p => p !== null) ?? "AI prompt generation failed.";
   } else {
-    throw new Error('Either parameters or prompt must be provided');
+    console.log("Using local prompt builder...");
+    let constructedPrompt: string;
+    if (input.parameters) {
+      constructedPrompt = buildAIPrompt({
+        type: 'image',
+        params: {
+          ...input.parameters,
+          settingsMode: input.settingsMode || 'basic'
+        }
+      });
+    } else if (input.prompt) {
+      constructedPrompt = input.prompt;
+    } else {
+      throw new Error('Either parameters or prompt must be provided');
+    }
+    prompts = Array(3).fill(constructedPrompt);
+    finalConstructedPromptForHistory = constructedPrompt;
   }
+  
+  console.log("Generated Prompts:", prompts);
 
-  // Create input with the constructed prompt for the generation flows
-  const inputForGeneration: GenerateImageEditInput = {
-    ...input,
-    prompt: constructedPrompt,
-  };
+  // MODIFIED LOGIC: IMAGE GENERATION
+  const imageGenerationPromises = prompts.map((prompt, index) => {
+    if (prompt) {
+      // Create a specific input object for each generation with its unique prompt
+      const inputForGeneration: GenerateImageEditInput = {
+        ...input,
+        prompt: prompt,
+      };
+      // Call the appropriate generation function
+      switch (index) {
+        case 0:
+          return generateImageFlow1(inputForGeneration, username);
+        case 1:
+          return generateImageFlow2(inputForGeneration, username);
+        case 2:
+          return generateImageFlow3(inputForGeneration, username);
+        default:
+          throw new Error(`Invalid flow index: ${index}`);
+      }
+    }
+    // If prompt generation failed for this slot, return a rejected promise
+    return Promise.reject(new Error('Prompt was not generated for this slot.'));
+  });
 
-  const results = await Promise.allSettled([
-    generateImageFlow1(inputForGeneration, username),
-    generateImageFlow2(inputForGeneration, username),
-    generateImageFlow3(inputForGeneration, username),
-  ]);
+  const results = await Promise.allSettled(imageGenerationPromises);
 
   const editedImageUrlsResult: (string | null)[] = [null, null, null];
   const errorsResult: (string | null)[] = [null, null, null];
@@ -384,8 +400,97 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
 
   return {
     editedImageUrls: editedImageUrlsResult,
-    constructedPrompt: constructedPrompt,
+    constructedPrompt: finalConstructedPromptForHistory,
     errors: errorsResult.some(e => e !== null) ? errorsResult : undefined
+  };
+}
+
+export async function generateSingleImageSlot(
+  input: GenerateImageEditInput, 
+  slotIndex: 0 | 1 | 2, 
+  username: string
+): Promise<{ slotIndex: number; result: SingleImageOutput; constructedPrompt: string }> {
+  if (!username) {
+    throw new Error('Username is required to generate images.');
+  }
+
+  // Generate prompt for this specific slot
+  let promptForSlot: string;
+  let finalConstructedPromptForHistory: string;
+
+  if (input.useAIPrompt && input.parameters && input.imageDataUriOrUrl) {
+    console.log(`🎨 Generating AI prompt for slot ${slotIndex + 1}...`);
+    
+    let parametersForPrompt: ModelAttributes;
+    if (input.useRandomizedAIPrompts) {
+      console.log(`🎲 Using randomized parameters for slot ${slotIndex + 1}`);
+      parametersForPrompt = generateRandomBasicParameters(input.parameters);
+      
+      // Log the randomized parameters for this slot
+      console.log(`\n🎲 RANDOM PARAMETERS FOR SLOT ${slotIndex + 1}:`);
+      console.log(`Ethnicity: ${parametersForPrompt.ethnicity}, Hair: ${parametersForPrompt.hairStyle}`);
+      console.log(`Expression: ${parametersForPrompt.modelExpression}, Pose: ${parametersForPrompt.poseStyle}`);
+      console.log(`Background: ${parametersForPrompt.background}`);
+      console.log(`[Keeping user's: Gender: ${parametersForPrompt.gender}, Body: ${parametersForPrompt.bodyShapeAndSize}, Age: ${parametersForPrompt.ageRange}]`);
+    } else {
+      parametersForPrompt = input.parameters;
+    }
+    
+    try {
+      promptForSlot = await generatePromptWithAI(parametersForPrompt, input.imageDataUriOrUrl, username, (slotIndex + 1) as 1 | 2 | 3);
+      finalConstructedPromptForHistory = promptForSlot;
+      
+      console.log(`\n🚀 AI-GENERATED PROMPT FOR SLOT ${slotIndex + 1}:`);
+      console.log('='.repeat(60));
+      console.log(promptForSlot);
+      console.log('='.repeat(60));
+    } catch (error) {
+      console.error(`Failed to generate AI prompt for slot ${slotIndex + 1}:`, error);
+      throw new Error(`AI prompt generation failed for slot ${slotIndex + 1}: ${(error as Error).message}`);
+    }
+  } else {
+    console.log(`Using local prompt builder for slot ${slotIndex + 1}...`);
+    if (input.parameters) {
+      promptForSlot = buildAIPrompt({
+        type: 'image',
+        params: {
+          ...input.parameters,
+          settingsMode: input.settingsMode || 'basic'
+        }
+      });
+    } else if (input.prompt) {
+      promptForSlot = input.prompt;
+    } else {
+      throw new Error('Either parameters or prompt must be provided');
+    }
+    finalConstructedPromptForHistory = promptForSlot;
+  }
+
+  // Generate the image for this slot
+  const inputForGeneration: GenerateImageEditInput = {
+    ...input,
+    prompt: promptForSlot,
+  };
+
+  let result: SingleImageOutput;
+  switch (slotIndex) {
+    case 0:
+      result = await generateImageFlow1(inputForGeneration, username);
+      break;
+    case 1:
+      result = await generateImageFlow2(inputForGeneration, username);
+      break;
+    case 2:
+      result = await generateImageFlow3(inputForGeneration, username);
+      break;
+    default:
+      throw new Error(`Invalid slot index: ${slotIndex}`);
+  }
+
+  return {
+    slotIndex,
+    result,
+    constructedPrompt: finalConstructedPromptForHistory
   };
 }
 

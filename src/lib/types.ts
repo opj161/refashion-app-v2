@@ -42,8 +42,7 @@ export interface HistoryItem {
 
 export interface ModelAttributes {
   gender: string;
-  bodyType: string;
-  bodySize: string;
+  bodyShapeAndSize: string;
   ageRange: string;
   ethnicity: string;
   poseStyle: string;
