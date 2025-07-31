@@ -129,7 +129,13 @@ export async function withRetry<T>(
       const isLastAttempt = attempt === maxRetries;
       const canRetry = isRetryableError(error);
       
-      console.error(`❌ ${context} failed (attempt ${attempt + 1}/${maxRetries + 1}):`, error);
+      const errorDetails = {
+        message: (error as Error).message,
+        status: (error as any).status,
+        code: (error as any).code,
+        stack: (error as Error).stack,
+      };
+      console.error(`❌ ${context} failed (attempt ${attempt + 1}/${maxRetries + 1}):`, JSON.stringify(errorDetails, null, 2));
       
       if (!canRetry) {
         console.log(`🚫 Error is not retryable, stopping retry attempts for ${context}`);

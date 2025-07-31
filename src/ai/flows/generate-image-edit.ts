@@ -299,14 +299,23 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
       if (res.status === 'fulfilled') {
         return res.value;
       } else {
-        console.warn(`AI prompt generation failed for slot ${index + 1}, falling back to local prompt builder:`, res.reason);
-        // Fallback to local prompt builder for failed AI prompt generation
+        console.warn(`AI prompt generation failed for slot ${index + 1}. Using high-quality fallback prompt. Reason:`, res.reason);
+        
+        // Fallback to a high-quality, locally-built prompt
+        const fallbackParams: Omit<ModelAttributes, 'settingsMode'> = {
+          ...parametersForPrompts[index],
+          // Ensure some safe, high-quality defaults are set if not present
+          poseStyle: parametersForPrompts[index].poseStyle === 'default' ? 'standing_relaxed' : parametersForPrompts[index].poseStyle,
+          modelExpression: parametersForPrompts[index].modelExpression === 'default' ? 'neutral_subtle_smile' : parametersForPrompts[index].modelExpression,
+          background: parametersForPrompts[index].background === 'default' ? 'studio_neutral_gray' : parametersForPrompts[index].background,
+          lightingType: 'studio_lighting',
+          lightQuality: 'soft_even_light',
+          cameraAngle: 'eye_level',
+        };
+
         return buildAIPrompt({
           type: 'image',
-          params: {
-            ...parametersForPrompts[index],
-            settingsMode: input.settingsMode || 'basic'
-          }
+          params: fallbackParams
         });
       }
     });
