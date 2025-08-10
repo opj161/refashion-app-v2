@@ -68,6 +68,33 @@ function initializeApiKeysFromEnv(db: Database.Database) {
   }
 }
 
+// Initialize system prompt from file if database is empty
+function initializeSystemPromptFromFile(db: Database.Database) {
+  try {
+    // Check if system prompt already exists and has content
+    const stmt = db.prepare('SELECT value FROM settings WHERE key = ?');
+    const result = stmt.get('ai_prompt_engineer_system') as { value: string } | undefined;
+    
+    if (!result?.value) {
+      // Try to read from file and populate database
+      const promptPath = path.join(process.cwd(), 'src/ai/prompts/prompt-engineer-system.txt');
+      try {
+        const fileContent = fs.readFileSync(promptPath, 'utf8');
+        if (fileContent.trim()) {
+          const updateStmt = db.prepare('UPDATE settings SET value = ? WHERE key = ?');
+          updateStmt.run(fileContent, 'ai_prompt_engineer_system');
+          console.log('Initialized system prompt from file');
+        }
+      } catch (fileError) {
+        // File doesn't exist or can't be read - this is fine
+        console.log('System prompt file not found - using empty default');
+      }
+    }
+  } catch (error) {
+    console.error('Error initializing system prompt:', error);
+  }
+}
+
 function initSchema(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS history (
@@ -127,11 +154,16 @@ function initSchema(db: Database.Database) {
       ('global_gemini_api_key_1', ''),
       ('global_gemini_api_key_2', ''),
       ('global_gemini_api_key_3', ''),
-      ('global_fal_api_key', '')
+      ('global_fal_api_key', ''),
+      ('ai_prompt_engineer_system', '')
   `);
 
   // Load environment variables into database settings if they exist and database values are empty
   initializeApiKeysFromEnv(db);
+  
+  // Initialize system prompt from file if database is empty
+  initializeSystemPromptFromFile(db);
+  
   console.log('Database schema initialized.');
 }
 

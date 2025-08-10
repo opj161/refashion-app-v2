@@ -88,7 +88,7 @@ export const ETHNICITY_OPTIONS: OptionWithPromptSegment[] = [
   { 
     value: "ambiguous_multiracial", 
     displayLabel: "Multiracial Heritage", 
-    promptSegment: "with a multiracial or ethnically ambiguous appearance" 
+    promptSegment: "of multiracial ethnicity" 
   },
   { 
     value: "white", 
@@ -98,7 +98,7 @@ export const ETHNICITY_OPTIONS: OptionWithPromptSegment[] = [
   { 
     value: "black", 
     displayLabel: "Black", 
-    promptSegment: "of Black ethnicity, representing the diversity of the African diaspora" 
+    promptSegment: "of Black ethnicity" 
   },
   { 
     value: "east_asian", 
@@ -113,17 +113,17 @@ export const ETHNICITY_OPTIONS: OptionWithPromptSegment[] = [
   { 
     value: "latine", 
     displayLabel: "Latina / Latino / Latine", 
-    promptSegment: "of Latino, Latina, or Latine heritage" 
+    promptSegment: "of Latino ethnicity" 
   },
   { 
     value: "middle_eastern_north_african", 
     displayLabel: "Middle Eastern & North African", 
-    promptSegment: "with features from the Middle East or North Africa" 
+    promptSegment: "of Middle Eastern or North African descent" 
   },
   { 
     value: "indigenous", 
     displayLabel: "Indigenous", 
-    promptSegment: "with Indigenous or First Nations features" 
+    promptSegment: "of Indigenous or First Nations descent" 
   },
 ];
 export const BODY_SHAPE_AND_SIZE_OPTIONS: OptionWithPromptSegment[] = [
@@ -211,75 +211,95 @@ export const POSE_STYLE_OPTIONS: OptionWithPromptSegment[] = [
   {
     value: "natural_relaxed",
     displayLabel: "Natural, Relaxed",
-    promptSegment: "a natural and relaxed standing or seated pose, looking comfortable and at ease",
+    promptSegment: "a natural, relaxed pose",
   },
   {
     value: "candid_in_motion",
     displayLabel: "Candid, In Motion",
-    promptSegment: "captured in a candid, unposed moment, as if walking, turning, or interacting naturally with the environment",
+    promptSegment: "a candid pose capturing natural movement",
   },
   {
     value: "confident_stance",
     displayLabel: "Confident Stance",
-    promptSegment: "a strong, confident stance that conveys self-assurance and empowerment",
+    promptSegment: "a strong, confident stance",
   },
   {
     value: "playful_interactive",
     displayLabel: "Playful, Interactive",
-    promptSegment: "a playful, interactive pose, such as adjusting a sleeve, hand in pocket, or gently touching their hair",
+    promptSegment: "a playful, interactive pose",
   },
   {
     value: "effortless_poise",
     displayLabel: "Effortless Poise",
-    promptSegment: "an effortlessly chic pose, relaxed yet poised, with a natural weight shift (contrapposto)",
+    promptSegment: "an effortlessly chic and poised pose",
   },
   {
     value: "editorial_dramatic",
     displayLabel: "Editorial, Dramatic",
-    promptSegment: "a bold, artistic, and dramatic editorial pose with strong lines and dynamic angles",
+    promptSegment: "a bold, dramatic editorial pose",
   },
 ];
 export const BACKGROUND_OPTIONS: OptionWithPromptSegment[] = [
+  // --- Core & Studio ---
   { value: "default", displayLabel: "Default Background", promptSegment: "" },
-  { 
-    value: "studio_clean_minimalist", 
-    displayLabel: "Studio - Clean & Minimalist", 
-    promptSegment: "a minimalist studio with a clean, seamless background in a solid neutral color" 
+  {
+    value: "studio_white",
+    displayLabel: "Studio - Clean White",
+    promptSegment: "a professional studio with a seamless white background",
   },
-  { 
-    value: "studio_moody_textured", 
-    displayLabel: "Studio - Moody & Textured", 
-    promptSegment: "a studio setting with a moody, subtly textured backdrop like painted canvas or raw plaster, with dramatic lighting" 
+  {
+    value: "studio_colored",
+    displayLabel: "Studio - Colored / Textured",
+    promptSegment: "a modern studio setting with a colored or textured backdrop",
   },
-  { 
-    value: "lush_greenery_wild", 
-    displayLabel: "Lush & Wild Greenery", 
-    promptSegment: "a vibrant, lush natural setting of wild greenery, like an overgrown field, dense foliage, or a forest interior with rich, deep greens" 
+
+  // --- Outdoor - Urban ---
+  {
+    value: "urban_street_day",
+    displayLabel: "Urban - Daytime Street",
+    promptSegment: "a modern city street with interesting architecture or storefronts",
   },
-  { 
-    value: "sun_drenched_coastline", 
-    displayLabel: "Sun-Drenched Coastline", 
-    promptSegment: "a bright, sun-drenched coastline with a dynamic mix of soft sand, ocean water, and rugged natural rock formations" 
+  {
+    value: "urban_rooftop",
+    displayLabel: "Urban - Rooftop View",
+    promptSegment: "a city rooftop with a panoramic urban skyline view",
   },
-  { 
-    value: "dramatic_natural_landscape", 
-    displayLabel: "Dramatic Natural Landscape", 
-    promptSegment: "a stark and expansive natural landscape with a sense of raw, untamed beauty, like a windswept desert, misty mountains, or open plains" 
+  {
+    value: "urban_industrial",
+    displayLabel: "Urban - Industrial Setting",
+    promptSegment: "a raw industrial space with exposed brick and concrete textures",
   },
-  { 
-    value: "urban_street_authentic", 
-    displayLabel: "Authentic Urban Street", 
-    promptSegment: "an authentic and raw city street scene with interesting textures like graffiti, aged brick, and weathered concrete" 
+  {
+    value: "urban_night",
+    displayLabel: "Urban - Night Scene",
+    promptSegment: "an urban street at night, glowing with neon signs and city lights",
   },
-  { 
-    value: "modern_architecture_lines", 
-    displayLabel: "Modern Architecture", 
-    promptSegment: "an outdoor setting featuring the clean lines and bold shapes of modern architecture, with materials like glass, steel, and polished concrete" 
+
+  // --- Outdoor - Nature ---
+  {
+    value: "nature_beach",
+    displayLabel: "Nature - Sunlit Beach",
+    promptSegment: "a vibrant beach with sand dunes and ocean waves",
   },
-  { 
-    value: "urban_garden_juxtaposition", 
-    displayLabel: "Urban Garden & Park", 
-    promptSegment: "a setting that juxtaposes vibrant plant life with urban elements, such as a city park, a modern greenhouse, or a rooftop garden" 
+  {
+    value: "nature_forest",
+    displayLabel: "Nature - Lush Forest",
+    promptSegment: "a lush, dense forest with a path and a rich canopy",
+  },
+  {
+    value: "nature_field",
+    displayLabel: "Nature - Open Field / Meadow",
+    promptSegment: "an open field or meadow with tall grass and wildflowers",
+  },
+  {
+    value: "nature_desert",
+    displayLabel: "Nature - Dramatic Desert",
+    promptSegment: "a stark desert landscape with dramatic rock formations or sand dunes",
+  },
+  {
+    value: "nature_botanical_garden",
+    displayLabel: "Nature - Botanical Garden",
+    promptSegment: "a lush botanical garden or greenhouse with diverse, exotic plants",
   },
 ];
 export const TIME_OF_DAY_OPTIONS: OptionWithPromptSegment[] = [

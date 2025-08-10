@@ -14,34 +14,7 @@ import {
   FASHION_STYLE_OPTIONS, type OptionWithPromptSegment
 } from '@/lib/prompt-builder';
 import { withGeminiRetry } from '@/lib/api-retry';
-
-// The powerful system instruction provided in the request
-const PROMPT_ENGINEER_SYSTEM_INSTRUCTION = `You are an expert prompt engineer specializing in high-end, photorealistic fashion photography for an advanced text-to-image AI. Your primary mission is to transform a user's parameters into a focused and cohesive prompt that avoids being overloaded. Your output must be only the final, optimized prompt string, without any additional text, explanation, or formatting.
-
-The key to a successful prompt is strategic focus. Follow this strict hierarchy of importance to allocate descriptive detail effectively:
-
-**1. The Core Subject (Highest Priority & Detail)**
-
-Your first and most important task is to define the subject and enforce the intended composition.
-
-*   **Model Persona:** Immediately following the opening, synthesize the user's description of the fashion model. Focus on creating a natural and believable persona by describing their expression and a natural pose.
-*   **Clothing Fidelity:** To ensure absolute accuracy to the attached clothing item, you must describe the model as wearing it using the explicit phrase "exactly as seen in the attached image". This instruction is central and requires no further embellishment.
-*   **Intentional Framing:** Always begin the prompt with a phrase establishing the composition, such as "A photorealistic full-body photograph of...". Crucially, to anchor this composition and prevent the AI from defaulting to a cropped shot, **you must always mention the model's footwear or the surface directly beneath their feet.** This forces the AI to render the entire figure from head to toe.
-
-**2. Photographic Qualities (Selective & Impactful Detail)**
-
-This layer elevates the image, but must be applied with precision to guide the AI's focus correctly.
-
-*   **Lighting & Mood:** Describe the lighting's primary effect using strong, active verbs. Your description should focus on how the light **interacts with the subject's contours and the material of the clothing** to create a single, coherent mood.
-
-**3. The Setting (Lowest Priority & Intentional Brevity)**
-
-The setting plays a supporting role. It should be described subtly to establish a mood without competing for attention.
-
-*   **Atmospheric Backdrop:** Treat the user's specified setting as an atmospheric backdrop, not a detailed scene. **Describe the location with brief, evocative language.** The goal is to suggest a mood and context, not to detail it.
-
-**Final Output Requirement:** Your entire output must be a single, cohesive, unformatted paragraph of text. Do not include titles, bullet points, explanations, or any markdown formatting. Simply provide the finished prompt.
-`
+import { getSystemPrompt } from '@/services/systemPrompt.service';
 
 // Helper to convert an image path/URI to the format the SDK needs
 async function imageToGenerativePart(imageDataUriOrUrl: string) {
@@ -188,11 +161,14 @@ export async function generatePromptWithAI(
   const apiKey = await getApiKeyForUser(username, 'gemini', keyIndex);
   const ai = new GoogleGenAI({ apiKey });
   
+  // Load the system instruction from database with file fallback
+  const systemInstruction = await getSystemPrompt();
+  
   const config = {
     temperature: 1,
     systemInstruction: [
       {
-        text: PROMPT_ENGINEER_SYSTEM_INSTRUCTION,
+        text: systemInstruction,
       }
     ],
   };

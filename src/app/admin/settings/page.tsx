@@ -1,5 +1,5 @@
 // src/app/admin/settings/page.tsx
-import { getAllSettings, getGlobalApiKeysForDisplay } from '@/actions/adminActions';
+import { getAllSettings, getGlobalApiKeysForDisplay, getSystemPromptForAdmin } from '@/actions/adminActions';
 import { PageHeader } from '@/components/ui/page-header';
 import { Settings } from 'lucide-react';
 import { SettingsForm } from './_components/SettingsForm';
@@ -8,6 +8,7 @@ import { ExportTool } from './_components/ExportTool';
 export default async function AdminSettingsPage() {
   const initialSettings = await getAllSettings();
   const maskedApiKeys = await getGlobalApiKeysForDisplay();
+  const systemPromptData = await getSystemPromptForAdmin();
 
   return (
     <div className="space-y-8">
@@ -17,7 +18,11 @@ export default async function AdminSettingsPage() {
         description="Manage feature flags and perform system maintenance."
         className="text-left py-0"
       />
-      <SettingsForm initialSettings={initialSettings} maskedApiKeys={maskedApiKeys} />
+      <SettingsForm 
+        initialSettings={initialSettings} 
+        maskedApiKeys={maskedApiKeys}
+        systemPromptData={systemPromptData}
+      />
       <ExportTool />
     </div>
   );

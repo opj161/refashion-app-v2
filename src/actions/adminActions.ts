@@ -8,7 +8,8 @@ import bcrypt from 'bcrypt';
 import fs from 'fs/promises';
 import path from 'path';
 import * as settingsService from '@/services/settings.service';
-import { encrypt } from '@/services/encryption.service';
+import { encrypt, decrypt } from '@/services/encryption.service';
+import * as systemPromptService from '@/services/systemPrompt.service';
 import crypto from 'crypto';
 import archiver from 'archiver';
 import os from 'os';
@@ -232,6 +233,30 @@ export async function getGlobalApiKeysForDisplay() {
     gemini3: mask(decrypt(settings.global_gemini_api_key_3)),
     fal: mask(decrypt(settings.global_fal_api_key)),
   };
+}
+
+export async function getSystemPromptForAdmin() {
+  await verifyAdmin();
+  try {
+    const prompt = await systemPromptService.getSystemPrompt();
+    const source = await systemPromptService.getSystemPromptSource();
+    return { success: true, prompt, source };
+  } catch (error) {
+    console.error('Error getting system prompt:', error);
+    return { success: false, error: 'Failed to get system prompt.' };
+  }
+}
+
+export async function updateSystemPrompt(prompt: string) {
+  await verifyAdmin();
+  try {
+    systemPromptService.updateSystemPrompt(prompt);
+    revalidatePath('/admin/settings');
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating system prompt:', error);
+    return { success: false, error: 'Failed to update system prompt.' };
+  }
 }
 
 export async function generateApiKeyForUser(username: string): Promise<{ success: boolean; apiKey?: string; error?: string }> {

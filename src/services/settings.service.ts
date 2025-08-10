@@ -11,6 +11,8 @@ const DEFAULTS = {
   'global_gemini_api_key_2': '',
   'global_gemini_api_key_3': '',
   'global_fal_api_key': '',
+  // AI System Prompts
+  'ai_prompt_engineer_system': '',
 };
 
 // Type for keys to ensure type safety

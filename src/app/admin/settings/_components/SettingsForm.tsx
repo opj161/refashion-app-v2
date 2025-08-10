@@ -7,11 +7,19 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { SettingKey } from '@/services/settings.service';
-import { updateSetting, triggerCacheCleanup, updateEncryptedSetting } from '@/actions/adminActions';
-import { Loader2, Video, Wand2, Sparkles, UserCheck, Trash2, KeyRound } from 'lucide-react';
+import { updateSetting, triggerCacheCleanup, updateEncryptedSetting, updateSystemPrompt } from '@/actions/adminActions';
+import { Loader2, Video, Wand2, Sparkles, UserCheck, Trash2, KeyRound, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 type SettingsState = Record<SettingKey, boolean>;
+
+interface SystemPromptData {
+  success: boolean;
+  prompt?: string;
+  source?: 'database' | 'file' | 'none';
+  error?: string;
+}
 
 // Metadata for boolean feature flags ONLY
 const FEATURE_FLAG_METADATA: Record<
@@ -28,9 +36,10 @@ const FEATURE_FLAG_METADATA: Record<
 interface SettingsFormProps {
   initialSettings: Record<SettingKey, string>;
   maskedApiKeys?: { gemini1: string; gemini2: string; gemini3: string; fal: string };
+  systemPromptData?: SystemPromptData;
 }
 
-export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormProps) {
+export function SettingsForm({ initialSettings, maskedApiKeys, systemPromptData }: SettingsFormProps) {
   const { toast } = useToast();
   const [settings, setSettings] = useState<SettingsState>(
     Object.entries(initialSettings).reduce((acc, [key, value]) => {
@@ -47,9 +56,11 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
     global_gemini_api_key_2: false,
     global_gemini_api_key_3: false,
     global_fal_api_key: false,
+    ai_prompt_engineer_system: false,
   });
   const [isCleaningCache, setIsCleaningCache] = useState(false);
   const [isUpdatingApiKeys, setIsUpdatingApiKeys] = useState(false);
+  const [isUpdatingSystemPrompt, setIsUpdatingSystemPrompt] = useState(false);
   const initialApiKeys = { 
     gemini1: initialSettings.global_gemini_api_key_1 || '', 
     gemini2: initialSettings.global_gemini_api_key_2 || '', 
@@ -57,6 +68,7 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
     fal: initialSettings.global_fal_api_key || '' 
   };
   const [apiKeys, setApiKeys] = useState(initialApiKeys);
+  const [systemPrompt, setSystemPrompt] = useState(systemPromptData?.prompt || '');
 
   const handleSettingChange = async (key: SettingKey, value: boolean) => {
     setIsUpdating(prev => ({ ...prev, [key]: true }));
@@ -96,6 +108,23 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
       toast({ title: 'Error', description: 'Failed to update API keys.', variant: 'destructive' });
     } finally {
       setIsUpdatingApiKeys(false);
+    }
+  };
+
+  const handleSystemPromptUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsUpdatingSystemPrompt(true);
+    try {
+      const result = await updateSystemPrompt(systemPrompt);
+      if (result.success) {
+        toast({ title: 'System Prompt Updated', description: 'AI prompt engineer system instruction has been saved.' });
+      } else {
+        toast({ title: 'Error', description: result.error || 'Failed to update system prompt.', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to update system prompt.', variant: 'destructive' });
+    } finally {
+      setIsUpdatingSystemPrompt(false);
     }
   };
 
@@ -183,6 +212,44 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
                 <Button type="submit" disabled={isUpdatingApiKeys}>
                   {isUpdatingApiKeys ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
                   Save API Keys
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card variant="glass">
+          <CardHeader>
+            <CardTitle>AI System Prompts</CardTitle>
+            <CardDescription>
+              Configure the system prompts used by AI models. Changes take effect immediately.
+              {systemPromptData?.source && (
+                <span className="block mt-1 text-xs">
+                  Current source: <span className="font-mono">{systemPromptData.source}</span>
+                </span>
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSystemPromptUpdate} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ai_prompt_engineer_system">Prompt Engineer System Instruction</Label>
+                <Textarea 
+                  id="ai_prompt_engineer_system" 
+                  value={systemPrompt} 
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSystemPrompt(e.target.value)}
+                  placeholder="Enter the system instruction for the AI prompt engineer..."
+                  rows={12}
+                  className="font-mono text-sm"
+                />
+                <div className="text-xs text-muted-foreground">
+                  This prompt instructs the AI on how to generate optimized prompts for image generation.
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isUpdatingSystemPrompt}>
+                  {isUpdatingSystemPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                  Save System Prompt
                 </Button>
               </div>
             </form>
