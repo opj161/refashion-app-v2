@@ -80,6 +80,32 @@
     --radius: 0.75rem;
   }
 
+  /* Ensure immediate background application to prevent hydration mismatches */
+  html {
+    background-color: hsl(224, 71%, 4%); /* Default to dark theme */
+  }
+
+  body {
+    background-color: hsl(224, 71%, 4%); /* Default to dark theme */
+  }
+
+  /* Theme-specific overrides */
+  html.light {
+    background-color: hsl(210, 20%, 98%);
+  }
+
+  html.light body {
+    background-color: hsl(210, 20%, 98%);
+  }
+
+  html.dark {
+    background-color: hsl(224, 71%, 4%);
+  }
+
+  html.dark body {
+    background-color: hsl(224, 71%, 4%);
+  }
+
   @keyframes aurora-animation {
     0% { transform: translate(-50%, -50%) rotate(0deg) scale(1.2); }
     50% { transform: translate(-50%, -50%) rotate(180deg) scale(1.5); }
@@ -193,7 +219,45 @@
     transition: opacity 0.3s ease-in-out;
   }
   
+
   .uploader-dropzone[data-state='drag-over']::before {
     opacity: 1;
+  }
+}
+
+@layer components {
+  /* New Splash Screen Styles - Unified for Server & Client */
+  .splash-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: hsl(var(--background)); /* Ensures it matches theme */
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+  }
+
+  .splash-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  /* Server splash screen - ensure it shows immediately */
+  #server-splash {
+    transition: none !important;
+  }
+
+  /* Prevent flash of unstyled content */
+  body {
+    background-color: hsl(var(--background));
+  }
+
+  /* Ensure smooth theme transitions */
+  html {
+    background-color: hsl(var(--background));
   }
 }

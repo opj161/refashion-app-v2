@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect } from 'react';
+import { setThemeCookie } from '@/actions/themeActions';
 
 // 1. Define Types
 type Theme = 'light' | 'dark' | 'system';
@@ -99,6 +100,10 @@ export function ThemeProvider({
         console.warn(`Failed to save theme to localStorage (key: "${storageKey}"):`, e);
       }
     }
+  // Fire-and-forget the server action to update the cookie.
+  // We don't need to await this, as the local state and localStorage
+  // provide the immediate UX update.
+  setThemeCookie(newTheme);
     setThemeState(newTheme);
   };
 
