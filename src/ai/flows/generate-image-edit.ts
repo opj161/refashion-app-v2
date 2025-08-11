@@ -98,22 +98,18 @@ function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAt
     background: pickRandom(BACKGROUND_OPTIONS),
   };
   
-  // Define the 4 optional parameters to choose from
-  const optionalParams = [
+  // Define the pool of parameters to choose from: ethnicity or hairStyle
+  const paramsToChooseFrom = [
     { key: 'ethnicity', options: ETHNICITY_OPTIONS },
     { key: 'hairStyle', options: HAIR_STYLE_OPTIONS },
-    { key: 'modelExpression', options: MODEL_EXPRESSION_OPTIONS },
-    { key: 'poseStyle', options: POSE_STYLE_OPTIONS },
   ];
   
-  // Randomly shuffle and select 2 of the 4 optional parameters
-  const shuffled = optionalParams.sort(() => Math.random() - 0.5);
-  const selectedParams = shuffled.slice(0, 2);
+  // Randomly select ONE of these parameters to randomize
+  const randomIndex = Math.floor(Math.random() * paramsToChooseFrom.length);
+  const selectedParam = paramsToChooseFrom[randomIndex];
   
-  // Randomize only the 2 selected parameters
-  selectedParams.forEach(param => {
-    (result as any)[param.key] = pickRandom(param.options);
-  });
+  // Randomize only the selected parameter
+  (result as any)[selectedParam.key] = pickRandom(selectedParam.options);
   
   return result;
 }

@@ -77,7 +77,7 @@ function formatParametersForAI(params: ModelAttributes): string {
 
   // Pose and expression line using actual options
   const poseText = getOptionText(POSE_STYLE_OPTIONS, params.poseStyle);
-  let poseLine = poseText || 'in a natural pose';
+  let poseLine = poseText || '(in a pose / motion fitting to the scene)';
 
   const expressionText = getOptionText(MODEL_EXPRESSION_OPTIONS, params.modelExpression);
   if (expressionText) poseLine += ', ' + expressionText;
@@ -124,7 +124,7 @@ function formatParametersForAI(params: ModelAttributes): string {
   lines.push(clothingLine);
 
   // Technical details with actual options
-  let technicalLine = 'Technical details: Full-body shot, Superior clarity, high-contrast, well-exposed, and masterful composition.';
+  let technicalLine = 'Technical details: Full-body shot and masterful composition.';
   
   const technicalEnhancements: string[] = [];
   
