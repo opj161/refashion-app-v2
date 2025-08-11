@@ -46,7 +46,7 @@ export async function getCachedImage(hash: string, type: 'bgRemoved' | 'upscaled
   const cachedEntry = cache[hash]?.[type];
   if (cachedEntry) {
     try {
-      const fullPath = path.join(process.cwd(), 'public', cachedEntry.path);
+      const fullPath = path.join(process.cwd(), cachedEntry.path);
       await fs.access(fullPath);
       return cachedEntry;
     } catch {
