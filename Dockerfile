@@ -2,7 +2,10 @@
 
 # Stage 1: Base image with dependencies
 FROM node:24-alpine AS base
-RUN apk add --no-cache vips-dev build-base su-exec libc6-compat
+RUN apk add --no-cache vips-dev build-base su-exec libc6-compat wget
+
+# Install MEGAcmd from Alpine's community repository
+RUN apk add --no-cache megacmd
 
 # Stage 2: Install all dependencies
 FROM base AS deps
@@ -36,13 +39,14 @@ ENV PORT=3000
 ARG PUID=1001
 ARG PGID=1001
 
+
 # 2. Handle User Creation:
-#    - First, delete the default 'node' user (UID 1000) to prevent conflicts.
-#    - Then, create our own 'appgroup' and 'appuser' with the correct host IDs.
 RUN deluser --remove-home node > /dev/null 2>&1 || true && \
     delgroup node > /dev/null 2>&1 || true && \
     addgroup -S -g ${PGID} appgroup && \
-    adduser -S -H -D -u ${PUID} -G appgroup appuser
+    adduser -S -H -D -u ${PUID} -G appgroup appuser && \
+    mkdir -p /home/appuser && \
+    chown appuser:appgroup /home/appuser
 
 # 3. Copy application files from previous stages, setting ownership directly.
 #    This is more efficient than a separate `chown` command.
@@ -59,10 +63,21 @@ RUN mkdir -p /app/user_data/history && \
     mkdir -p /app/uploads && \
     chown -R appuser:appgroup /app/user_data /app/uploads
 
-# 5. Switch to the unprivileged user for security. All subsequent commands run as 'appuser'.
+# 5. Copy and prepare the entrypoint script.
+COPY entrypoint.sh /app/entrypoint.sh
+
+# Run modifications as root.
+RUN sed -i 's/\r$//' /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
+
+# Now, set the correct ownership.
+RUN chown appuser:appgroup /app/entrypoint.sh
+
+# 6. Switch to the unprivileged user for security. This is the last step before runtime.
 USER appuser
 
 EXPOSE 3000
 
-# 6. Set the command to run the application. No entrypoint script is needed.
+# 7. Set the entrypoint and command to run the application.
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "server.js"]

@@ -12,6 +12,7 @@ import { promises as fs } from 'fs';
 import path, { parse } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import { triggerMegaBackup } from './megaBackup.service';
 
 /**
  * Downloads a file from a URL and saves it locally with proper permissions
@@ -77,7 +78,9 @@ export async function saveFileFromUrl(
     // Return relative URL
     const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
     console.log(`File saved to: ${filePath}, accessible at: ${relativeUrl}`);
-    return { relativeUrl, hash: fileHash };
+  // Trigger MEGA backup after successful save
+  triggerMegaBackup(relativeUrl);
+  return { relativeUrl, hash: fileHash };
     
   } catch (error) {
     console.error(`Error saving file from ${sourceUrl}:`, error);
@@ -130,7 +133,9 @@ export async function saveFileFromBuffer(
 
     const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
     console.log(`Buffer saved to: ${filePath}, accessible at: ${relativeUrl}`);
-    return { relativeUrl, hash: fileHash };
+  // Trigger MEGA backup after successful save
+  triggerMegaBackup(relativeUrl);
+  return { relativeUrl, hash: fileHash };
   } catch (error) {
     console.error(`Error saving buffer:`, error);
     throw new Error(`Failed to save buffer: ${(error as Error).message}`);
@@ -197,7 +202,9 @@ export async function saveDataUriLocally(
     // Return relative URL
     const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
     console.log(`Data URI saved to: ${filePath}, accessible at: ${relativeUrl}`);
-    return { relativeUrl, hash: fileHash };
+  // Trigger MEGA backup after successful save
+  triggerMegaBackup(relativeUrl);
+  return { relativeUrl, hash: fileHash };
   } catch (error) {
     console.error(`Error saving data URI:`, error);
     throw new Error(`Failed to save data URI: ${(error as Error).message}`);
