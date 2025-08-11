@@ -37,9 +37,9 @@ export default function ImagePreparationContainer({
     aspect,
     imageDimensions, // Read dimensions from store
     setCrop,
-    setCompletedCrop,
+    // setCompletedCrop is no longer needed here
     setAspect,
-    setImageDimensions,
+    setOriginalImageDimensions,
     applyCrop,
   } = useImageStore();
   
@@ -62,23 +62,23 @@ export default function ImagePreparationContainer({
   // --- THE CORE FIX: A robust onImageLoad handler ---
   // This is the single source of truth for what happens when an image is loaded or re-loaded.
   const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const { naturalWidth: width, naturalHeight: height } = e.currentTarget;
+    const { naturalWidth, naturalHeight } = e.currentTarget;
 
     // 1. Always store the new dimensions.
-    setImageDimensions({ width, height });
+    setOriginalImageDimensions({ width: naturalWidth, height: naturalHeight });
 
     // 2. Check if there's a predefined aspect ratio we need to apply.
     const currentAspect = useImageStore.getState().aspect; // Get latest aspect from store
     if (currentAspect) {
       // 3. Calculate and set the centered crop.
       const newCrop = centerCrop(
-        makeAspectCrop({ unit: '%', width: 90 }, currentAspect, width, height),
-        width,
-        height
+        makeAspectCrop({ unit: '%', width: 90 }, currentAspect, naturalWidth, naturalHeight),
+        naturalWidth,
+        naturalHeight
       );
       setCrop(newCrop);
     }
-  }, [setImageDimensions, setCrop]);
+  }, [setOriginalImageDimensions, setCrop]);
   
   // The complex useEffect is GONE! The logic is now correctly placed in the store's `setAspect` action.
 
@@ -121,12 +121,16 @@ export default function ImagePreparationContainer({
                 image={activeImage}
                 crop={crop}
                 aspect={aspect}
-                onCropChange={(pixelCrop, percentCrop) => setCrop(percentCrop)} // Best practice: use percentCrop
-                onCropComplete={setCompletedCrop}
+                // react-image-crop works with percentage-based `Crop` by default
+                onCropChange={(pixelCrop, percentCrop) => setCrop(percentCrop)}
+                onCropComplete={() => {}} // No-op since we use percentage-based crops
                 onImageLoad={onImageLoad}
                 disabled={isProcessing}
                 ruleOfThirds={true} // Enhancement: Enable rule of thirds
-                imageDimensions={imageDimensions} // PASS THE DIMENSIONS DOWN
+                imageDimensions={imageDimensions ? {
+                  width: imageDimensions.originalWidth,
+                  height: imageDimensions.originalHeight
+                } : undefined}
               />
             </div>
             <div className="lg:col-span-1 flex flex-col space-y-6">

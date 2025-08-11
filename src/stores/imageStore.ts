@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import type { PixelCrop as ScaledPixelCrop } from '@/lib/types';
 
 // Server Actions
 import { removeBackgroundAction } from "@/ai/actions/remove-background.action";
@@ -36,7 +37,10 @@ export interface ImageState {
   crop?: Crop;
   completedCrop?: PixelCrop;
   aspect?: number;
-  imageDimensions?: { width: number; height: number };
+  imageDimensions?: { 
+    originalWidth: number;
+    originalHeight: number;
+  };
 }
 
 export interface ImageActions {
@@ -52,7 +56,7 @@ export interface ImageActions {
   setCrop: (crop?: Crop) => void;
   setCompletedCrop: (crop?: PixelCrop) => void;
   setAspect: (aspect?: number) => void;
-  setImageDimensions: (dimensions: { width: number; height: number }) => void;
+  setOriginalImageDimensions: (dimensions: { width: number; height: number }) => void;
   
   // Async actions
   removeBackground: (username: string) => Promise<void>;
@@ -90,7 +94,7 @@ const initialState: ImageState = {
   crop: undefined,
   completedCrop: undefined,
   aspect: undefined,
-  imageDimensions: undefined,
+  imageDimensions: undefined
 };
 
 // --- Store Implementation ---
@@ -166,22 +170,25 @@ export const useImageStore = create<ImageStore>()(
       // --- Crop Actions ---
       setCrop: (crop) => set({ crop }, false, 'setCrop'),
       setCompletedCrop: (completedCrop) => set({ completedCrop }, false, 'setCompletedCrop'),
-      setImageDimensions: (dimensions) => set({ imageDimensions: dimensions }, false, 'setImageDimensions'),
+      setOriginalImageDimensions: (dimensions) => set({ 
+        imageDimensions: { 
+          originalWidth: dimensions.width, 
+          originalHeight: dimensions.height 
+        } 
+      }, false, 'setOriginalImageDimensions'),
 
       setAspect: (aspect) => {
         const { imageDimensions } = get();
         
-        // If dimensions are already available (e.g., image is loaded and user changes aspect),
-        // calculate the crop immediately.
-        if (imageDimensions) {
-          const { width, height } = imageDimensions;
+        if (imageDimensions?.originalWidth && imageDimensions?.originalHeight) {
+          const { originalWidth: width, originalHeight: height } = imageDimensions;
           const newCrop = aspect
             ? centerCrop(
                 makeAspectCrop({ unit: '%', width: 90 }, aspect, width, height),
                 width,
                 height
               )
-            : undefined; // Reset to undefined for free crop
+            : undefined;
           set({ aspect, crop: newCrop, completedCrop: undefined }, false, 'setAspect');
         } else {
           // If dimensions aren't ready, just set the desired aspect.
@@ -280,7 +287,7 @@ export const useImageStore = create<ImageStore>()(
 
           // Set original image and dimensions
           get().setOriginalImage(file, imageUrl, hash);
-          get().setImageDimensions({ width: originalWidth, height: originalHeight });
+          get().setOriginalImageDimensions({ width: originalWidth, height: originalHeight });
           
           return { resized, originalWidth, originalHeight };
         } catch (error) {
@@ -292,16 +299,30 @@ export const useImageStore = create<ImageStore>()(
       },
       
       applyCrop: async () => {
-        const { completedCrop, activeVersionId, versions } = get();
-        if (!completedCrop || !activeVersionId) {
-          throw new Error('Cannot apply crop: No active image or crop selection.');
+        const { crop, activeVersionId, versions, imageDimensions } = get();
+        if (!crop || !activeVersionId || !imageDimensions) {
+          throw new Error('Cannot apply crop: No active image, dimensions, or crop selection.');
         }
 
         const currentVersion = versions[activeVersionId];
         set({ isProcessing: true, processingStep: 'crop' }, false, 'applyCrop:start');
 
         try {
-          const result = await cropImage(currentVersion.imageUrl, completedCrop);
+          // Convert percentage-based crop to absolute pixels for the server
+          const scaledPixelCrop: ScaledPixelCrop = {
+            x: Math.round((crop.x / 100) * imageDimensions.originalWidth),
+            y: Math.round((crop.y / 100) * imageDimensions.originalHeight),
+            width: Math.round((crop.width / 100) * imageDimensions.originalWidth),
+            height: Math.round((crop.height / 100) * imageDimensions.originalHeight),
+          };
+
+          // A width of 0 means the user likely just clicked the image without dragging.
+          if (scaledPixelCrop.width === 0 || scaledPixelCrop.height === 0) {
+            throw new Error("Invalid crop selection: width or height is zero.");
+          }
+
+          // Call server action with the correctly scaled pixel values
+          const result = await cropImage(currentVersion.imageUrl, scaledPixelCrop);
           if (!result.success) {
             throw new Error(result.error);
           }

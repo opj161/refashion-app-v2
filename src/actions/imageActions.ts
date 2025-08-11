@@ -2,18 +2,12 @@
 
 import { saveFileFromBuffer } from '@/services/storage.service';
 import sharp, { type Region } from 'sharp';
+import type { PixelCrop } from '@/lib/types';
 import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
 
 const MAX_DIMENSION = 2048;
-
-interface PixelCrop {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
 
 type PrepareImageResult = {
   success: true;
@@ -124,7 +118,12 @@ export async function cropImage(
     };
 
     // Ensure crop dimensions are within image bounds
-    if (cropRegion.left + cropRegion.width > metadata.width || cropRegion.top + cropRegion.height > metadata.height) {
+    if (
+      cropRegion.left < 0 ||
+      cropRegion.top < 0 ||
+      cropRegion.left + cropRegion.width > metadata.width ||
+      cropRegion.top + cropRegion.height > metadata.height
+    ) {
       return { success: false, error: 'Crop dimensions are out of bounds.' };
     }
 

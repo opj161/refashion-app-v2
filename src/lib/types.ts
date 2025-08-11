@@ -59,3 +59,10 @@ export interface ModelAttributes {
   overallMood: string;
   fabricRendering: string;
 }
+
+export interface PixelCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
