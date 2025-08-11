@@ -113,7 +113,7 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
       console.log(`Uploading local image for video generation: ${input.image_url}`);
       const localFilePath = path.join(process.cwd(), 'public', input.image_url);
       const fileBuffer = await fs.readFile(localFilePath);
-      const imageBlob = new Blob([fileBuffer]);
+      const imageBlob = new Blob([new Uint8Array(fileBuffer)]);
       
       falPublicUrl = await uploadToFalStorage(imageBlob, user.username);
       console.log(`Image uploaded to Fal Storage. Public URL: ${falPublicUrl}`);
