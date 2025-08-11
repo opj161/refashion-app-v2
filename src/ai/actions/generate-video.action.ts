@@ -111,7 +111,7 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
     } else if (input.image_url.startsWith('/uploads/')) {
       // Local path - read file and upload to Fal.ai
       console.log(`Uploading local image for video generation: ${input.image_url}`);
-      const localFilePath = path.join(process.cwd(), 'public', input.image_url);
+      const localFilePath = path.join(process.cwd(), input.image_url);
       const fileBuffer = await fs.readFile(localFilePath);
       const imageBlob = new Blob([new Uint8Array(fileBuffer)]);
       
