@@ -161,7 +161,10 @@ export async function fetchImageAndConvertToDataUri(
   imageUrl: string
 ): Promise<{ success: true; dataUri: string; hash: string } | { success: false; error: string }> {
   try {
+    // CACHE-STRATEGY: Policy: Static - The content at a given image URL is expected to be immutable.
+    // Caching this fetch is critical to avoid re-downloading the same asset.
     const response = await fetch(imageUrl, {
+      cache: 'force-cache',
       signal: AbortSignal.timeout(15000), 
     });
 

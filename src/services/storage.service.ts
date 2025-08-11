@@ -30,8 +30,11 @@ export async function saveFileFromUrl(
 ): Promise<{ relativeUrl: string; hash: string }> {
   console.log(`Downloading from ${sourceUrl} to save in /uploads/${subfolder}`);
   try {
+    // CACHE-STRATEGY: Policy: Dynamic - This function's purpose is to download and save a file.
+    // We must use 'no-store' to ensure we get the latest version from the source URL,
+    // bypassing any potential stale data in our own server's cache.
     // Download the file from the URL
-    const response = await fetch(sourceUrl);
+    const response = await fetch(sourceUrl, { cache: 'no-store' });
     if (!response.ok) {
       throw new Error(`Failed to download file: ${response.statusText}`);
     }

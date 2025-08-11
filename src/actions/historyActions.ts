@@ -57,12 +57,12 @@ export async function getUserHistoryPaginated(
     throw new Error('User not authenticated');
   }
   
-  return dbService.getPaginatedHistoryForUser({
-    username: user.username,
+  return dbService.getPaginatedHistoryForUser(
+    user.username,
     page,
     limit,
     filter
-  });
+  );
 }
 
 export async function addHistoryItem(
@@ -274,12 +274,12 @@ export async function getHistoryPaginated(
   }
   
   const filterParam = filter === 'all' ? undefined : filter;
-  return dbService.getPaginatedHistoryForUser({
-    username: user.username,
+  return dbService.getPaginatedHistoryForUser(
+    user.username,
     page,
     limit,
-    filter: filterParam
-  });
+    filterParam
+  );
 }
 
 export async function getVideoHistoryPaginated(

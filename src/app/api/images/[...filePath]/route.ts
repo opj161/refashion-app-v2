@@ -3,6 +3,8 @@ import path from 'path';
 import fs from 'fs/promises';
 import mime from 'mime-types';
 
+export const dynamic = 'force-static';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ filePath: string[] }> }
@@ -27,11 +29,16 @@ export async function GET(
     const fileBuffer = await fs.readFile(absoluteFilePath);
     const mimeType = mime.lookup(absoluteFilePath) || 'application/octet-stream';
 
-    return new NextResponse(fileBuffer, {
+    // By creating a Blob from a Uint8Array view of the Buffer, we ensure the
+    // NextResponse receives a standard Web API object, resolving the type conflict.
+    // This pattern is consistent with other parts of the codebase (e.g., video actions).
+    const blob = new Blob([new Uint8Array(fileBuffer)], { type: mimeType });
+
+    return new NextResponse(blob, {
       status: 200,
       headers: {
         'Content-Type': mimeType,
-        'Cache-Control': 'public, max-age=31536000, immutable', // Cache aggressively
+        'Cache-Control': 'public, max-age=31536000, immutable',
       },
     });
   } catch (error: any) {

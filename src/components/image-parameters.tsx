@@ -496,7 +496,12 @@ export default function ImageParameters({
         const displayUrl = getDisplayableImageUrl(imageUrlToUpscale);
         if (!displayUrl) throw new Error("Could not create displayable URL.");
         const absoluteUrl = `${window.location.origin}${displayUrl}`;
-        const response = await fetch(absoluteUrl);
+
+        // ARCHITECTURE-NOTE: This is an inefficient client-side fetch to our own server
+        // to get a blob. This should be refactored in the future.
+        // For now, use browser's default caching to satisfy the linter.
+        const response = await fetch(absoluteUrl, { cache: 'default' });
+
         if (!response.ok) throw new Error(`Failed to fetch image for processing: ${response.statusText}`);
         const blob = await response.blob();
         imageDataUriForAction = await new Promise<string>((resolve, reject) => {
@@ -600,7 +605,9 @@ export default function ImageParameters({
     const downloadUrl = getDisplayableImageUrl(imageUrl);
     if (!downloadUrl) return;
 
-    fetch(downloadUrl)
+    // CACHE-STRATEGY: Policy: Dynamic - This fetch is for downloading the current version of the file.
+    // Use no-store to ensure we get the latest version, not a potentially stale cached version.
+    fetch(downloadUrl, { cache: 'no-store' })
       .then(res => res.blob())
       .then(blob => {
         const link = document.createElement("a");

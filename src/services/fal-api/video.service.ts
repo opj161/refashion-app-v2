@@ -132,6 +132,7 @@ export async function startVideoGenerationWithWebhook(input: VideoGenerationInpu
     if (input.end_image_url) falInput.end_image_url = input.end_image_url;
     console.log('Fal.ai input parameters:', JSON.stringify(falInput, null, 2));
     const falKey = await getApiKeyForUser(username, 'fal');
+    // CACHE-STRATEGY: Policy: Dynamic - This is a POST request to an external API to start a job. It must never be cached.
     const response = await fetch(`https://queue.fal.run/${modelId}?fal_webhook=${encodeURIComponent(webhookUrl)}`, {
       method: 'POST',
       headers: {
@@ -139,6 +140,7 @@ export async function startVideoGenerationWithWebhook(input: VideoGenerationInpu
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(falInput),
+      cache: 'no-store',
     });
     if (!response.ok) {
       throw new Error(`Fal.ai API error: ${response.statusText}`);

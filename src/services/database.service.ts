@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
@@ -167,8 +168,7 @@ function initSchema(db: Database.Database) {
   console.log('Database schema initialized.');
 }
 
-// Database operations
-export interface PaginationOptions {
+interface PaginationOptions {
   username: string;
   page: number;
   limit: number;
@@ -201,7 +201,7 @@ function getPreparedStatements() {
     const db = getDb();
     
     // Removed stray SQL code
-    preparedStatements.insertHistory = db.prepare(`
+  preparedStatements.insertHistory = db.prepare( `
       INSERT OR REPLACE INTO history 
       (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error, webhook_url)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -326,13 +326,13 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
   };
 }
 
-export function insertHistoryItem(item: HistoryItem): void {
+export const insertHistoryItem = (item: HistoryItem): void => {
   const db = getDb();
   const statements = getPreparedStatements();
   
   const insertTransaction = db.transaction(() => {
     // Insert main history record
-    statements.insertHistory!.run(
+  statements.insertHistory?.run(
       item.id,
       item.username,
       item.timestamp,
@@ -349,7 +349,7 @@ export function insertHistoryItem(item: HistoryItem): void {
     // Insert edited images
     item.editedImageUrls.forEach((url, index) => {
       if (url) {
-        statements.insertImage!.run(item.id, url, 'edited', index);
+        statements.insertImage?.run(item.id, url, 'edited', index);
       }
     });
     
@@ -357,7 +357,7 @@ export function insertHistoryItem(item: HistoryItem): void {
     if (item.originalImageUrls) {
       item.originalImageUrls.forEach((url, index) => {
         if (url) {
-          statements.insertImage!.run(item.id, url, 'original_for_comparison', index);
+          statements.insertImage?.run(item.id, url, 'original_for_comparison', index);
         }
       });
     }
@@ -366,20 +366,20 @@ export function insertHistoryItem(item: HistoryItem): void {
     if (item.generatedVideoUrls) {
       item.generatedVideoUrls.forEach((url, index) => {
         if (url) {
-          statements.insertImage!.run(item.id, url, 'generated_video', index);
+          statements.insertImage?.run(item.id, url, 'generated_video', index);
         }
       });
     }
   });
   
   insertTransaction();
-}
+};
 
-export function findHistoryItemById(id: string): HistoryItem | null {
+export const findHistoryItemById = cache((id: string): HistoryItem | null => {
   const statements = getPreparedStatements();
-  const row = statements.findHistoryById!.get(id);
+  const row = statements.findHistoryById?.get(id);
   return row ? rowToHistoryItem(row) : null;
-}
+});
 
 /**
  * Atomically updates a history item and its related images/videos.
@@ -387,7 +387,7 @@ export function findHistoryItemById(id: string): HistoryItem | null {
  * @param id The ID of the history item to update.
  * @param updates A partial HistoryItem object. For arrays, you can provide the full array to replace it.
  */
-export function updateHistoryItem(id: string, updates: Partial<HistoryItem>): void {
+export const updateHistoryItem = (id: string, updates: Partial<HistoryItem>): void => {
   const db = getDb();
 
   const updateTransaction = db.transaction(() => {
@@ -441,10 +441,10 @@ export function updateHistoryItem(id: string, updates: Partial<HistoryItem>): vo
   });
 
   updateTransaction();
-}
+};
 
 /**
- * @deprecated Use the new atomic `updateHistoryItem` function instead. This function is not safe from race conditions for complex updates.
+ * @deprecated Use the new atomic `updateHistoryItem` function instead. This function is not safe from race conditions.
  */
 export function _dangerouslyUpdateHistoryItem(
   id: string,
@@ -457,7 +457,7 @@ export function _dangerouslyUpdateHistoryItem(
   
   const updateTransaction = db.transaction(() => {
     // Update main record
-    statements.updateHistory!.run(
+    statements.updateHistory?.run(
       updates.constructedPrompt || null,
       updates.videoGenerationParams ? JSON.stringify(updates.videoGenerationParams) : null,
       id
@@ -465,12 +465,12 @@ export function _dangerouslyUpdateHistoryItem(
     
     // If updating images/videos, delete existing and re-insert
     if (updates.editedImageUrls || updates.originalImageUrls || updates.generatedVideoUrls) {
-      statements.deleteImagesByHistoryId!.run(id);
+      statements.deleteImagesByHistoryId?.run(id);
       
       if (updates.editedImageUrls) {
         updates.editedImageUrls.forEach((url, index) => {
           if (url) {
-            statements.insertImage!.run(id, url, 'edited', index);
+            statements.insertImage?.run(id, url, 'edited', index);
           }
         });
       }
@@ -478,7 +478,7 @@ export function _dangerouslyUpdateHistoryItem(
       if (updates.originalImageUrls) {
         updates.originalImageUrls.forEach((url, index) => {
           if (url) {
-            statements.insertImage!.run(id, url, 'original_for_comparison', index);
+            statements.insertImage?.run(id, url, 'original_for_comparison', index);
           }
         });
       }
@@ -486,7 +486,7 @@ export function _dangerouslyUpdateHistoryItem(
       if (updates.generatedVideoUrls) {
         updates.generatedVideoUrls.forEach((url, index) => {
           if (url) {
-            statements.insertImage!.run(id, url, 'generated_video', index);
+            statements.insertImage?.run(id, url, 'generated_video', index);
           }
         });
       }
@@ -496,15 +496,19 @@ export function _dangerouslyUpdateHistoryItem(
   updateTransaction();
 }
 
-export function findHistoryByUsername(username: string): HistoryItem[] {
+export const findHistoryByUsername = cache((username: string): HistoryItem[] => {
   const statements = getPreparedStatements();
-  const rows = statements.findHistoryByUsername!.all(username);
+  const rows = statements.findHistoryByUsername?.all(username) as any[];
   return rows.map(rowToHistoryItem);
-}
+});
 
-export function getPaginatedHistoryForUser(options: PaginationOptions): PaginationResult {
+export const getPaginatedHistoryForUser = cache((
+  username: string,
+  page: number,
+  limit: number,
+  filter?: 'video' | 'image'
+): PaginationResult => {
   const statements = getPreparedStatements();
-  const { username, page, limit, filter } = options;
   
   const offset = (page - 1) * limit;
   
@@ -525,7 +529,7 @@ export function getPaginatedHistoryForUser(options: PaginationOptions): Paginati
   const countResult = countQuery.get(username) as { count: number };
   const totalCount = countResult.count;
   
-  const rows = dataQuery.all(username, limit, offset);
+  const rows = dataQuery.all(username, limit, offset) as any[];
   const items = rows.map(rowToHistoryItem);
   
   const hasMore = offset + limit < totalCount;
@@ -536,9 +540,9 @@ export function getPaginatedHistoryForUser(options: PaginationOptions): Paginati
     hasMore,
     currentPage: page
   };
-}
+});
 
-export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10): PaginationResult {
+export const getAllUsersHistoryPaginated = cache((page: number = 1, limit: number = 10): PaginationResult => {
   const db = getDb();
   
   const totalCount = db.prepare('SELECT COUNT(*) as count FROM history').get() as { count: number };
@@ -553,7 +557,7 @@ export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10
     GROUP BY h.id
     ORDER BY h.timestamp DESC
     LIMIT ? OFFSET ?
-  `).all(limit, offset);
+  `).all(limit, offset) as any[];
   
   const items = rows.map(rowToHistoryItem);
   const hasMore = offset + limit < totalCount.count;
@@ -564,9 +568,9 @@ export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10
     hasMore,
     currentPage: page
   };
-}
+});
 
-export function getHistoryItemStatus(id: string, username: string): VideoStatusPayload | null {
+export const getHistoryItemStatus = cache((id: string, username: string): VideoStatusPayload | null => {
   const db = getDb();
   const stmt = db.prepare(`
     SELECT videoGenerationParams, 
@@ -601,7 +605,7 @@ export function getHistoryItemStatus(id: string, username: string): VideoStatusP
     error: params.error,
     seed: params.seed,
   };
-}
+});
 
 type FullUser = SessionUser & {
   passwordHash: string;
@@ -611,7 +615,7 @@ type FullUser = SessionUser & {
   fal_api_key?: string; fal_api_key_mode: 'global' | 'user_specific';
 };
 
-export function findUserByUsername(username: string): FullUser | null {
+export const findUserByUsername = cache((username: string): FullUser | null => {
   const db = getDb();
   const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
   const row: any = stmt.get(username);
@@ -633,9 +637,9 @@ export function findUserByUsername(username: string): FullUser | null {
     fal_api_key: row.fal_api_key,
     fal_api_key_mode: row.fal_api_key_mode
   };
-}
+});
 
-export function findUserByApiKey(apiKey: string): FullUser | null {
+export const findUserByApiKey = cache((apiKey: string): FullUser | null => {
   const db = getDb();
   const stmt = db.prepare('SELECT * FROM users WHERE app_api_key = ?');
   const row: any = stmt.get(apiKey);
@@ -657,7 +661,7 @@ export function findUserByApiKey(apiKey: string): FullUser | null {
     fal_api_key: row.fal_api_key,
     fal_api_key_mode: row.fal_api_key_mode
   };
-}
+});
 
 // Cleanup function for graceful shutdown
 export function closeDb(): void {

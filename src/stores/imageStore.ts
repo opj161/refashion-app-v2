@@ -352,9 +352,10 @@ export const useImageStore = create<ImageStore>()(
           let hash: string;
           let displayImageUrl = imageUrl;
 
-          if (imageUrl.startsWith('http')) {
-            // External URL: fetch via server action
-            console.log('Fetching external image via server action:', imageUrl);
+          // Allow the function to handle both external http URLs and internal /api/ proxy URLs.
+          if (imageUrl.startsWith('http') || imageUrl.startsWith('/api/')) {
+            // External URL or internal proxy: fetch via server action
+            console.log('Fetching image via server action:', imageUrl);
             const result = await fetchImageAndConvertToDataUri(imageUrl);
             if (!result.success) {
               throw new Error(result.error);

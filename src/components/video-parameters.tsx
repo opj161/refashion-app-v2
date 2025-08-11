@@ -396,10 +396,13 @@ export default function VideoParameters({
         aestheticVibe,
       };
 
+      // CACHE-STRATEGY: Policy: Dynamic - This is a client-side POST request to initiate a server action. It must never be cached.
       const response = await fetch('/api/video/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(videoInput),
+        // Explicitly set no-store to satisfy the linter for this dynamic action.
+        cache: 'no-store',
       });
 
       if (!response.ok) {

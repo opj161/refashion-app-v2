@@ -179,8 +179,10 @@ async function performSingleImageGeneration(
     let dataUriToProcess = input.imageDataUriOrUrl;
     if (input.imageDataUriOrUrl.startsWith('http://') || input.imageDataUriOrUrl.startsWith('https://')) {
       try {
+        // CACHE-STRATEGY: Policy: Static - The source image URL should be treated as a static asset.
+        // Caching prevents re-downloading if the same image is used in multiple generation slots.
         console.log(`Fetching image from URL for ${flowIdentifier}: ${input.imageDataUriOrUrl}`);
-        const response = await fetch(input.imageDataUriOrUrl);
+        const response = await fetch(input.imageDataUriOrUrl, { cache: 'force-cache' } as any);
         if (!response.ok) {
           throw new Error(`Failed to fetch image from URL (${input.imageDataUriOrUrl}): ${response.status} ${response.statusText}`);
         }
