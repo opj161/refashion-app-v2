@@ -257,7 +257,7 @@ export const BACKGROUND_OPTIONS: OptionWithPromptSegment[] = [
   {
     value: "urban_street_day",
     displayLabel: "Urban - Daytime Street",
-    promptSegment: "a modern city street with interesting architecture or storefronts",
+    promptSegment: "a modern city street with interesting architecture",
   },
   {
     value: "urban_rooftop",
@@ -267,12 +267,12 @@ export const BACKGROUND_OPTIONS: OptionWithPromptSegment[] = [
   {
     value: "urban_industrial",
     displayLabel: "Urban - Industrial Setting",
-    promptSegment: "a raw industrial space with exposed brick and concrete textures",
+    promptSegment: "a raw industrial space",
   },
   {
     value: "urban_night",
     displayLabel: "Urban - Night Scene",
-    promptSegment: "an urban street at night, glowing with neon signs and city lights",
+    promptSegment: "an urban street at night",
   },
 
   // --- Outdoor - Nature ---
@@ -299,7 +299,7 @@ export const BACKGROUND_OPTIONS: OptionWithPromptSegment[] = [
   {
     value: "nature_botanical_garden",
     displayLabel: "Nature - Botanical Garden",
-    promptSegment: "a lush botanical garden or greenhouse with diverse, exotic plants",
+    promptSegment: "a lush botanical garden with diverse, exotic plants",
   },
 ];
 export const TIME_OF_DAY_OPTIONS: OptionWithPromptSegment[] = [

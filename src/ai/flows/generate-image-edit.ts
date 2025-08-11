@@ -87,29 +87,17 @@ interface GeminiErrorData { // Renamed from GeminiErrorResponse to avoid conflic
 /**
  * Generate random parameters for stylistic settings only
  * Excludes core model attributes (gender, bodyType, bodySize, ageRange) which should remain as user selected
- * Always randomizes background, and randomly selects 2 of the other 4 parameters to randomize
+ * Always randomizes background and ethnicity only
  */
 function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAttributes {
   const pickRandom = (options: any[]) => options[Math.floor(Math.random() * options.length)].value;
   
-  // Always randomize background
+  // Randomize background and ethnicity only
   const result = {
     ...baseParameters, // Keep all existing parameters
     background: pickRandom(BACKGROUND_OPTIONS),
+    ethnicity: pickRandom(ETHNICITY_OPTIONS),
   };
-  
-  // Define the pool of parameters to choose from: ethnicity or hairStyle
-  const paramsToChooseFrom = [
-    { key: 'ethnicity', options: ETHNICITY_OPTIONS },
-    { key: 'hairStyle', options: HAIR_STYLE_OPTIONS },
-  ];
-  
-  // Randomly select ONE of these parameters to randomize
-  const randomIndex = Math.floor(Math.random() * paramsToChooseFrom.length);
-  const selectedParam = paramsToChooseFrom[randomIndex];
-  
-  // Randomize only the selected parameter
-  (result as any)[selectedParam.key] = pickRandom(selectedParam.options);
   
   return result;
 }
@@ -375,10 +363,8 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
       // Log the randomized parameters for each prompt
       parametersForPrompts.forEach((params, index) => {
         console.log(`\n🎲 RANDOM PARAMETERS SET ${index + 1}:`);
-        console.log(`Ethnicity: ${params.ethnicity}, Hair: ${params.hairStyle}`);
-        console.log(`Expression: ${params.modelExpression}, Pose: ${params.poseStyle}`);
-        console.log(`Background: ${params.background}`);
-        console.log(`[Keeping user's: Gender: ${params.gender}, Body: ${params.bodyShapeAndSize}, Age: ${params.ageRange}]`);
+        console.log(`Ethnicity: ${params.ethnicity}, Background: ${params.background}`);
+        console.log(`[Keeping user's: Gender: ${params.gender}, Body: ${params.bodyShapeAndSize}, Age: ${params.ageRange}, Hair: ${params.hairStyle}, Expression: ${params.modelExpression}, Pose: ${params.poseStyle}]`);
       });
     } else {
       // Use the same parameters for all 3 prompts

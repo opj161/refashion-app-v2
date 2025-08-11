@@ -53,9 +53,6 @@ function formatParametersForAI(params: ModelAttributes): string {
   // Build the conversational request
   const lines: string[] = [];
   
-  // Always start with this
-  lines.push('high-quality photorealistic image');
-
   // Model description line using actual option constants
   const genderOption = GENDER_OPTIONS.find(opt => opt.value === params.gender);
   let modelLine = 'a stunning ' + (genderOption?.promptSegment || 'fashion') + ' fashion model';
@@ -77,12 +74,18 @@ function formatParametersForAI(params: ModelAttributes): string {
 
   // Pose and expression line using actual options
   const poseText = getOptionText(POSE_STYLE_OPTIONS, params.poseStyle);
-  let poseLine = poseText || '(in a pose / motion fitting to the scene)';
-
   const expressionText = getOptionText(MODEL_EXPRESSION_OPTIONS, params.modelExpression);
-  if (expressionText) poseLine += ', ' + expressionText;
-
-  lines.push(poseLine);
+  
+  // Only add pose/expression line if we have actual values
+  if (poseText || expressionText) {
+    let poseLine = '';
+    if (poseText) poseLine += poseText;
+    if (expressionText) {
+      if (poseLine) poseLine += ', ';
+      poseLine += expressionText;
+    }
+    lines.push(poseLine);
+  }
 
   // Setting line - only create if background is chosen or other setting elements exist
   const backgroundText = getOptionText(BACKGROUND_OPTIONS, params.background);
@@ -114,18 +117,13 @@ function formatParametersForAI(params: ModelAttributes): string {
     lines.push('setting: ' + settingElements.join(', '));
   }
 
-  // Clothing line with fabric rendering
-  let clothingLine = 'wearing this clothing item in the image. The clothing has a clean, precise fit, with photorealistic fabric texture';
-  
+  // Only add fabric rendering if it's actually set
   const fabricText = getOptionText(FABRIC_RENDERING_OPTIONS, params.fabricRendering);
-  if (fabricText) clothingLine += ', ' + fabricText;
-  
-  clothingLine += '.';
-  lines.push(clothingLine);
+  if (fabricText) {
+    lines.push('fabric rendering: ' + fabricText);
+  }
 
-  // Technical details with actual options
-  let technicalLine = 'Technical details: Full-body shot and masterful composition.';
-  
+  // Technical details with actual options only
   const technicalEnhancements: string[] = [];
   
   const lightQualityText = getOptionText(LIGHT_QUALITY_OPTIONS, params.lightQuality);
@@ -140,11 +138,10 @@ function formatParametersForAI(params: ModelAttributes): string {
   const depthOfFieldText = getOptionText(DEPTH_OF_FIELD_OPTIONS, params.depthOfField);
   if (depthOfFieldText) technicalEnhancements.push(depthOfFieldText);
 
+  // Only add technical enhancements if there are any
   if (technicalEnhancements.length > 0) {
-    technicalLine += ' ' + technicalEnhancements.join(', ') + '.';
+    lines.push('technical details: ' + technicalEnhancements.join(', '));
   }
-  
-  lines.push(technicalLine);
 
   return `Please create the perfect prompt for me, using these parameters:
 \`\`\`
