@@ -186,11 +186,26 @@ export async function updateUserConfiguration(formData: FormData) {
   const falMode = formData.get('fal_api_key_mode');
   if (falMode) { setClauses.push('fal_api_key_mode = ?'); params.push(falMode); }
 
-  // Handle optional API keys. Update if the field was submitted (even if empty, to allow clearing)
-  if (formData.has('gemini_api_key_1')) { setClauses.push('gemini_api_key_1 = ?'); params.push(encrypt(formData.get('gemini_api_key_1') as string)); }
-  if (formData.has('gemini_api_key_2')) { setClauses.push('gemini_api_key_2 = ?'); params.push(encrypt(formData.get('gemini_api_key_2') as string)); }
-  if (formData.has('gemini_api_key_3')) { setClauses.push('gemini_api_key_3 = ?'); params.push(encrypt(formData.get('gemini_api_key_3') as string)); }
-  if (formData.has('fal_api_key')) { setClauses.push('fal_api_key = ?'); params.push(encrypt(formData.get('fal_api_key') as string)); }
+  // --- START OF FIX ---
+  // Helper function to handle key updates.
+  // This will only update the key if a NEW, NON-EMPTY value is provided.
+  // It also handles clearing the key if an empty string is explicitly submitted.
+  const handleKeyUpdate = (keyName: string) => {
+    const key_value = formData.get(keyName);
+    
+    // The key exists in the form data, meaning the input was enabled.
+    if (key_value !== null) {
+      setClauses.push(`${keyName} = ?`);
+      params.push(encrypt(key_value as string));
+    }
+  };
+
+  // Replace the old logic with the new helper
+  handleKeyUpdate('gemini_api_key_1');
+  handleKeyUpdate('gemini_api_key_2');
+  handleKeyUpdate('gemini_api_key_3');
+  handleKeyUpdate('fal_api_key');
+  // --- END OF FIX ---
 
   if (setClauses.length === 0) {
     return { success: true, message: 'No changes submitted.' };

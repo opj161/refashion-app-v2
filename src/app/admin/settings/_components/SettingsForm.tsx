@@ -61,13 +61,13 @@ export function SettingsForm({ initialSettings, maskedApiKeys, systemPromptData 
   const [isCleaningCache, setIsCleaningCache] = useState(false);
   const [isUpdatingApiKeys, setIsUpdatingApiKeys] = useState(false);
   const [isUpdatingSystemPrompt, setIsUpdatingSystemPrompt] = useState(false);
-  const initialApiKeys = { 
-    gemini1: initialSettings.global_gemini_api_key_1 || '', 
-    gemini2: initialSettings.global_gemini_api_key_2 || '', 
-    gemini3: initialSettings.global_gemini_api_key_3 || '', 
-    fal: initialSettings.global_fal_api_key || '' 
-  };
-  const [apiKeys, setApiKeys] = useState(initialApiKeys);
+  // FIX: Initialize API keys with empty strings to avoid double encryption
+  const [apiKeys, setApiKeys] = useState({
+    gemini1: '',
+    gemini2: '',
+    gemini3: '',
+    fal: ''
+  });
   const [systemPrompt, setSystemPrompt] = useState(systemPromptData?.prompt || '');
 
   const handleSettingChange = async (key: SettingKey, value: boolean) => {
@@ -99,11 +99,32 @@ export function SettingsForm({ initialSettings, maskedApiKeys, systemPromptData 
     e.preventDefault();
     setIsUpdatingApiKeys(true);
     try {
-      await updateEncryptedSetting('global_gemini_api_key_1', apiKeys.gemini1);
-      await updateEncryptedSetting('global_gemini_api_key_2', apiKeys.gemini2);
-      await updateEncryptedSetting('global_gemini_api_key_3', apiKeys.gemini3);
-      await updateEncryptedSetting('global_fal_api_key', apiKeys.fal);
-      toast({ title: 'API Keys Updated', description: 'Global API keys have been saved.' });
+      // Create an array of update promises
+      const updatePromises = [];
+      
+      // Only add an update promise if the user has entered a new value
+      if (apiKeys.gemini1) {
+        updatePromises.push(updateEncryptedSetting('global_gemini_api_key_1', apiKeys.gemini1));
+      }
+      if (apiKeys.gemini2) {
+        updatePromises.push(updateEncryptedSetting('global_gemini_api_key_2', apiKeys.gemini2));
+      }
+      if (apiKeys.gemini3) {
+        updatePromises.push(updateEncryptedSetting('global_gemini_api_key_3', apiKeys.gemini3));
+      }
+      if (apiKeys.fal) {
+        updatePromises.push(updateEncryptedSetting('global_fal_api_key', apiKeys.fal));
+      }
+
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+        toast({ title: 'API Keys Updated', description: 'Global API keys have been saved.' });
+        // Reset the form after successful submission
+        setApiKeys({ gemini1: '', gemini2: '', gemini3: '', fal: '' });
+      } else {
+        toast({ title: 'No Changes', description: 'No new API keys were entered.' });
+      }
+
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to update API keys.', variant: 'destructive' });
     } finally {
@@ -190,22 +211,22 @@ export function SettingsForm({ initialSettings, maskedApiKeys, systemPromptData 
             <form onSubmit={handleApiKeysUpdate} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="global_gemini_api_key_1">Global Gemini API Key 1</Label>
-                <Input id="global_gemini_api_key_1" type="password" value={apiKeys.gemini1} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, gemini1: e.target.value}))} placeholder={maskedApiKeys?.gemini1 || undefined} />
+                <Input id="global_gemini_api_key_1" type="password" value={apiKeys.gemini1} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, gemini1: e.target.value}))} placeholder={maskedApiKeys?.gemini1 || "Enter new key"} />
                 {maskedApiKeys?.gemini1 && <div className="text-xs text-muted-foreground">Current: {maskedApiKeys.gemini1}</div>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="global_gemini_api_key_2">Global Gemini API Key 2</Label>
-                <Input id="global_gemini_api_key_2" type="password" value={apiKeys.gemini2} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, gemini2: e.target.value}))} placeholder={maskedApiKeys?.gemini2 || undefined} />
+                <Input id="global_gemini_api_key_2" type="password" value={apiKeys.gemini2} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, gemini2: e.target.value}))} placeholder={maskedApiKeys?.gemini2 || "Enter new key"} />
                 {maskedApiKeys?.gemini2 && <div className="text-xs text-muted-foreground">Current: {maskedApiKeys.gemini2}</div>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="global_gemini_api_key_3">Global Gemini API Key 3</Label>
-                <Input id="global_gemini_api_key_3" type="password" value={apiKeys.gemini3} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, gemini3: e.target.value}))} placeholder={maskedApiKeys?.gemini3 || undefined} />
+                <Input id="global_gemini_api_key_3" type="password" value={apiKeys.gemini3} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, gemini3: e.target.value}))} placeholder={maskedApiKeys?.gemini3 || "Enter new key"} />
                 {maskedApiKeys?.gemini3 && <div className="text-xs text-muted-foreground">Current: {maskedApiKeys.gemini3}</div>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="global_fal_api_key">Global Fal.ai API Key</Label>
-                <Input id="global_fal_api_key" type="password" value={apiKeys.fal} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, fal: e.target.value}))} placeholder={maskedApiKeys?.fal || undefined} />
+                <Input id="global_fal_api_key" type="password" value={apiKeys.fal} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, fal: e.target.value}))} placeholder={maskedApiKeys?.fal || "Enter new key"} />
                 {maskedApiKeys?.fal && <div className="text-xs text-muted-foreground">Current: {maskedApiKeys.fal}</div>}
               </div>
               <div className="flex justify-end">

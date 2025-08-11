@@ -269,11 +269,6 @@ export const BACKGROUND_OPTIONS: OptionWithPromptSegment[] = [
     displayLabel: "Urban - Industrial Setting",
     promptSegment: "a raw industrial space",
   },
-  {
-    value: "urban_night",
-    displayLabel: "Urban - Night Scene",
-    promptSegment: "an urban street at night",
-  },
 
   // --- Outdoor - Nature ---
   {
@@ -300,6 +295,16 @@ export const BACKGROUND_OPTIONS: OptionWithPromptSegment[] = [
     value: "nature_botanical_garden",
     displayLabel: "Nature - Botanical Garden",
     promptSegment: "a lush botanical garden with diverse, exotic plants",
+  },
+    {
+    value: "nature_waterfall",
+    displayLabel: "Nature - Mossy Waterfall",
+    promptSegment: "a scenic waterfall with moss-covered rocks and lush foliage",
+  },
+  {
+    value: "nature_jungle",
+    displayLabel: "Nature - Tropical Jungle",
+    promptSegment: "a dense tropical jungle with large leaves and hanging vines",
   },
 ];
 export const TIME_OF_DAY_OPTIONS: OptionWithPromptSegment[] = [
