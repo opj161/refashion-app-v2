@@ -347,37 +347,46 @@ export const useImageStore = create<ImageStore>()(
 
       loadImageFromUrl: async (imageUrl: string) => {
         set({ isProcessing: true, processingStep: 'upload' }, false, 'loadImageFromUrl:start');
-        
         try {
-          let imageDataUri: string;
-          let imageHash: string;
+          let file: File;
+          let hash: string;
+          let displayImageUrl = imageUrl;
 
-          // Check if it's an external URL that needs server-side fetching
           if (imageUrl.startsWith('http')) {
+            // External URL: fetch via server action
             console.log('Fetching external image via server action:', imageUrl);
             const result = await fetchImageAndConvertToDataUri(imageUrl);
             if (!result.success) {
               throw new Error(result.error);
             }
-            imageDataUri = result.dataUri;
-            imageHash = result.hash;
+            const blob = dataUriToBlob(result.dataUri);
+            const fileName = imageUrl.split('/').pop()?.split('?')[0] || 'loaded-image.jpg';
+            file = new File([blob], fileName, { type: blob.type });
+            hash = result.hash;
+            displayImageUrl = result.dataUri;
+          } else if (imageUrl.startsWith('data:')) {
+            // Base64 data URI
+            const blob = dataUriToBlob(imageUrl);
+            const fileName = 'pasted-image.png';
+            file = new File([blob], fileName, { type: blob.type });
+            const base64 = imageUrl.split(',')[1];
+            hash = btoa(base64.substring(0, 32)).replace(/[/+=]/g, '');
+            displayImageUrl = imageUrl;
+          } else if (imageUrl.startsWith('/')) {
+            // Local relative URL: fetch as blob
+            const response = await fetch(imageUrl);
+            if (!response.ok) throw new Error(`Failed to fetch local image: ${response.statusText}`);
+            const blob = await response.blob();
+            const fileName = imageUrl.split('/').pop() || 'local-image.png';
+            file = new File([blob], fileName, { type: blob.type });
+            hash = btoa(imageUrl).replace(/[/+=]/g, '').substring(0, 16);
+            displayImageUrl = imageUrl;
           } else {
-            // Assume it's a local relative URL, which can be used directly.
-            // Create a simple hash from the local URL.
-            console.log('Using local image URL directly:', imageUrl);
-            imageDataUri = imageUrl;
-            imageHash = btoa(imageUrl).replace(/[/+=]/g, '').substring(0, 16);
+            throw new Error(`Unsupported image URL format: ${imageUrl}`);
           }
 
-          // Create a File object from the (potentially fetched) data URI
-          const blob = dataUriToBlob(imageDataUri);
-          const fileName = imageUrl.split('/').pop()?.split('?')[0] || 'loaded-image.jpg';
-          const file = new File([blob], fileName, { type: blob.type });
-
-          // Set the image in the store
-          get().setOriginalImage(file, imageDataUri, imageHash);
+          get().setOriginalImage(file, displayImageUrl, hash);
           console.log('Successfully loaded image into store from URL:', imageUrl);
-          
         } catch (error) {
           console.error('Error loading image from URL:', {
             url: imageUrl,
