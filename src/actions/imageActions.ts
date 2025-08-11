@@ -92,14 +92,14 @@ export async function prepareInitialImage(formData: FormData): Promise<PrepareIm
 /**
  * Crops an existing image on the server.
  * @param imageUrl The server-relative URL of the image to crop.
- * @param crop The pixel crop data.
+ * @param scaledPixelCrop The pixel crop data with coordinates already scaled to the original image dimensions.
  * @returns An object with the server-relative URL of the cropped image or an error.
  */
 export async function cropImage(
   imageUrl: string,
-  crop: PixelCrop
+  scaledPixelCrop: PixelCrop
 ): Promise<PrepareImageResult | { success: false; error: string }> {
-  if (!imageUrl || !crop) {
+  if (!imageUrl || !scaledPixelCrop) {
     return { success: false, error: 'Image URL and crop data are required.' };
   }
 
@@ -117,15 +117,22 @@ export async function cropImage(
     }
 
     const cropRegion: Region = {
-      left: Math.round(crop.x),
-      top: Math.round(crop.y),
-      width: Math.round(crop.width),
-      height: Math.round(crop.height),
+      left: Math.round(scaledPixelCrop.x),
+      top: Math.round(scaledPixelCrop.y),
+      width: Math.round(scaledPixelCrop.width),
+      height: Math.round(scaledPixelCrop.height),
     };
 
-    // Ensure crop dimensions are within image bounds
-    if (cropRegion.left + cropRegion.width > metadata.width || cropRegion.top + cropRegion.height > metadata.height) {
-      return { success: false, error: 'Crop dimensions are out of bounds.' };
+    // SERVER-SIDE VALIDATION (Increased Robustness)
+    // This check ensures the client-calculated crop is valid for the original image dimensions.
+    if (
+      cropRegion.left < 0 ||
+      cropRegion.top < 0 ||
+      cropRegion.left + cropRegion.width > metadata.width ||
+      cropRegion.top + cropRegion.height > metadata.height
+    ) {
+      console.error("Invalid crop dimensions received:", { cropRegion, metadata });
+      return { success: false, error: 'Crop dimensions are out of bounds of the original image.' };
     }
 
     // Save cropped image as PNG for consistency and Next.js Image Optimizer compatibility

@@ -84,7 +84,7 @@ describe('ImageStore', () => {
       expect(state.versions['original']).toEqual(
         expect.objectContaining({
           id: 'original',
-          dataUri: testDataUri,
+          imageUrl: testDataUri,
           label: 'Original',
           sourceVersionId: '',
         })

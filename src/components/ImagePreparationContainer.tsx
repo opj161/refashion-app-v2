@@ -40,6 +40,7 @@ export default function ImagePreparationContainer({
     setCompletedCrop,
     setAspect,
     setImageDimensions,
+    setDisplayedImageDimensions,
     applyCrop,
   } = useImageStore();
   
@@ -62,23 +63,26 @@ export default function ImagePreparationContainer({
   // --- THE CORE FIX: A robust onImageLoad handler ---
   // This is the single source of truth for what happens when an image is loaded or re-loaded.
   const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const { naturalWidth: width, naturalHeight: height } = e.currentTarget;
+    const { naturalWidth, naturalHeight, width, height } = e.currentTarget;
 
-    // 1. Always store the new dimensions.
-    setImageDimensions({ width, height });
+    // 1. Store the original (natural) dimensions.
+    setImageDimensions({ originalWidth: naturalWidth, originalHeight: naturalHeight });
 
-    // 2. Check if there's a predefined aspect ratio we need to apply.
+    // 2. NEW: Store the displayed dimensions
+    setDisplayedImageDimensions({ width, height });
+
+    // 3. Check if there's a predefined aspect ratio we need to apply.
     const currentAspect = useImageStore.getState().aspect; // Get latest aspect from store
     if (currentAspect) {
-      // 3. Calculate and set the centered crop.
+      // 4. Calculate and set the centered crop using natural dimensions.
       const newCrop = centerCrop(
-        makeAspectCrop({ unit: '%', width: 90 }, currentAspect, width, height),
-        width,
-        height
+        makeAspectCrop({ unit: '%', width: 90 }, currentAspect, naturalWidth, naturalHeight),
+        naturalWidth,
+        naturalHeight
       );
       setCrop(newCrop);
     }
-  }, [setImageDimensions, setCrop]);
+  }, [setImageDimensions, setDisplayedImageDimensions, setCrop]);
   
   // The complex useEffect is GONE! The logic is now correctly placed in the store's `setAspect` action.
 
@@ -126,7 +130,7 @@ export default function ImagePreparationContainer({
                 onImageLoad={onImageLoad}
                 disabled={isProcessing}
                 ruleOfThirds={true} // Enhancement: Enable rule of thirds
-                imageDimensions={imageDimensions} // PASS THE DIMENSIONS DOWN
+                imageDimensions={imageDimensions ? { width: imageDimensions.originalWidth, height: imageDimensions.originalHeight } : undefined} // Pass original dimensions
               />
             </div>
             <div className="lg:col-span-1 flex flex-col space-y-6">

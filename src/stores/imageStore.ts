@@ -8,6 +8,14 @@ import { removeBackgroundAction } from "@/ai/actions/remove-background.action";
 import { upscaleImageAction, faceDetailerAction } from "@/ai/actions/upscale-image.action";
 import { prepareInitialImage, cropImage, fetchImageAndConvertToDataUri } from "@/actions/imageActions"; // Updated/new Server Actions
 
+// Define the PixelCrop type for our use (matches the one expected by cropImage action)
+interface ScaledPixelCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 // --- Types ---
 export interface ImageVersion {
   id: string;
@@ -36,7 +44,12 @@ export interface ImageState {
   crop?: Crop;
   completedCrop?: PixelCrop;
   aspect?: number;
-  imageDimensions?: { width: number; height: number };
+  imageDimensions?: {
+    originalWidth: number;
+    originalHeight: number;
+    displayedWidth?: number; // NEW: Width of the <img> element
+    displayedHeight?: number; // NEW: Height of the <img> element
+  };
 }
 
 export interface ImageActions {
@@ -52,7 +65,8 @@ export interface ImageActions {
   setCrop: (crop?: Crop) => void;
   setCompletedCrop: (crop?: PixelCrop) => void;
   setAspect: (aspect?: number) => void;
-  setImageDimensions: (dimensions: { width: number; height: number }) => void;
+  setImageDimensions: (dimensions: { originalWidth: number; originalHeight: number }) => void;
+  setDisplayedImageDimensions: (dimensions: { width: number; height: number }) => void; // NEW
   
   // Async actions
   removeBackground: (username: string) => Promise<void>;
@@ -168,18 +182,27 @@ export const useImageStore = create<ImageStore>()(
       setCompletedCrop: (completedCrop) => set({ completedCrop }, false, 'setCompletedCrop'),
       setImageDimensions: (dimensions) => set({ imageDimensions: dimensions }, false, 'setImageDimensions'),
 
+      // NEW action to store displayed dimensions
+      setDisplayedImageDimensions: (dimensions) => {
+        set((state) => ({
+          imageDimensions: state.imageDimensions
+            ? { ...state.imageDimensions, displayedWidth: dimensions.width, displayedHeight: dimensions.height }
+            : undefined,
+        }), false, 'setDisplayedImageDimensions');
+      },
+
       setAspect: (aspect) => {
         const { imageDimensions } = get();
         
         // If dimensions are already available (e.g., image is loaded and user changes aspect),
         // calculate the crop immediately.
         if (imageDimensions) {
-          const { width, height } = imageDimensions;
+          const { originalWidth, originalHeight } = imageDimensions;
           const newCrop = aspect
             ? centerCrop(
-                makeAspectCrop({ unit: '%', width: 90 }, aspect, width, height),
-                width,
-                height
+                makeAspectCrop({ unit: '%', width: 90 }, aspect, originalWidth, originalHeight),
+                originalWidth,
+                originalHeight
               )
             : undefined; // Reset to undefined for free crop
           set({ aspect, crop: newCrop, completedCrop: undefined }, false, 'setAspect');
@@ -280,7 +303,7 @@ export const useImageStore = create<ImageStore>()(
 
           // Set original image and dimensions
           get().setOriginalImage(file, imageUrl, hash);
-          get().setImageDimensions({ width: originalWidth, height: originalHeight });
+          get().setImageDimensions({ originalWidth, originalHeight });
           
           return { resized, originalWidth, originalHeight };
         } catch (error) {
@@ -292,33 +315,48 @@ export const useImageStore = create<ImageStore>()(
       },
       
       applyCrop: async () => {
-        const { completedCrop, activeVersionId, versions } = get();
-        if (!completedCrop || !activeVersionId) {
-          throw new Error('Cannot apply crop: No active image or crop selection.');
+        const { completedCrop, activeVersionId, versions, imageDimensions } = get();
+
+        // 1. Guard against missing data (increased robustness)
+        if (!completedCrop || !activeVersionId || !imageDimensions || !imageDimensions.displayedWidth || !imageDimensions.displayedHeight) {
+          throw new Error('Cannot apply crop: Missing image dimensions or crop selection.');
         }
 
+        const { originalWidth, originalHeight, displayedWidth, displayedHeight } = imageDimensions;
         const currentVersion = versions[activeVersionId];
         set({ isProcessing: true, processingStep: 'crop' }, false, 'applyCrop:start');
 
         try {
-          const result = await cropImage(currentVersion.imageUrl, completedCrop);
+          // 2. Calculate the scaling factors
+          const scaleX = originalWidth / displayedWidth;
+          const scaleY = originalHeight / displayedHeight;
+
+          // 3. Create the scaled crop object with absolute pixel values for the original image
+          const scaledPixelCrop: ScaledPixelCrop = {
+            x: Math.round(completedCrop.x * scaleX),
+            y: Math.round(completedCrop.y * scaleY),
+            width: Math.round(completedCrop.width * scaleX),
+            height: Math.round(completedCrop.height * scaleY),
+          };
+
+          // 4. Call the server action with the CORRECTLY scaled crop data
+          const result = await cropImage(currentVersion.imageUrl, scaledPixelCrop);
           if (!result.success) {
             throw new Error(result.error);
           }
-          
+
+          // 5. Add the new version to the store (unchanged logic)
           get().addVersion({
             imageUrl: result.imageUrl,
             label: 'Cropped',
             sourceVersionId: activeVersionId,
             hash: result.hash,
           });
-
-          // After cropping, reset aspect ratio to freeform for the new version
           get().setAspect(undefined);
 
         } catch (error) {
           console.error('Error applying crop:', error);
-          throw error; // Re-throw to be caught in the component for a toast
+          throw error; // Re-throw to be caught by the component
         } finally {
           set({ isProcessing: false, processingStep: null }, false, 'applyCrop:end');
         }
