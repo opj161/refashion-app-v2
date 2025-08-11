@@ -372,15 +372,7 @@ export const useImageStore = create<ImageStore>()(
             const base64 = imageUrl.split(',')[1];
             hash = btoa(base64.substring(0, 32)).replace(/[/+=]/g, '');
             displayImageUrl = imageUrl;
-          } else if (imageUrl.startsWith('/')) {
-            // Local relative URL: fetch as blob
-            const response = await fetch(imageUrl);
-            if (!response.ok) throw new Error(`Failed to fetch local image: ${response.statusText}`);
-            const blob = await response.blob();
-            const fileName = imageUrl.split('/').pop() || 'local-image.png';
-            file = new File([blob], fileName, { type: blob.type });
-            hash = btoa(imageUrl).replace(/[/+=]/g, '').substring(0, 16);
-            displayImageUrl = imageUrl;
+          // Removed local relative URL handling; now handled by getDisplayableImageUrl in the caller
           } else {
             throw new Error(`Unsupported image URL format: ${imageUrl}`);
           }

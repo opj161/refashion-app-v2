@@ -9,6 +9,7 @@ import ImageParameters from "./image-parameters";
 import VideoParameters from "./video-parameters";
 import { useToast } from "@/hooks/use-toast";
 import { useImageStore } from "@/stores/imageStore";
+import { getDisplayableImageUrl } from '@/lib/utils';
 import type { HistoryItem } from "@/lib/types";
 
 export default function CreationHub({ 
@@ -26,17 +27,18 @@ export default function CreationHub({
   const [currentTab, setCurrentTab] = useState<string>(historyItemToLoad?.videoGenerationParams ? 'video' : 'image');
 
   // Effect to react to URL search parameters for client-side navigation.
+  const sourceImageUrl = searchParams.get('sourceImageUrl');
   useEffect(() => {
-    const sourceImageUrl = searchParams.get('sourceImageUrl');
     const defaultTab = searchParams.get('defaultTab');
 
     if (defaultTab) {
       setCurrentTab(defaultTab);
     }
-    if (sourceImageUrl && sourceImageUrl !== original?.imageUrl) {
+    const publicImageUrl = getDisplayableImageUrl(sourceImageUrl);
+    if (publicImageUrl && publicImageUrl !== original?.imageUrl) {
       // Reset state ONLY when loading a new image from URL.
       resetStore();
-      loadImageFromUrl(sourceImageUrl).catch(error => {
+      loadImageFromUrl(publicImageUrl).catch(error => {
         toast({
           title: "Failed to Load Image from URL",
           description: error instanceof Error ? error.message : "An unknown error occurred.",
@@ -44,7 +46,7 @@ export default function CreationHub({
         });
       });
     }
-  }, [searchParams, loadImageFromUrl, resetStore, toast, original?.imageUrl]);
+  }, [searchParams, loadImageFromUrl, resetStore, toast, original?.imageUrl, sourceImageUrl]);
 
   // Effect to react to server-provided props on initial load.
   useEffect(() => {
@@ -52,17 +54,18 @@ export default function CreationHub({
       const isVideoItem = !!historyItemToLoad.videoGenerationParams;
       setCurrentTab(isVideoItem ? 'video' : 'image');
 
-      const imageUrl = historyItemToLoad.videoGenerationParams?.sourceImageUrl || historyItemToLoad.originalClothingUrl;
-      if (imageUrl && imageUrl !== original?.imageUrl) {
-        loadImageFromUrl(imageUrl).catch(error => {
+      const internalImageUrl = historyItemToLoad.videoGenerationParams?.sourceImageUrl || historyItemToLoad.originalClothingUrl;
+      const publicImageUrl = getDisplayableImageUrl(internalImageUrl);
+      if (publicImageUrl && publicImageUrl !== original?.imageUrl) {
+        loadImageFromUrl(publicImageUrl).catch(error => {
           console.error(`Failed to load image from history item:`, {
-            url: imageUrl,
+            url: publicImageUrl,
             error: error instanceof Error ? error.message : String(error),
             historyItemId: historyItemToLoad.id
           });
           toast({
             title: "Failed to Load Image",
-            description: `Could not load the original image from history.`,
+            description: "Could not load the original image from history.",
             variant: "destructive",
           });
         });
