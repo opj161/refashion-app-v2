@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ImagePreparationContainer from "./ImagePreparationContainer";
 import ImageParameters from "./image-parameters";
@@ -20,80 +20,55 @@ export default function CreationHub({
 }) {
   const { toast } = useToast();
   const router = useRouter();
-  const { reset: resetStore, loadImageFromUrl } = useImageStore();
-  
-  // Determine the default tab based on the pre-fetched data
-  const [currentTab, setCurrentTab] = useState<string>(
-    historyItemToLoad?.videoGenerationParams ? 'video' : 'image'
-  );
+  const searchParams = useSearchParams();
+  const { reset: resetStore, loadImageFromUrl, original } = useImageStore();
+  // Tab state is now controlled client-side, updated by URL or props.
+  const [currentTab, setCurrentTab] = useState<string>(historyItemToLoad?.videoGenerationParams ? 'video' : 'image');
 
-  // When the history item prop changes, update the active tab
+  // Effect to react to URL search parameters for client-side navigation.
   useEffect(() => {
-    if (historyItemToLoad) {
-      setCurrentTab(historyItemToLoad.videoGenerationParams ? 'video' : 'image');
-    }
-  }, [historyItemToLoad]);
+    const sourceImageUrl = searchParams.get('sourceImageUrl');
+    const defaultTab = searchParams.get('defaultTab');
 
-  // Load the original image when history item changes
+    if (defaultTab) {
+      setCurrentTab(defaultTab);
+    }
+    if (sourceImageUrl && sourceImageUrl !== original?.imageUrl) {
+      // Reset state ONLY when loading a new image from URL.
+      resetStore();
+      loadImageFromUrl(sourceImageUrl).catch(error => {
+        toast({
+          title: "Failed to Load Image from URL",
+          description: error instanceof Error ? error.message : "An unknown error occurred.",
+          variant: "destructive",
+        });
+      });
+    }
+  }, [searchParams, loadImageFromUrl, resetStore, toast, original?.imageUrl]);
+
+  // Effect to react to server-provided props on initial load.
   useEffect(() => {
     if (historyItemToLoad) {
       const isVideoItem = !!historyItemToLoad.videoGenerationParams;
-      
-      // For video items, try sourceImageUrl first, then fallback to originalClothingUrl
-      // For image items, use originalClothingUrl
-      const primaryUrl = isVideoItem 
-        ? historyItemToLoad.videoGenerationParams?.sourceImageUrl 
-        : historyItemToLoad.originalClothingUrl;
-      const fallbackUrl = historyItemToLoad.originalClothingUrl;
-      
-      console.log('Loading image from history:', {
-        isVideoItem,
-        videoSourceUrl: historyItemToLoad.videoGenerationParams?.sourceImageUrl,
-        originalClothingUrl: historyItemToLoad.originalClothingUrl,
-        primaryUrl,
-        fallbackUrl,
-        historyItemId: historyItemToLoad.id
-      });
-      
-      const tryLoadImage = async (url: string, isFallback = false) => {
-        try {
-          await loadImageFromUrl(url);
-          console.log(`Successfully loaded image from ${isFallback ? 'fallback' : 'primary'} URL:`, url);
-        } catch (error) {
-          console.error(`Failed to load image from ${isFallback ? 'fallback' : 'primary'} URL:`, {
-            url,
-            isVideoItem,
-            isFallback,
+      setCurrentTab(isVideoItem ? 'video' : 'image');
+
+      const imageUrl = historyItemToLoad.videoGenerationParams?.sourceImageUrl || historyItemToLoad.originalClothingUrl;
+      if (imageUrl && imageUrl !== original?.imageUrl) {
+        loadImageFromUrl(imageUrl).catch(error => {
+          console.error(`Failed to load image from history item:`, {
+            url: imageUrl,
             error: error instanceof Error ? error.message : String(error),
             historyItemId: historyItemToLoad.id
           });
-          
-          if (!isFallback && isVideoItem && fallbackUrl && fallbackUrl !== url) {
-            // Try fallback URL for video items
-            console.log('Trying fallback URL for video item:', fallbackUrl);
-            await tryLoadImage(fallbackUrl, true);
-          } else {
-            // Show error toast
-            toast({
-              title: "Failed to Load Image",
-              description: `Could not load the original image from history.${isFallback ? ' (tried fallback)' : ''}`,
-              variant: "destructive",
-            });
-            throw error;
-          }
-        }
-      };
-      
-      if (primaryUrl) {
-        tryLoadImage(primaryUrl);
-      } else if (fallbackUrl) {
-        console.log('No primary URL, using fallback:', fallbackUrl);
-        tryLoadImage(fallbackUrl, true);
-      } else {
-        console.warn('No image URL found in history item:', historyItemToLoad);
+          toast({
+            title: "Failed to Load Image",
+            description: `Could not load the original image from history.`,
+            variant: "destructive",
+          });
+        });
       }
     }
-  }, [historyItemToLoad, loadImageFromUrl, toast]);
+  }, [historyItemToLoad, loadImageFromUrl, toast, original?.imageUrl]);
 
   const handleReset = useCallback(() => {
     router.push('/', { scroll: false }); // Clear URL params

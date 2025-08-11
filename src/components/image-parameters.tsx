@@ -617,18 +617,16 @@ export default function ImageParameters({
   };
 
   const handleSendToVideoPage = (imageUrl: string | null) => {
-    if (!imageUrl) return;
-    
-    // 1. Reset the image store to clear the current session.
-    resetImageState();
+  if (!imageUrl) return;
 
-    // 2. Prepare and navigate to the create page for video generation.
-    const params = new URLSearchParams();
-    // The 'create' page expects 'sourceImageUrl' to load an image
-    // and 'defaultTab' to select the correct tab.
-    params.set('sourceImageUrl', imageUrl);
-    params.set('defaultTab', 'video');
-    router.push(`/?${params.toString()}`);
+  // Prepare and navigate to the create page for video generation.
+  const params = new URLSearchParams();
+  // The 'create' page expects 'sourceImageUrl' to load an image
+  // and 'defaultTab' to select the correct tab.
+  params.set('sourceImageUrl', imageUrl);
+  params.set('defaultTab', 'video');
+  // Add { scroll: false } to prevent the page from jumping to the top on navigation.
+  router.push(`/?${params.toString()}`, { scroll: false });
   };
 
   // Helper to render select components
