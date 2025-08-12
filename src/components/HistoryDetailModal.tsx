@@ -11,17 +11,19 @@ import { getDisplayableImageUrl } from "@/lib/utils";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useImagePreparation } from "@/contexts/ImagePreparationContext";
 
 interface HistoryDetailModalProps {
   item: HistoryItem | null;
   isOpen: boolean;
   onClose: () => void;
-  onReloadConfig: (item: HistoryItem) => void;
+  onReloadConfig?: (item: HistoryItem) => void; // Made optional
 }
 
 export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: HistoryDetailModalProps) {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const { toast } = useToast();
+  const { initializeFromHistory, setCurrentTab } = useImagePreparation();
 
   const allImages = useMemo(() => {
     if (!item) return [];
@@ -48,6 +50,21 @@ export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: Hi
     toast({ title: 'Copied!', description: 'Prompt has been copied to clipboard.' });
   };
 
+  const handleReloadConfig = async () => {
+    if (!item) return;
+    
+    try {
+      await initializeFromHistory(item);
+      // Switch to the appropriate tab based on the item type
+      const targetTab = item.videoGenerationParams ? 'video' : 'image';
+      setCurrentTab(targetTab);
+      onClose(); // Close the modal after loading
+    } catch (error) {
+      // Error handling is already done in the context action
+      console.error('Failed to reload config from modal:', error);
+    }
+  };
+
   if (!item) return null;
 
   const downloadUrl = getDisplayableImageUrl(selectedImageUrl);
@@ -69,8 +86,8 @@ export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: Hi
            <Button variant="outline" onClick={handleCopyPrompt}>
             <Copy className="w-4 h-4 mr-2" /> Copy Prompt
            </Button>
-           <Button variant="outline" onClick={() => item && onReloadConfig(item)}>
-            <RefreshCw className="w-4 h-4 mr-2" /> Reload Config
+           <Button variant="outline" onClick={handleReloadConfig}>
+             <RefreshCw className="w-4 h-4 mr-2" /> Reload Config
            </Button>
            <a href={downloadUrl || '#'} download={downloadFilename}>
             <Button disabled={!downloadUrl}>

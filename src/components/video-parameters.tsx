@@ -16,8 +16,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
-import { useActiveImage } from "@/stores/imageStore";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActivePreparationImage } from "@/contexts/ImagePreparationContext";
 import {
     PREDEFINED_PROMPTS, MODEL_MOVEMENT_OPTIONS, FABRIC_MOTION_OPTIONS_VIDEO, // Use FABRIC_MOTION_OPTIONS_VIDEO
     CAMERA_ACTION_OPTIONS, AESTHETIC_VIBE_OPTIONS as AESTHETIC_STYLE_OPTIONS
@@ -27,7 +27,6 @@ import { OptionWithPromptSegment } from "@/lib/prompt-builder";
 import { usePromptManager } from "@/hooks/usePromptManager";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import type { HistoryItem } from "@/lib/types";
 import { calculateVideoCost, formatPrice, VideoModel, VideoResolution, VideoDuration } from "@/lib/pricing";
 
 
@@ -131,21 +130,12 @@ const RenderSelectComponent: React.FC<RenderSelectProps> = ({
 
 
 // Component is now prop-less - gets prepared image from Zustand store
-// Props interface for the component
-interface VideoParametersProps {
-  historyItemToLoad?: HistoryItem | null;
-  isLoadingHistory?: boolean;
-}
-
-export default function VideoParameters({ 
-  historyItemToLoad = null, 
-  isLoadingHistory = false 
-}: VideoParametersProps) {
+export default function VideoParameters() {
   const { toast } = useToast();
   const { user } = useAuth();
   
-  // Get prepared image from store instead of props
-  const activeImage = useActiveImage();
+  // Get the active image from the context
+  const activeImage = useActivePreparationImage();
   const preparedImageUrl = activeImage?.imageUrl || null;
 
   // Service availability state
@@ -189,37 +179,12 @@ export default function VideoParameters({
     }
   }, [isGenerating]);
 
-  // Load form fields from history when historyItemToLoad changes
-  useEffect(() => {
-    if (historyItemToLoad && historyItemToLoad.videoGenerationParams) {
-      const videoParams = historyItemToLoad.videoGenerationParams;
-      
-      setVideoModel((videoParams.videoModel as VideoModel) || 'lite');
-      setResolution((videoParams.resolution as VideoResolution) || '480p');
-      setDuration((videoParams.duration as VideoDuration) || '5');
-      setSeed(videoParams.seed?.toString() || '-1');
-      setCameraFixed(videoParams.cameraFixed || false);
-      
-      setModelMovement(videoParams.modelMovement || MODEL_MOVEMENT_OPTIONS[0].value);
-      setFabricMotion(videoParams.fabricMotion || FABRIC_MOTION_OPTIONS_VIDEO[0].value);
-      setCameraAction(videoParams.cameraAction || CAMERA_ACTION_OPTIONS[0].value);
-      setAestheticVibe(videoParams.aestheticVibe || AESTHETIC_STYLE_OPTIONS[0].value);
-      
-      // If we have a generated video, set it
-      if (historyItemToLoad.generatedVideoUrls && historyItemToLoad.generatedVideoUrls[0]) {
-        setGeneratedVideoUrl(historyItemToLoad.generatedVideoUrls[0]);
-      }
-      if (videoParams.localVideoUrl) {
-        setGeneratedLocalVideoUrl(videoParams.localVideoUrl);
-      }
-    }
-  }, [historyItemToLoad]);
+  // Video parameters are now managed entirely on the client side
   const [generatedSeedValue, setGeneratedSeedValue] = useState<number | null>(null);
 
   // For webhook-based flow
   const [generationTaskId, setGenerationTaskId] = useState<string | null>(null);
   const [historyItemId, setHistoryItemId] = useState<string | null>(null);
-  const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
   const [progressValue, setProgressValue] = useState(0);
 
   // Check if data URI is provided (not a server URL)
@@ -280,52 +245,7 @@ export default function VideoParameters({
     }
   }, [videoModel, resolution, resolutionOptions]);
 
-  // Effect to populate state when a history item with video parameters is loaded
-  useEffect(() => {
-    if (historyItemToLoad && !isLoadingHistory && historyItemToLoad.videoGenerationParams && historyItemToLoad.id !== loadedHistoryItemId) {
-      const { videoGenerationParams } = historyItemToLoad;
-      
-      // Set video-specific parameters if they exist
-      if (videoGenerationParams.prompt) {
-        handlePromptChange(videoGenerationParams.prompt);
-      }
-      if (videoGenerationParams.videoModel) {
-        setVideoModel(videoGenerationParams.videoModel);
-      }
-      if (videoGenerationParams.resolution) {
-        setResolution(videoGenerationParams.resolution as '480p' | '720p' | '1080p');
-      }
-      if (videoGenerationParams.duration) {
-        setDuration(videoGenerationParams.duration as '5' | '10');
-      }
-      if (videoGenerationParams.seed !== undefined) {
-        setSeed(videoGenerationParams.seed.toString());
-      }
-      if (videoGenerationParams.cameraFixed !== undefined) {
-        setCameraFixed(videoGenerationParams.cameraFixed);
-      }
-      if (videoGenerationParams.modelMovement) {
-        setModelMovement(videoGenerationParams.modelMovement);
-      }
-      if (videoGenerationParams.fabricMotion) {
-        setFabricMotion(videoGenerationParams.fabricMotion);
-      }
-      if (videoGenerationParams.cameraAction) {
-        setCameraAction(videoGenerationParams.cameraAction);
-      }
-      if (videoGenerationParams.aestheticVibe) {
-        setAestheticVibe(videoGenerationParams.aestheticVibe);
-      }
-      
-      // Mark this history item as loaded to prevent reloading
-      setLoadedHistoryItemId(historyItemToLoad.id);
-      
-      toast({
-        title: "History Restored",
-        description: "Source image and all video parameters have been successfully restored.",
-      });
-    }
-  }, [historyItemToLoad, isLoadingHistory, loadedHistoryItemId, handlePromptChange, toast]);
+  // History loading is now handled by the client-side store
 
   const handleRandomSeed = () => setSeed("-1");
 
@@ -352,7 +272,7 @@ export default function VideoParameters({
     setHistoryItemId(null);
 
     try {
-      let imageUrlForVideo = preparedImageUrl;
+      let imageUrlForVideo: string = preparedImageUrl || '';
 
       // If we have a data URI, convert it to a Fal storage URL
       if (isDataUri) {
@@ -367,7 +287,8 @@ export default function VideoParameters({
           const imageBlob = dataUriToBlob(preparedImageUrl);
           const imageFile = new File([imageBlob], "prepared-image.jpg", { type: "image/jpeg" });
           // Upload to Fal storage
-          imageUrlForVideo = await uploadToFalStorage(imageFile, user.username);
+          const uploadedUrl = await uploadToFalStorage(imageFile, user.username);
+          imageUrlForVideo = uploadedUrl;
           update({ id: toastId, title: "Image Uploaded!", description: "Starting video generation..." });
         } catch (uploadError) {
           console.error("Error uploading to Fal storage:", uploadError);

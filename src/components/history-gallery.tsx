@@ -25,7 +25,11 @@ interface PaginatedResult {
   currentPage: number;
 }
 
-export default function HistoryGallery({ initialHistory }: { initialHistory: PaginatedResult }) {
+export default function HistoryGallery({
+  initialHistory
+}: {
+  initialHistory: PaginatedResult;
+}) {
   const { toast } = useToast();
   const router = useRouter();
   const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
@@ -124,10 +128,7 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
     setDetailItem(item);
   };
 
-  const handleReloadConfig = (item: HistoryItem) => {
-    // Only navigate, do not show a toast here
-    router.push(`/?historyItemId=${item.id}`);
-  };
+  // handleReloadConfig is now handled directly in HistoryCard via client-side store
 
   const handleDeleteRequest = (item: HistoryItem) => {
     setItemToDelete(item);
@@ -224,7 +225,6 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
                     <HistoryCard
                       item={item}
                       onViewDetails={handleViewDetails}
-                      onReloadConfig={handleReloadConfig}
                       onDeleteItem={handleDeleteRequest}
                     />
                   </motion.div>
@@ -246,7 +246,6 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
                 isOpen={!!detailItem}
                 onClose={() => setDetailItem(null)}
                 item={detailItem}
-                onReloadConfig={handleReloadConfig}
               />
             )}
           </AnimatePresence>

@@ -23,7 +23,7 @@ import Image from "next/image";
 import { useRouter } from 'next/navigation';
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
-import { useActiveImage, useImageStore } from "@/stores/imageStore";
+import { useActivePreparationImage, useImagePreparation } from "@/contexts/ImagePreparationContext";
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
     BODY_SHAPE_AND_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
@@ -49,17 +49,17 @@ interface ImageParametersProps {
 const NUM_IMAGES_TO_GENERATE = 3;
 
 // Component now accepts props for loading configuration
-export default function ImageParameters({ 
-  historyItemToLoad = null, 
-  isLoadingHistory = false 
+export default function ImageParameters({
+  historyItemToLoad = null,
+  isLoadingHistory = false,
 }: ImageParametersProps) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   
-  // Get prepared image from store instead of props
-  const activeImage = useActiveImage();
-  const resetImageState = useImageStore((state) => state.reset);
+  // Get the active image and tab state from context
+  const activeImage = useActivePreparationImage();
+  const { setCurrentTab } = useImagePreparation();
   const preparedImageUrl = activeImage?.imageUrl || null;
 
   // State for parameters
@@ -599,16 +599,14 @@ export default function ImageParameters({
   };
 
   const handleSendToVideoPage = (imageUrl: string | null) => {
-  if (!imageUrl) return;
+    if (!imageUrl) return;
 
-  // Prepare and navigate to the create page for video generation.
-  const params = new URLSearchParams();
-  // The 'create' page expects 'sourceImageUrl' to load an image
-  // and 'defaultTab' to select the correct tab.
-  params.set('sourceImageUrl', imageUrl);
-  params.set('defaultTab', 'video');
-  // Add { scroll: false } to prevent the page from jumping to the top on navigation.
-  router.push(`/?${params.toString()}`, { scroll: false });
+    // Instant client-side tab switch - the image is already available in the shared context
+    setCurrentTab('video');
+    toast({
+      title: "Switched to Video",
+      description: "Ready to generate a video with your prepared image.",
+    });
   };
 
   // Helper to render select components

@@ -1,89 +1,32 @@
 // src/components/creation-hub.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ImagePreparationContainer from "./ImagePreparationContainer";
 import ImageParameters from "./image-parameters";
 import VideoParameters from "./video-parameters";
 import { useToast } from "@/hooks/use-toast";
-import { useImageStore } from "@/stores/imageStore";
-import { getDisplayableImageUrl } from '@/lib/utils';
-import type { HistoryItem } from "@/lib/types";
+import { ImagePreparationProvider, useImagePreparation } from "@/contexts/ImagePreparationContext";
 
-export default function CreationHub({ 
-  children,
-  historyItemToLoad 
-}: { 
-  children: React.ReactNode;
-  historyItemToLoad: HistoryItem | null; 
+// Internal component that uses the context
+function CreationHubInternal({
+  children
+}: {
+  children: React.ReactElement;
 }) {
   const { toast } = useToast();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { reset: resetStore, loadImageFromUrl, original } = useImageStore();
-  // Tab state is now controlled client-side, updated by URL or props.
-  const [currentTab, setCurrentTab] = useState<string>(historyItemToLoad?.videoGenerationParams ? 'video' : 'image');
+  const { reset, currentTab, setCurrentTab } = useImagePreparation(); // GET tab state from context
 
-  // Effect to react to URL search parameters for client-side navigation.
-  const sourceImageUrl = searchParams.get('sourceImageUrl');
-  useEffect(() => {
-    const defaultTab = searchParams.get('defaultTab');
-
-    if (defaultTab) {
-      setCurrentTab(defaultTab);
-    }
-    const publicImageUrl = getDisplayableImageUrl(sourceImageUrl);
-    if (publicImageUrl && publicImageUrl !== original?.imageUrl) {
-      // Reset state ONLY when loading a new image from URL.
-      resetStore();
-      loadImageFromUrl(publicImageUrl).catch(error => {
-        toast({
-          title: "Failed to Load Image from URL",
-          description: error instanceof Error ? error.message : "An unknown error occurred.",
-          variant: "destructive",
-        });
-      });
-    }
-  }, [searchParams, loadImageFromUrl, resetStore, toast, original?.imageUrl, sourceImageUrl]);
-
-  // Effect to react to server-provided props on initial load.
-  useEffect(() => {
-    if (historyItemToLoad) {
-      const isVideoItem = !!historyItemToLoad.videoGenerationParams;
-      setCurrentTab(isVideoItem ? 'video' : 'image');
-
-      const internalImageUrl = historyItemToLoad.videoGenerationParams?.sourceImageUrl || historyItemToLoad.originalClothingUrl;
-      const publicImageUrl = getDisplayableImageUrl(internalImageUrl);
-      if (publicImageUrl && publicImageUrl !== original?.imageUrl) {
-        loadImageFromUrl(publicImageUrl).catch(error => {
-          console.error(`Failed to load image from history item:`, {
-            url: publicImageUrl,
-            error: error instanceof Error ? error.message : String(error),
-            historyItemId: historyItemToLoad.id
-          });
-          toast({
-            title: "Failed to Load Image",
-            description: "Could not load the original image from history.",
-            variant: "destructive",
-          });
-        });
-      }
-    }
-  }, [historyItemToLoad, loadImageFromUrl, toast, original?.imageUrl]);
-
+  // Pure client-side reset - no URL manipulation
   const handleReset = useCallback(() => {
-    router.push('/', { scroll: false }); // Clear URL params
-    resetStore();
+    reset(); // Reset the context state
     toast({
       title: "Image Cleared",
       description: "You can now upload a new image to start over.",
     });
-  }, [router, resetStore, toast]);
+  }, [reset, toast]);
   
-  const isVideoItem = !!historyItemToLoad?.videoGenerationParams;
-
   return (
     <div className="space-y-8">
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
@@ -94,25 +37,19 @@ export default function CreationHub({
         </TabsList>
 
         <TabsContent value="image" className="space-y-6 mt-8" forceMount>
-          <ImagePreparationContainer 
-            preparationMode="image" 
+          <ImagePreparationContainer
+            preparationMode="image"
             onReset={handleReset}
           />
-          <ImageParameters 
-            historyItemToLoad={!isVideoItem ? historyItemToLoad : null}
-            isLoadingHistory={false}
-          />
+          <ImageParameters />
         </TabsContent>
 
         <TabsContent value="video" className="space-y-6 mt-8" forceMount>
-          <ImagePreparationContainer 
-            preparationMode="video" 
+          <ImagePreparationContainer
+            preparationMode="video"
             onReset={handleReset}
           />
-          <VideoParameters 
-            historyItemToLoad={isVideoItem ? historyItemToLoad : null}
-            isLoadingHistory={false}
-          />
+          <VideoParameters />
         </TabsContent>
 
         <TabsContent value="history" className="space-y-6 mt-8" forceMount>
@@ -120,5 +57,20 @@ export default function CreationHub({
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// Main component that provides the context
+export default function CreationHub({
+  children
+}: {
+  children: React.ReactElement;
+}) {
+  return (
+    <ImagePreparationProvider>
+      <CreationHubInternal>
+        {children}
+      </CreationHubInternal>
+    </ImagePreparationProvider>
   );
 }

@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useImageStore, useActiveImage } from "@/stores/imageStore";
+import { useImagePreparation, useActivePreparationImage } from "@/contexts/ImagePreparationContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   isBackgroundRemovalAvailable as checkBgAvailable,
@@ -60,15 +60,15 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   const { toast } = useToast();
   const {
     removeBackground,
-    upscaleImage, 
-    faceDetailer, 
-    isProcessing, 
+    upscaleImage,
+    faceDetailer,
+    isProcessing,
     processingStep,
     setActiveVersion,
     versions
-  } = useImageStore();
+  } = useImagePreparation();
   
-  const activeImage = useActiveImage();
+  const activeImage = useActivePreparationImage();
   const { user } = useAuth();
 
   // Service availability state

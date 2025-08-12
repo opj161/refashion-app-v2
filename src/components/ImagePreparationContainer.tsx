@@ -4,10 +4,10 @@
 import React, { useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useImageStore, useActiveImage } from "@/stores/imageStore";
 import { useToast } from "@/hooks/use-toast";
 import { type PixelCrop, type Crop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import { motion, AnimatePresence } from 'motion/react';
+import { useImagePreparation, useActivePreparationImage } from "@/contexts/ImagePreparationContext";
 
 import ImageUploader from "./ImageUploader";
 import ImageEditorCanvas from "./ImageEditorCanvas";
@@ -22,28 +22,28 @@ interface ImagePreparationContainerProps {
   onReset: () => void;
 }
 
-export default function ImagePreparationContainer({
+// Internal component that uses the context
+function ImagePreparationContainerInternal({
   preparationMode,
   onReset,
 }: ImagePreparationContainerProps) {
   const { toast } = useToast();
 
-  // --- Read ALL state directly from the Zustand store ---
+  // --- Read ALL state directly from the local context ---
   const {
     versions,
     activeVersionId,
     isProcessing,
     crop,
     aspect,
-    imageDimensions, // Read dimensions from store
+    imageDimensions,
     setCrop,
-    // setCompletedCrop is no longer needed here
     setAspect,
     setOriginalImageDimensions,
     applyCrop,
-  } = useImageStore();
+  } = useImagePreparation();
   
-  const activeImage = useActiveImage();
+  const activeImage = useActivePreparationImage();
   
   const handleApplyCrop = async () => {
     try {
@@ -68,17 +68,16 @@ export default function ImagePreparationContainer({
     setOriginalImageDimensions({ width: naturalWidth, height: naturalHeight });
 
     // 2. Check if there's a predefined aspect ratio we need to apply.
-    const currentAspect = useImageStore.getState().aspect; // Get latest aspect from store
-    if (currentAspect) {
+    if (aspect) {
       // 3. Calculate and set the centered crop.
       const newCrop = centerCrop(
-        makeAspectCrop({ unit: '%', width: 90 }, currentAspect, naturalWidth, naturalHeight),
+        makeAspectCrop({ unit: '%', width: 90 }, aspect, naturalWidth, naturalHeight),
         naturalWidth,
         naturalHeight
       );
       setCrop(newCrop);
     }
-  }, [setOriginalImageDimensions, setCrop]);
+  }, [setOriginalImageDimensions, setCrop, aspect]);
   
   // The complex useEffect is GONE! The logic is now correctly placed in the store's `setAspect` action.
 
@@ -174,4 +173,9 @@ export default function ImagePreparationContainer({
       </Card>
     </motion.div>
   );
+}
+
+// Main component - context is now provided by CreationHub
+export default function ImagePreparationContainer(props: ImagePreparationContainerProps) {
+  return <ImagePreparationContainerInternal {...props} />;
 }

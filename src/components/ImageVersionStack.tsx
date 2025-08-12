@@ -14,7 +14,7 @@ import {
   UserCheck, 
   Clock
 } from "lucide-react";
-import { useImageStore } from "@/stores/imageStore";
+import { useImagePreparation } from "@/contexts/ImagePreparationContext";
 
 interface ImageVersion {
   id: string;
@@ -59,7 +59,7 @@ export default function ImageVersionStack({
   activeVersionId, 
   isProcessing 
 }: ImageVersionStackProps) {
-  const { setActiveVersion } = useImageStore();
+  const { setActiveVersion } = useImagePreparation();
   // Sort versions by creation time, with original first
   const sortedVersions = Object.values(versions).sort((a, b) => {
     if (a.id === 'original') return -1;

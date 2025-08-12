@@ -12,17 +12,19 @@ import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, Play
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from 'motion/react';
 import { useToast } from "@/hooks/use-toast";
+import { useImagePreparation } from "@/contexts/ImagePreparationContext";
 
 interface HistoryCardProps {
   item: HistoryItem;
   onViewDetails: (item: HistoryItem) => void;
-  onReloadConfig: (item: HistoryItem) => void;
+  onReloadConfig?: (item: HistoryItem) => void; // Made optional since we handle this internally now
   onDeleteItem: (item: HistoryItem) => void;
   username?: string; // Add optional username prop
 }
 
 export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDeleteItem, username }: HistoryCardProps) {
   const { toast } = useToast();
+  const { initializeFromHistory, setCurrentTab } = useImagePreparation();
   const [isInView, setIsInView] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -239,10 +241,18 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem 
-                onClick={(e) => {
+              <DropdownMenuItem
+                onClick={async (e) => {
                   e.stopPropagation();
-                  onReloadConfig(item);
+                  try {
+                    await initializeFromHistory(item);
+                    // Switch to the appropriate tab based on the item type
+                    const targetTab = item.videoGenerationParams ? 'video' : 'image';
+                    setCurrentTab(targetTab);
+                  } catch (error) {
+                    // Error handling is already done in the context action
+                    console.error('Failed to reload config:', error);
+                  }
                 }}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 <span>Reload Config</span>
