@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
-import fs from 'fs/promises';
 import mime from 'mime-types';
+import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 
 export const dynamic = 'force-static';
 
@@ -16,18 +16,12 @@ export async function GET(
       return new NextResponse('File path is required', { status: 400 });
     }
 
-    // Prevent path traversal attacks
+    // Construct the uploads path and use secure utility
     const requestedPath = path.join(...filePathParts);
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-    const absoluteFilePath = path.join(uploadsDir, requestedPath);
-
-    // Ensure the resolved path is still within the intended 'uploads' directory
-    if (!absoluteFilePath.startsWith(uploadsDir)) {
-      return new NextResponse('Forbidden', { status: 403 });
-    }
-
-    const fileBuffer = await fs.readFile(absoluteFilePath);
-    const mimeType = mime.lookup(absoluteFilePath) || 'application/octet-stream';
+    const uploadsPath = `/uploads/${requestedPath}`;
+    
+    const fileBuffer = await getBufferFromLocalPath(uploadsPath);
+    const mimeType = mime.lookup(uploadsPath) || 'application/octet-stream';
 
     // By creating a Blob from a Uint8Array view of the Buffer, we ensure the
     // NextResponse receives a standard Web API object, resolving the type conflict.

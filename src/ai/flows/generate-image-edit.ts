@@ -16,6 +16,8 @@ import fetch from 'node-fetch'; // For fetching image from URL
 import fs from 'fs';
 import path from 'path';
 import { saveDataUriLocally } from '@/services/storage.service';
+import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
+import mime from 'mime-types';
 import { getApiKeyForUser } from '@/services/apiKey.service';
 import { buildAIPrompt, GENDER_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS } from '@/lib/prompt-builder';
 import { generatePromptWithAI } from '@/ai/actions/generate-prompt.action';
@@ -199,20 +201,11 @@ async function performSingleImageGeneration(
       }
     } else if (input.imageDataUriOrUrl.startsWith('/')) {
       try {
-        // FIX: The 'uploads' directory is now at the root, not inside 'public'.
-        // We construct the path relative to the project root.
-        const absolutePath = path.join(process.cwd(), input.imageDataUriOrUrl);
-        if (fs.existsSync(absolutePath)) { // Note: existsSync is not async, consider fs.promises.access for full async pattern
-          const imageBuffer = fs.readFileSync(absolutePath);
-          let mimeType = 'image/png';
-          if (input.imageDataUriOrUrl.endsWith('.jpg') || input.imageDataUriOrUrl.endsWith('.jpeg')) mimeType = 'image/jpeg';
-          else if (input.imageDataUriOrUrl.endsWith('.webp')) mimeType = 'image/webp';
-          else if (input.imageDataUriOrUrl.endsWith('.gif')) mimeType = 'image/gif';
-          dataUriToProcess = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-          console.log(`Successfully converted local path ${input.imageDataUriOrUrl} to data URI for ${flowIdentifier}.`);
-        } else {
-          throw new Error(`Local image file not found at ${absolutePath}`);
-        }
+        // Use secure file system utility for reading local files
+        const imageBuffer = await getBufferFromLocalPath(input.imageDataUriOrUrl);
+        const mimeType = mime.lookup(input.imageDataUriOrUrl) || 'image/png';
+        dataUriToProcess = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+        console.log(`Successfully converted local path ${input.imageDataUriOrUrl} to data URI for ${flowIdentifier}.`);
       } catch (localFileError: unknown) { // Changed to unknown
         console.error(`Error reading local image file for ${flowIdentifier}:`, localFileError);
         throw new Error(`Failed to process local source image for ${flowIdentifier}: ${(localFileError as Error).message}`);

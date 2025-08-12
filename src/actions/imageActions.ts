@@ -6,6 +6,8 @@ import type { PixelCrop } from '@/lib/types';
 import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
+import mime from 'mime-types';
+import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 
 const MAX_DIMENSION = 2048;
 
@@ -98,10 +100,8 @@ export async function cropImage(
   }
 
   try {
-    // FIX: The imageUrl is already the correct relative path from the project root (e.g., /uploads/...).
-    // We no longer need to add the 'public' directory segment.
-    const imagePath = path.join(process.cwd(), imageUrl);
-    const originalBuffer = await fs.readFile(imagePath);
+    // Use secure file system utility for reading the image
+    const originalBuffer = await getBufferFromLocalPath(imageUrl);
     
     const originalImage = sharp(originalBuffer);
     const metadata = await originalImage.metadata();
@@ -161,29 +161,49 @@ export async function fetchImageAndConvertToDataUri(
   imageUrl: string
 ): Promise<{ success: true; dataUri: string; hash: string } | { success: false; error: string }> {
   try {
-    // CACHE-STRATEGY: Policy: Static - The content at a given image URL is expected to be immutable.
-    // Caching this fetch is critical to avoid re-downloading the same asset.
+    // If this looks like a server-relative uploads path, read from disk directly.
+    // Supports:
+    //   - /uploads/...
+    //   - /api/images/...
+    const uploadsPrefix = '/uploads/';
+    const apiImagesPrefix = '/api/images/';
+
+    // If it's a local path, use our canonical utility.
+    if (imageUrl.startsWith(uploadsPrefix) || imageUrl.startsWith(apiImagesPrefix)) {
+      // Map /api/images/... -> /uploads/...
+      const uploadsPath = imageUrl.startsWith(apiImagesPrefix)
+        ? imageUrl.replace(new RegExp(`^${apiImagesPrefix}`), uploadsPrefix)
+        : imageUrl;
+      
+      const buffer = await getBufferFromLocalPath(uploadsPath);
+      const contentType = mime.lookup(uploadsPath) || 'application/octet-stream';
+      if (!contentType.startsWith('image/')) {
+        throw new Error('Local file is not an image.');
+      }
+      const dataUri = `data:${contentType};base64,${buffer.toString('base64')}`;
+      const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+      return { success: true, dataUri, hash };
+    }
+
+    // Fallback: remote URL — perform network fetch.
     const response = await fetch(imageUrl, {
       cache: 'force-cache',
-      signal: AbortSignal.timeout(15000), 
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
       throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
     }
 
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.startsWith('image/')) {
+    const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
+    if (!contentType.startsWith('image/')) {
       throw new Error('Fetched content is not a valid image type.');
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
     const dataUri = `data:${contentType};base64,${buffer.toString('base64')}`;
-
-    const hash = crypto.createHash('sha256').update(imageUrl).digest('hex');
-
+    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
     return { success: true, dataUri, hash };
-
   } catch (error) {
     console.error(`Error fetching image from URL on server: ${imageUrl}`, error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown server error during image fetch.';

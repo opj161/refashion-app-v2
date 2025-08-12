@@ -13,6 +13,7 @@ import path, { parse } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import { triggerMegaBackup } from './megaBackup.service';
+import mime from 'mime-types';
 
 /**
  * Downloads a file from a URL and saves it locally with proper permissions
@@ -30,64 +31,51 @@ export async function saveFileFromUrl(
 ): Promise<{ relativeUrl: string; hash: string }> {
   console.log(`Downloading from ${sourceUrl} to save in /uploads/${subfolder}`);
   try {
-    // CACHE-STRATEGY: Policy: Dynamic - This function's purpose is to download and save a file.
-    // We must use 'no-store' to ensure we get the latest version from the source URL,
-    // bypassing any potential stale data in our own server's cache.
-    // Download the file from the URL
+    // If sourceUrl points at a local uploads path, read it directly and return it (no HTTP fetch).
+    const uploadsPrefix = '/uploads/';
+    const apiImagesPrefix = '/api/images/';
+
+    if (sourceUrl.startsWith(uploadsPrefix) || sourceUrl.startsWith(apiImagesPrefix)) {
+      // If /api/images/... was supplied map back to /uploads/...
+      let uploadsPath = sourceUrl.startsWith(apiImagesPrefix)
+        ? sourceUrl.replace(new RegExp(`^${apiImagesPrefix}`), uploadsPrefix)
+        : sourceUrl;
+
+      const trimmed = uploadsPath.replace(/^\/+/, '');
+      const abs = path.resolve(process.cwd(), trimmed);
+      const uploadsBase = path.resolve(process.cwd(), 'uploads');
+      if (!abs.startsWith(uploadsBase + path.sep) && abs !== uploadsBase) {
+        throw new Error('Attempted to access a file outside of uploads directory.');
+      }
+      const buffer = await fs.readFile(abs);
+      const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
+      // Return the existing relative URL (no copy). If you prefer to copy into subfolder,
+      // replace this return with a copy flow using fs.copyFile -> new relativeUrl.
+      return { relativeUrl: uploadsPath, hash: fileHash };
+    }
+
+    // Otherwise, download remotely and save into uploads/{subfolder}
     const response = await fetch(sourceUrl, { cache: 'no-store' });
     if (!response.ok) {
       throw new Error(`Failed to download file: ${response.statusText}`);
     }
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    // Convert to buffer
-    const fileBuffer = Buffer.from(await response.arrayBuffer());
-    
-    // Calculate hash of the file content
-    const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-    
-    // Generate unique filename
-    const uniqueFileName = `${fileNamePrefix}_${uuidv4()}.${extension}`;
-    
-    // Create upload directory path
-    const uploadDir = path.join(process.cwd(), 'uploads', subfolder);
-    
-    // Ensure directory exists
-    await fs.mkdir(uploadDir, { recursive: true });
-    
-    // Write file
-    const filePath = path.join(uploadDir, uniqueFileName);
-    await fs.writeFile(filePath, fileBuffer);
-
-    // Set proper permissions and ownership
-    try {
-      await fs.chmod(filePath, 0o664); // More secure default than 777
-      console.log(`Set file permissions to 664 for: ${filePath}`);
-    } catch (chmodError) {
-      console.warn(`Warning: Could not set file permissions for ${filePath}:`, chmodError);
-    }
-
-    // Set proper ownership using PUID/PGID if available
-    const puid = process.env.PUID;
-    const pgid = process.env.PGID;
-    if (puid && pgid) {
-      try {
-        await fs.chown(filePath, parseInt(puid), parseInt(pgid));
-        console.log(`Set file ownership to ${puid}:${pgid} for: ${filePath}`);
-      } catch (chownError) {
-        console.warn(`Warning: Could not set file ownership for ${filePath}:`, chownError);
-      }
-    }
-    
-    // Return relative URL
-    const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
-    console.log(`File saved to: ${filePath}, accessible at: ${relativeUrl}`);
-  // Trigger MEGA backup after successful save
-  triggerMegaBackup(relativeUrl);
-  return { relativeUrl, hash: fileHash };
-    
-  } catch (error) {
-    console.error(`Error saving file from ${sourceUrl}:`, error);
-    throw new Error(`Failed to save file from URL: ${(error as Error).message}`);
+    const safeSubfolder = subfolder.replace(/[^a-zA-Z0-9_\-./]/g, '_');
+    const destFolder = path.join(process.cwd(), 'uploads', safeSubfolder);
+    await fs.mkdir(destFolder, { recursive: true });
+    const fileName = `${fileNamePrefix}-${uuidv4()}.${extension}`;
+    const destPath = path.join(destFolder, fileName);
+    await fs.writeFile(destPath, buffer);
+    const relativeUrl = `/uploads/${safeSubfolder}/${fileName}`;
+    const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
+    // Optionally trigger backups / side effects
+    triggerMegaBackup(relativeUrl);
+    return { relativeUrl, hash: fileHash };
+  } catch (err) {
+    console.error('saveFileFromUrl error', err);
+    throw err;
   }
 }
 

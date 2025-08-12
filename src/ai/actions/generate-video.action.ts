@@ -5,9 +5,8 @@ import { getCurrentUser } from '@/actions/authActions';
 import { addStandaloneVideoHistoryItem, updateVideoHistoryItem } from '@/actions/historyActions';
 import * as videoService from '@/services/fal-api/video.service'; // Use the service layer
 import { getApiKeyForUser } from '@/services/apiKey.service';
-import fs from 'fs/promises';
-import path from 'path';
 import { getDisplayableImageUrl } from '@/lib/utils';
+import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 
 // Ensure FAL_KEY is available, otherwise Fal.ai calls will fail
 if (!process.env.FAL_KEY) {
@@ -109,10 +108,9 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
       falPublicUrl = input.image_url;
       console.log(`Using existing Fal.ai URL: ${falPublicUrl}`);
     } else if (input.image_url.startsWith('/uploads/')) {
-      // Local path - read file and upload to Fal.ai
+      // Local path - read file and upload to Fal.ai using secure utility
       console.log(`Uploading local image for video generation: ${input.image_url}`);
-      const localFilePath = path.join(process.cwd(), input.image_url);
-      const fileBuffer = await fs.readFile(localFilePath);
+      const fileBuffer = await getBufferFromLocalPath(input.image_url);
       const imageBlob = new Blob([new Uint8Array(fileBuffer)]);
       
       falPublicUrl = await uploadToFalStorage(imageBlob, user.username);

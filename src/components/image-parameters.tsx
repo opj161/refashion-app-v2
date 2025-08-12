@@ -488,35 +488,10 @@ export default function ImageParameters({
     }
     setIsUpscalingSlot(slotIndex);
     try {
-      let imageDataUriForAction: string;
-
-      // Check if the imageUrl is a local path or already a data URI
-      if (imageUrlToUpscale.startsWith('/uploads/')) {
-        // It's a local path, convert to data URI
-        const displayUrl = getDisplayableImageUrl(imageUrlToUpscale);
-        if (!displayUrl) throw new Error("Could not create displayable URL.");
-        const absoluteUrl = `${window.location.origin}${displayUrl}`;
-
-        // ARCHITECTURE-NOTE: This is an inefficient client-side fetch to our own server
-        // to get a blob. This should be refactored in the future.
-        // For now, use browser's default caching to satisfy the linter.
-        const response = await fetch(absoluteUrl, { cache: 'default' });
-
-        if (!response.ok) throw new Error(`Failed to fetch image for processing: ${response.statusText}`);
-        const blob = await response.blob();
-        imageDataUriForAction = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-      } else {
-        // It's already a data URI or a public URL, use it directly
-        imageDataUriForAction = imageUrlToUpscale;
-      }
-
       // We pass undefined for hash as this is a generated image, not the original upload
-      const { savedPath } = await upscaleImageAction(imageDataUriForAction, undefined);
+      // PHASE 2 OPTIMIZATION: Pass the local file path directly to the server action.
+      // The inefficient download/re-upload cycle is now eliminated.
+      const { savedPath } = await upscaleImageAction(imageUrlToUpscale, undefined);
 
       if (activeHistoryItemId) {
         // The state isn't updated yet, so we build the arrays manually for the DB update
@@ -562,7 +537,7 @@ export default function ImageParameters({
     }
     setIsFaceRetouchingSlot(slotIndex);
     try {
-      // Face detailer works directly with image URLs, no need for data URI conversion
+      // PHASE 2 OPTIMIZATION: Just like upscale, pass the path directly.
       const { savedPath } = await faceDetailerAction(imageUrlToRetouch, undefined);
 
       if (activeHistoryItemId) {

@@ -3,9 +3,8 @@
 import { GoogleGenAI } from '@google/genai';
 import { getApiKeyForUser } from '@/services/apiKey.service';
 import type { ModelAttributes } from '@/lib/types';
-import path from 'path';
-import fs from 'fs/promises';
 import mime from 'mime-types';
+import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 import {
   GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS,
   HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS,
@@ -21,9 +20,8 @@ async function imageToGenerativePart(imageDataUriOrUrl: string) {
   let dataUri = imageDataUriOrUrl;
   
   if (dataUri.startsWith('/')) { // It's a local path
-    const absolutePath = path.join(process.cwd(), dataUri);
-    const buffer = await fs.readFile(absolutePath);
-    const mimeType = mime.lookup(absolutePath) || 'image/png';
+    const buffer = await getBufferFromLocalPath(dataUri);
+    const mimeType = mime.lookup(dataUri) || 'image/png';
     dataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
   }
   
