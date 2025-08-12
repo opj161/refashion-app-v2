@@ -43,6 +43,26 @@ export default function HistoryGallery({
   const [hasMore, setHasMore] = useState<boolean>(initialHistory.hasMore);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
+  // Function to refresh the history (can be called externally)
+  const refreshHistory = useCallback(async () => {
+    try {
+      const result = await getHistoryPaginated(1, 9, currentFilter);
+      setHistoryItems(result.items);
+      setCurrentPage(result.currentPage + 1);
+      setHasMore(result.hasMore);
+    } catch (err) {
+      console.error('Failed to refresh history:', err);
+    }
+  }, [currentFilter]);
+
+  // Expose refresh function globally for other components to call
+  useEffect(() => {
+    (window as any).refreshHistoryGallery = refreshHistory;
+    return () => {
+      delete (window as any).refreshHistoryGallery;
+    };
+  }, [refreshHistory]);
+
   // Animation variants for the gallery
   const containerVariants = {
     hidden: { opacity: 0 },

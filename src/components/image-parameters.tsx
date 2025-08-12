@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit, X, AlertCircle } from 'lucide-react';
+import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit, X, AlertCircle, Code, ChevronDown, ChevronUp } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
 import { generateImageEdit, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
@@ -88,6 +88,9 @@ export default function ImageParameters({
   // NEW STATE for the AI prompt feature
   const [useAIPrompt, setUseAIPrompt] = useState<boolean>(true);
   const [useRandomizedAIPrompts, setUseRandomizedAIPrompts] = useState<boolean>(true);
+
+  // State for prompt preview visibility
+  const [showPromptPreview, setShowPromptPreview] = useState<boolean>(false);
 
   // State for generation results
   const [outputImageUrls, setOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
@@ -195,7 +198,7 @@ export default function ImageParameters({
     fabricRendering: { setter: setFabricRendering, options: FABRIC_RENDERING_OPTIONS, defaultVal: initialAppDefaults.fabricRendering },
   }), [initialAppDefaults]);
 
-  // Load/Save settingsMode and user defaults from localStorage
+  // Load/Save settingsMode, user defaults, and prompt preview state from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedMode = window.localStorage.getItem('imageForgeSettingsMode');
@@ -215,8 +218,21 @@ export default function ImageParameters({
           });
         } catch (e) { console.error("Failed to parse imageForgeDefaults", e); }
       }
+
+      // Load prompt preview visibility preference
+      const storedPromptPreview = window.localStorage.getItem('imageForgeShowPromptPreview');
+      if (storedPromptPreview === 'true') {
+        setShowPromptPreview(true);
+      }
     }
   }, [PARAMETER_CONFIG]);
+
+  // Save prompt preview state to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('imageForgeShowPromptPreview', showPromptPreview.toString());
+    }
+  }, [showPromptPreview]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -270,6 +286,13 @@ export default function ImageParameters({
   useEffect(() => {
     if (historyItemToLoad && !isLoadingHistory && historyItemToLoad.id !== loadedHistoryItemId) {
       const { attributes, constructedPrompt, settingsMode, editedImageUrls, originalImageUrls, id } = historyItemToLoad;
+      
+      // Clear any existing generated images first
+      setOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+      setOriginalOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+      setGenerationErrors(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+      setActiveHistoryItemId(null);
+      
       // Set all attribute states from the loaded history item
       setGender(attributes.gender || GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value);
       setBodyShapeAndSize(attributes.bodyShapeAndSize || BODY_SHAPE_AND_SIZE_OPTIONS[0].value);
@@ -290,16 +313,17 @@ export default function ImageParameters({
       setFabricRendering(attributes.fabricRendering || FABRIC_RENDERING_OPTIONS[0].value);
       // Set settings mode
       setSettingsMode(settingsMode || 'basic');
-      // Set the generated image URLs to display them in the results section
+      
+      // Only set the generated image URLs if we want to show the historical results
+      // For now, we'll show them to maintain the current behavior but clear them first
       if (editedImageUrls && editedImageUrls.length > 0) {
         setOutputImageUrls(editedImageUrls);
       }
       // Set the original URLs for the "Compare" feature
       if (originalImageUrls && originalImageUrls.length > 0) {
         setOriginalOutputImageUrls(originalImageUrls);
-      } else {
-        setOriginalOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
       }
+      
       setActiveHistoryItemId(id);
       // Set the prompt and mark it as manually edited to prevent auto-generation
       if (constructedPrompt) {
@@ -452,6 +476,11 @@ export default function ImageParameters({
           try {
             const newHistoryId = await addHistoryItem(currentAttributes, result.constructedPrompt, preparedImageUrl, result.editedImageUrls, settingsMode);
             setActiveHistoryItemId(newHistoryId);
+            
+            // Refresh history gallery if available
+            if (typeof (window as any).refreshHistoryGallery === 'function') {
+              (window as any).refreshHistoryGallery();
+            }
           } catch (error) {
             console.error("Failed to save to history:", error);
           }
@@ -611,6 +640,22 @@ export default function ImageParameters({
 
     // Switch to the video tab with the new image active
     setCurrentTab('video');
+    
+    // Smooth scroll to the image preparation container after a short delay
+    setTimeout(() => {
+      const imagePreparationElement = document.querySelector('[data-testid="image-preparation-container"]') ||
+                                     document.querySelector('h1, h2, h3')?.closest('.space-y-6, .space-y-8') ||
+                                     document.querySelector('.container');
+      
+      if (imagePreparationElement) {
+        imagePreparationElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+          inline: 'nearest'
+        });
+      }
+    }, 100); // Small delay to ensure tab switch is complete
+    
     toast({
       title: "Switched to Video",
       description: "Ready to generate a video with your selected generated image.",
@@ -797,36 +842,59 @@ export default function ImageParameters({
               </div>
             </div>
           )}
-           {/* Save/Clear Defaults Buttons */}
-           <div className="flex gap-2 pt-4 border-t mt-4">
+           {/* Save/Clear Defaults Buttons + Show Prompt Toggle */}
+           <div className="flex flex-wrap gap-2 pt-4 border-t mt-4">
                 <Button variant="outline" onClick={handleSaveDefaults} size="sm" disabled={commonFormDisabled}><Save className="mr-2 h-4 w-4"/>Save Defaults</Button>
                 <Button variant="ghost" onClick={handleClearDefaults} size="sm" disabled={commonFormDisabled}><Trash2 className="mr-2 h-4 w-4"/>Clear Defaults</Button>
+                <Button
+                  variant={showPromptPreview ? "default" : "outline"}
+                  onClick={() => setShowPromptPreview(!showPromptPreview)}
+                  size="sm"
+                  disabled={commonFormDisabled}
+                  className="ml-auto"
+                >
+                  <Code className="mr-2 h-4 w-4"/>
+                  {showPromptPreview ? 'Hide' : 'Show'} Prompt
+                  {showPromptPreview ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
+                </Button>
             </div>
 
-          {/* Prompt Textarea */}
-          <div className="space-y-2 pt-4 border-t">
-            <div className="flex justify-between items-center">
-              <Label htmlFor="imagePromptTextarea" className="text-sm font-medium">Prompt Preview</Label>
-              {isManualPromptOutOfSync() && (
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  <span className="text-xs text-amber-600">Prompt manually edited</span>
-                  <Button variant="link" size="sm" onClick={resetPromptToAuto} className="text-xs text-amber-600 hover:text-amber-700 p-0 h-auto">
-                    Reset to Auto
-                  </Button>
+          {/* Collapsible Prompt Preview */}
+          <AnimatePresence>
+            {showPromptPreview && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                <div className="space-y-2 pt-4 border-t">
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="imagePromptTextarea" className="text-sm font-medium">Prompt Preview</Label>
+                    {isManualPromptOutOfSync() && (
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        <span className="text-xs text-amber-600">Prompt manually edited</span>
+                        <Button variant="link" size="sm" onClick={resetPromptToAuto} className="text-xs text-amber-600 hover:text-amber-700 p-0 h-auto">
+                          Reset to Auto
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <Textarea
+                    id="imagePromptTextarea"
+                    value={currentPrompt}
+                    onChange={(e) => handlePromptChange(e.target.value)}
+                    rows={8}
+                    className="text-xs font-mono"
+                    placeholder="Prompt will be generated here based on your selections, or you can type your own."
+                    disabled={commonFormDisabled}
+                  />
                 </div>
-              )}
-            </div>
-            <Textarea
-              id="imagePromptTextarea"
-              value={currentPrompt}
-              onChange={(e) => handlePromptChange(e.target.value)}
-              rows={8}
-              className="text-xs font-mono"
-              placeholder="Prompt will be generated here based on your selections, or you can type your own."
-              disabled={commonFormDisabled}
-            />
-          </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </CardContent>
         <CardFooter className="flex-col items-stretch space-y-4">
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>

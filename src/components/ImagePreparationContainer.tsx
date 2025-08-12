@@ -93,7 +93,7 @@ function ImagePreparationContainerInternal({
   }
 
   return (
-    <motion.div layout transition={{ duration: 0.5, type: 'spring', bounce: 0.2 }}>
+    <motion.div layout transition={{ duration: 0.5, type: 'spring', bounce: 0.2 }} data-testid="image-preparation-container">
       <Card variant="glass">
         <CardHeader>
             <div className="flex justify-between items-start gap-4">

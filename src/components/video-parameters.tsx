@@ -22,12 +22,13 @@ import {
     PREDEFINED_PROMPTS, MODEL_MOVEMENT_OPTIONS, FABRIC_MOTION_OPTIONS_VIDEO, // Use FABRIC_MOTION_OPTIONS_VIDEO
     CAMERA_ACTION_OPTIONS, AESTHETIC_VIBE_OPTIONS as AESTHETIC_STYLE_OPTIONS
 } from "@/lib/prompt-builder";
-import { AlertTriangle, CheckCircle, Download, Info, Loader2, PaletteIcon, Settings2, Shuffle, Video } from "lucide-react";
+import { AlertTriangle, CheckCircle, Download, Info, Loader2, PaletteIcon, Settings2, Shuffle, Video, Code, ChevronDown, ChevronUp } from "lucide-react";
 import { OptionWithPromptSegment } from "@/lib/prompt-builder";
 import { usePromptManager } from "@/hooks/usePromptManager";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { calculateVideoCost, formatPrice, VideoModel, VideoResolution, VideoDuration } from "@/lib/pricing";
+import { motion, AnimatePresence } from 'motion/react';
 
 
 // Type for video generation parameters
@@ -156,6 +157,9 @@ export default function VideoParameters() {
   const [cameraAction, setCameraAction] = useState<string>(CAMERA_ACTION_OPTIONS[0].value);
   const [aestheticVibe, setAestheticVibe] = useState<string>(AESTHETIC_STYLE_OPTIONS[0].value);
 
+  // State for prompt preview visibility
+  const [showPromptPreview, setShowPromptPreview] = useState<boolean>(false);
+
   // Generation states
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isUploadingToFal, setIsUploadingToFal] = useState<boolean>(false);
@@ -210,12 +214,27 @@ export default function VideoParameters() {
     generationParams: currentVideoGenParams,
   });
 
-  // Effect to check for service availability on the server
+  // Effect to check for service availability on the server and load prompt preview state
   useEffect(() => {
     isFalVideoGenerationAvailable().then(result => {
       setIsServiceAvailable(result.available);
     });
+
+    // Load prompt preview visibility preference
+    if (typeof window !== 'undefined') {
+      const storedPromptPreview = window.localStorage.getItem('videoForgeShowPromptPreview');
+      if (storedPromptPreview === 'true') {
+        setShowPromptPreview(true);
+      }
+    }
   }, []);
+
+  // Save prompt preview state to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('videoForgeShowPromptPreview', showPromptPreview.toString());
+    }
+  }, [showPromptPreview]);
 
   // Effect to calculate and update the estimated cost  
   useEffect(() => {
@@ -387,6 +406,11 @@ export default function VideoParameters() {
           setGeneratedSeedValue(data.seed || null);
           setIsGenerating(false);
           toast({ title: "Video Generated!", description: "Video is ready." });
+          
+          // Refresh history gallery if available
+          if (typeof (window as any).refreshHistoryGallery === 'function') {
+            (window as any).refreshHistoryGallery();
+          }
         } else if (data.status === 'failed') {
           setGenerationError(data.error || 'Video generation failed');
           setIsGenerating(false);
@@ -511,25 +535,54 @@ export default function VideoParameters() {
             </div>
           </div>
 
-          <div className="md:col-span-2 pt-2 space-y-2">
-            <div className="flex justify-between items-center">
-              <Label htmlFor="fullVideoPrompt" className="text-sm">Full Prompt</Label>
-              {isManualPromptOutOfSync() && (
-                <Button variant="link" size="sm" onClick={resetPromptToAuto} className="text-xs text-amber-600 hover:text-amber-700 p-0 h-auto">
-                  <AlertTriangle className="h-3 w-3 mr-1" /> Settings changed. Reset prompt?
-                </Button>
-              )}
+          {/* Show Prompt Toggle Button */}
+          <div className="md:col-span-2 pt-2 border-t">
+            <div className="flex justify-end">
+              <Button
+                variant={showPromptPreview ? "default" : "outline"}
+                onClick={() => setShowPromptPreview(!showPromptPreview)}
+                size="sm"
+                disabled={commonFormDisabled}
+              >
+                <Code className="mr-2 h-4 w-4"/>
+                {showPromptPreview ? 'Hide' : 'Show'} Prompt
+                {showPromptPreview ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
+              </Button>
             </div>
-            <Textarea
-              id="fullVideoPrompt"
-              value={currentPrompt}
-              onChange={(e) => handlePromptChange(e.target.value)}
-              rows={3}
-              className="text-xs font-mono"
-              placeholder="Prompt will be generated here based on your selections, or you can type your own."
-              disabled={commonFormDisabled}
-            />
           </div>
+
+          {/* Collapsible Prompt Preview */}
+          <AnimatePresence>
+            {showPromptPreview && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="overflow-hidden md:col-span-2"
+              >
+                <div className="space-y-2 pt-2">
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="fullVideoPrompt" className="text-sm">Full Prompt</Label>
+                    {isManualPromptOutOfSync() && (
+                      <Button variant="link" size="sm" onClick={resetPromptToAuto} className="text-xs text-amber-600 hover:text-amber-700 p-0 h-auto">
+                        <AlertTriangle className="h-3 w-3 mr-1" /> Settings changed. Reset prompt?
+                      </Button>
+                    )}
+                  </div>
+                  <Textarea
+                    id="fullVideoPrompt"
+                    value={currentPrompt}
+                    onChange={(e) => handlePromptChange(e.target.value)}
+                    rows={3}
+                    className="text-xs font-mono"
+                    placeholder="Prompt will be generated here based on your selections, or you can type your own."
+                    disabled={commonFormDisabled}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </CardContent>
       </Card>
 
