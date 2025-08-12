@@ -59,7 +59,7 @@ export default function ImageParameters({
   
   // Get the active image and tab state from context
   const activeImage = useActivePreparationImage();
-  const { setCurrentTab } = useImagePreparation();
+  const { setCurrentTab, addVersion } = useImagePreparation();
   const preparedImageUrl = activeImage?.imageUrl || null;
 
   // State for parameters
@@ -601,11 +601,19 @@ export default function ImageParameters({
   const handleSendToVideoPage = (imageUrl: string | null) => {
     if (!imageUrl) return;
 
-    // Instant client-side tab switch - the image is already available in the shared context
+    // Add the generated image as a new version in the context
+    const newVersionId = addVersion({
+      imageUrl: imageUrl,
+      label: 'Generated for Video',
+      sourceVersionId: activeImage?.id || 'original',
+      hash: `generated_${Date.now()}`, // Generate a unique hash for the generated image
+    });
+
+    // Switch to the video tab with the new image active
     setCurrentTab('video');
     toast({
       title: "Switched to Video",
-      description: "Ready to generate a video with your prepared image.",
+      description: "Ready to generate a video with your selected generated image.",
     });
   };
 
