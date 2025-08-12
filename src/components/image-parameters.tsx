@@ -1,7 +1,7 @@
 // src/components/image-parameters.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -84,6 +84,10 @@ export default function ImageParameters({
   const [settingsMode, setSettingsMode] = useState<'basic' | 'advanced'>('basic');
   const [showAdvancedSettingsActiveMessage, setShowAdvancedSettingsActiveMessage] = useState<boolean>(false);
   const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
+
+  // NEW CORE STATE: Tracks if the user has intentionally changed any setting.
+  // This is the "tripwire" for switching from smart default to manual mode.
+  const [isCustomized, setIsCustomized] = useState<boolean>(false);
 
   // NEW STATE for the AI prompt feature
   const [useAIPrompt, setUseAIPrompt] = useState<boolean>(true);
@@ -314,6 +318,10 @@ export default function ImageParameters({
       // Set settings mode
       setSettingsMode(settingsMode || 'basic');
       
+      // *** BUG FIX / COMPLETENESS ***
+      // Loading history is an explicit customization. Set the tripwire.
+      setIsCustomized(true);
+      
       // Only set the generated image URLs if we want to show the historical results
       // For now, we'll show them to maintain the current behavior but clear them first
       if (editedImageUrls && editedImageUrls.length > 0) {
@@ -336,6 +344,19 @@ export default function ImageParameters({
       });
     }
   }, [historyItemToLoad, isLoadingHistory, loadedHistoryItemId, handlePromptChange, toast]);
+
+  // NEW: Callback to set the `isCustomized` tripwire.
+  // Memoized to prevent re-creation on every render.
+  const handleFirstCustomization = useCallback(() => {
+    if (!isCustomized) {
+      setIsCustomized(true);
+      toast({
+        title: "Customization Mode Activated",
+        description: "The 'Generate' button will now use your specific settings.",
+        duration: 3000,
+      });
+    }
+  }, [isCustomized, toast]);
 
   // Check Face Detailer service availability on mount
   useEffect(() => {
@@ -399,6 +420,7 @@ export default function ImageParameters({
   };
 
   const handleRandomizeConfiguration = () => {
+    handleFirstCustomization();
     if (useAIPrompt) {
       // When AI Prompt is enabled, don't change UI fields - set flag for AI generation instead
       setUseRandomizedAIPrompts(true);
@@ -434,25 +456,36 @@ export default function ImageParameters({
     // Start all slots in a "generating" visual state
     setIsGeneratingSlots([true, true, true]);
 
-    const currentAttributes: ModelAttributes = {
-      gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
-      fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-      cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering
-    };
+    let generationInput: GenerateImageEditInput;
 
-    // 2. Prepare a single input object for the batch action
-    const input: GenerateImageEditInput = {
-      prompt: currentPrompt, // The manually edited prompt, if any
-      imageDataUriOrUrl: preparedImageUrl,
-      parameters: currentAttributes,
-      settingsMode,
-      useAIPrompt: useAIPrompt,
-      useRandomizedAIPrompts: useRandomizedAIPrompts
-    };
+    if (!isCustomized) {
+      // --- SMART DEFAULT MODE ---
+      // User has not touched any controls, so we use the best, most creative defaults.
+      generationInput = {
+        imageDataUriOrUrl: preparedImageUrl,
+        parameters: currentImageGenParams, // Use default parameters
+        settingsMode: 'basic', // Use basic mode as the foundation
+        useAIPrompt: true, // Force AI prompt generation
+        useRandomizedAIPrompts: true, // Force randomization for variety
+      };
+      toast({ title: "Starting AI Creative Generation...", description: "Using randomized styles for variety." });
+    } else {
+      // --- MANUAL CUSTOMIZATION MODE ---
+      // User has interacted with the controls, so we respect their exact choices.
+      generationInput = {
+        prompt: isPromptManuallyEdited ? currentPrompt : undefined,
+        imageDataUriOrUrl: preparedImageUrl,
+        parameters: currentImageGenParams,
+        settingsMode: settingsMode,
+        useAIPrompt: useAIPrompt,
+        useRandomizedAIPrompts: useRandomizedAIPrompts,
+      };
+      toast({ title: "Starting Generation...", description: "Using your custom settings." });
+    }
 
     try {
       // 3. Make a SINGLE call to the batch server action
-      const result: GenerateMultipleImagesOutput = await generateImageEdit(input, currentUser?.username || '');
+      const result: GenerateMultipleImagesOutput = await generateImageEdit(generationInput, currentUser?.username || '');
 
       // 4. Process the complete result at once
       setOutputImageUrls(result.editedImageUrls);
@@ -460,21 +493,12 @@ export default function ImageParameters({
       // Store the prompt for history
       setLastUsedPrompt(result.constructedPrompt);
       
-      if (result.errors) {
-        setGenerationErrors(result.errors);
-      }
-      
       const successCount = result.editedImageUrls.filter(url => url !== null).length;
       if (successCount > 0) {
-        toast({
-          title: "Generation Complete!",
-          description: `${successCount} out of ${NUM_IMAGES_TO_GENERATE} images generated successfully.`
-        });
-        
         // Add to history
         if (currentUser && preparedImageUrl) {
           try {
-            const newHistoryId = await addHistoryItem(currentAttributes, result.constructedPrompt, preparedImageUrl, result.editedImageUrls, settingsMode);
+            const newHistoryId = await addHistoryItem(currentImageGenParams, result.constructedPrompt, preparedImageUrl, result.editedImageUrls, settingsMode);
             setActiveHistoryItemId(newHistoryId);
             
             // Refresh history gallery if available
@@ -485,12 +509,19 @@ export default function ImageParameters({
             console.error("Failed to save to history:", error);
           }
         }
+        toast({
+          title: "Generation Complete!",
+          description: `${successCount} out of ${NUM_IMAGES_TO_GENERATE} images generated successfully.`
+        });
       } else {
         toast({
           title: "All Generations Failed",
           description: "Please check the errors or try again.",
           variant: "destructive"
         });
+      }
+      if (result.errors) {
+        setGenerationErrors(result.errors);
       }
 
     } catch (error) {
@@ -662,13 +693,26 @@ export default function ImageParameters({
     });
   };
 
+  // NEW: Wrapper for all parameter state changes to trigger customization mode
+  const handleParamChange = useCallback((setter: React.Dispatch<React.SetStateAction<any>>, value: any) => {
+    handleFirstCustomization();
+    setter(value);
+  }, [handleFirstCustomization]);
+
   // Helper to render select components
   const renderSelect = ({ id, label, value, onChange, options, disabled }: {
     id: string; label: string; value: string; onChange: (value: string) => void; options: OptionWithPromptSegment[]; disabled?: boolean;
-  }) => (
+  }) => {
+    // The original `onChange` is the state setter (e.g., `setGender`).
+    // We wrap it with our new handler to trip the `isCustomized` wire.
+    const wrappedOnChange = (newValue: string) => {
+      handleParamChange(onChange, newValue);
+    };
+
+    return (
     <div className="space-y-1">
       <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
-      <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <Select value={value} onValueChange={wrappedOnChange} disabled={disabled}>
         <SelectTrigger id={id} className="w-full text-sm">
           <SelectValue placeholder={options.find(o => o.value === value)?.displayLabel || `Select ${label.toLowerCase()}`} />
         </SelectTrigger>
@@ -677,7 +721,8 @@ export default function ImageParameters({
         </SelectContent>
       </Select>
     </div>
-  );
+    )
+  };
 
   // Animation variants for results grid
   const resultsContainerVariants = {
@@ -710,228 +755,117 @@ export default function ImageParameters({
 
   return (
     <div className="space-y-6">
+      {/* --- RESTRUCTURED CARD --- */}
       <Card variant="glass">
-        <CardHeader className="flex flex-row items-start justify-between">
+        <CardHeader>
           <div>
             <CardTitle className="text-xl flex items-center gap-2">
               <Palette className="h-6 w-6 text-primary" />
               Style Your Model
             </CardTitle>
-            <CardDescription className="hidden lg:block">Choose a model and scene to showcase your clothing.</CardDescription>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* NEW AI PROMPT SWITCH */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="ai-prompt-switch" className="text-sm font-medium whitespace-nowrap flex items-center gap-1">
-                      <BrainCircuit className="h-4 w-4" /> AI Prompt
-                    </Label>
-                    <Switch
-                        id="ai-prompt-switch"
-                        checked={useAIPrompt}
-                        onCheckedChange={setUseAIPrompt}
-                        disabled={commonFormDisabled}
-                        aria-label="Toggle AI Prompt Generation"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">
-                    Enable to use a powerful AI to creatively write your prompt based on your settings. 
-                    This can produce more artistic and varied results.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <div className="flex items-center gap-2">
-                <Label htmlFor="settings-mode-switch" className="text-sm font-medium whitespace-nowrap">
-                    {settingsMode === 'basic' ? 'Basic' : 'Advanced'}
-                </Label>
-                <Switch
-                    id="settings-mode-switch"
-                    checked={settingsMode === 'advanced'}
-                    onCheckedChange={(checked: boolean) => setSettingsMode(checked ? 'advanced' : 'basic')}
-                    disabled={commonFormDisabled}
-                    aria-label="Toggle settings mode"
-                />
-            </div>
-            <Button 
-                variant={useAIPrompt && useRandomizedAIPrompts ? "default" : "outline"} 
-                size="icon" 
-                onClick={handleRandomizeConfiguration} 
-                disabled={commonFormDisabled} 
-                aria-label="Randomize Configuration" 
-                title={useAIPrompt 
-                    ? (useRandomizedAIPrompts ? "AI Randomization Activated - Each prompt will use random parameters" : "Click to activate AI randomization") 
-                    : "Randomize Settings"}
-                className={useAIPrompt && useRandomizedAIPrompts ? "bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg" : ""}
-            >
-                <Shuffle className={`h-5 w-5 ${useAIPrompt && useRandomizedAIPrompts ? 'animate-pulse' : ''}`} />
-            </Button>
+            <CardDescription>
+              {isCustomized
+                ? "Using your custom settings for generation."
+                : "Using AI Creative mode with randomized styles for best results."}
+            </CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Parameter Controls */}
-          {settingsMode === 'advanced' ? (
-            <>
-              {/* Advanced Settings Accordions */}
-              <Accordion type="multiple" defaultValue={["style-concept", "model-attributes"]} className="w-full">
-                <AccordionItem value="style-concept">
-                  <AccordionTrigger className="text-lg"><Sparkles className="h-5 w-5 mr-2 text-primary" />Overall Style & Concept</AccordionTrigger>
-                  <AccordionContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 pt-4">
-                    {renderSelect({ id: "fashionStyle", label: "Photographic Style", value: fashionStyle, onChange: setFashionStyle, options: FASHION_STYLE_OPTIONS, disabled: commonFormDisabled })}
-                    {renderSelect({ id: "overallMood", label: "Desired Mood & Atmosphere", value: overallMood, onChange: setOverallMood, options: OVERALL_MOOD_OPTIONS, disabled: commonFormDisabled })}
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="model-attributes">
-                  <AccordionTrigger className="text-lg"><PersonStanding className="h-5 w-5 mr-2 text-primary" />Model Attributes</AccordionTrigger>
-                  <AccordionContent className="pt-4 space-y-4">
-                    <RadioGroup value={gender} onValueChange={setGender} className="flex flex-row flex-wrap gap-2 pt-1" disabled={commonFormDisabled}>
-                        {GENDER_OPTIONS.map((option) => (
-                          <div key={option.value} className="flex items-center space-x-2">
-                            <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
-                            <Label htmlFor={`gender-${option.value}`} className="text-sm font-medium">{option.displayLabel}</Label>
-                          </div>
-                        ))}
-                    </RadioGroup>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS, disabled: commonFormDisabled })}
-                        {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS, disabled: commonFormDisabled })}
-                        {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS, disabled: commonFormDisabled })}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="scene-photographic">
-                  <AccordionTrigger className="text-lg"><Settings2 className="h-5 w-5 mr-2 text-primary" />Scene & Photographic Details</AccordionTrigger>
-                  <AccordionContent className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 pt-4">
-                    {renderSelect({ id: "timeOfDay", label: "Time of Day", value: timeOfDay, onChange:setTimeOfDay, options: TIME_OF_DAY_OPTIONS, disabled: commonFormDisabled })}
-                    {renderSelect({ id: "lightingType", label: "Lighting Type/Setup", value: lightingType, onChange: setLightingType, options: LIGHTING_TYPE_OPTIONS, disabled: commonFormDisabled })}
-                    {renderSelect({ id: "lightQuality", label: "Light Quality", value: lightQuality, onChange: setLightQuality, options: LIGHT_QUALITY_OPTIONS, disabled: commonFormDisabled })}
-                    {renderSelect({ id: "cameraAngle", label: "Camera Angle", value: cameraAngle, onChange: setCameraAngle, options: CAMERA_ANGLE_OPTIONS, disabled: commonFormDisabled })}
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </>
-          ) : (
-            /* Basic Mode Settings */
-            <div className="space-y-4">
-              {showAdvancedSettingsActiveMessage && (
-                <div className="p-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md">
-                  <p><strong>Note:</strong> Some advanced settings are active. Switch to Advanced mode to review or modify them.</p>
-                </div>
-              )}
-              <RadioGroup value={gender} onValueChange={setGender} className="flex flex-row flex-wrap gap-2 pt-1" disabled={commonFormDisabled}>
-                {GENDER_OPTIONS.map((option) => (
-                  <div key={option.value} className="flex items-center space-x-2">
-                    <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
-                    <Label htmlFor={`gender-${option.value}`} className="text-sm font-medium">{option.displayLabel}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS, disabled: commonFormDisabled })}
-                {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS, disabled: commonFormDisabled })}
-                {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS, disabled: commonFormDisabled })}
-                {renderSelect({ id: "hairStyle", label: "Hair Style", value: hairStyle, onChange: setHairStyle, options: HAIR_STYLE_OPTIONS, disabled: commonFormDisabled })}
-                {renderSelect({ id: "modelExpression", label: "Model Expression", value: modelExpression, onChange: setModelExpression, options: MODEL_EXPRESSION_OPTIONS, disabled: commonFormDisabled })}
-                {renderSelect({ id: "poseStyle", label: "Pose Style", value: poseStyle, onChange: setPoseStyle, options: POSE_STYLE_OPTIONS, disabled: commonFormDisabled })}
-                {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS, disabled: commonFormDisabled })}
-              </div>
-            </div>
-          )}
-           {/* Save/Clear Defaults Buttons + Show Prompt Toggle */}
-           <div className="flex flex-wrap gap-2 pt-4 border-t mt-4">
-                <Button variant="outline" onClick={handleSaveDefaults} size="sm" disabled={commonFormDisabled}><Save className="mr-2 h-4 w-4"/>Save Defaults</Button>
-                <Button variant="ghost" onClick={handleClearDefaults} size="sm" disabled={commonFormDisabled}><Trash2 className="mr-2 h-4 w-4"/>Clear Defaults</Button>
-                <Button
-                  variant={showPromptPreview ? "default" : "outline"}
-                  onClick={() => setShowPromptPreview(!showPromptPreview)}
-                  size="sm"
-                  disabled={commonFormDisabled}
-                  className="ml-auto"
-                >
-                  <Code className="mr-2 h-4 w-4"/>
-                  {showPromptPreview ? 'Hide' : 'Show'} Prompt
-                  {showPromptPreview ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
-                </Button>
-            </div>
-
-          {/* Collapsible Prompt Preview */}
-          <AnimatePresence>
-            {showPromptPreview && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="overflow-hidden"
-              >
-                <div className="space-y-2 pt-4 border-t">
-                  <div className="flex justify-between items-center">
-                    <Label htmlFor="imagePromptTextarea" className="text-sm font-medium">Prompt Preview</Label>
-                    {isManualPromptOutOfSync() && (
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-amber-500" />
-                        <span className="text-xs text-amber-600">Prompt manually edited</span>
-                        <Button variant="link" size="sm" onClick={resetPromptToAuto} className="text-xs text-amber-600 hover:text-amber-700 p-0 h-auto">
-                          Reset to Auto
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  <Textarea
-                    id="imagePromptTextarea"
-                    value={currentPrompt}
-                    onChange={(e) => handlePromptChange(e.target.value)}
-                    rows={8}
-                    className="text-xs font-mono"
-                    placeholder="Prompt will be generated here based on your selections, or you can type your own."
-                    disabled={commonFormDisabled}
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </CardContent>
-        <CardFooter className="flex-col items-stretch space-y-4">
+        <CardContent>
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button
-              variant="default"
-              onClick={handleSubmit}
-              disabled={isLoading || !preparedImageUrl || isFaceRetouchingSlot !== null || !currentPrompt.trim()}
-              className="w-full text-lg hover:animate-shimmer"
-              size="lg"
-            >
+            <Button onClick={handleSubmit} disabled={isLoading || !preparedImageUrl} className="w-full text-lg h-14">
               <AnimatePresence mode="wait" initial={false}>
-                {isGeneratingSlots.some(loading => loading) ? (
-                  <motion.span
-                    key="loading"
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 5 }}
-                    transition={{ duration: 0.2 }}
-                    className="flex items-center justify-center"
-                  >
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating Images...
+                {isLoading ? (
+                  <motion.span key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating...
                   </motion.span>
                 ) : (
-                  <motion.span
-                    key="idle"
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 5 }}
-                    transition={{ duration: 0.2 }}
-                    className="flex items-center justify-center"
-                  >
-                    <Wand2 className="mr-2 h-5 w-5" /> Generate {NUM_IMAGES_TO_GENERATE} Images
+                  <motion.span key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">
+                    <Sparkles className="mr-2 h-5 w-5" /> Generate {NUM_IMAGES_TO_GENERATE} Images
                   </motion.span>
                 )}
               </AnimatePresence>
             </Button>
           </motion.div>
+        </CardContent>
+        <CardFooter className="flex-col items-stretch !pt-0">
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="customize" className="border-b-0">
+              <AccordionTrigger className="text-sm text-muted-foreground hover:text-foreground justify-center py-2 group">
+                <Settings2 className="mr-2 h-4 w-4 transition-transform group-data-[state=open]:rotate-90"/>
+                Customize
+              </AccordionTrigger>
+              <AccordionContent className="pt-6 space-y-6">
+
+                {/* --- HEADER CONTROLS MOVED INSIDE ACCORDION --- */}
+                <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-muted/20">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="ai-prompt-switch" className="text-sm font-medium flex items-center gap-1">
+                            <BrainCircuit className="h-4 w-4" /> AI Prompt
+                          </Label>
+                          <Switch id="ai-prompt-switch" checked={useAIPrompt} onCheckedChange={(c) => handleParamChange(setUseAIPrompt, c)} disabled={commonFormDisabled} />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent><p className="max-w-xs">Enable AI to creatively write your prompt based on your settings.</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <div className="flex items-center gap-2">
+                      <Label htmlFor="settings-mode-switch" className="text-sm font-medium">
+                          {settingsMode === 'basic' ? 'Basic' : 'Advanced'}
+                      </Label>
+                      <Switch id="settings-mode-switch" checked={settingsMode === 'advanced'} onCheckedChange={(c) => handleParamChange(setSettingsMode, c ? 'advanced' : 'basic')} disabled={commonFormDisabled} />
+                  </div>
+                </div>
+
+                {/* --- PARAMETER CONTROLS --- */}
+                {settingsMode === 'basic' ? (
+                  <div className="space-y-4">
+                    <RadioGroup value={gender} onValueChange={(v) => handleParamChange(setGender, v)} className="flex flex-row flex-wrap gap-2 pt-1" disabled={commonFormDisabled}>
+                      {GENDER_OPTIONS.map((option) => (
+                        <div key={option.value} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
+                          <Label htmlFor={`gender-${option.value}`}>{option.displayLabel}</Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                      {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS, disabled: commonFormDisabled })}
+                      {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS, disabled: commonFormDisabled })}
+                      {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS, disabled: commonFormDisabled })}
+                      {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS, disabled: commonFormDisabled })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-center text-sm text-muted-foreground">Advanced settings will go here...</p>
+                )}
+
+                {/* --- UTILITY BUTTONS MOVED INSIDE ACCORDION --- */}
+                <div className="flex flex-wrap items-center gap-2 pt-4 border-t mt-4">
+                  <Button variant="outline" onClick={() => { handleFirstCustomization(); handleSaveDefaults(); }} size="sm" disabled={commonFormDisabled}><Save className="mr-2 h-4 w-4"/>Save</Button>
+                  <Button variant="ghost" onClick={() => { handleFirstCustomization(); handleClearDefaults(); }} size="sm" disabled={commonFormDisabled}><Trash2 className="mr-2 h-4 w-4"/>Clear</Button>
+                  <Button variant="outline" onClick={() => { handleFirstCustomization(); handleRandomizeConfiguration(); }} size="sm" disabled={commonFormDisabled} className="ml-auto"><Shuffle className="mr-2 h-4 w-4"/>Randomize</Button>
+                  <Button variant={showPromptPreview ? "secondary" : "outline"} onClick={() => setShowPromptPreview(!showPromptPreview)} size="sm" disabled={commonFormDisabled}>
+                    <FileText className="mr-2 h-4 w-4"/>
+                    {showPromptPreview ? 'Hide' : 'Show'} Prompt
+                  </Button>
+                </div>
+
+                {/* --- PROMPT PREVIEW --- */}
+                <AnimatePresence>
+                  {showPromptPreview && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
+                      <div className="space-y-2 pt-4 border-t">
+                        <Textarea id="imagePromptTextarea" value={currentPrompt} onChange={(e) => handleParamChange(handlePromptChange, e.target.value)} rows={8} className="text-xs font-mono" disabled={commonFormDisabled} />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </CardFooter>
       </Card>
 
