@@ -29,7 +29,7 @@ import {
     BODY_SHAPE_AND_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
     POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS, TIME_OF_DAY_OPTIONS, OVERALL_MOOD_OPTIONS,
     LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, CAMERA_ANGLE_OPTIONS, LENS_EFFECT_OPTIONS,
-    DEPTH_OF_FIELD_OPTIONS, FABRIC_RENDERING_OPTIONS, OptionWithPromptSegment
+    DEPTH_OF_FIELD_OPTIONS, OptionWithPromptSegment
 } from '@/lib/prompt-builder';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { MOTION_TRANSITIONS } from '@/lib/motion-constants';
@@ -79,7 +79,6 @@ export default function ImageParameters({
   const [depthOfField, setDepthOfField] = useState<string>(DEPTH_OF_FIELD_OPTIONS[0].value);
   const [timeOfDay, setTimeOfDay] = useState<string>(TIME_OF_DAY_OPTIONS[0].value);
   const [overallMood, setOverallMood] = useState<string>(OVERALL_MOOD_OPTIONS[0].value);
-  const [fabricRendering, setFabricRendering] = useState<string>(FABRIC_RENDERING_OPTIONS[0].value);
 
   const [generationMode, setGenerationMode] = useState<'creative' | 'manual'>('creative');
   const [settingsMode, setSettingsMode] = useState<'basic' | 'advanced'>('basic');
@@ -127,7 +126,6 @@ export default function ImageParameters({
       setDepthOfField(attrs.depthOfField || DEPTH_OF_FIELD_OPTIONS[0].value);
       setTimeOfDay(attrs.timeOfDay || TIME_OF_DAY_OPTIONS[0].value);
       setOverallMood(attrs.overallMood || OVERALL_MOOD_OPTIONS[0].value);
-      setFabricRendering(attrs.fabricRendering || FABRIC_RENDERING_OPTIONS[0].value);
       
       setSettingsMode(historyItemToLoad.settingsMode || 'basic');
       setLoadedHistoryItemId(historyItemToLoad.id);
@@ -179,7 +177,6 @@ export default function ImageParameters({
     depthOfField: { setter: setDepthOfField, options: DEPTH_OF_FIELD_OPTIONS, defaultVal: DEPTH_OF_FIELD_OPTIONS[0].value },
     timeOfDay: { setter: setTimeOfDay, options: TIME_OF_DAY_OPTIONS, defaultVal: TIME_OF_DAY_OPTIONS[0].value },
     overallMood: { setter: setOverallMood, options: OVERALL_MOOD_OPTIONS, defaultVal: OVERALL_MOOD_OPTIONS[0].value },
-    fabricRendering: { setter: setFabricRendering, options: FABRIC_RENDERING_OPTIONS, defaultVal: FABRIC_RENDERING_OPTIONS[0].value },
   }), []);
 
   // Load/Save settingsMode, user defaults, and prompt preview state from localStorage
@@ -222,12 +219,12 @@ export default function ImageParameters({
   const currentImageGenParams = React.useMemo((): ImageGenerationParams => ({
     gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
     fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-    cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering,
+    cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood,
     settingsMode,
   }), [
     gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
     fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-    cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering,
+    cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood,
     settingsMode
   ]);
 
@@ -280,7 +277,7 @@ export default function ImageParameters({
     const currentSettingsToSave: ModelAttributes = {
       gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
       fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-      cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering,
+      cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood,
     };
     window.localStorage.setItem('imageForgeDefaults', JSON.stringify(currentSettingsToSave));
     toast({ 
@@ -644,40 +641,93 @@ export default function ImageParameters({
 
                 <fieldset disabled={generationMode === 'creative'} className="space-y-6 transition-opacity duration-300 disabled:opacity-50">
 
-                  <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-muted/20">
+                  {/* Controls Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Label className="text-sm font-medium text-muted-foreground">Controls:</Label>
+                      <div className="flex bg-muted rounded-full p-1">
+                        <Button
+                          variant={settingsMode === 'basic' ? 'default' : 'ghost'}
+                          size="sm"
+                          onClick={() => setSettingsMode('basic')}
+                          className="rounded-full px-3 py-1 h-8 text-xs font-medium transition-all"
+                        >
+                          Simple
+                        </Button>
+                        <Button
+                          variant={settingsMode === 'advanced' ? 'default' : 'ghost'}
+                          size="sm"
+                          onClick={() => setSettingsMode('advanced')}
+                          className="rounded-full px-3 py-1 h-8 text-xs font-medium transition-all"
+                        >
+                          Detailed
+                        </Button>
+                      </div>
+                      {generationMode === 'manual' && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline" 
+                                size="sm"
+                                onClick={handleRandomizeConfiguration}
+                                className="h-8 px-3 text-xs"
+                                disabled={!preparedImageUrl || isLoading}
+                              >
+                                <Shuffle className="h-3 w-3 mr-1" />
+                                Randomize
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Randomize all manual settings for inspiration</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+
+                    {/* Compact AI-Enhanced Prompt Toggle */}
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="flex items-center gap-2">
-                            <Label htmlFor="ai-prompt-switch" className="text-sm font-medium flex items-center gap-1">
-                              <BrainCircuit className="h-4 w-4" /> AI-Enhanced Prompt
-                            </Label>
-                            <Switch id="ai-prompt-switch" checked={useAIPrompt} onCheckedChange={setUseAIPrompt} />
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-muted/50 hover:bg-muted/70 transition-colors cursor-pointer">
+                            <BrainCircuit className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">AI Prompt</span>
+                            <Switch 
+                              checked={useAIPrompt} 
+                              onCheckedChange={setUseAIPrompt}
+                            />
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent><p className="max-w-xs">Enable AI to creatively write your prompt based on your manual settings.</p></TooltipContent>
+                        <TooltipContent>
+                          <p className="max-w-xs">Enable AI to creatively enhance your prompt based on manual settings</p>
+                        </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-
-                    <div className="flex items-center gap-2">
-                        <Label htmlFor="settings-mode-switch" className="text-sm font-medium">
-                            {settingsMode === 'basic' ? 'Simple' : 'Detailed'} Controls
-                        </Label>
-                        <Switch id="settings-mode-switch" checked={settingsMode === 'advanced'} onCheckedChange={(c) => setSettingsMode(c ? 'advanced' : 'basic')} />
-                    </div>
                   </div>
 
                   {settingsMode === 'basic' ? (
-                    <div className="space-y-4">
-                      <RadioGroup value={gender} onValueChange={setGender} className="flex flex-row flex-wrap gap-2 pt-1">
-                        {GENDER_OPTIONS.map((option) => (
-                          <div key={option.value} className="flex items-center space-x-2">
-                            <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
-                            <Label htmlFor={`gender-${option.value}`}>{option.displayLabel}</Label>
-                          </div>
-                        ))}
-                      </RadioGroup>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                    <div className="space-y-6">
+                      {/* Gender Row - Full Width */}
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">Gender</Label>
+                        <div className="flex bg-muted rounded-full p-1 w-fit">
+                          {GENDER_OPTIONS.map((option) => (
+                            <Button
+                              key={option.value}
+                              variant={gender === option.value ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setGender(option.value)}
+                              className="rounded-full px-4 py-1 h-8 text-xs font-medium transition-all"
+                            >
+                              {option.displayLabel}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Form Fields Grid - Better Space Usage */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-x-6 gap-y-4">
                         {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
                         {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS })}
                         {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS })}
@@ -685,29 +735,57 @@ export default function ImageParameters({
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      <RadioGroup value={gender} onValueChange={setGender} className="flex flex-row flex-wrap gap-2 pt-1">
-                        {GENDER_OPTIONS.map((option) => (
-                          <div key={option.value} className="flex items-center space-x-2">
-                            <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
-                            <Label htmlFor={`gender-${option.value}`}>{option.displayLabel}</Label>
+                    <div className="space-y-8">
+                      {/* --- Model Attributes Group --- */}
+                      <div className="space-y-4">
+                        <Label className="font-semibold text-base">Model Attributes</Label>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Gender</Label>
+                          <div className="flex bg-muted rounded-full p-1 w-fit">
+                            {GENDER_OPTIONS.map((option) => (
+                              <Button
+                                key={option.value}
+                                variant={gender === option.value ? 'default' : 'ghost'}
+                                size="sm"
+                                onClick={() => setGender(option.value)}
+                                className="rounded-full px-4 py-1 h-8 text-xs font-medium transition-all"
+                              >
+                                {option.displayLabel}
+                              </Button>
+                            ))}
                           </div>
-                        ))}
-                      </RadioGroup>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        {/* Render all controls in advanced mode */}
-                        {Object.entries(PARAMETER_CONFIG)
-                          .filter(([key]) => key !== 'gender') // Gender is a RadioGroup, handled separately
-                          .map(([key, config]) =>
-                            renderSelect({ id: key, label: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()), value: (currentImageGenParams as any)[key], onChange: config.setter, options: config.options })
-                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                          {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
+                          {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS })}
+                          {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS })}
+                          {renderSelect({ id: "hairStyle", label: "Hair Style", value: hairStyle, onChange: setHairStyle, options: HAIR_STYLE_OPTIONS })}
+                        </div>
+                      </div>
+
+                      {/* --- Art Direction Group --- */}
+                      <div className="space-y-4">
+                        <Label className="font-semibold text-base">Art Direction</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                          {renderSelect({ id: "fashionStyle", label: "Fashion Style", value: fashionStyle, onChange: setFashionStyle, options: FASHION_STYLE_OPTIONS })}
+                          {renderSelect({ id: "poseStyle", label: "Pose Style", value: poseStyle, onChange: setPoseStyle, options: POSE_STYLE_OPTIONS })}
+                          {renderSelect({ id: "modelExpression", label: "Model Expression", value: modelExpression, onChange: setModelExpression, options: MODEL_EXPRESSION_OPTIONS })}
+                          {renderSelect({ id: "overallMood", label: "Overall Mood", value: overallMood, onChange: setOverallMood, options: OVERALL_MOOD_OPTIONS })}
+                        </div>
+                      </div>
+
+                      {/* --- Environment & Lighting Group --- */}
+                      <div className="space-y-4">
+                        <Label className="font-semibold text-base">Environment & Lighting</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                          {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS })}
+                          {renderSelect({ id: "timeOfDay", label: "Time of Day", value: timeOfDay, onChange: setTimeOfDay, options: TIME_OF_DAY_OPTIONS })}
+                          {renderSelect({ id: "lightingType", label: "Lighting Type", value: lightingType, onChange: setLightingType, options: LIGHTING_TYPE_OPTIONS })}
+                          {renderSelect({ id: "lightQuality", label: "Light Quality", value: lightQuality, onChange: setLightQuality, options: LIGHT_QUALITY_OPTIONS })}
+                        </div>
                       </div>
                     </div>
                   )}
-
-                  <div className="flex items-center justify-end">
-                     <Button variant="outline" onClick={handleRandomizeConfiguration} size="sm"><Shuffle className="mr-2 h-4 w-4"/>Randomize Manual Settings</Button>
-                  </div>
                 </fieldset>
 
                 {/* --- UTILITY BUTTONS MOVED INSIDE ACCORDION --- */}

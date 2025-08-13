@@ -9,7 +9,7 @@ import {
   GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS,
   HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS,
   TIME_OF_DAY_OPTIONS, LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, CAMERA_ANGLE_OPTIONS,
-  LENS_EFFECT_OPTIONS, DEPTH_OF_FIELD_OPTIONS, OVERALL_MOOD_OPTIONS, FABRIC_RENDERING_OPTIONS,
+  LENS_EFFECT_OPTIONS, DEPTH_OF_FIELD_OPTIONS, OVERALL_MOOD_OPTIONS,
   FASHION_STYLE_OPTIONS, type OptionWithPromptSegment
 } from '@/lib/prompt-builder';
 import { withGeminiRetry } from '@/lib/api-retry';
@@ -113,12 +113,6 @@ function formatParametersForAI(params: ModelAttributes): string {
   // Only add setting line if there are elements to include
   if (settingElements.length > 0) {
     lines.push('setting: ' + settingElements.join(', '));
-  }
-
-  // Only add fabric rendering if it's actually set
-  const fabricText = getOptionText(FABRIC_RENDERING_OPTIONS, params.fabricRendering);
-  if (fabricText) {
-    lines.push('fabric rendering: ' + fabricText);
   }
 
   // Technical details with actual options only

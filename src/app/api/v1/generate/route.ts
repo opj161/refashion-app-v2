@@ -22,7 +22,6 @@ const ModelAttributesSchema = z.object({
   depthOfField: z.string(),
   timeOfDay: z.string(),
   overallMood: z.string(),
-  fabricRendering: z.string(),
 });
 
 const GenerateRequestSchema = z.object({

@@ -27,7 +27,6 @@ export interface BaseGenerationParams {
   depthOfField?: string;
   timeOfDay?: string; // Also used by image if relevant to background
   overallMood?: string; // Image specific mood
-  fabricRendering?: string;
 
   // Video specific (can be optional for image)
   selectedPredefinedPrompt?: string;
@@ -373,16 +372,6 @@ export const DEPTH_OF_FIELD_OPTIONS: OptionWithPromptSegment[] = [
   { value: "deep_dof_all_sharp_f16_style", displayLabel: "Deep DoF (All Sharp, f/16 Style)", promptSegment: "Employing a deep depth of field (simulating an f/16 aperture) where both the subject and the background are in sharp focus, ideal for detailed environmental shots." },
   { value: "moderate_dof_subject_context_f5_6_style", displayLabel: "Moderate DoF (Subject & Context, f/5.6 Style)", promptSegment: "Using a moderate depth of field (simulating an f/5.6 aperture) to keep the subject sharp while retaining some recognizable detail in the background context." },
 ];
-export const FABRIC_RENDERING_OPTIONS: OptionWithPromptSegment[] = [
-  { value: "default", displayLabel: "Default Rendering", promptSegment: "The fabric of the clothing item should be rendered with realistic texture, drape, and interaction with light." },
-  { value: "lustrous_sheen_silk_satin_highlight", displayLabel: "Lustrous Sheen (Silks/Satins)", promptSegment: "Render the fabric with a lustrous sheen, characteristic of silk or satin, effectively catching and reflecting light to show its smooth, luxurious surface." },
-  { value: "matte_textured_wool_tweed_weave", displayLabel: "Matte & Textured (Wools/Tweeds)", promptSegment: "Emphasize a matte finish and intricate fabric textures, clearly showing the weave or knit pattern of materials like wool, tweed, or heavy cotton." },
-  { value: "flowing_ethereal_chiffon_organza_movement", displayLabel: "Flowing & Ethereal (Chiffon/Organza)", promptSegment: "Capture the flowing, ethereal quality of lightweight or sheer fabrics like chiffon or organza, showing graceful movement, folds, and translucency where appropriate." },
-  { value: "crisp_structured_cotton_poplin_neoprene_form", displayLabel: "Crisp & Structured (Poplin/Neoprene)", promptSegment: "Highlight the crisp lines, sharp folds, and structured form of fabrics like cotton poplin, stiff linen, or neoprene." },
-  { value: "soft_cozy_knitwear_cashmere_texture", displayLabel: "Soft & Cozy (Knitwear/Cashmere)", promptSegment: "Convey the soft, cozy, and tactile texture of knitwear, such as cashmere or chunky wool, with visible knit patterns and a comfortable drape." },
-  { value: "rugged_denim_leather_aged_detail", displayLabel: "Rugged & Worn (Denim/Leather)", promptSegment: "Showcase a rugged, perhaps slightly worn or aged texture, suitable for denim (showing twill lines, fades) or leather (showing grain, subtle creases, polished or matte finish)." },
-];
-
 // For Video Generation
 export const PREDEFINED_PROMPTS: OptionWithPromptSegment[] = [
   { value: 'walks_toward_camera_pullback', displayLabel: 'Walks Toward', promptSegment: 'The model takes two slow, deliberate steps directly toward the camera, as the camera performs a smooth, subtle pull-back.' },
@@ -446,7 +435,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
     const {
         gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
         fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-        cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering,
+        cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood,
         settingsMode
     } = params;
 
@@ -586,15 +575,6 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
         const moodOpt = getSelectedOption(OVERALL_MOOD_OPTIONS, overallMood);
         if (moodOpt && moodOpt.value !== "default" && moodOpt.promptSegment) {
           prompt += `\n\nOverall Mood & Atmosphere: ${moodOpt.promptSegment}.`;
-        }
-
-        const fabricOpt = getSelectedOption(FABRIC_RENDERING_OPTIONS, fabricRendering);
-        if (fabricOpt && fabricOpt.value !== "default" && fabricOpt.promptSegment) {
-          prompt += `\n\nFabric Rendering Specifics: ${fabricOpt.promptSegment}.`;
-        } else if (params.fashionStyle === "ecommerce_product") {
-          prompt += `\n\nFabric Rendering Specifics: ${getSelectedOption(FABRIC_RENDERING_OPTIONS, "default")!.promptSegment} Emphasize true-to-life texture and how the fabric drapes on the model.`;
-        } else {
-          prompt += `\n\nFabric Rendering Specifics: ${getSelectedOption(FABRIC_RENDERING_OPTIONS, "default")!.promptSegment}`;
         }
 
         let finalQualityStatement = "The final image must be photorealistic, highly detailed, with impeccable exposure and color accuracy. Ensure the clothing fits the model perfectly and is the clear visual focus of the image. Avoid common AI artifacts, especially in hands and facial features, aiming for natural human anatomy.";

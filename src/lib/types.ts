@@ -57,7 +57,6 @@ export interface ModelAttributes {
   depthOfField: string;
   timeOfDay: string;
   overallMood: string;
-  fabricRendering: string;
 }
 
 export interface PixelCrop {
