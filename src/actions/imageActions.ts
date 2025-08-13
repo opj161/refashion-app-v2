@@ -4,10 +4,10 @@ import { saveFileFromBuffer } from '@/services/storage.service';
 import sharp, { type Region } from 'sharp';
 import type { PixelCrop } from '@/lib/types';
 import path from 'path';
-import fs from 'fs/promises';
 import crypto from 'crypto';
 import mime from 'mime-types';
 import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
+import { getHistoryItem } from './historyActions';
 
 const MAX_DIMENSION = 2048;
 
@@ -208,5 +208,61 @@ export async function fetchImageAndConvertToDataUri(
     console.error(`Error fetching image from URL on server: ${imageUrl}`, error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown server error during image fetch.';
     return { success: false, error: errorMessage };
+  }
+}
+
+type RecreateStateResult = {
+  success: true;
+  imageUrl: string;
+  hash: string;
+  originalWidth: number;
+  originalHeight: number;
+} | {
+  success: false;
+  error: string;
+}
+
+export async function recreateStateFromHistoryAction(historyItemId: string): Promise<RecreateStateResult> {
+  // 1. Get the history item securely.
+  //    getHistoryItem already handles user authentication and authorization.
+  const item = await getHistoryItem(historyItemId);
+  if (!item) {
+    return { success: false, error: 'History item not found or you do not have permission.' };
+  }
+
+  // 2. Determine the source image URL from the history item
+  const sourceImageUrl = item.videoGenerationParams?.sourceImageUrl || item.originalClothingUrl;
+  if (!sourceImageUrl) {
+    return { success: false, error: 'No source image found in history item.' };
+  }
+
+  try {
+    // 3. Read the image file directly from the server's filesystem
+    //    This is the key optimization: NO client-side fetch, NO re-upload.
+    const imageBuffer = await getBufferFromLocalPath(sourceImageUrl);
+
+    // 4. Get image metadata using sharp
+    const image = sharp(imageBuffer);
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height) {
+      return { success: false, error: 'Could not read image metadata.' };
+    }
+
+    // 5. Calculate the hash of the existing file
+    const hash = crypto.createHash('sha256').update(imageBuffer).digest('hex');
+
+    // 6. Return the necessary state for the client context
+    //    We return the *existing* image URL, not a new one.
+    return {
+      success: true,
+      imageUrl: sourceImageUrl,
+      hash,
+      originalWidth: metadata.width,
+      originalHeight: metadata.height,
+    };
+  } catch (error) {
+    console.error('Error recreating state from history:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: `Failed to process history image: ${errorMessage}` };
   }
 }

@@ -10,7 +10,7 @@ import { getDisplayableImageUrl } from '@/lib/utils';
 // Server Actions
 import { removeBackgroundAction } from "@/ai/actions/remove-background.action";
 import { upscaleImageAction, faceDetailerAction } from "@/ai/actions/upscale-image.action";
-import { prepareInitialImage, cropImage } from "@/actions/imageActions";
+import { prepareInitialImage, cropImage, recreateStateFromHistoryAction } from "@/actions/imageActions";
 
 // Types for the image preparation workflow
 export interface ImageVersion {
@@ -368,38 +368,31 @@ export const ImagePreparationProvider = ({ children }: { children: ReactNode }) 
 
   const initializeFromHistory = useCallback(async (item: HistoryItem) => {
     reset(); // Reset current state
-    setProcessing(true, 'upload');
-    
+    setProcessing(true, 'upload'); // Use 'upload' step for consistent loading UI
+
     try {
-      // Determine which image URL to load based on the history item type
-      const imageUrl = item.videoGenerationParams?.sourceImageUrl || item.originalClothingUrl;
-      if (!imageUrl) {
-        throw new Error('No valid image URL found in history item');
+      // Call the new, efficient server action. This replaces the entire
+      // client-side fetch and re-upload process.
+      const result = await recreateStateFromHistoryAction(item.id);
+
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
-      const displayableUrl = getDisplayableImageUrl(imageUrl);
-      if (!displayableUrl) {
-        throw new Error('Could not generate displayable URL for history item');
-      }
+      // The server action gives us everything we need directly.
+      const { imageUrl, hash, originalWidth, originalHeight } = result;
 
-      // Fetch the local image directly as a blob (no server round-trip)
-      const response = await fetch(displayableUrl, { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch local history image: ${response.statusText}`);
-      }
-      
-      const blob = await response.blob();
-      const fileName = imageUrl.split('/').pop() || 'history-image.png';
-      const file = new File([blob], fileName, { type: blob.type });
+      // Update the context state directly with the info from the existing file.
+      // NOTE: We pass a dummy File object because the function signature requires it,
+      // but its content is not used. The imageUrl and hash are what matter for this flow.
+      setOriginalImage(new File([], "history_image.png"), imageUrl, hash);
+      setOriginalImageDimensions({ width: originalWidth, height: originalHeight });
 
-      // Use the existing upload logic to set the state
-      await uploadOriginalImage(file);
-      
       toast({
         title: "History Item Loaded",
         description: "Configuration restored. You can now generate new images or videos.",
       });
-      
+
     } catch (error) {
       console.error('Failed to initialize from history:', error);
       toast({
@@ -411,7 +404,7 @@ export const ImagePreparationProvider = ({ children }: { children: ReactNode }) 
     } finally {
       setProcessing(false, null);
     }
-  }, [reset, setProcessing, uploadOriginalImage]);
+  }, [reset, setProcessing, setOriginalImage, setOriginalImageDimensions]);
 
   const value: ImagePreparationContextType = {
     // State
