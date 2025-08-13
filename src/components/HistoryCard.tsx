@@ -1,9 +1,9 @@
 // src/components/HistoryCard.tsx
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { HistoryItem } from "@/lib/types";
@@ -13,16 +13,18 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { motion } from 'motion/react';
 import { useToast } from "@/hooks/use-toast";
 import { useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
 
 interface HistoryCardProps {
   item: HistoryItem;
   onViewDetails: (item: HistoryItem) => void;
-  onReloadConfig?: (item: HistoryItem) => void; // Made optional since we handle this internally now
   onDeleteItem: (item: HistoryItem) => void;
-  username?: string; // Add optional username prop
+  username?: string;
 }
 
-export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDeleteItem, username }: HistoryCardProps) {
+export default function HistoryCard({ item, onViewDetails, onDeleteItem, username }: HistoryCardProps) {
   const { toast } = useToast();
   const { initializeFromHistory, setCurrentTab } = useImagePreparation();
   const [isInView, setIsInView] = useState(false);
@@ -32,80 +34,63 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
   const primaryImageUrl = item.editedImageUrls?.[0] || item.originalClothingUrl;
   const videoUrl = item.generatedVideoUrls?.[0];
 
-  let status: 'completed' | 'processing' | 'failed' | null = null;
-  let statusText = "";
-
-  if (isVideoItem && (item.videoGenerationParams as any)?.status) {
-    status = (item.videoGenerationParams as any).status;
-    statusText = status ? status.charAt(0).toUpperCase() + status.slice(1) : "";
-  } else if (!isVideoItem && item.editedImageUrls && item.editedImageUrls.every(url => url === null) && item.constructedPrompt) {
-    // This is a basic heuristic for failed image jobs if all URLs are null but a prompt existed.
-    // More robust status would require adding it to HistoryItem for images.
-    status = 'failed';
-    statusText = 'Failed';
-  } else if (item.editedImageUrls && item.editedImageUrls.some(url => !!url) || primaryImageUrl) {
-    status = 'completed';
-    // For completed images, we don't usually show a "Completed" badge unless it's a specific design choice.
-    // statusText = "Completed";
-  }
 
   // IntersectionObserver for autoplay-in-view
   useEffect(() => {
     const currentCard = cardRef.current;
     if (!currentCard || !isVideoItem || !videoUrl) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
         setIsInView(entry.isIntersecting);
       },
       {
-        root: null, // viewport
+        root: null,
         rootMargin: '0px',
-        threshold: 0.5 // Play when 50% of the card is visible
+        threshold: 0.5
       }
     );
-
     observer.observe(currentCard);
-
     return () => {
-      observer.unobserve(currentCard);
+      if (currentCard) {
+        observer.unobserve(currentCard);
+      }
     };
   }, [isVideoItem, videoUrl]);
 
-  // Handle video play/pause based on visibility
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideoItem || !videoUrl) return;
-
     if (isInView) {
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          // Autoplay was prevented or interrupted. This is expected.
-          // We can ignore the AbortError specifically.
-          if (error.name !== 'AbortError') {
-            console.error("Video play failed:", error);
-          }
-        });
-      }
+      video.play().catch(error => { if (error.name !== 'AbortError') console.error("Video play failed:", error); });
     } else {
       video.pause();
     }
   }, [isInView, isVideoItem, videoUrl]);
 
-  const triggerDownload = (url: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleActionClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+  const handleCardClick = () => {
+    onViewDetails(item);
+  };
+  const handleCardKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onViewDetails(item);
+    }
   };
 
-  const handleDownload = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
-    
+  const handleDownload = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const triggerDownload = (url: string, filename: string) => {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
     if (isVideoItem) {
       const localVideoUrl = item.videoGenerationParams?.localVideoUrl;
       if (localVideoUrl) {
@@ -117,159 +102,158 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
     } else {
       const imageUrls = item.editedImageUrls.filter((url): url is string => !!url);
       if (imageUrls.length > 0) {
-        imageUrls.forEach((url, index) => {
-          const downloadUrl = getDisplayableImageUrl(url);
-          if (downloadUrl) {
-            triggerDownload(downloadUrl, `RefashionAI_image_${item.id.substring(0, 8)}_${index + 1}.png`);
-          }
-        });
+        const downloadUrl = getDisplayableImageUrl(imageUrls[0]);
+        if (downloadUrl) {
+          triggerDownload(downloadUrl, `RefashionAI_image_${item.id.substring(0, 8)}.png`);
+        }
       } else {
         toast({ title: "No images to download", variant: "destructive" });
       }
     }
+  }, [item, isVideoItem, toast]);
+
+  const handleReload = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await initializeFromHistory(item);
+      const targetTab = item.videoGenerationParams ? 'video' : 'image';
+      setCurrentTab(targetTab);
+    } catch (error) {
+      console.error('Failed to reload config:', error);
+      toast({
+        title: "Error",
+        description: "Could not load configuration from this item.",
+        variant: "destructive",
+      });
+    }
+  }, [initializeFromHistory, item, setCurrentTab, toast]);
+
+  const handleDelete = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDeleteItem(item);
+  }, [onDeleteItem, item]);
+
+  const triggerDownload = (url: string, filename: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
     <motion.div
       layout
       layoutId={`history-card-${item.id}`}
-      whileHover={{ scale: 1.01, y: -2 }}
+      whileHover={{ y: -4 }}
       whileTap={{ scale: 0.99 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
-      <Card ref={cardRef} variant="glass" className="flex flex-col h-full group shadow-sm transition-shadow">
-        <CardHeader className="p-3 sm:p-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base sm:text-lg font-semibold truncate" title={item.constructedPrompt || (isVideoItem ? "Video Generation" : "Image Generation")}>
-              {item.constructedPrompt || (isVideoItem ? "Video Generation" : "Image Generation")}
-            </CardTitle>
-            <Badge variant={
-              status === 'completed' ? 'default' :
-              status === 'processing' ? 'secondary' :
-              status === 'failed' ? 'destructive' : 'outline'
-            } className="ml-2 text-xs whitespace-nowrap">
-              {isVideoItem ? <Video className="h-3 w-3 mr-1.5" /> : <ImageIcon className="h-3 w-3 mr-1.5" />}
-              {isVideoItem ? "Video" : "Image"}
-            </Badge>
-            {username && (
-              <Badge variant="secondary" className="ml-2 text-xs font-medium">{username}</Badge>
-            )}
-          </div>
-          <CardDescription className="text-xs text-muted-foreground mt-1" suppressHydrationWarning>
-            {new Date(item.timestamp).toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'numeric', 
-              day: 'numeric' 
-            })} {new Date(item.timestamp).toLocaleTimeString('en-US', { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            })}
-          </CardDescription>
-        </CardHeader>
-        <CardContent 
-          className="p-3 sm:p-4 flex-grow relative cursor-pointer"
-          onClick={() => onViewDetails(item)}
+      <Card
+        ref={cardRef}
+        variant="glass"
+        className="h-full group shadow-sm transition-all duration-300 ease-in-out hover:shadow-primary/20 hover:border-primary/30"
+      >
+        <div
+          className="relative aspect-[2/3] w-full bg-muted rounded-md overflow-hidden cursor-pointer group"
+          onClick={handleCardClick}
+          onKeyDown={handleCardKeyDown}
+          role="button"
+          tabIndex={0}
+          aria-label={`View details for ${item.constructedPrompt || (isVideoItem ? "Video" : "Image")}`}
         >
-          <div
-            className="aspect-[2/3] w-full bg-muted rounded-md overflow-hidden relative"
-          >
-            {isVideoItem && videoUrl ? (
-              <>
-                <Image
-                  src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
-                  alt="Video thumbnail"
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  className={`object-cover object-top transition-opacity duration-300 ${isInView ? 'opacity-0' : 'opacity-100'}`}
-                />
-                <video
-                  ref={videoRef}
-                  src={getDisplayableImageUrl(videoUrl) || undefined}
-                  loop
-                  muted
-                  playsInline
-                  preload="metadata"
-                  className={`w-full h-full object-cover object-top absolute inset-0 transition-opacity duration-300 ${isInView ? 'opacity-100' : 'opacity-0'}`}
-                />
-              </>
-            ) : primaryImageUrl ? (
+          {/* Media Content */}
+          {isVideoItem && videoUrl ? (
+            <>
               <Image
                 src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
-                alt={isVideoItem ? "Video thumbnail" : "Generated image"}
+                alt="Video thumbnail"
                 fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className={`object-cover object-top transition-transform duration-250 ease-out group-hover:scale-102`}
+                sizes="(max-width: 640px) 100vw, 320px"
+                className={cn(`object-cover object-top transition-opacity duration-300`, isInView ? 'opacity-0' : 'opacity-100')}
               />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <ImageIcon size={48} />
-                <p className="mt-2 text-sm">No preview available</p>
-              </div>
-            )}
-            {!isInView && isVideoItem && videoUrl && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity">
-                <PlayCircle className="h-12 w-12 text-white/80" />
-              </div>
-            )}
-            {status && status !== 'completed' && (
-              <div className="absolute top-2 right-2">
-                <Badge variant={status === 'failed' ? 'destructive' : 'secondary'} className="text-xs">
-                    {status === 'processing' && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
-                    {status === 'failed' && <AlertTriangle className="h-3 w-3 mr-1.5" />}
-                    {statusText}
-                </Badge>
-              </div>
-            )}
+              <video
+                ref={videoRef}
+                src={getDisplayableImageUrl(videoUrl) || undefined}
+                loop muted playsInline preload="metadata"
+                className={cn(`w-full h-full object-cover object-top absolute inset-0 transition-opacity duration-300`, isInView ? 'opacity-100' : 'opacity-0')}
+              />
+            </>
+          ) : primaryImageUrl ? (
+            <Image
+              src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
+              alt={item.constructedPrompt || "Generated image"}
+              fill
+              sizes="(max-width: 640px) 100vw, 320px"
+              className="object-cover object-top transition-transform duration-300 ease-in-out group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-muted/30">
+              <ImageIcon size={40} />
+              <p className="mt-2 text-xs">No preview</p>
+            </div>
+          )}
+
+          {/* Type Badge */}
+          <Badge variant={isVideoItem ? 'default' : 'secondary'} className="absolute top-2 left-2 z-10 text-xs">
+            {isVideoItem ? <Video className="h-3 w-3 mr-1.5" /> : <ImageIcon className="h-3 w-3 mr-1.5" />}
+            {isVideoItem ? "Video" : "Image"}
+          </Badge>
+
+          {/* Hover/Focus Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 sm:p-4 flex flex-col justify-between opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300 ease-in-out">
+            {/* Top Actions */}
+            <div className="flex justify-end items-start gap-1">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 bg-black/50 text-white hover:bg-black/70 hover:text-white" onClick={handleDownload} aria-label="Download">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Download</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <DropdownMenu>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 bg-black/50 text-white hover:bg-black/70 hover:text-white" onClick={handleActionClick} aria-label="More options">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>More</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <DropdownMenuContent align="end" onClick={handleActionClick}>
+                  <DropdownMenuItem onClick={handleReload}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    <span>Reload Config</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDelete}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span>Delete</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {/* Bottom Metadata */}
+            <div className="text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
+              <p className="text-sm font-semibold truncate" title={item.constructedPrompt}>
+                {item.constructedPrompt}
+              </p>
+              <p className="text-xs text-white/80" suppressHydrationWarning>
+                {new Date(item.timestamp).toLocaleString()}
+                {username && <span className="font-semibold"> by {username}</span>}
+              </p>
+            </div>
           </div>
-          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-            {item.attributes?.fashionStyle && item.attributes.fashionStyle !== "default_style" && (
-              <p className="truncate">Style: {item.attributes.fashionStyle.replace(/_/g, ' ')}</p>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter className="p-3 sm:p-4 flex gap-2 bg-muted/30 border-t">
-          <Button variant="outline" size="sm" onClick={() => onViewDetails(item)} className="flex-1">
-            <Eye className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">View Details</span>
-          </Button>
-          <Button variant="secondary" size="sm" onClick={handleDownload} className="flex-1">
-            <Download className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Download</span>
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  try {
-                    await initializeFromHistory(item);
-                    // Switch to the appropriate tab based on the item type
-                    const targetTab = item.videoGenerationParams ? 'video' : 'image';
-                    setCurrentTab(targetTab);
-                  } catch (error) {
-                    // Error handling is already done in the context action
-                    console.error('Failed to reload config:', error);
-                  }
-                }}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                <span>Reload Config</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteItem(item);
-                }}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                <span>Delete</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </CardFooter>
+        </div>
       </Card>
     </motion.div>
   );

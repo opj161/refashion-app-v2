@@ -36,7 +36,6 @@ export function HistoryGallery({ initialHistory }: { initialHistory: PaginatedRe
             item={item}
             username={item.username}
             onViewDetails={() => {}}
-            onReloadConfig={() => {}}
             onDeleteItem={() => {}}
           />
         ))}
