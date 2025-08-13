@@ -2,15 +2,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button"; 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; 
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Palette, PersonStanding, Settings2, Sparkles, Wand2, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit, X, AlertCircle, Code, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Palette, PersonStanding, Settings2, Sparkles, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit, X, AlertCircle, Code, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
 import { generateImageEdit, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
@@ -624,216 +623,87 @@ export default function ImageParameters({
               <AccordionContent className="pt-6 space-y-6">
 
                 <div className="space-y-4">
-                  <Label>Generation Mode</Label>
-                  <RadioGroup value={generationMode} onValueChange={(v) => setGenerationMode(v as 'creative' | 'manual')} className="grid grid-cols-2 gap-4">
-                    <div>
-                      <RadioGroupItem value="creative" id="creative" className="peer sr-only" />
-                      <Label htmlFor="creative" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                        <Sparkles className="mb-3 h-6 w-6" />
-                        Creative AI
-                      </Label>
-                    </div>
-                    <div>
-                      <RadioGroupItem value="manual" id="manual" className="peer sr-only" />
-                      <Label htmlFor="manual" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                        <Settings2 className="mb-3 h-6 w-6" />
-                        Manual Control
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <fieldset disabled={generationMode === 'creative'} className="space-y-6 transition-opacity duration-300 disabled:opacity-50">
-
-                  {/* Modern Control Settings Bar */}
-                  <div className="bg-muted/30 rounded-xl p-4 border border-muted/50">
-                    <div className="flex flex-col gap-4">
-                      {/* Primary Control Row */}
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        {/* Complexity Control */}
-                        <div className="flex items-center gap-3">
-                          <Label className="text-sm font-medium text-foreground/80">Detail Level:</Label>
-                          <div className="inline-flex h-10 items-center justify-center rounded-lg bg-muted p-1">
-                            <Button
-                              variant={settingsMode === 'basic' ? 'default' : 'ghost'}
-                              size="sm"
-                              onClick={() => setSettingsMode('basic')}
-                              className="h-8 px-4 text-sm font-medium rounded-md transition-all"
-                            >
-                              Simple
-                            </Button>
-                            <Button
-                              variant={settingsMode === 'advanced' ? 'default' : 'ghost'}
-                              size="sm"
-                              onClick={() => setSettingsMode('advanced')}
-                              className="h-8 px-4 text-sm font-medium rounded-md transition-all"
-                            >
-                              Detailed
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Enhancement Controls */}
-                        <div className="flex items-center gap-3">
-                          {/* AI Prompt Toggle */}
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center gap-2 h-10 px-3 rounded-lg bg-background/50 border border-muted hover:border-muted-foreground/30 transition-colors">
-                                  <BrainCircuit className="h-4 w-4 text-primary" />
-                                  <span className="text-sm font-medium">AI Enhancement</span>
-                                  <Switch 
-                                    checked={useAIPrompt} 
-                                    onCheckedChange={setUseAIPrompt}
-                                  />
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="bottom">
-                                <p className="max-w-xs">Let AI enhance your prompt with creative improvements</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-
-                          {/* Randomize Button */}
-                          {generationMode === 'manual' && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={handleRandomizeConfiguration}
-                                    className="h-10 px-3 border-muted hover:border-muted-foreground/30 transition-colors"
-                                    disabled={!preparedImageUrl || isLoading}
-                                  >
-                                    <Shuffle className="h-4 w-4 mr-2" />
-                                    Randomize
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom">
-                                  <p>Randomize all settings for creative inspiration</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 rounded-lg bg-muted/40 border border-border/20">
+                    <div className="flex items-center gap-3">
+                      <Label className="text-sm font-medium whitespace-nowrap">Detail Level:</Label>
+                      <div className="inline-flex h-9 items-center justify-center rounded-md bg-background/50 p-1 text-muted-foreground">
+                        <Button variant={settingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => setSettingsMode('basic')} className="h-7 px-3 text-xs">Simple</Button>
+                        <Button variant={settingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => setSettingsMode('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center space-x-2">
+                         <Switch id="ai-prompt-switch" checked={useAIPrompt} onCheckedChange={setUseAIPrompt} />
+                         <Label htmlFor="ai-prompt-switch" className="text-sm font-medium flex items-center gap-1.5"><BrainCircuit className="h-4 w-4 text-primary"/> AI Enhancement</Label>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleRandomizeConfiguration} 
+                        className="h-9 px-3" 
+                        disabled={isLoading || !preparedImageUrl}>
+                        <Shuffle className="mr-2 h-4 w-4"/>
+                        Randomize
+                      </Button>
                     </div>
                   </div>
+                </div>
 
-                  {settingsMode === 'basic' ? (
-                    <div className="space-y-6">
-                      {/* Enhanced Gender Selection */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold flex items-center gap-2">
-                          <PersonStanding className="h-4 w-4 text-primary" />
-                          Model Gender
-                        </Label>
-                        <div className="inline-flex h-11 items-center justify-center rounded-lg bg-muted p-1">
-                          {GENDER_OPTIONS.map((option) => (
-                            <Button
-                              key={option.value}
-                              variant={gender === option.value ? 'default' : 'ghost'}
-                              size="sm"
-                              onClick={() => setGender(option.value)}
-                              className="h-9 px-6 text-sm font-medium rounded-md transition-all min-w-[80px]"
-                            >
-                              {option.displayLabel}
-                            </Button>
-                          ))}
-                        </div>
+                <Accordion type="multiple" defaultValue={['model-attributes']} className="w-full">
+                  <AccordionItem value="model-attributes">
+                    <AccordionTrigger>
+                      <div className="flex items-center gap-2">
+                        <PersonStanding className="h-5 w-5 text-primary" /> Model Attributes
                       </div>
-                      
-                      {/* Core Parameters Grid */}
-                      <div className="space-y-4">
-                        <Label className="text-base font-semibold text-foreground/90">Core Attributes</Label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-6 gap-y-5">
-                          {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
-                          {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS })}
-                          {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS })}
-                          {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS })}
-                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        {renderSelect({ id: "gender", label: "Gender", value: gender, onChange: setGender, options: GENDER_OPTIONS })}
+                        {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
+                        {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS })}
+                        {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS })}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-8">
-                      {/* Enhanced Model Attributes Group */}
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-2 pb-2 border-b border-muted/50">
-                          <PersonStanding className="h-5 w-5 text-primary" />
-                          <Label className="text-lg font-semibold">Model Attributes</Label>
-                        </div>
-                        
-                        {/* Gender Selection for Advanced Mode */}
-                        <div className="space-y-3">
-                          <Label className="text-sm font-medium text-foreground/80">Gender</Label>
-                          <div className="inline-flex h-10 items-center justify-center rounded-lg bg-muted p-1">
-                            {GENDER_OPTIONS.map((option) => (
-                              <Button
-                                key={option.value}
-                                variant={gender === option.value ? 'default' : 'ghost'}
-                                size="sm"
-                                onClick={() => setGender(option.value)}
-                                className="h-8 px-5 text-sm font-medium rounded-md transition-all min-w-[70px]"
-                              >
-                                {option.displayLabel}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        {/* Model Attributes Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-                          {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
-                          {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS })}
-                          {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS })}
-                          {renderSelect({ id: "hairStyle", label: "Hair Style", value: hairStyle, onChange: setHairStyle, options: HAIR_STYLE_OPTIONS })}
-                        </div>
-                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                      {/* Enhanced Art Direction Group */}
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-2 pb-2 border-b border-muted/50">
-                          <Palette className="h-5 w-5 text-primary" />
-                          <Label className="text-lg font-semibold">Art Direction</Label>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-                          {renderSelect({ id: "fashionStyle", label: "Fashion Style", value: fashionStyle, onChange: setFashionStyle, options: FASHION_STYLE_OPTIONS })}
-                          {renderSelect({ id: "poseStyle", label: "Pose Style", value: poseStyle, onChange: setPoseStyle, options: POSE_STYLE_OPTIONS })}
-                          {renderSelect({ id: "modelExpression", label: "Model Expression", value: modelExpression, onChange: setModelExpression, options: MODEL_EXPRESSION_OPTIONS })}
-                          {renderSelect({ id: "overallMood", label: "Overall Mood", value: overallMood, onChange: setOverallMood, options: OVERALL_MOOD_OPTIONS })}
-                        </div>
+                  <AccordionItem value="art-direction">
+                    <AccordionTrigger>
+                      <div className="flex items-center gap-2">
+                         <Palette className="h-5 w-5 text-primary" /> Art Direction & Styling
                       </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4">
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        {renderSelect({ id: "fashionStyle", label: "Fashion Style", value: fashionStyle, onChange: setFashionStyle, options: FASHION_STYLE_OPTIONS })}
+                        {renderSelect({ id: "poseStyle", label: "Pose Style", value: poseStyle, onChange: setPoseStyle, options: POSE_STYLE_OPTIONS })}
+                        {renderSelect({ id: "modelExpression", label: "Model Expression", value: modelExpression, onChange: setModelExpression, options: MODEL_EXPRESSION_OPTIONS })}
+                        {renderSelect({ id: "hairStyle", label: "Hair Style", value: hairStyle, onChange: setHairStyle, options: HAIR_STYLE_OPTIONS })}
+                        {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS })}
+                        {settingsMode === 'advanced' && renderSelect({ id: "timeOfDay", label: "Time of Day", value: timeOfDay, onChange: setTimeOfDay, options: TIME_OF_DAY_OPTIONS })}
+                        {settingsMode === 'advanced' && renderSelect({ id: "overallMood", label: "Overall Mood", value: overallMood, onChange: setOverallMood, options: OVERALL_MOOD_OPTIONS })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
 
-                      {/* Enhanced Environment & Lighting Group */}
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-2 pb-2 border-b border-muted/50">
-                          <Eye className="h-5 w-5 text-primary" />
-                          <Label className="text-lg font-semibold">Environment & Photography</Label>
+                  {settingsMode === 'advanced' && (
+                    <AccordionItem value="photography-technical">
+                      <AccordionTrigger>
+                        <div className="flex items-center gap-2">
+                           <Camera className="h-5 w-5 text-primary" /> Photography & Technical
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-                          {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS })}
-                          {renderSelect({ id: "timeOfDay", label: "Time of Day", value: timeOfDay, onChange: setTimeOfDay, options: TIME_OF_DAY_OPTIONS })}
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                           {renderSelect({ id: "lightingType", label: "Lighting Type", value: lightingType, onChange: setLightingType, options: LIGHTING_TYPE_OPTIONS })}
                           {renderSelect({ id: "lightQuality", label: "Light Quality", value: lightQuality, onChange: setLightQuality, options: LIGHT_QUALITY_OPTIONS })}
-                        </div>
-                      </div>
-
-                      {/* Advanced Camera Settings (only in detailed mode) */}
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-2 pb-2 border-b border-muted/50">
-                          <Settings2 className="h-5 w-5 text-primary" />
-                          <Label className="text-lg font-semibold">Camera & Technical</Label>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
                           {renderSelect({ id: "cameraAngle", label: "Camera Angle", value: cameraAngle, onChange: setCameraAngle, options: CAMERA_ANGLE_OPTIONS })}
                           {renderSelect({ id: "lensEffect", label: "Lens Effect", value: lensEffect, onChange: setLensEffect, options: LENS_EFFECT_OPTIONS })}
                           {renderSelect({ id: "depthOfField", label: "Depth of Field", value: depthOfField, onChange: setDepthOfField, options: DEPTH_OF_FIELD_OPTIONS })}
                         </div>
-                      </div>
-                    </div>
+                      </AccordionContent>
+                    </AccordionItem>
                   )}
-                </fieldset>
+                </Accordion>
 
                 {/* Enhanced Utility Actions */}
                 <div className="bg-muted/20 rounded-lg p-4 border border-muted/30">

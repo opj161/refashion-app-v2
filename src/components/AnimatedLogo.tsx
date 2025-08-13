@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { motion, useReducedMotion, Variants, Transition } from 'framer-motion';
+import { motion, useReducedMotion, Variants, Transition } from 'motion/react';
 import LogoSvg from '../../public/refashion.svg'; // Used for the reduced-motion fallback
 
 // --- Path data from the refashion.svg (remains unchanged) ---
