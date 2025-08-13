@@ -81,17 +81,12 @@ export default function ImageParameters({
   const [overallMood, setOverallMood] = useState<string>(OVERALL_MOOD_OPTIONS[0].value);
   const [fabricRendering, setFabricRendering] = useState<string>(FABRIC_RENDERING_OPTIONS[0].value);
 
+  const [generationMode, setGenerationMode] = useState<'creative' | 'manual'>('creative');
   const [settingsMode, setSettingsMode] = useState<'basic' | 'advanced'>('basic');
-  const [showAdvancedSettingsActiveMessage, setShowAdvancedSettingsActiveMessage] = useState<boolean>(false);
   const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
-
-  // NEW CORE STATE: Tracks if the user has intentionally changed any setting.
-  // This is the "tripwire" for switching from smart default to manual mode.
-  const [isCustomized, setIsCustomized] = useState<boolean>(false);
 
   // NEW STATE for the AI prompt feature
   const [useAIPrompt, setUseAIPrompt] = useState<boolean>(true);
-  const [useRandomizedAIPrompts, setUseRandomizedAIPrompts] = useState<boolean>(true);
 
   // State for prompt preview visibility
   const [showPromptPreview, setShowPromptPreview] = useState<boolean>(false);
@@ -102,6 +97,14 @@ export default function ImageParameters({
 
   // Ref for auto-scroll to results
   const resultsRef = useRef<HTMLDivElement>(null);
+
+  // When a history item is loaded, switch to manual mode to reflect the loaded settings.
+  useEffect(() => {
+    if (historyItemToLoad) {
+      setGenerationMode('manual');
+      // The rest of the parameter state updates are handled in the other useEffect
+    }
+  }, [historyItemToLoad]);
 
   // Load form fields from history when historyItemToLoad changes
   useEffect(() => {
@@ -128,7 +131,7 @@ export default function ImageParameters({
       
       setSettingsMode(historyItemToLoad.settingsMode || 'basic');
       setLoadedHistoryItemId(historyItemToLoad.id);
-    }
+    } // The dependency array correctly omits setters to avoid re-running on every render.
   }, [historyItemToLoad]);
   
   const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
@@ -159,48 +162,25 @@ export default function ImageParameters({
     }
   }, [isLoading]);
 
-  const commonFormDisabled = !preparedImageUrl || isLoading;
-
-  // Initial default values for all configurable parameters
-  const initialAppDefaults = React.useRef({
-    gender: GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value,
-    bodyShapeAndSize: BODY_SHAPE_AND_SIZE_OPTIONS[0].value,
-    ageRange: AGE_RANGE_OPTIONS[0].value,
-    ethnicity: ETHNICITY_OPTIONS[0].value,
-    poseStyle: POSE_STYLE_OPTIONS[0].value,
-    background: BACKGROUND_OPTIONS.find(o => o.value === "outdoor_nature_elements")?.value || BACKGROUND_OPTIONS[0].value,
-    fashionStyle: FASHION_STYLE_OPTIONS[0].value,
-    hairStyle: HAIR_STYLE_OPTIONS[0].value,
-    modelExpression: MODEL_EXPRESSION_OPTIONS[0].value,
-    lightingType: LIGHTING_TYPE_OPTIONS[0].value,
-    lightQuality: LIGHT_QUALITY_OPTIONS[0].value,
-    cameraAngle: CAMERA_ANGLE_OPTIONS[0].value,
-    lensEffect: LENS_EFFECT_OPTIONS[0].value,
-    depthOfField: DEPTH_OF_FIELD_OPTIONS[0].value,
-    timeOfDay: TIME_OF_DAY_OPTIONS[0].value,
-    overallMood: OVERALL_MOOD_OPTIONS[0].value,
-    fabricRendering: FABRIC_RENDERING_OPTIONS[0].value,
-  }).current;
-
   const PARAMETER_CONFIG = React.useMemo(() => ({
-    gender: { setter: setGender, options: GENDER_OPTIONS, defaultVal: initialAppDefaults.gender },
-    bodyShapeAndSize: { setter: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS, defaultVal: initialAppDefaults.bodyShapeAndSize },
-    ageRange: { setter: setAgeRange, options: AGE_RANGE_OPTIONS, defaultVal: initialAppDefaults.ageRange },
-    ethnicity: { setter: setEthnicity, options: ETHNICITY_OPTIONS, defaultVal: initialAppDefaults.ethnicity },
-    poseStyle: { setter: setPoseStyle, options: POSE_STYLE_OPTIONS, defaultVal: initialAppDefaults.poseStyle },
-    background: { setter: setBackground, options: BACKGROUND_OPTIONS, defaultVal: initialAppDefaults.background },
-    fashionStyle: { setter: setFashionStyle, options: FASHION_STYLE_OPTIONS, defaultVal: initialAppDefaults.fashionStyle },
-    hairStyle: { setter: setHairStyle, options: HAIR_STYLE_OPTIONS, defaultVal: initialAppDefaults.hairStyle },
-    modelExpression: { setter: setModelExpression, options: MODEL_EXPRESSION_OPTIONS, defaultVal: initialAppDefaults.modelExpression },
-    lightingType: { setter: setLightingType, options: LIGHTING_TYPE_OPTIONS, defaultVal: initialAppDefaults.lightingType },
-    lightQuality: { setter: setLightQuality, options: LIGHT_QUALITY_OPTIONS, defaultVal: initialAppDefaults.lightQuality },
-    cameraAngle: { setter: setCameraAngle, options: CAMERA_ANGLE_OPTIONS, defaultVal: initialAppDefaults.cameraAngle },
-    lensEffect: { setter: setLensEffect, options: LENS_EFFECT_OPTIONS, defaultVal: initialAppDefaults.lensEffect },
-    depthOfField: { setter: setDepthOfField, options: DEPTH_OF_FIELD_OPTIONS, defaultVal: initialAppDefaults.depthOfField },
-    timeOfDay: { setter: setTimeOfDay, options: TIME_OF_DAY_OPTIONS, defaultVal: initialAppDefaults.timeOfDay },
-    overallMood: { setter: setOverallMood, options: OVERALL_MOOD_OPTIONS, defaultVal: initialAppDefaults.overallMood },
-    fabricRendering: { setter: setFabricRendering, options: FABRIC_RENDERING_OPTIONS, defaultVal: initialAppDefaults.fabricRendering },
-  }), [initialAppDefaults]);
+    gender: { setter: setGender, options: GENDER_OPTIONS, defaultVal: GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value },
+    bodyShapeAndSize: { setter: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS, defaultVal: BODY_SHAPE_AND_SIZE_OPTIONS[0].value },
+    ageRange: { setter: setAgeRange, options: AGE_RANGE_OPTIONS, defaultVal: AGE_RANGE_OPTIONS[0].value },
+    ethnicity: { setter: setEthnicity, options: ETHNICITY_OPTIONS, defaultVal: ETHNICITY_OPTIONS[0].value },
+    poseStyle: { setter: setPoseStyle, options: POSE_STYLE_OPTIONS, defaultVal: POSE_STYLE_OPTIONS[0].value },
+    background: { setter: setBackground, options: BACKGROUND_OPTIONS, defaultVal: BACKGROUND_OPTIONS.find(o => o.value === "outdoor_nature_elements")?.value || BACKGROUND_OPTIONS[0].value },
+    fashionStyle: { setter: setFashionStyle, options: FASHION_STYLE_OPTIONS, defaultVal: FASHION_STYLE_OPTIONS[0].value },
+    hairStyle: { setter: setHairStyle, options: HAIR_STYLE_OPTIONS, defaultVal: HAIR_STYLE_OPTIONS[0].value },
+    modelExpression: { setter: setModelExpression, options: MODEL_EXPRESSION_OPTIONS, defaultVal: MODEL_EXPRESSION_OPTIONS[0].value },
+    lightingType: { setter: setLightingType, options: LIGHTING_TYPE_OPTIONS, defaultVal: LIGHTING_TYPE_OPTIONS[0].value },
+    lightQuality: { setter: setLightQuality, options: LIGHT_QUALITY_OPTIONS, defaultVal: LIGHT_QUALITY_OPTIONS[0].value },
+    cameraAngle: { setter: setCameraAngle, options: CAMERA_ANGLE_OPTIONS, defaultVal: CAMERA_ANGLE_OPTIONS[0].value },
+    lensEffect: { setter: setLensEffect, options: LENS_EFFECT_OPTIONS, defaultVal: LENS_EFFECT_OPTIONS[0].value },
+    depthOfField: { setter: setDepthOfField, options: DEPTH_OF_FIELD_OPTIONS, defaultVal: DEPTH_OF_FIELD_OPTIONS[0].value },
+    timeOfDay: { setter: setTimeOfDay, options: TIME_OF_DAY_OPTIONS, defaultVal: TIME_OF_DAY_OPTIONS[0].value },
+    overallMood: { setter: setOverallMood, options: OVERALL_MOOD_OPTIONS, defaultVal: OVERALL_MOOD_OPTIONS[0].value },
+    fabricRendering: { setter: setFabricRendering, options: FABRIC_RENDERING_OPTIONS, defaultVal: FABRIC_RENDERING_OPTIONS[0].value },
+  }), []);
 
   // Load/Save settingsMode, user defaults, and prompt preview state from localStorage
   useEffect(() => {
@@ -238,30 +218,6 @@ export default function ImageParameters({
     }
   }, [showPromptPreview]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('imageForgeSettingsMode', settingsMode);
-    }
-    if (settingsMode === 'basic') {
-      const advancedParams: (keyof ModelAttributes)[] = [
-        "fashionStyle", "hairStyle", "modelExpression", "lightingType",
-        "lightQuality", "cameraAngle", "lensEffect", "depthOfField",
-        "timeOfDay", "overallMood", "fabricRendering"
-      ];
-      const advancedSettingsAreActive = advancedParams.some(param => {
-        const stateValue = { 
-          gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
-          fashionStyle, hairStyle, modelExpression, lightingType, lightQuality, 
-          cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering 
-        }[param];
-        return stateValue !== initialAppDefaults[param];
-      });
-      setShowAdvancedSettingsActiveMessage(advancedSettingsAreActive);
-    } else {
-      setShowAdvancedSettingsActiveMessage(false);
-    }
-  }, [settingsMode, initialAppDefaults, gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background, fashionStyle, hairStyle, modelExpression, lightingType, lightQuality, cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering]);
-
   // Consolidate all params for the hook
   const currentImageGenParams = React.useMemo((): ImageGenerationParams => ({
     gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
@@ -285,78 +241,6 @@ export default function ImageParameters({
     generationType: 'image',
     generationParams: currentImageGenParams,
   });
-
-  // Effect to populate state when a history item is loaded
-  useEffect(() => {
-    if (historyItemToLoad && !isLoadingHistory && historyItemToLoad.id !== loadedHistoryItemId) {
-      const { attributes, constructedPrompt, settingsMode, editedImageUrls, originalImageUrls, id } = historyItemToLoad;
-      
-      // Clear any existing generated images first
-      setOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-      setOriginalOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-      setGenerationErrors(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-      setActiveHistoryItemId(null);
-      
-      // Set all attribute states from the loaded history item
-      setGender(attributes.gender || GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value);
-      setBodyShapeAndSize(attributes.bodyShapeAndSize || BODY_SHAPE_AND_SIZE_OPTIONS[0].value);
-      setAgeRange(attributes.ageRange || AGE_RANGE_OPTIONS[0].value);
-      setEthnicity(attributes.ethnicity || ETHNICITY_OPTIONS[0].value);
-      setPoseStyle(attributes.poseStyle || POSE_STYLE_OPTIONS[0].value);
-      setBackground(attributes.background || BACKGROUND_OPTIONS.find(o => o.value === "outdoor_nature_elements")?.value || BACKGROUND_OPTIONS[0].value);
-      setFashionStyle(attributes.fashionStyle || FASHION_STYLE_OPTIONS[0].value);
-      setHairStyle(attributes.hairStyle || HAIR_STYLE_OPTIONS[0].value);
-      setModelExpression(attributes.modelExpression || MODEL_EXPRESSION_OPTIONS[0].value);
-      setLightingType(attributes.lightingType || LIGHTING_TYPE_OPTIONS[0].value);
-      setLightQuality(attributes.lightQuality || LIGHT_QUALITY_OPTIONS[0].value);
-      setCameraAngle(attributes.cameraAngle || CAMERA_ANGLE_OPTIONS[0].value);
-      setLensEffect(attributes.lensEffect || LENS_EFFECT_OPTIONS[0].value);
-      setDepthOfField(attributes.depthOfField || DEPTH_OF_FIELD_OPTIONS[0].value);
-      setTimeOfDay(attributes.timeOfDay || TIME_OF_DAY_OPTIONS[0].value);
-      setOverallMood(attributes.overallMood || OVERALL_MOOD_OPTIONS[0].value);
-      setFabricRendering(attributes.fabricRendering || FABRIC_RENDERING_OPTIONS[0].value);
-      // Set settings mode
-      setSettingsMode(settingsMode || 'basic');
-      
-      // *** BUG FIX / COMPLETENESS ***
-      // Loading history is an explicit customization. Set the tripwire.
-      setIsCustomized(true);
-      
-      // Only set the generated image URLs if we want to show the historical results
-      // For now, we'll show them to maintain the current behavior but clear them first
-      if (editedImageUrls && editedImageUrls.length > 0) {
-        setOutputImageUrls(editedImageUrls);
-      }
-      // Set the original URLs for the "Compare" feature
-      if (originalImageUrls && originalImageUrls.length > 0) {
-        setOriginalOutputImageUrls(originalImageUrls);
-      }
-      
-      setActiveHistoryItemId(id);
-      // Set the prompt and mark it as manually edited to prevent auto-generation
-      if (constructedPrompt) {
-        handlePromptChange(constructedPrompt);
-      }
-      setLoadedHistoryItemId(historyItemToLoad.id);
-      toast({
-        title: "History Restored",
-        description: "Image and all generation parameters have been successfully restored.",
-      });
-    }
-  }, [historyItemToLoad, isLoadingHistory, loadedHistoryItemId, handlePromptChange, toast]);
-
-  // NEW: Callback to set the `isCustomized` tripwire.
-  // Memoized to prevent re-creation on every render.
-  const handleFirstCustomization = useCallback(() => {
-    if (!isCustomized) {
-      setIsCustomized(true);
-      toast({
-        title: "Customization Mode Activated",
-        description: "The 'Generate' button will now use your specific settings.",
-        duration: 3000,
-      });
-    }
-  }, [isCustomized, toast]);
 
   // Check Face Detailer service availability on mount
   useEffect(() => {
@@ -419,26 +303,13 @@ export default function ImageParameters({
     });
   };
 
-  const handleRandomizeConfiguration = () => {
-    handleFirstCustomization();
-    if (useAIPrompt) {
-      // When AI Prompt is enabled, don't change UI fields - set flag for AI generation instead
-      setUseRandomizedAIPrompts(true);
-      toast({ 
-        title: "AI Randomization Activated!", 
-        description: "Each of the 3 AI prompts will use different random parameters." 
-      });
-    } else {
-      // Original behavior: randomize UI fields directly
-      const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
-      Object.values(PARAMETER_CONFIG).forEach(config => {
-          if (settingsMode === 'advanced' ||
-              ['gender', 'bodyShapeAndSize', 'ageRange', 'ethnicity', 'hairStyle', 'modelExpression', 'poseStyle', 'background'].includes(Object.keys(PARAMETER_CONFIG).find(k => PARAMETER_CONFIG[k as keyof ModelAttributes] === config) || "")) {
-              config.setter(pickRandom(config.options));
-          }
-      });
-      toast({ title: "Configuration Randomized!" });
-    }
+  const handleRandomizeConfiguration = () => {    
+    // This button is only active in manual mode. It randomizes the UI fields directly.
+    const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
+    Object.values(PARAMETER_CONFIG).forEach(config => {
+      config.setter(pickRandom(config.options));
+    });
+    toast({ title: "Manual Configuration Randomized!" });
   };
 
   const handleSubmit = async () => {
@@ -456,11 +327,9 @@ export default function ImageParameters({
     // Start all slots in a "generating" visual state
     setIsGeneratingSlots([true, true, true]);
 
-    let generationInput: GenerateImageEditInput;
+    let generationInput: GenerateImageEditInput;    
 
-    if (!isCustomized) {
-      // --- SMART DEFAULT MODE ---
-      // User has not touched any controls, so we use the best, most creative defaults.
+    if (generationMode === 'creative') {
       generationInput = {
         imageDataUriOrUrl: preparedImageUrl,
         parameters: currentImageGenParams, // Use default parameters
@@ -469,25 +338,20 @@ export default function ImageParameters({
         useRandomizedAIPrompts: true, // Force randomization for variety
       };
       toast({ title: "Starting AI Creative Generation...", description: "Using randomized styles for variety." });
-    } else {
-      // --- MANUAL CUSTOMIZATION MODE ---
-      // User has interacted with the controls, so we respect their exact choices.
+    } else { // generationMode is 'manual'
       generationInput = {
         prompt: isPromptManuallyEdited ? currentPrompt : undefined,
         imageDataUriOrUrl: preparedImageUrl,
         parameters: currentImageGenParams,
         settingsMode: settingsMode,
-        useAIPrompt: useAIPrompt,
-        useRandomizedAIPrompts: useRandomizedAIPrompts,
+        useAIPrompt: useAIPrompt, // Respect the user's toggle in manual mode
+        useRandomizedAIPrompts: false, // In manual mode, we do not randomize unless the user clicks the button
       };
       toast({ title: "Starting Generation...", description: "Using your custom settings." });
-    }
+    }    
 
     try {
-      // 3. Make a SINGLE call to the batch server action
       const result: GenerateMultipleImagesOutput = await generateImageEdit(generationInput, currentUser?.username || '');
-
-      // 4. Process the complete result at once
       setOutputImageUrls(result.editedImageUrls);
       
       // Store the prompt for history
@@ -530,22 +394,16 @@ export default function ImageParameters({
       toast({ title: "Generation Failed", description: errorMessage, variant: "destructive" });
       setGenerationErrors(Array(NUM_IMAGES_TO_GENERATE).fill(errorMessage));
     } finally {
-      // 5. Reset all loading states
       setIsLoading(false);
       setIsGeneratingSlots([false, false, false]);
-      // Keep randomization setting as-is until manually toggled by user
     }
   };
 
   // Re-roll functionality has been replaced with Face Retouch
 
-  const handleUpscale = async (slotIndex: number) => {
-    // Capture the URL to be upscaled at the beginning of the action.
-    const imageUrlToUpscale = outputImageUrls[slotIndex];
-    if (!imageUrlToUpscale) {
-      toast({ title: "Image Not Available", variant: "destructive" });
-      return;
-    }
+  const handleUpscale = async (slotIndex: number) => {    
+    const imageUrlToUpscale = outputImageUrls[slotIndex];    
+    if (!imageUrlToUpscale) return toast({ title: "Image Not Available", variant: "destructive" });    
     setIsUpscalingSlot(slotIndex);
     try {
       // We pass undefined for hash as this is a generated image, not the original upload
@@ -555,81 +413,64 @@ export default function ImageParameters({
 
       if (activeHistoryItemId) {
         // The state isn't updated yet, so we build the arrays manually for the DB update
-        const finalOriginals = [...originalOutputImageUrls];
-        finalOriginals[slotIndex] = imageUrlToUpscale;
-        const finalOutputs = [...outputImageUrls];
-        finalOutputs[slotIndex] = savedPath;
+        const finalOriginals = [...originalOutputImageUrls]; finalOriginals[slotIndex] = imageUrlToUpscale;
+        const finalOutputs = [...outputImageUrls]; finalOutputs[slotIndex] = savedPath;
         await updateHistoryItem(activeHistoryItemId, {
           editedImageUrls: finalOutputs,
           originalImageUrls: finalOriginals,
         });
       }
 
-      // Use functional updates to prevent stale state issues in the UI.
       setOriginalOutputImageUrls(prev => {
-        const newOriginals = [...prev];
-        newOriginals[slotIndex] = imageUrlToUpscale;
+        const newOriginals = [...prev]; newOriginals[slotIndex] = imageUrlToUpscale;
         return newOriginals;
       });
 
       setOutputImageUrls(prev => {
-        const newUrls = [...prev];
-        newUrls[slotIndex] = savedPath;
+        const newUrls = [...prev]; newUrls[slotIndex] = savedPath;
         return newUrls;
       });
 
       toast({ title: `Image ${slotIndex + 1} Upscaled Successfully` });
     } catch (error) {
       console.error(`Error upscaling image ${slotIndex}:`, error);
-      const errorMessage = (error as Error).message || "Unexpected error during upscaling.";
-      toast({ title: "Upscaling Failed", description: errorMessage, variant: "destructive" });
+      toast({ title: "Upscaling Failed", description: (error as Error).message || "Unexpected error during upscaling.", variant: "destructive" });
     } finally {
       setIsUpscalingSlot(null);
     }
   };
 
   const handleFaceRetouch = async (slotIndex: number) => {
-    // Capture the URL to be face retouched at the beginning of the action.
-    const imageUrlToRetouch = outputImageUrls[slotIndex];
-    if (!imageUrlToRetouch) {
-      toast({ title: "Image Not Available", variant: "destructive" });
-      return;
-    }
+    const imageUrlToRetouch = outputImageUrls[slotIndex];    
+    if (!imageUrlToRetouch) return toast({ title: "Image Not Available", variant: "destructive" });    
     setIsFaceRetouchingSlot(slotIndex);
     try {
       // PHASE 2 OPTIMIZATION: Just like upscale, pass the path directly.
       const { savedPath } = await faceDetailerAction(imageUrlToRetouch, undefined);
 
       if (activeHistoryItemId) {
-        // The state isn't updated yet, so we build the arrays manually for the DB update
-        const finalOriginals = [...originalOutputImageUrls];
-        finalOriginals[slotIndex] = imageUrlToRetouch;
-        const finalOutputs = [...outputImageUrls];
-        finalOutputs[slotIndex] = savedPath;
+        const finalOriginals = [...originalOutputImageUrls]; finalOriginals[slotIndex] = imageUrlToRetouch;
+        const finalOutputs = [...outputImageUrls]; finalOutputs[slotIndex] = savedPath;
         await updateHistoryItem(activeHistoryItemId, {
           editedImageUrls: finalOutputs,
           originalImageUrls: finalOriginals,
         });
       }
 
-      // Use functional updates to prevent stale state issues in the UI.
       setOriginalOutputImageUrls(prev => {
-        const newOriginals = [...prev];
-        newOriginals[slotIndex] = imageUrlToRetouch;
+        const newOriginals = [...prev]; newOriginals[slotIndex] = imageUrlToRetouch;
         return newOriginals;
       });
 
       setOutputImageUrls(prev => {
-        const newUrls = [...prev];
-        newUrls[slotIndex] = savedPath;
+        const newUrls = [...prev]; newUrls[slotIndex] = savedPath;
         return newUrls;
       });
 
       toast({ title: `Image ${slotIndex + 1} Face Retouched Successfully` });
     } catch (error) {
       console.error(`Error face retouching image ${slotIndex}:`, error);
-      const errorMessage = (error as Error).message || "Unexpected error during face retouching.";
-      toast({ title: "Face Retouch Failed", description: errorMessage, variant: "destructive" });
+      toast({ title: "Face Retouch Failed", description: (error as Error).message || "Unexpected error during face retouching.", variant: "destructive" });
     } finally {
       setIsFaceRetouchingSlot(null);
     }
@@ -693,26 +534,15 @@ export default function ImageParameters({
     });
   };
 
-  // NEW: Wrapper for all parameter state changes to trigger customization mode
-  const handleParamChange = useCallback((setter: React.Dispatch<React.SetStateAction<any>>, value: any) => {
-    handleFirstCustomization();
-    setter(value);
-  }, [handleFirstCustomization]);
-
   // Helper to render select components
   const renderSelect = ({ id, label, value, onChange, options, disabled }: {
     id: string; label: string; value: string; onChange: (value: string) => void; options: OptionWithPromptSegment[]; disabled?: boolean;
   }) => {
-    // The original `onChange` is the state setter (e.g., `setGender`).
-    // We wrap it with our new handler to trip the `isCustomized` wire.
-    const wrappedOnChange = (newValue: string) => {
-      handleParamChange(onChange, newValue);
-    };
 
     return (
     <div className="space-y-1">
       <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
-      <Select value={value} onValueChange={wrappedOnChange} disabled={disabled}>
+      <Select value={value} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger id={id} className="w-full text-sm">
           <SelectValue placeholder={options.find(o => o.value === value)?.displayLabel || `Select ${label.toLowerCase()}`} />
         </SelectTrigger>
@@ -763,11 +593,7 @@ export default function ImageParameters({
               <Palette className="h-6 w-6 text-primary" />
               Style Your Model
             </CardTitle>
-            <CardDescription>
-              {isCustomized
-                ? "Using your custom settings for generation."
-                : "Using AI Creative mode with randomized styles for best results."}
-            </CardDescription>
+            <CardDescription>{generationMode === 'creative' ? 'Let our AI generate a variety of high-quality styles for you.' : 'Fine-tune every detail to match your vision.'}</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -792,62 +618,103 @@ export default function ImageParameters({
             <AccordionItem value="customize" className="border-b-0">
               <AccordionTrigger className="text-sm text-muted-foreground hover:text-foreground justify-center py-2 group">
                 <Settings2 className="mr-2 h-4 w-4 transition-transform group-data-[state=open]:rotate-90"/>
-                Customize
+                {generationMode === 'creative' ? 'View & Customize' : 'Customize Settings'}
               </AccordionTrigger>
               <AccordionContent className="pt-6 space-y-6">
 
-                {/* --- HEADER CONTROLS MOVED INSIDE ACCORDION --- */}
-                <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-muted/20">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-2">
-                          <Label htmlFor="ai-prompt-switch" className="text-sm font-medium flex items-center gap-1">
-                            <BrainCircuit className="h-4 w-4" /> AI Prompt
-                          </Label>
-                          <Switch id="ai-prompt-switch" checked={useAIPrompt} onCheckedChange={(c) => handleParamChange(setUseAIPrompt, c)} disabled={commonFormDisabled} />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent><p className="max-w-xs">Enable AI to creatively write your prompt based on your settings.</p></TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <div className="flex items-center gap-2">
-                      <Label htmlFor="settings-mode-switch" className="text-sm font-medium">
-                          {settingsMode === 'basic' ? 'Basic' : 'Advanced'}
+                <div className="space-y-4">
+                  <Label>Generation Mode</Label>
+                  <RadioGroup value={generationMode} onValueChange={(v) => setGenerationMode(v as 'creative' | 'manual')} className="grid grid-cols-2 gap-4">
+                    <div>
+                      <RadioGroupItem value="creative" id="creative" className="peer sr-only" />
+                      <Label htmlFor="creative" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                        <Sparkles className="mb-3 h-6 w-6" />
+                        Creative AI
                       </Label>
-                      <Switch id="settings-mode-switch" checked={settingsMode === 'advanced'} onCheckedChange={(c) => handleParamChange(setSettingsMode, c ? 'advanced' : 'basic')} disabled={commonFormDisabled} />
-                  </div>
+                    </div>
+                    <div>
+                      <RadioGroupItem value="manual" id="manual" className="peer sr-only" />
+                      <Label htmlFor="manual" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                        <Settings2 className="mb-3 h-6 w-6" />
+                        Manual Control
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
 
-                {/* --- PARAMETER CONTROLS --- */}
-                {settingsMode === 'basic' ? (
-                  <div className="space-y-4">
-                    <RadioGroup value={gender} onValueChange={(v) => handleParamChange(setGender, v)} className="flex flex-row flex-wrap gap-2 pt-1" disabled={commonFormDisabled}>
-                      {GENDER_OPTIONS.map((option) => (
-                        <div key={option.value} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
-                          <Label htmlFor={`gender-${option.value}`}>{option.displayLabel}</Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                      {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS, disabled: commonFormDisabled })}
-                      {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS, disabled: commonFormDisabled })}
-                      {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS, disabled: commonFormDisabled })}
-                      {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS, disabled: commonFormDisabled })}
+                <fieldset disabled={generationMode === 'creative'} className="space-y-6 transition-opacity duration-300 disabled:opacity-50">
+
+                  <div className="flex items-center justify-between gap-4 p-3 rounded-lg border bg-muted/20">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="ai-prompt-switch" className="text-sm font-medium flex items-center gap-1">
+                              <BrainCircuit className="h-4 w-4" /> AI-Enhanced Prompt
+                            </Label>
+                            <Switch id="ai-prompt-switch" checked={useAIPrompt} onCheckedChange={setUseAIPrompt} />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent><p className="max-w-xs">Enable AI to creatively write your prompt based on your manual settings.</p></TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                    <div className="flex items-center gap-2">
+                        <Label htmlFor="settings-mode-switch" className="text-sm font-medium">
+                            {settingsMode === 'basic' ? 'Simple' : 'Detailed'} Controls
+                        </Label>
+                        <Switch id="settings-mode-switch" checked={settingsMode === 'advanced'} onCheckedChange={(c) => setSettingsMode(c ? 'advanced' : 'basic')} />
                     </div>
                   </div>
-                ) : (
-                  <p className="text-center text-sm text-muted-foreground">Advanced settings will go here...</p>
-                )}
+
+                  {settingsMode === 'basic' ? (
+                    <div className="space-y-4">
+                      <RadioGroup value={gender} onValueChange={setGender} className="flex flex-row flex-wrap gap-2 pt-1">
+                        {GENDER_OPTIONS.map((option) => (
+                          <div key={option.value} className="flex items-center space-x-2">
+                            <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
+                            <Label htmlFor={`gender-${option.value}`}>{option.displayLabel}</Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                        {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
+                        {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS })}
+                        {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS })}
+                        {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <RadioGroup value={gender} onValueChange={setGender} className="flex flex-row flex-wrap gap-2 pt-1">
+                        {GENDER_OPTIONS.map((option) => (
+                          <div key={option.value} className="flex items-center space-x-2">
+                            <RadioGroupItem value={option.value} id={`gender-${option.value}`} />
+                            <Label htmlFor={`gender-${option.value}`}>{option.displayLabel}</Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                        {/* Render all controls in advanced mode */}
+                        {Object.entries(PARAMETER_CONFIG)
+                          .filter(([key]) => key !== 'gender') // Gender is a RadioGroup, handled separately
+                          .map(([key, config]) =>
+                            renderSelect({ id: key, label: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()), value: (currentImageGenParams as any)[key], onChange: config.setter, options: config.options })
+                          )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end">
+                     <Button variant="outline" onClick={handleRandomizeConfiguration} size="sm"><Shuffle className="mr-2 h-4 w-4"/>Randomize Manual Settings</Button>
+                  </div>
+                </fieldset>
 
                 {/* --- UTILITY BUTTONS MOVED INSIDE ACCORDION --- */}
-                <div className="flex flex-wrap items-center gap-2 pt-4 mt-6">
-                  <Button variant="outline" onClick={() => { handleFirstCustomization(); handleSaveDefaults(); }} size="sm" disabled={commonFormDisabled}><Save className="mr-2 h-4 w-4"/>Save</Button>
-                  <Button variant="ghost" onClick={() => { handleFirstCustomization(); handleClearDefaults(); }} size="sm" disabled={commonFormDisabled}><Trash2 className="mr-2 h-4 w-4"/>Clear</Button>
-                  <Button variant="outline" onClick={() => { handleFirstCustomization(); handleRandomizeConfiguration(); }} size="sm" disabled={commonFormDisabled} className="ml-auto"><Shuffle className="mr-2 h-4 w-4"/>Randomize</Button>
-                  <Button variant={showPromptPreview ? "secondary" : "outline"} onClick={() => setShowPromptPreview(!showPromptPreview)} size="sm" disabled={commonFormDisabled}>
+                <div className="flex flex-wrap items-center gap-2 pt-4 border-t mt-6">
+                  <Button variant="outline" onClick={handleSaveDefaults} size="sm" disabled={!preparedImageUrl || isLoading}><Save className="mr-2 h-4 w-4"/>Save Defaults</Button>
+                  <Button variant="ghost" onClick={handleClearDefaults} size="sm" disabled={!preparedImageUrl || isLoading}><Trash2 className="mr-2 h-4 w-4"/>Clear Defaults</Button>
+                  <Button variant={showPromptPreview ? "secondary" : "outline"} onClick={() => setShowPromptPreview(!showPromptPreview)} size="sm" disabled={!preparedImageUrl || isLoading} className="ml-auto">
                     <FileText className="mr-2 h-4 w-4"/>
                     {showPromptPreview ? 'Hide' : 'Show'} Prompt
                   </Button>
@@ -856,9 +723,9 @@ export default function ImageParameters({
                 {/* --- PROMPT PREVIEW --- */}
                 <AnimatePresence>
                   {showPromptPreview && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden">
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: 'easeInOut' }} className="overflow-hidden">
                       <div className="space-y-2 pt-4 border-t">
-                        <Textarea id="imagePromptTextarea" value={currentPrompt} onChange={(e) => handleParamChange(handlePromptChange, e.target.value)} rows={8} className="text-xs font-mono" disabled={commonFormDisabled} />
+                        <Textarea id="imagePromptTextarea" value={currentPrompt} onChange={(e) => handlePromptChange(e.target.value)} rows={8} className="text-xs font-mono" disabled={!preparedImageUrl || isLoading} />
                       </div>
                     </motion.div>
                   )}
