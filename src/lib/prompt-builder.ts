@@ -116,13 +116,13 @@ export const ETHNICITY_OPTIONS: OptionWithPromptSegment[] = [
   },
   { 
     value: "middle_eastern_north_african", 
-    displayLabel: "Middle Eastern & North African", 
-    promptSegment: "of Middle Eastern or North African descent" 
+    displayLabel: "Middle Eastern", 
+    promptSegment: "of Middle Eastern descent" 
   },
   { 
     value: "indigenous", 
     displayLabel: "Indigenous", 
-    promptSegment: "of Indigenous or First Nations descent" 
+    promptSegment: "of Indigenous descent" 
   },
 ];
 export const BODY_SHAPE_AND_SIZE_OPTIONS: OptionWithPromptSegment[] = [
