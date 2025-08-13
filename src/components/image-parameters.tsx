@@ -531,20 +531,24 @@ export default function ImageParameters({
     });
   };
 
-  // Helper to render select components
+  // Helper to render select components with enhanced styling
   const renderSelect = ({ id, label, value, onChange, options, disabled }: {
     id: string; label: string; value: string; onChange: (value: string) => void; options: OptionWithPromptSegment[]; disabled?: boolean;
   }) => {
 
     return (
-    <div className="space-y-1">
-      <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
+    <div className="space-y-2">
+      <Label htmlFor={id} className="text-sm font-medium text-foreground/80">{label}</Label>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger id={id} className="w-full text-sm">
+        <SelectTrigger id={id} className="w-full h-10 text-sm border-muted/60 focus:border-primary/50 bg-background/50">
           <SelectValue placeholder={options.find(o => o.value === value)?.displayLabel || `Select ${label.toLowerCase()}`} />
         </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (<SelectItem key={option.value} value={option.value} className="text-sm">{option.displayLabel}</SelectItem>))}
+        <SelectContent className="max-h-[300px]">
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value} className="text-sm py-2">
+              {option.displayLabel}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>
@@ -641,84 +645,98 @@ export default function ImageParameters({
 
                 <fieldset disabled={generationMode === 'creative'} className="space-y-6 transition-opacity duration-300 disabled:opacity-50">
 
-                  {/* Controls Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <Label className="text-sm font-medium text-muted-foreground">Controls:</Label>
-                      <div className="flex bg-muted rounded-full p-1">
-                        <Button
-                          variant={settingsMode === 'basic' ? 'default' : 'ghost'}
-                          size="sm"
-                          onClick={() => setSettingsMode('basic')}
-                          className="rounded-full px-3 py-1 h-8 text-xs font-medium transition-all"
-                        >
-                          Simple
-                        </Button>
-                        <Button
-                          variant={settingsMode === 'advanced' ? 'default' : 'ghost'}
-                          size="sm"
-                          onClick={() => setSettingsMode('advanced')}
-                          className="rounded-full px-3 py-1 h-8 text-xs font-medium transition-all"
-                        >
-                          Detailed
-                        </Button>
-                      </div>
-                      {generationMode === 'manual' && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="outline" 
-                                size="sm"
-                                onClick={handleRandomizeConfiguration}
-                                className="h-8 px-3 text-xs"
-                                disabled={!preparedImageUrl || isLoading}
-                              >
-                                <Shuffle className="h-3 w-3 mr-1" />
-                                Randomize
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Randomize all manual settings for inspiration</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </div>
-
-                    {/* Compact AI-Enhanced Prompt Toggle */}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-muted/50 hover:bg-muted/70 transition-colors cursor-pointer">
-                            <BrainCircuit className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-medium">AI Prompt</span>
-                            <Switch 
-                              checked={useAIPrompt} 
-                              onCheckedChange={setUseAIPrompt}
-                            />
+                  {/* Modern Control Settings Bar */}
+                  <div className="bg-muted/30 rounded-xl p-4 border border-muted/50">
+                    <div className="flex flex-col gap-4">
+                      {/* Primary Control Row */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        {/* Complexity Control */}
+                        <div className="flex items-center gap-3">
+                          <Label className="text-sm font-medium text-foreground/80">Detail Level:</Label>
+                          <div className="inline-flex h-10 items-center justify-center rounded-lg bg-muted p-1">
+                            <Button
+                              variant={settingsMode === 'basic' ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setSettingsMode('basic')}
+                              className="h-8 px-4 text-sm font-medium rounded-md transition-all"
+                            >
+                              Simple
+                            </Button>
+                            <Button
+                              variant={settingsMode === 'advanced' ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setSettingsMode('advanced')}
+                              className="h-8 px-4 text-sm font-medium rounded-md transition-all"
+                            >
+                              Detailed
+                            </Button>
                           </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="max-w-xs">Enable AI to creatively enhance your prompt based on manual settings</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                        </div>
+
+                        {/* Enhancement Controls */}
+                        <div className="flex items-center gap-3">
+                          {/* AI Prompt Toggle */}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-2 h-10 px-3 rounded-lg bg-background/50 border border-muted hover:border-muted-foreground/30 transition-colors">
+                                  <BrainCircuit className="h-4 w-4 text-primary" />
+                                  <span className="text-sm font-medium">AI Enhancement</span>
+                                  <Switch 
+                                    checked={useAIPrompt} 
+                                    onCheckedChange={setUseAIPrompt}
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom">
+                                <p className="max-w-xs">Let AI enhance your prompt with creative improvements</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+
+                          {/* Randomize Button */}
+                          {generationMode === 'manual' && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={handleRandomizeConfiguration}
+                                    className="h-10 px-3 border-muted hover:border-muted-foreground/30 transition-colors"
+                                    disabled={!preparedImageUrl || isLoading}
+                                  >
+                                    <Shuffle className="h-4 w-4 mr-2" />
+                                    Randomize
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                  <p>Randomize all settings for creative inspiration</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {settingsMode === 'basic' ? (
                     <div className="space-y-6">
-                      {/* Gender Row - Full Width */}
+                      {/* Enhanced Gender Selection */}
                       <div className="space-y-3">
-                        <Label className="text-sm font-medium">Gender</Label>
-                        <div className="flex bg-muted rounded-full p-1 w-fit">
+                        <Label className="text-base font-semibold flex items-center gap-2">
+                          <PersonStanding className="h-4 w-4 text-primary" />
+                          Model Gender
+                        </Label>
+                        <div className="inline-flex h-11 items-center justify-center rounded-lg bg-muted p-1">
                           {GENDER_OPTIONS.map((option) => (
                             <Button
                               key={option.value}
                               variant={gender === option.value ? 'default' : 'ghost'}
                               size="sm"
                               onClick={() => setGender(option.value)}
-                              className="rounded-full px-4 py-1 h-8 text-xs font-medium transition-all"
+                              className="h-9 px-6 text-sm font-medium rounded-md transition-all min-w-[80px]"
                             >
                               {option.displayLabel}
                             </Button>
@@ -726,36 +744,46 @@ export default function ImageParameters({
                         </div>
                       </div>
                       
-                      {/* Form Fields Grid - Better Space Usage */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-x-6 gap-y-4">
-                        {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
-                        {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS })}
-                        {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS })}
-                        {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS })}
+                      {/* Core Parameters Grid */}
+                      <div className="space-y-4">
+                        <Label className="text-base font-semibold text-foreground/90">Core Attributes</Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-6 gap-y-5">
+                          {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
+                          {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS })}
+                          {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS })}
+                          {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS })}
+                        </div>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-8">
-                      {/* --- Model Attributes Group --- */}
-                      <div className="space-y-4">
-                        <Label className="font-semibold text-base">Model Attributes</Label>
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium">Gender</Label>
-                          <div className="flex bg-muted rounded-full p-1 w-fit">
+                      {/* Enhanced Model Attributes Group */}
+                      <div className="space-y-5">
+                        <div className="flex items-center gap-2 pb-2 border-b border-muted/50">
+                          <PersonStanding className="h-5 w-5 text-primary" />
+                          <Label className="text-lg font-semibold">Model Attributes</Label>
+                        </div>
+                        
+                        {/* Gender Selection for Advanced Mode */}
+                        <div className="space-y-3">
+                          <Label className="text-sm font-medium text-foreground/80">Gender</Label>
+                          <div className="inline-flex h-10 items-center justify-center rounded-lg bg-muted p-1">
                             {GENDER_OPTIONS.map((option) => (
                               <Button
                                 key={option.value}
                                 variant={gender === option.value ? 'default' : 'ghost'}
                                 size="sm"
                                 onClick={() => setGender(option.value)}
-                                className="rounded-full px-4 py-1 h-8 text-xs font-medium transition-all"
+                                className="h-8 px-5 text-sm font-medium rounded-md transition-all min-w-[70px]"
                               >
                                 {option.displayLabel}
                               </Button>
                             ))}
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                        
+                        {/* Model Attributes Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
                           {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
                           {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS })}
                           {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS })}
@@ -763,10 +791,13 @@ export default function ImageParameters({
                         </div>
                       </div>
 
-                      {/* --- Art Direction Group --- */}
-                      <div className="space-y-4">
-                        <Label className="font-semibold text-base">Art Direction</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                      {/* Enhanced Art Direction Group */}
+                      <div className="space-y-5">
+                        <div className="flex items-center gap-2 pb-2 border-b border-muted/50">
+                          <Palette className="h-5 w-5 text-primary" />
+                          <Label className="text-lg font-semibold">Art Direction</Label>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
                           {renderSelect({ id: "fashionStyle", label: "Fashion Style", value: fashionStyle, onChange: setFashionStyle, options: FASHION_STYLE_OPTIONS })}
                           {renderSelect({ id: "poseStyle", label: "Pose Style", value: poseStyle, onChange: setPoseStyle, options: POSE_STYLE_OPTIONS })}
                           {renderSelect({ id: "modelExpression", label: "Model Expression", value: modelExpression, onChange: setModelExpression, options: MODEL_EXPRESSION_OPTIONS })}
@@ -774,36 +805,125 @@ export default function ImageParameters({
                         </div>
                       </div>
 
-                      {/* --- Environment & Lighting Group --- */}
-                      <div className="space-y-4">
-                        <Label className="font-semibold text-base">Environment & Lighting</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                      {/* Enhanced Environment & Lighting Group */}
+                      <div className="space-y-5">
+                        <div className="flex items-center gap-2 pb-2 border-b border-muted/50">
+                          <Eye className="h-5 w-5 text-primary" />
+                          <Label className="text-lg font-semibold">Environment & Photography</Label>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
                           {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS })}
                           {renderSelect({ id: "timeOfDay", label: "Time of Day", value: timeOfDay, onChange: setTimeOfDay, options: TIME_OF_DAY_OPTIONS })}
                           {renderSelect({ id: "lightingType", label: "Lighting Type", value: lightingType, onChange: setLightingType, options: LIGHTING_TYPE_OPTIONS })}
                           {renderSelect({ id: "lightQuality", label: "Light Quality", value: lightQuality, onChange: setLightQuality, options: LIGHT_QUALITY_OPTIONS })}
                         </div>
                       </div>
+
+                      {/* Advanced Camera Settings (only in detailed mode) */}
+                      <div className="space-y-5">
+                        <div className="flex items-center gap-2 pb-2 border-b border-muted/50">
+                          <Settings2 className="h-5 w-5 text-primary" />
+                          <Label className="text-lg font-semibold">Camera & Technical</Label>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                          {renderSelect({ id: "cameraAngle", label: "Camera Angle", value: cameraAngle, onChange: setCameraAngle, options: CAMERA_ANGLE_OPTIONS })}
+                          {renderSelect({ id: "lensEffect", label: "Lens Effect", value: lensEffect, onChange: setLensEffect, options: LENS_EFFECT_OPTIONS })}
+                          {renderSelect({ id: "depthOfField", label: "Depth of Field", value: depthOfField, onChange: setDepthOfField, options: DEPTH_OF_FIELD_OPTIONS })}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </fieldset>
 
-                {/* --- UTILITY BUTTONS MOVED INSIDE ACCORDION --- */}
-                <div className="flex flex-wrap items-center gap-2 pt-4 border-t mt-6">
-                  <Button variant="outline" onClick={handleSaveDefaults} size="sm" disabled={!preparedImageUrl || isLoading}><Save className="mr-2 h-4 w-4"/>Save Defaults</Button>
-                  <Button variant="ghost" onClick={handleClearDefaults} size="sm" disabled={!preparedImageUrl || isLoading}><Trash2 className="mr-2 h-4 w-4"/>Clear Defaults</Button>
-                  <Button variant={showPromptPreview ? "secondary" : "outline"} onClick={() => setShowPromptPreview(!showPromptPreview)} size="sm" disabled={!preparedImageUrl || isLoading} className="ml-auto">
-                    <FileText className="mr-2 h-4 w-4"/>
-                    {showPromptPreview ? 'Hide' : 'Show'} Prompt
-                  </Button>
+                {/* Enhanced Utility Actions */}
+                <div className="bg-muted/20 rounded-lg p-4 border border-muted/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    {/* Settings Management */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground/70">Presets:</span>
+                      <Button 
+                        variant="outline" 
+                        onClick={handleSaveDefaults} 
+                        size="sm" 
+                        disabled={!preparedImageUrl || isLoading}
+                        className="h-9 px-3 border-muted/60 hover:border-muted-foreground/40"
+                      >
+                        <Save className="mr-2 h-4 w-4"/>
+                        Save Current
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        onClick={handleClearDefaults} 
+                        size="sm" 
+                        disabled={!preparedImageUrl || isLoading}
+                        className="h-9 px-3 text-muted-foreground hover:text-foreground"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4"/>
+                        Reset to Default
+                      </Button>
+                    </div>
+                    
+                    {/* Prompt Preview Toggle */}
+                    <Button 
+                      variant={showPromptPreview ? "secondary" : "outline"} 
+                      onClick={() => setShowPromptPreview(!showPromptPreview)} 
+                      size="sm" 
+                      disabled={!preparedImageUrl || isLoading} 
+                      className="h-9 px-3 border-muted/60 hover:border-muted-foreground/40"
+                    >
+                      <FileText className="mr-2 h-4 w-4"/>
+                      {showPromptPreview ? 'Hide' : 'Show'} Generated Prompt
+                      {showPromptPreview ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
 
-                {/* --- PROMPT PREVIEW --- */}
+                {/* Enhanced Prompt Preview */}
                 <AnimatePresence>
                   {showPromptPreview && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: 'easeInOut' }} className="overflow-hidden">
-                      <div className="space-y-2 pt-4 border-t">
-                        <Textarea id="imagePromptTextarea" value={currentPrompt} onChange={(e) => handlePromptChange(e.target.value)} rows={8} className="text-xs font-mono" disabled={!preparedImageUrl || isLoading} />
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }} 
+                      animate={{ height: "auto", opacity: 1 }} 
+                      exit={{ height: 0, opacity: 0 }} 
+                      transition={{ duration: 0.3, ease: 'easeInOut' }} 
+                      className="overflow-hidden"
+                    >
+                      <div className="bg-muted/20 rounded-lg p-4 border border-muted/30 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Code className="h-4 w-4 text-primary" />
+                          <Label className="text-sm font-semibold">Generated Prompt Preview</Label>
+                          {isPromptManuallyEdited && (
+                            <span className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full border border-amber-200">
+                              Modified
+                            </span>
+                          )}
+                        </div>
+                        <Textarea 
+                          id="imagePromptTextarea" 
+                          value={currentPrompt} 
+                          onChange={(e) => handlePromptChange(e.target.value)} 
+                          rows={6} 
+                          className="text-sm font-mono bg-background/50 border-muted/60 focus:border-primary/50 resize-none" 
+                          disabled={!preparedImageUrl || isLoading}
+                          placeholder="Your AI-generated prompt will appear here..."
+                        />
+                        {isManualPromptOutOfSync() && (
+                          <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-md">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4 text-amber-600" />
+                              <span className="text-sm text-amber-800">Prompt is out of sync with your settings</span>
+                            </div>
+                            <Button
+                              onClick={resetPromptToAuto}
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs border-amber-300 hover:bg-amber-100"
+                            >
+                              <RefreshCw className="mr-1 h-3 w-3" />
+                              Sync
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   )}
