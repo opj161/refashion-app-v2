@@ -1,7 +1,5 @@
 import { Suspense } from 'react';
 import CreationHub from '@/components/creation-hub';
-import { PageHeader } from "@/components/ui/page-header";
-import { Palette } from "lucide-react";
 import HistoryGallery from '@/components/history-gallery';
 import { getHistoryPaginated } from '@/actions/historyActions';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,11 +8,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default async function CreatePage() {
   return (
     <div className="container mx-auto max-w-7xl px-4 py-10 space-y-8">
-      <PageHeader
-        icon={Palette}
-        title="Creative Studio"
-        description="Bring your clothing to life with new images and videos "
-      />
       {/* CreationHub now manages state entirely on the client */}
       <CreationHub>
         <Suspense fallback={<HistoryGallerySkeleton />}>
