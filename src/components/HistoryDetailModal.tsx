@@ -125,7 +125,7 @@ export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: Hi
                   "border rounded overflow-hidden aspect-square flex items-center justify-center p-1 transition-all duration-200",
                   selectedImageUrl === img.url 
                     ? "ring-2 ring-primary border-primary/50" 
-                    : "border-border/20 hover:border-border/40 hover:scale-105"
+                    : "border-border/20 hover:border-border/40 hover:scale-102"
                 )}
                 onClick={() => setSelectedImageUrl(img.url)}
               >

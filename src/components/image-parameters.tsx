@@ -771,7 +771,7 @@ export default function ImageParameters({
           </div>
         </CardHeader>
         <CardContent>
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
             <Button onClick={handleSubmit} disabled={isLoading || !preparedImageUrl} className="w-full text-lg h-14">
               <AnimatePresence mode="wait" initial={false}>
                 {isLoading ? (
@@ -939,7 +939,7 @@ export default function ImageParameters({
                         alt={`Generated Image ${index + 1}`}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="object-cover group-hover:scale-102 transition-transform duration-250"
                       />
                       {/* Loading overlay for face retouch/upscale */}
                       {(isFaceRetouchingSlot === index || isUpscalingSlot === index) && (

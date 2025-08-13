@@ -39,7 +39,7 @@ export function SiteHeader() {
             alt="Refashion AI logo"
             width={40}
             height={60}
-            className="h-12 w-auto sm:h-14 sm:w-auto transition-transform duration-300 group-hover:scale-105"
+            className="h-12 w-auto sm:h-14 sm:w-auto transition-transform duration-200 group-hover:scale-102"
           />
           <span className="text-xl sm:text-3xl font-bold transition-colors duration-300 group-hover:text-primary">
             Refashion AI

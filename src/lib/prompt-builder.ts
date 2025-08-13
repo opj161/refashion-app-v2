@@ -384,17 +384,13 @@ export const FABRIC_RENDERING_OPTIONS: OptionWithPromptSegment[] = [
 ];
 
 // For Video Generation
-export const PREDEFINED_PROMPTS: OptionWithPromptSegment[] = [ // Adjusted to OptionWithPromptSegment for consistency
-  { value: 'custom', displayLabel: 'Custom (Build your own)', promptSegment: '' }, // promptSegment is effectively the promptText here
-  { value: '360_turn', displayLabel: '360° Turn', promptSegment: 'The model executes a single, slow 360-degree turn on the spot, while the camera remains completely static.' },
-  { value: 'walks_toward_camera_pullback', displayLabel: 'Walks Toward You (Camera Pulls Back)', promptSegment: 'The model takes two slow, deliberate steps directly toward the camera, as the camera performs a smooth, subtle pull-back.' },
-  { value: 'slow_zoom_in_detail', displayLabel: 'Slow Zoom In for Detail', promptSegment: 'The model slowly shifts her weight from one foot to the other in a subtle, continuous motion, as the camera performs a slow, graceful push-in.'},
+export const PREDEFINED_PROMPTS: OptionWithPromptSegment[] = [
+  { value: 'walks_toward_camera_pullback', displayLabel: 'Walks Toward', promptSegment: 'The model takes two slow, deliberate steps directly toward the camera, as the camera performs a smooth, subtle pull-back.' },
+  { value: 'walks_away_from_camera', displayLabel: 'Walks Away', promptSegment: 'The model begins walking in a slow, continuous motion on a diagonal path away from the camera. The camera remains completely static, letting her recede into the scene.'},
+  { value: 'step_sideways_camera_follows', displayLabel: 'Side Step', promptSegment: 'The model takes one single, deliberate step to the side, and the camera performs a smooth, slight pan to follow her, keeping her centered in the frame.'},
   { value: 'turn_to_profile', displayLabel: 'Turn to Profile', promptSegment: 'The model gracefully turns her body 90 degrees to the side, holding the final pose. The camera remains static throughout the movement.'},
-  { value: 'step_sideways_camera_follows', displayLabel: 'Step Sideways (Camera Follows)', promptSegment: 'The model takes one single, deliberate step to the side, and the camera performs a smooth, slight pan to follow her, keeping her centered in the frame.'},
-  { value: 'walks_away_from_camera', displayLabel: 'Walks Away from Camera', promptSegment: 'The model begins walking in a slow, continuous motion on a diagonal path away from the camera. The camera remains completely static, letting her recede into the scene.'},
-  { value: 'slow_zoom_out_reveal', displayLabel: 'Slow Zoom Out to Reveal Scene', promptSegment: 'The model stands perfectly still, holding her pose, as the camera executes a slow, continuous pull-back, revealing more of the surrounding environment.'},
-  { value: '180_turn_camera_follows', displayLabel: '180° Turn (Camera Follows)', promptSegment: 'The model performs a slow, fluid half-turn (180 degrees), as the camera pans smoothly to follow her movement, keeping her upper body centered in the frame.'},
-  { value: 'walks_toward_camera_still', displayLabel: 'Walks Toward You (Camera is Still)', promptSegment: 'The model walks powerfully and directly forward for three steps. The camera remains static, emphasizing her determined approach.'},
+  { value: '180_turn_camera_follows', displayLabel: '180° Turn', promptSegment: 'The model performs a slow, fluid half-turn (180 degrees), as the camera pans smoothly to follow her movement, keeping her upper body centered in the frame.'},
+  { value: 'slow_zoom_in_detail', displayLabel: 'Zoom In', promptSegment: 'The model slowly shifts her weight from one foot to the other in a subtle, continuous motion, as the camera performs a slow, graceful push-in.'},
 ];
 export const MODEL_MOVEMENT_OPTIONS: OptionWithPromptSegment[] = [
   { value: 'effortless_poise', displayLabel: 'Effortless Poise', promptSegment: 'settles into a composed, graceful pose with minimal movement' },

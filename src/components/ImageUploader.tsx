@@ -27,7 +27,7 @@ export default function ImageUploader() {
   const [isDraggingOverPage, setIsDraggingOverPage] = useState(false);
   const [isDraggingOverDropZone, setIsDraggingOverDropZone] = useState(false);
 
-  // Define variants for the dropzone's different states
+  // Define variants for the dropzone's different states - more subtle
   const dropZoneVariants = {
     idle: {
       borderColor: 'hsl(210 10% 23%)',
@@ -36,7 +36,7 @@ export default function ImageUploader() {
     dragOver: {
       borderColor: 'hsl(173 71% 42%)',
       backgroundColor: 'hsla(173 71% 42% / 0.1)',
-      scale: 1.02,
+      scale: 1.015,
     },
   };
 
@@ -168,7 +168,7 @@ export default function ImageUploader() {
           <motion.div
             animate={isDraggingOverDropZone ? "dragOver" : "idle"}
             variants={dropZoneVariants}
-            transition={{ stiffness: 500, damping: 30 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="p-12 rounded-lg flex flex-col items-center justify-center text-center text-muted-foreground border-2 border-dashed cursor-pointer"
             onClick={() => fileInputRef.current?.click()}
             onDragEnter={(e) => handleDropZoneDrag(e, 'enter')}
@@ -177,7 +177,7 @@ export default function ImageUploader() {
             onDrop={(e) => { setIsDraggingOverDropZone(false); handleDragAction(e, 'drop'); }}
           >
             <motion.div
-              animate={{ scale: isDraggingOverDropZone ? 1.1 : 1, y: isDraggingOverDropZone ? -5 : 0 }}
+              animate={{ scale: isDraggingOverDropZone ? 1.05 : 1, y: isDraggingOverDropZone ? -3 : 0 }}
             >
               <UploadCloud className="w-16 h-16 mb-4 text-muted-foreground" />
             </motion.div>

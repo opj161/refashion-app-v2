@@ -70,7 +70,7 @@ const TabsTrigger = React.forwardRef<
         <motion.div
           layoutId="active-tab-indicator"
           className="absolute inset-0 z-0 rounded-full bg-gradient-to-br from-primary to-primary-gradient-end"
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
         />
       )}
     </TabsPrimitive.Trigger>

@@ -133,9 +133,9 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
     <motion.div
       layout
       layoutId={`history-card-${item.id}`}
-      whileHover={{ scale: 1.02, y: -4 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: "spring", stiffness: 400, damping: 20 }}
+      whileHover={{ scale: 1.01, y: -2 }}
+      whileTap={{ scale: 0.99 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >
       <Card ref={cardRef} variant="glass" className="flex flex-col h-full group shadow-sm transition-shadow">
         <CardHeader className="p-3 sm:p-4">
@@ -198,7 +198,7 @@ export default function HistoryCard({ item, onViewDetails, onReloadConfig, onDel
                 alt={isVideoItem ? "Video thumbnail" : "Generated image"}
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className={`object-cover object-top transition-transform duration-300 ease-in-out group-hover:scale-105`}
+                className={`object-cover object-top transition-transform duration-250 ease-out group-hover:scale-102`}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">

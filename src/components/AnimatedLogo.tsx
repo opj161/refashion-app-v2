@@ -270,10 +270,10 @@ export function AnimatedLogo({
       initial="initial"
       animate={state}
       exit="exit"
-      // IMPROVEMENT 2: Hover interaction
+      // IMPROVEMENT 2: Hover interaction - more subtle
       whileHover={{
-        scale: 1.05,
-        transition: { type: 'spring', stiffness: 400, damping: 15 }
+        scale: 1.02,
+        transition: { type: 'spring', stiffness: 300, damping: 30 }
       }}
     >
       {renderAnimation()}

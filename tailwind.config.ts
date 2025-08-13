@@ -116,6 +116,10 @@ export default {
       fontFamily: {
         sans: ['Satoshi', 'sans-serif'],
       },
+      // Add custom scale utilities for modern hover effects
+      scale: {
+        '102': '1.02',
+      }
   	}
   },
   plugins: [require("tailwindcss-animate")],
