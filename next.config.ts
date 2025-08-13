@@ -2,6 +2,16 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
+  // Turbopack configuration
+  turbopack: {
+    rules: {
+      '*.svg': {
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
+      },
+    },
+  },
+  // Keep webpack config for non-Turbopack builds
   webpack(config: any) {
     // Grab the existing rule that handles SVG imports
     const fileLoaderRule = config.module.rules.find((rule: any) =>
