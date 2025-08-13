@@ -422,7 +422,6 @@ export default function VideoParameters() {
 
           <div className={commonFormDisabled ? 'opacity-50 pointer-events-none' : ''}>
             <div>
-              <Label className="text-sm font-medium">Select a starting point for your video&apos;s motion:</Label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
                 {PREDEFINED_PROMPTS.map((preset) => (
                   <Button
