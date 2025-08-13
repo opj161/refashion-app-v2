@@ -8,7 +8,6 @@ import ImageParameters from "./image-parameters";
 import VideoParameters from "./video-parameters";
 import { useToast } from "@/hooks/use-toast";
 import { ImagePreparationProvider, useImagePreparation } from "@/contexts/ImagePreparationContext";
-import { CreativeStudioHeader } from "./CreativeStudioHeader"; // Import the new header
 
 // Internal component that uses the context
 function CreationHubInternal({
@@ -29,10 +28,7 @@ function CreationHubInternal({
   }, [reset, toast]);
   
   return (
-    <div className="space-y-4"> {/* Reduced vertical spacing for a tighter layout */}
-      {/* The new header is now part of the hub, creating a cohesive unit */}
-      <CreativeStudioHeader />
-
+    <div className="space-y-8">
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="image">Create Image</TabsTrigger>
@@ -40,7 +36,7 @@ function CreationHubInternal({
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="image" className="space-y-6 mt-6" forceMount>
+        <TabsContent value="image" className="space-y-6 mt-8" forceMount>
           <ImagePreparationContainer
             preparationMode="image"
             onReset={handleReset}
@@ -48,7 +44,7 @@ function CreationHubInternal({
           <ImageParameters />
         </TabsContent>
 
-        <TabsContent value="video" className="space-y-6 mt-6" forceMount>
+        <TabsContent value="video" className="space-y-6 mt-8" forceMount>
           <ImagePreparationContainer
             preparationMode="video"
             onReset={handleReset}
@@ -56,7 +52,7 @@ function CreationHubInternal({
           <VideoParameters />
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-6 mt-6" forceMount>
+        <TabsContent value="history" className="space-y-6 mt-8" forceMount>
           {children}
         </TabsContent>
       </Tabs>
