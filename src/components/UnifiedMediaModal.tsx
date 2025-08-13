@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 
 export const MediaSlot = ({ children, className }: { children: React.ReactNode, className?: string }) => (
   <div className={cn(
-      "relative bg-black/10 rounded-lg flex items-center justify-center overflow-hidden",
+      "relative bg-muted/20 rounded-lg flex items-center justify-center overflow-hidden p-2",
       // On desktop, this slot is placed in the second row, first column
       "lg:row-start-2 lg:col-start-1",
       className

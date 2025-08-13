@@ -632,16 +632,27 @@ export default function VideoParameters() {
         </Card>
       )}
 
-      {generatedVideoUrl && !isGenerating && ( // Ensure isGenerating is false to show result
-        <Card>
+      {generatedVideoUrl && !isGenerating && (
+        <Card ref={resultsRef}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-600"><CheckCircle /> Video Ready!</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle /> Video Ready!
+            </CardTitle>
             {generatedSeedValue !== null && (<CardDescription>Seed used: {generatedSeedValue}</CardDescription>)}
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="rounded-md overflow-hidden w-full aspect-video">
-              <video src={getDisplayableImageUrl(generatedVideoUrl) || undefined} controls autoPlay loop playsInline className="w-full h-full object-contain" />
+            {/* --- MODIFIED CONTAINER AND VIDEO ELEMENT --- */}
+            <div className="w-full max-h-[75vh] flex justify-center items-center bg-muted/20 rounded-lg p-2">
+              <video
+                src={getDisplayableImageUrl(generatedVideoUrl) || undefined}
+                controls
+                autoPlay
+                loop
+                playsInline
+                className="w-auto h-auto max-w-full max-h-full rounded-md"
+              />
             </div>
+            {/* --- END MODIFICATION --- */}
             <Button asChild variant="outline" className="w-full">
               <a href={getDisplayableImageUrl(generatedLocalVideoUrl || generatedVideoUrl) || undefined} download={`RefashionAI_video_${generatedSeedValue || Date.now()}.mp4`}><Download className="h-4 w-4 mr-2" />Download Video</a>
             </Button>

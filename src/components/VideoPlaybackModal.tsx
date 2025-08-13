@@ -59,7 +59,7 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
             loop
             muted
             playsInline
-            className="w-full max-w-full max-h-full object-contain"
+            className="w-full max-w-full max-h-full object-contain rounded-md"
             onLoadStart={() => console.log('Video loading started')}
           >
             Your browser does not support the video tag.
