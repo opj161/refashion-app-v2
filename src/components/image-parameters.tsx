@@ -843,7 +843,7 @@ export default function ImageParameters({
                 )}
 
                 {/* --- UTILITY BUTTONS MOVED INSIDE ACCORDION --- */}
-                <div className="flex flex-wrap items-center gap-2 pt-4 border-t mt-4">
+                <div className="flex flex-wrap items-center gap-2 pt-4 mt-6">
                   <Button variant="outline" onClick={() => { handleFirstCustomization(); handleSaveDefaults(); }} size="sm" disabled={commonFormDisabled}><Save className="mr-2 h-4 w-4"/>Save</Button>
                   <Button variant="ghost" onClick={() => { handleFirstCustomization(); handleClearDefaults(); }} size="sm" disabled={commonFormDisabled}><Trash2 className="mr-2 h-4 w-4"/>Clear</Button>
                   <Button variant="outline" onClick={() => { handleFirstCustomization(); handleRandomizeConfiguration(); }} size="sm" disabled={commonFormDisabled} className="ml-auto"><Shuffle className="mr-2 h-4 w-4"/>Randomize</Button>
