@@ -378,7 +378,7 @@ export const PREDEFINED_PROMPTS: OptionWithPromptSegment[] = [
   { value: 'walks_away_from_camera', displayLabel: 'Walks Away', promptSegment: 'The model begins walking in a slow, continuous motion on a diagonal path away from the camera. The camera remains completely static, letting her recede into the scene.'},
   { value: 'step_sideways_camera_follows', displayLabel: 'Side Step', promptSegment: 'The model takes one single, deliberate step to the side, and the camera performs a smooth, slight pan to follow her, keeping her centered in the frame.'},
   { value: 'turn_to_profile', displayLabel: 'Turn to Profile', promptSegment: 'The model gracefully turns her body 90 degrees to the side, holding the final pose. The camera remains static throughout the movement.'},
-  { value: '180_turn_camera_follows', displayLabel: '180° Turn', promptSegment: 'The model performs a slow, fluid half-turn (180 degrees), as the camera pans smoothly to follow her movement, keeping her upper body centered in the frame.'},
+  { value: '180_turn_camera_follows', displayLabel: '180° Turn', promptSegment: 'The model performs a slow, fluid half-turn (180 degrees)'},
   { value: 'slow_zoom_in_detail', displayLabel: 'Zoom In', promptSegment: 'The model slowly shifts her weight from one foot to the other in a subtle, continuous motion, as the camera performs a slow, graceful push-in.'},
 ];
 export const MODEL_MOVEMENT_OPTIONS: OptionWithPromptSegment[] = [

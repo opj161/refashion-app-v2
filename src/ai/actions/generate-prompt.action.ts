@@ -12,7 +12,7 @@ import {
   LENS_EFFECT_OPTIONS, DEPTH_OF_FIELD_OPTIONS, OVERALL_MOOD_OPTIONS,
   FASHION_STYLE_OPTIONS, type OptionWithPromptSegment
 } from '@/lib/prompt-builder';
-import { withGeminiRetry } from '@/lib/api-retry';
+import { withGeminiRetry, AIGenerationError } from '@/lib/api-retry';
 import { getSystemPrompt } from '@/services/systemPrompt.service';
 
 // Helper to convert an image path/URI to the format the SDK needs
@@ -212,11 +212,27 @@ export async function generatePromptWithAI(
       contents,
     });
 
-    const text = response.text;
+    // Get the first candidate for detailed analysis
+    const candidate = response.candidates?.[0];
+    const finishReason = candidate?.finishReason;
+    const text = response.text; // Use the convenient text getter from the SDK
 
+    // Case 1: The generation was explicitly blocked for safety. This is NOT retryable.
+    if (finishReason === 'SAFETY') {
+      console.warn(`Prompt generation blocked by safety settings for Key ${keyIndex}.`);
+      throw new AIGenerationError(
+        'Prompt generation was blocked due to safety settings.',
+        { isRetryable: false, finishReason: 'SAFETY' }
+      );
+    }
+
+    // Case 2: The API call succeeded, but the model returned no text. This IS retryable.
     if (!text) {
       console.error("AI Prompt Generation Response:", JSON.stringify(response, null, 2));
-      throw new Error('The AI prompt generator did not return a valid prompt.');
+      throw new AIGenerationError(
+        'The AI prompt generator did not return a valid prompt.',
+        { isRetryable: true, finishReason }
+      );
     }
 
     // Log the received optimized prompt
