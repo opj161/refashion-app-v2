@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 // Simplified Server Component - no more searchParams handling
 export default async function CreatePage() {
   return (
-    <div className="container mx-auto max-w-7xl px-4 pt-8 pb-10 space-y-8">
+    <div className="container mx-auto max-w-7xl px-4 pt-5 pb-10 space-y-8">
       {/* CreationHub now manages state entirely on the client */}
       <CreationHub>
         <Suspense fallback={<HistoryGallerySkeleton />}>

@@ -35,7 +35,8 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
       <AuthProvider initialUser={initialUser}>
         <ThemeProvider>
           <SiteHeader />
-          <main className="flex-1 flex flex-col">
+          {/* Use separate content offset variable to control spacing independently of header height */}
+          <main className="flex-1 flex flex-col" style={{ paddingTop: 'var(--content-offset)' }}>
             <PageTransitionWrapper>{children}</PageTransitionWrapper>
           </main>
           <Toaster />

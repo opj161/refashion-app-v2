@@ -21,6 +21,10 @@
 @layer base {
   /* Remove existing :root and .dark color definitions and replace with these */
   :root {
+    /* Best Practice: Separate variables for header height and content offset */
+    --header-height: 6rem; /* 96px - actual header height */
+    --content-offset: 0rem; /* 80px - padding to prevent content hiding under header */
+
     /* Light Theme (if you ever need it, but we'll focus on dark) */
     --background: 210 20% 98%;
     --background-accent: 210 20% 94%;

@@ -36,7 +36,7 @@ function CreationHubInternal({
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="image" className="space-y-6 mt-8" forceMount>
+        <TabsContent value="image" className="space-y-6 mt-5" forceMount>
           <ImagePreparationContainer
             preparationMode="image"
             onReset={handleReset}
@@ -44,7 +44,7 @@ function CreationHubInternal({
           <ImageParameters />
         </TabsContent>
 
-        <TabsContent value="video" className="space-y-6 mt-8" forceMount>
+        <TabsContent value="video" className="space-y-6 mt-5" forceMount>
           <ImagePreparationContainer
             preparationMode="video"
             onReset={handleReset}
@@ -52,7 +52,7 @@ function CreationHubInternal({
           <VideoParameters />
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-6 mt-8" forceMount>
+        <TabsContent value="history" className="space-y-6 mt-5" forceMount>
           {children}
         </TabsContent>
       </Tabs>
