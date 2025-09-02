@@ -30,7 +30,7 @@ import {
     LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, CAMERA_ANGLE_OPTIONS, LENS_EFFECT_OPTIONS,
     DEPTH_OF_FIELD_OPTIONS, OptionWithPromptSegment
 } from '@/lib/prompt-builder';
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion, Variants } from 'motion/react';
 import { MOTION_TRANSITIONS } from '@/lib/motion-constants';
 
 // Interface for image generation parameters
@@ -650,56 +650,73 @@ export default function ImageParameters({
               </AccordionTrigger>
               <AccordionContent className="pt-6 space-y-6">
 
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 rounded-lg bg-muted/40 border border-border/20">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-3">
-                        <Switch
-                          id="creative-mode-switch"
-                          checked={isCreativeModeEnabled}
-                          onCheckedChange={setIsCreativeModeEnabled}
-                        />
-                        <Label htmlFor="creative-mode-switch" className="text-sm font-medium flex flex-col cursor-pointer">
-                          Creative Mode
-                          <span className="font-normal text-xs text-muted-foreground">
-                            {isCreativeModeEnabled ? "Automatically creates varied styles." : "Uses your exact settings."}
-                          </span>
-                        </Label>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center space-x-2">
-                         <Switch id="ai-prompt-switch"
-                           checked={useAIPrompt}
-                           // Disable the switch if creative mode is on, as it's implicitly required.
-                           disabled={isCreativeModeEnabled}
-                           onCheckedChange={handleAIPromptChange}
-                         />
-                         <Label htmlFor="ai-prompt-switch" className="text-sm font-medium flex items-center gap-1.5"><BrainCircuit className="h-4 w-4 text-primary"/> AI Enhancement</Label>
-                      </div>
-                    </div>
+                {/* === START REFACTORED SETTINGS UI === */}
+                <div className="p-3 rounded-lg bg-muted/40 border border-border/20 space-y-4">
+                  {/* Primary Toggle: Creative Mode */}
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="creative-mode-switch" className="text-sm font-medium flex flex-col cursor-pointer">
+                      Creative Mode
+                      <span className="font-normal text-xs text-muted-foreground">
+                        {isCreativeModeEnabled ? "Let AI generate varied styles for you." : "Use your exact manual settings below."}
+                      </span>
+                    </Label>
+                    <Switch
+                      id="creative-mode-switch"
+                      checked={isCreativeModeEnabled}
+                      onCheckedChange={setIsCreativeModeEnabled}
+                    />
                   </div>
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 rounded-lg bg-muted/40 border border-border/20">
-                    <div className="flex items-center gap-3">
-                        <Label className="text-sm font-medium whitespace-nowrap">Detail Level:</Label>
-                        <div className="inline-flex h-9 items-center justify-center rounded-md bg-background/50 p-1 text-muted-foreground">
-                          <Button variant={settingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('basic')} className="h-7 px-3 text-xs">Simple</Button>
-                          <Button variant={settingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
+
+                  {/* Progressively Disclosed Manual Controls */}
+                  <AnimatePresence>
+                    {!isCreativeModeEnabled && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        className="overflow-hidden"
+                      >
+                        <div className="pt-4 border-t border-border/20 space-y-4">
+                          {/* AI Enhancement Toggle */}
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="ai-prompt-switch" className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
+                              <BrainCircuit className="h-4 w-4 text-primary"/>
+                              AI Prompt Enhancement
+                            </Label>
+                            <Switch
+                              id="ai-prompt-switch"
+                              checked={useAIPrompt}
+                              onCheckedChange={handleAIPromptChange}
+                              disabled={isCreativeModeEnabled} // This is key for UX clarity
+                            />
+                          </div>
+
+                          {/* Detail Level & Randomize Action */}
+                          <div className="flex items-end justify-between gap-4">
+                            <div className="flex-grow">
+                              <Label className="text-sm font-medium">Detail Level</Label>
+                              <div className="mt-2 inline-flex h-9 items-center justify-center rounded-md bg-background/50 p-1 text-muted-foreground">
+                                <Button variant={settingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('basic')} className="h-7 px-3 text-xs">Simple</Button>
+                                <Button variant={settingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
+                              </div>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRandomizeConfiguration}
+                              className="h-9 px-3"
+                              disabled={isLoading || !preparedImageUrl}>
+                              <Shuffle className="mr-2 h-4 w-4"/>
+                              Randomize
+                            </Button>
+                          </div>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleRandomizeConfiguration} 
-                        className="h-9 px-3" 
-                        disabled={isLoading || !preparedImageUrl}>
-                        <Shuffle className="mr-2 h-4 w-4"/>
-                        Randomize
-                      </Button>
-                    </div>
-                  </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
+                {/* === END REFACTORED SETTINGS UI === */}
 
                 <Accordion type="multiple" defaultValue={['model-attributes']} className="w-full">
                   <AccordionItem value="model-attributes">
