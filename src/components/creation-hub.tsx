@@ -31,9 +31,9 @@ function CreationHubInternal({
     <div className="space-y-8">
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="image">Create Image</TabsTrigger>
-          <TabsTrigger value="video">Create Video</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="image">🖼️ Image</TabsTrigger>
+          <TabsTrigger value="video">🎥 Video</TabsTrigger>
+          <TabsTrigger value="history">📃 History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="image" className="space-y-6 mt-5" forceMount>

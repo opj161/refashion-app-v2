@@ -449,7 +449,12 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
 
   const modelToUse = user.image_generation_model;
 
-  if (input.useAIPrompt && input.parameters && input.imageDataUriOrUrl) {
+  // ** THE CRITICAL FIX **
+  // If the user provided a direct prompt, ALWAYS use it. This gives manual input the highest priority.
+  // Only proceed to AI prompt generation if no direct prompt was given AND the AI enhancement flag is on.
+  const shouldGeneratePromptWithAI = input.useAIPrompt && !input.prompt;
+
+  if (shouldGeneratePromptWithAI && input.parameters && input.imageDataUriOrUrl) {
     console.log("Using AI to generate prompts...");
     
     let parametersForPrompts: ModelAttributes[];

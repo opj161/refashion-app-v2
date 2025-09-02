@@ -79,12 +79,21 @@ export default function ImageParameters({
   const [timeOfDay, setTimeOfDay] = useState<string>(TIME_OF_DAY_OPTIONS[0].value);
   const [overallMood, setOverallMood] = useState<string>(OVERALL_MOOD_OPTIONS[0].value);
 
-  const [generationMode, setGenerationMode] = useState<'creative' | 'manual'>('creative');
+  const [isCreativeModeEnabled, setIsCreativeModeEnabled] = useState<boolean>(true);
   const [settingsMode, setSettingsMode] = useState<'basic' | 'advanced'>('basic');
   const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
 
   // NEW STATE for the AI prompt feature
   const [useAIPrompt, setUseAIPrompt] = useState<boolean>(true);
+
+  // Link Creative Mode and AI Enhancement for intuitive behavior
+  useEffect(() => {
+    // If the user turns on Creative Mode, AI Enhancement should automatically turn on as well,
+    // as the core value of creative mode is the AI's varied output.
+    if (isCreativeModeEnabled) {
+      setUseAIPrompt(true);
+    }
+  }, [isCreativeModeEnabled]);
 
   // State for prompt preview visibility
   const [showPromptPreview, setShowPromptPreview] = useState<boolean>(false);
@@ -96,10 +105,10 @@ export default function ImageParameters({
   // Ref for auto-scroll to results
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  // When a history item is loaded, switch to manual mode to reflect the loaded settings.
+  // When a history item is loaded, disable creative mode to reflect the loaded settings.
   useEffect(() => {
     if (historyItemToLoad) {
-      setGenerationMode('manual');
+      setIsCreativeModeEnabled(false);
       // The rest of the parameter state updates are handled in the other useEffect
     }
   }, [historyItemToLoad]);
@@ -214,6 +223,25 @@ export default function ImageParameters({
     }
   }, [showPromptPreview]);
 
+  // Centralized handler for parameter changes to automatically disable creative mode
+  const handleParamChange = useCallback((setter: (value: string) => void, value: string) => {
+    setter(value);
+    // Any manual change by the user disables creative mode.
+    setIsCreativeModeEnabled(false);
+  }, []);
+
+  // Special handler for settingsMode
+  const handleSettingsModeChange = useCallback((value: 'basic' | 'advanced') => {
+    setSettingsMode(value);
+    setIsCreativeModeEnabled(false);
+  }, []);
+
+  // Special handler for useAIPrompt
+  const handleAIPromptChange = useCallback((value: boolean) => {
+    setUseAIPrompt(value);
+    setIsCreativeModeEnabled(false);
+  }, []);
+
   // Consolidate all params for the hook
   const currentImageGenParams = React.useMemo((): ImageGenerationParams => ({
     gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
@@ -302,9 +330,11 @@ export default function ImageParameters({
   const handleRandomizeConfiguration = () => {    
     // This button is only active in manual mode. It randomizes the UI fields directly.
     const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
-    Object.values(PARAMETER_CONFIG).forEach(config => {
-      config.setter(pickRandom(config.options));
+    Object.entries(PARAMETER_CONFIG).forEach(([key, config]) => {
+      handleParamChange(config.setter, pickRandom(config.options));
     });
+    // Manually randomizing is a direct user action, so disable creative mode.
+    setIsCreativeModeEnabled(false);
     toast({ title: "Manual Configuration Randomized!" });
   };
 
@@ -323,28 +353,19 @@ export default function ImageParameters({
     // Start all slots in a "generating" visual state
     setIsGeneratingSlots([true, true, true]);
 
-    let generationInput: GenerateImageEditInput;    
+    // The decision to randomize is now based on the explicit `isCreativeModeEnabled` state.
+    const useRandomization = isCreativeModeEnabled;
 
-    if (generationMode === 'creative') {
-      generationInput = {
-        imageDataUriOrUrl: preparedImageUrl,
-        parameters: currentImageGenParams, // Use default parameters
-        settingsMode: 'basic', // Use basic mode as the foundation
-        useAIPrompt: true, // Force AI prompt generation
-        useRandomizedAIPrompts: true, // Force randomization for variety
-      };
-      toast({ title: "Starting AI Creative Generation...", description: "Using randomized styles for variety." });
-    } else { // generationMode is 'manual'
-      generationInput = {
-        prompt: isPromptManuallyEdited ? currentPrompt : undefined,
-        imageDataUriOrUrl: preparedImageUrl,
-        parameters: currentImageGenParams,
-        settingsMode: settingsMode,
-        useAIPrompt: useAIPrompt, // Respect the user's toggle in manual mode
-        useRandomizedAIPrompts: false, // In manual mode, we do not randomize unless the user clicks the button
-      };
-      toast({ title: "Starting Generation...", description: "Using your custom settings." });
-    }    
+    const generationInput: GenerateImageEditInput = {
+      prompt: isPromptManuallyEdited ? currentPrompt : undefined,
+      imageDataUriOrUrl: preparedImageUrl,
+      parameters: currentImageGenParams,
+      settingsMode: settingsMode,
+      useAIPrompt: useAIPrompt,
+      useRandomizedAIPrompts: useRandomization, // Pass the explicit flag to the server
+    };
+
+    toast({ title: useRandomization ? "Starting Creative Generation..." : "Starting Generation...", description: useRandomization ? "Using randomized styles for variety." : "Using your custom settings." });
 
     try {
       const result: GenerateMultipleImagesOutput = await generateImageEdit(generationInput, currentUser?.username || '');
@@ -545,7 +566,7 @@ export default function ImageParameters({
     return (
     <div className="space-y-2">
       <Label htmlFor={id} className="text-sm font-medium text-foreground/80">{label}</Label>
-      <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <Select value={value} onValueChange={(v) => handleParamChange(onChange, v)} disabled={disabled}>
         <SelectTrigger id={id} className="w-full h-10 text-sm border-muted/60 focus:border-primary/50 bg-background/50">
           <SelectValue placeholder={options.find(o => o.value === value)?.displayLabel || `Select ${label.toLowerCase()}`} />
         </SelectTrigger>
@@ -598,9 +619,9 @@ export default function ImageParameters({
           <div>
             <CardTitle className="text-xl flex items-center gap-2">
               <Palette className="h-6 w-6 text-primary" />
-              Style Your Model
+              Image Generation Settings
             </CardTitle>
-            <CardDescription>{generationMode === 'creative' ? 'Let our AI generate a variety of high-quality styles for you.' : 'Fine-tune every detail to match your vision.'}</CardDescription>
+            <CardDescription>{isCreativeModeEnabled ? 'Let our AI generate a variety of high-quality styles for you.' : 'Fine-tune every detail to match your vision.'}</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -625,24 +646,48 @@ export default function ImageParameters({
             <AccordionItem value="customize" className="border-b-0">
               <AccordionTrigger className="text-sm text-muted-foreground hover:text-foreground justify-center py-2 group">
                 <Settings2 className="mr-2 h-4 w-4 transition-transform group-data-[state=open]:rotate-90"/>
-                {generationMode === 'creative' ? 'View & Customize' : 'Customize Settings'}
+                Customize Settings
               </AccordionTrigger>
               <AccordionContent className="pt-6 space-y-6">
 
                 <div className="space-y-4">
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 rounded-lg bg-muted/40 border border-border/20">
                     <div className="flex items-center gap-3">
-                      <Label className="text-sm font-medium whitespace-nowrap">Detail Level:</Label>
-                      <div className="inline-flex h-9 items-center justify-center rounded-md bg-background/50 p-1 text-muted-foreground">
-                        <Button variant={settingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => setSettingsMode('basic')} className="h-7 px-3 text-xs">Simple</Button>
-                        <Button variant={settingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => setSettingsMode('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          id="creative-mode-switch"
+                          checked={isCreativeModeEnabled}
+                          onCheckedChange={setIsCreativeModeEnabled}
+                        />
+                        <Label htmlFor="creative-mode-switch" className="text-sm font-medium flex flex-col cursor-pointer">
+                          Creative Mode
+                          <span className="font-normal text-xs text-muted-foreground">
+                            {isCreativeModeEnabled ? "Automatically creates varied styles." : "Uses your exact settings."}
+                          </span>
+                        </Label>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="flex items-center space-x-2">
-                         <Switch id="ai-prompt-switch" checked={useAIPrompt} onCheckedChange={setUseAIPrompt} />
+                         <Switch id="ai-prompt-switch"
+                           checked={useAIPrompt}
+                           // Disable the switch if creative mode is on, as it's implicitly required.
+                           disabled={isCreativeModeEnabled}
+                           onCheckedChange={handleAIPromptChange}
+                         />
                          <Label htmlFor="ai-prompt-switch" className="text-sm font-medium flex items-center gap-1.5"><BrainCircuit className="h-4 w-4 text-primary"/> AI Enhancement</Label>
                       </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 rounded-lg bg-muted/40 border border-border/20">
+                    <div className="flex items-center gap-3">
+                        <Label className="text-sm font-medium whitespace-nowrap">Detail Level:</Label>
+                        <div className="inline-flex h-9 items-center justify-center rounded-md bg-background/50 p-1 text-muted-foreground">
+                          <Button variant={settingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('basic')} className="h-7 px-3 text-xs">Simple</Button>
+                          <Button variant={settingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
                       <Button 
                         variant="outline" 
                         size="sm" 
