@@ -15,6 +15,7 @@
     "migrate:json-to-sqlite": "node dist/scripts/migrate-json-to-sqlite.js",
     "migrate:users-to-sqlite": "node dist/scripts/migrate-users-to-sqlite.js",
     "migrate:granular-api-keys": "node dist/scripts/add-granular-api-key-columns.js",
+    "migrate:add-image-model": "node dist/scripts/add-image-model-choice.js",
     "script": "tsx"
   },
   "dependencies": {
@@ -59,7 +60,7 @@
     "mime": "^4.0.7",
     "mime-types": "^3.0.1",
     "motion": "^12.23.9",
-    "next": "15.4.4",
+    "next": "^15.5.2",
     "node-fetch": "^3.3.2",
     "react": "19.1.0",
     "react-compare-image": "^3.5.6",

@@ -29,6 +29,7 @@ type User = {
   gemini_api_key_2_mode: 'global' | 'user_specific';
   gemini_api_key_3_mode: 'global' | 'user_specific';
   fal_api_key_mode: 'global' | 'user_specific';
+  image_generation_model: 'google_gemini_2_0' | 'fal_gemini_2_5';
 };
 
 interface UserManagementTableProps {
@@ -80,6 +81,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
           gemini_api_key_2_mode: 'global' as 'global',
           gemini_api_key_3_mode: 'global' as 'global',
           fal_api_key_mode: 'global' as 'global',
+          image_generation_model: 'google_gemini_2_0' as 'google_gemini_2_0',
         },
       ].sort((a, b) => a.username.localeCompare(b.username)));
       setIsCreateDialogOpen(false);
@@ -119,6 +121,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
           if (formData.has('gemini_api_key_2_mode')) updatedUser.gemini_api_key_2_mode = formData.get('gemini_api_key_2_mode') as 'global' | 'user_specific';
           if (formData.has('gemini_api_key_3_mode')) updatedUser.gemini_api_key_3_mode = formData.get('gemini_api_key_3_mode') as 'global' | 'user_specific';
           if (formData.has('fal_api_key_mode')) updatedUser.fal_api_key_mode = formData.get('fal_api_key_mode') as 'global' | 'user_specific';
+          if (formData.has('image_generation_model')) updatedUser.image_generation_model = formData.get('image_generation_model') as 'google_gemini_2_0' | 'fal_gemini_2_5';
           return updatedUser;
         }
         return u;
@@ -211,6 +214,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                 <TableHead>Username</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>API Key Mode</TableHead>
+                <TableHead>Image Model</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -220,6 +224,9 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell className="capitalize">{user.role}</TableCell>
                   <TableCell>{getApiKeyModeSummary(user)}</TableCell>
+                  <TableCell>
+                    {user.image_generation_model === 'fal_gemini_2_5' ? 'Fal Gemini 2.5' : 'Google Gemini 2.0'}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => setUserToEdit(user)} disabled={isSubmitting} aria-label={`Edit ${user.username}`}>
                       <Edit className="h-4 w-4" />
@@ -244,6 +251,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                 <p className="font-medium">{user.username}</p>
                 <p className="text-sm text-muted-foreground capitalize">Role: {user.role}</p>
                 <p className="text-sm text-muted-foreground">Keys: {getApiKeyModeSummary(user)}</p>
+                <p className="text-sm text-muted-foreground">Model: {user.image_generation_model === 'fal_gemini_2_5' ? 'Fal 2.5' : 'Google 2.0'}</p>
               </div>
               <div className="flex items-center">
                  <Button variant="ghost" size="icon" onClick={() => setUserToEdit(user)} disabled={isSubmitting} aria-label={`Edit ${user.username}`}>
@@ -281,6 +289,18 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                   <SelectContent>
                     <SelectItem value="user">User</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-image-model">Image Generation Model</Label>
+                <Select name="image_generation_model" value={editedUserConfig?.image_generation_model} onValueChange={(value) => handleConfigChange('image_generation_model', value)}>
+                  <SelectTrigger id="edit-image-model">
+                    <SelectValue placeholder="Select a model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="google_gemini_2_0">Google Gemini 2.0 (Free)</SelectItem>
+                    <SelectItem value="fal_gemini_2_5">Fal Gemini 2.5 (Paid)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

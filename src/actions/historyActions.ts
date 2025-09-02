@@ -71,6 +71,7 @@ export async function addHistoryItem(
   originalClothingUrl: string,
   editedImageUrls: (string | null)[],
   settingsMode: 'basic' | 'advanced',
+  imageGenerationModel: 'google_gemini_2_0' | 'fal_gemini_2_5',
   status: 'processing' | 'completed' | 'failed' = 'completed',
   error?: string,
   username?: string, // NEW optional username parameter for API context
@@ -90,6 +91,7 @@ export async function addHistoryItem(
     editedImageUrls,
     username: user.username,
     settingsMode,
+    imageGenerationModel, // This line remains unchanged
     status,
     error,
     webhookUrl,

@@ -28,6 +28,7 @@ export async function createApiJob(payload: ApiJobPayload): Promise<string> {
     imageDataUri, // Using this as the original clothing URL
     [], // No edited images yet
     settingsMode,
+    'google_gemini_2_0', // Default model for API calls
     'processing', // Initial status
     undefined,    // No error
     username,     // Pass the authenticated username from API key

@@ -1,6 +1,99 @@
 'use server';
 
 /**
+ * Generates an image using Fal.ai's Gemini 2.5 Flash Image model.
+ * @param prompt The text prompt for generation.
+ * @param imageUrl The public URL of the source image.
+ * @param username The user performing the action for authentication.
+ * @returns Promise<{imageUrl: string, description?: string}> The result from FAL.AI
+ */
+export async function generateWithGemini25Flash(
+  prompt: string,
+  imageUrl: string, // MUST be a public URL
+  username: string
+): Promise<{ imageUrl: string; description?: string }> {
+  try {
+    console.log(`Calling FAL.AI Gemini 2.5 Flash for image generation...`);
+
+    const falKey = await getApiKeyForUser(username, 'fal');
+    const scopedFal = createFalClient({ credentials: falKey });
+
+    const input = {
+      prompt: prompt,
+      image_urls: [imageUrl], // The API expects a list
+      num_images: 1,
+      output_format: "png" as const,
+    };
+
+    console.log(`FAL.AI Input:`, { 
+      prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
+      image_urls: [imageUrl],
+      num_images: 1,
+      output_format: "png"
+    });
+
+    const result: any = await scopedFal.subscribe("fal-ai/gemini-25-flash-image/edit", {
+      input,
+      logs: process.env.NODE_ENV === 'development',
+      onQueueUpdate: (update: any) => {
+        if (update.status === "IN_PROGRESS" && update.logs && process.env.NODE_ENV === 'development') {
+          (update.logs as any[]).forEach((log: any) => 
+            console.log(`[FAL.AI Gemini 2.5 Progress]: ${log.message}`)
+          );
+        }
+      },
+    });
+
+    console.log(`FAL.AI Raw Response:`, JSON.stringify(result?.data, null, 2));
+
+    // Parse response according to FAL.AI Gemini 2.5 Flash documentation:
+    // Expected format: { images: [{ url: "..." }], description: "..." }
+    if (!result?.data?.images?.[0]?.url) {
+      console.error('FAL.AI Gemini 2.5 unexpected response format:', JSON.stringify(result, null, 2));
+      throw new Error('FAL.AI Gemini 2.5 did not return expected image format. Expected: { images: [{ url: "..." }] }');
+    }
+
+    const imageUrl_result = result.data.images[0].url;
+    const description = result.data.description || undefined;
+
+    console.log(`FAL.AI Gemini 2.5 generation completed successfully. Image URL: ${imageUrl_result}`);
+    
+    return {
+      imageUrl: imageUrl_result,
+      description: description
+    };
+
+  } catch (error) {
+    console.error('Error in FAL.AI Gemini 2.5 generation:', error);
+    throw new Error(`FAL.AI Gemini 2.5 generation failed: ${(error as Error).message}`);
+  }
+}
+
+/**
+ * Legacy function - generates an image using generic workflow (kept for other FAL.AI models)
+ * @deprecated Use generateWithGemini25Flash for Gemini 2.5 Flash specifically
+ */
+export async function generateWithGemini25FlashLegacy(
+  prompt: string,
+  imageUrl: string,
+  username: string
+): Promise<string> {
+  const input = {
+    prompt: prompt,
+    image_urls: [imageUrl],
+    num_images: 1,
+    output_format: "png" as const,
+  };
+
+  return await runFalImageWorkflow(
+    "fal-ai/gemini-25-flash-image/edit",
+    input,
+    'Gemini 2.5 Image Generation',
+    username
+  );
+}
+
+/**
  * @fileOverview Fal.ai API service for image processing operations
  * 
  * This service handles low-level communication with Fal.ai APIs for image-related tasks:

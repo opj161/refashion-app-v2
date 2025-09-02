@@ -201,3 +201,32 @@ export async function saveDataUriLocally(
     throw new Error(`Failed to save data URI: ${(error as Error).message}`);
   }
 }
+
+/**
+ * Downloads an image from a FAL.AI URL and saves it locally with proper permissions
+ * This ensures consistency with the rest of the system that expects local file paths
+ * @param sourceUrl The FAL.AI URL to download the image from
+ * @param fileNamePrefix The prefix to use for the generated filename
+ * @param subfolder The subfolder within /uploads/ to save to
+ * @returns Promise<{relativeUrl: string, hash: string}> The relative URL path to the saved file and its hash
+ */
+export async function downloadAndSaveImageFromUrl(
+  sourceUrl: string,
+  fileNamePrefix: string,
+  subfolder: string
+): Promise<{ relativeUrl: string; hash: string }> {
+  console.log(`Downloading FAL.AI image from ${sourceUrl} to save in /uploads/${subfolder}`);
+  
+  try {
+    // Use the existing saveFileFromUrl function which handles URL downloads and local storage
+    // This maintains consistency with the existing codebase
+    const result = await saveFileFromUrl(sourceUrl, fileNamePrefix, subfolder, 'png');
+    
+    console.log(`Successfully downloaded and saved FAL.AI image: ${result.relativeUrl}`);
+    return result;
+    
+  } catch (error) {
+    console.error(`Error downloading FAL.AI image from ${sourceUrl}:`, error);
+    throw new Error(`Failed to download and save FAL.AI image: ${(error as Error).message}`);
+  }
+}

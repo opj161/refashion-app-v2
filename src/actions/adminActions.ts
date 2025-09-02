@@ -44,7 +44,7 @@ export interface DashboardAnalyticsData {
 export async function getAllUsers() {
   await verifyAdmin();
   const db = dbService.getDb();
-  const stmt = db.prepare('SELECT username, role, gemini_api_key_1_mode, gemini_api_key_2_mode, gemini_api_key_3_mode, fal_api_key_mode FROM users ORDER BY username');
+  const stmt = db.prepare('SELECT username, role, gemini_api_key_1_mode, gemini_api_key_2_mode, gemini_api_key_3_mode, fal_api_key_mode, image_generation_model FROM users ORDER BY username');
   return stmt.all() as any[]; // Simplified for brevity, define a proper type
 }
 
@@ -185,6 +185,8 @@ export async function updateUserConfiguration(formData: FormData) {
   if (gemini3Mode) { setClauses.push('gemini_api_key_3_mode = ?'); params.push(gemini3Mode); }
   const falMode = formData.get('fal_api_key_mode');
   if (falMode) { setClauses.push('fal_api_key_mode = ?'); params.push(falMode); }
+  const imageModel = formData.get('image_generation_model');
+  if (imageModel) { setClauses.push('image_generation_model = ?'); params.push(imageModel); }
 
   // --- START OF FIX ---
   // Helper function to handle key updates.

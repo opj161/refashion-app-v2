@@ -38,6 +38,7 @@ export interface HistoryItem {
   status?: 'processing' | 'completed' | 'failed';
   error?: string;
   webhookUrl?: string;
+  imageGenerationModel?: 'google_gemini_2_0' | 'fal_gemini_2_5';
 }
 
 export interface ModelAttributes {

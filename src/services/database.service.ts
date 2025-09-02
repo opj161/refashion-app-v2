@@ -98,6 +98,7 @@ function initializeSystemPromptFromFile(db: Database.Database) {
 
 function initSchema(db: Database.Database) {
   db.exec(`
+
     CREATE TABLE IF NOT EXISTS history (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL,
@@ -109,7 +110,8 @@ function initSchema(db: Database.Database) {
       videoGenerationParams TEXT,
       webhook_url TEXT,
       status TEXT DEFAULT 'completed', -- ADDED
-      error TEXT -- ADDED
+      error TEXT, -- ADDED
+      image_generation_model TEXT -- ADD THIS
     );
 
     CREATE TABLE IF NOT EXISTS users (
@@ -123,7 +125,8 @@ function initSchema(db: Database.Database) {
       gemini_api_key_3 TEXT,
       gemini_api_key_3_mode TEXT NOT NULL DEFAULT 'global' CHECK (gemini_api_key_3_mode IN ('global', 'user_specific')),
       fal_api_key TEXT,
-      fal_api_key_mode TEXT NOT NULL DEFAULT 'global' CHECK (fal_api_key_mode IN ('global', 'user_specific'))
+      fal_api_key_mode TEXT NOT NULL DEFAULT 'global' CHECK (fal_api_key_mode IN ('global', 'user_specific')),
+      image_generation_model TEXT NOT NULL DEFAULT 'google_gemini_2_0' CHECK (image_generation_model IN ('google_gemini_2_0', 'fal_gemini_2_5'))
     );
     
     CREATE TABLE IF NOT EXISTS history_images (
@@ -203,8 +206,8 @@ function getPreparedStatements() {
     // Removed stray SQL code
   preparedStatements.insertHistory = db.prepare( `
       INSERT OR REPLACE INTO history 
-      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error, webhook_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error, webhook_url, image_generation_model)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     preparedStatements.insertImage = db.prepare(`
@@ -323,6 +326,7 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
     status: row.status as 'processing' | 'completed' | 'failed',
     error: row.error || undefined,
     webhookUrl: row.webhook_url || undefined,
+    imageGenerationModel: row.image_generation_model || 'google_gemini_2_0', // ADD THIS
   };
 }
 
@@ -343,7 +347,8 @@ export const insertHistoryItem = (item: HistoryItem): void => {
       item.videoGenerationParams ? JSON.stringify(item.videoGenerationParams) : null,
       item.status || 'completed',
       item.error || null,
-      item.webhookUrl || null
+      item.webhookUrl || null,
+      item.imageGenerationModel || 'google_gemini_2_0' // ADD THIS
     );
     
     // Insert edited images
@@ -607,12 +612,13 @@ export const getHistoryItemStatus = cache((id: string, username: string): VideoS
   };
 });
 
-type FullUser = SessionUser & {
+export type FullUser = SessionUser & {
   passwordHash: string;
   gemini_api_key_1?: string; gemini_api_key_1_mode: 'global' | 'user_specific';
   gemini_api_key_2?: string; gemini_api_key_2_mode: 'global' | 'user_specific';
   gemini_api_key_3?: string; gemini_api_key_3_mode: 'global' | 'user_specific';
   fal_api_key?: string; fal_api_key_mode: 'global' | 'user_specific';
+  image_generation_model: 'google_gemini_2_0' | 'fal_gemini_2_5';
 };
 
 export const findUserByUsername = cache((username: string): FullUser | null => {
@@ -635,7 +641,8 @@ export const findUserByUsername = cache((username: string): FullUser | null => {
     gemini_api_key_3: row.gemini_api_key_3,
     gemini_api_key_3_mode: row.gemini_api_key_3_mode,
     fal_api_key: row.fal_api_key,
-    fal_api_key_mode: row.fal_api_key_mode
+    fal_api_key_mode: row.fal_api_key_mode,
+    image_generation_model: row.image_generation_model,
   };
 });
 
@@ -659,7 +666,8 @@ export const findUserByApiKey = cache((apiKey: string): FullUser | null => {
     gemini_api_key_3: row.gemini_api_key_3,
     gemini_api_key_3_mode: row.gemini_api_key_3_mode,
     fal_api_key: row.fal_api_key,
-    fal_api_key_mode: row.fal_api_key_mode
+    fal_api_key_mode: row.fal_api_key_mode,
+    image_generation_model: row.image_generation_model,
   };
 });
 

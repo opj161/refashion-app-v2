@@ -358,7 +358,14 @@ export default function ImageParameters({
         // Add to history
         if (currentUser && preparedImageUrl) {
           try {
-            const newHistoryId = await addHistoryItem(currentImageGenParams, result.constructedPrompt, preparedImageUrl, result.editedImageUrls, settingsMode);
+            const newHistoryId = await addHistoryItem(
+              currentImageGenParams, 
+              result.constructedPrompt, 
+              preparedImageUrl, 
+              result.editedImageUrls, 
+              settingsMode, 
+              'google_gemini_2_0' // Default model for now, will be determined by user preference later
+            );
             setActiveHistoryItemId(newHistoryId);
             
             // Refresh history gallery if available

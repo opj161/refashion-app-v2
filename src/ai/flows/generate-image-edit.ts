@@ -22,6 +22,11 @@ import { getApiKeyForUser } from '@/services/apiKey.service';
 import { buildAIPrompt, GENDER_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS } from '@/lib/prompt-builder';
 import { generatePromptWithAI } from '@/ai/actions/generate-prompt.action';
 import type { ModelAttributes } from '@/lib/types';
+import type { FullUser } from '@/services/database.service'; // Import the user type
+import * as dbService from '@/services/database.service';
+import { addHistoryItem } from '@/actions/historyActions';
+import { generateWithGemini25Flash } from '@/services/fal-api/image.service';
+import { downloadAndSaveImageFromUrl } from '@/services/storage.service';
 
 // Import Axios and HttpsProxyAgent for explicit proxy control
 import axios, { AxiosError } from 'axios';
@@ -170,10 +175,88 @@ export type SingleImageOutput = z.infer<typeof SingleImageOutputSchema>;
 
 async function performSingleImageGeneration(
   input: GenerateImageEditInput,
+  user: FullUser, // <-- Accept the full user object as a parameter
   flowIdentifier: string,
-  username: string,
   keyIndex: 1 | 2 | 3
 ): Promise<SingleImageOutput> {
+  const username = user.username; // Get username from the passed object
+  
+  // 2. Route based on the user's setting
+  if (user.image_generation_model === 'fal_gemini_2_5') {
+    // --- FAL.AI GEMINI 2.5 PATH ---
+    console.log(`🚀 Routing to Fal.ai Gemini 2.5 for ${flowIdentifier}`);
+    
+    if (!input.imageDataUriOrUrl) {
+      throw new Error(`FAL.AI Gemini 2.5 requires a source image for ${flowIdentifier}`);
+    }
+    
+    // Convert to public URL for FAL.AI (FAL.AI requires publicly accessible URLs)
+    let publicImageUrl = input.imageDataUriOrUrl;
+    
+    if (input.imageDataUriOrUrl.startsWith('data:')) {
+      // Handle data URI: Convert to Blob and upload to FAL storage
+      const dataUriMatch = input.imageDataUriOrUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!dataUriMatch) {
+        throw new Error(`Invalid data URI format for FAL.AI upload in ${flowIdentifier}`);
+      }
+      
+      const mimeType = dataUriMatch[1];
+      const base64Data = dataUriMatch[2];
+      const binaryData = Buffer.from(base64Data, 'base64');
+      const imageBlob = new Blob([binaryData], { type: mimeType });
+      
+      const { uploadToFalStorage } = await import('@/ai/actions/generate-video.action');
+      publicImageUrl = await uploadToFalStorage(imageBlob, username);
+      console.log(`Converted data URI to public URL for FAL.AI: ${publicImageUrl}`);
+    } else if (input.imageDataUriOrUrl.startsWith('/uploads/') || input.imageDataUriOrUrl.startsWith('uploads/')) {
+      // Handle local file path: Read from disk and upload to FAL storage
+      console.log(`Converting local file path to public URL for FAL.AI: ${input.imageDataUriOrUrl}`);
+      
+      // Use secure file reading utility (consistent with video generation)
+      const fileBuffer = await getBufferFromLocalPath(input.imageDataUriOrUrl);
+      const mimeType = mime.lookup(input.imageDataUriOrUrl) || 'image/png';
+      
+      // Use consistent blob creation pattern (matching video generation)
+      const imageBlob = new Blob([new Uint8Array(fileBuffer)], { type: mimeType });
+      
+      const { uploadToFalStorage } = await import('@/ai/actions/generate-video.action');
+      publicImageUrl = await uploadToFalStorage(imageBlob, username);
+      console.log(`Converted local file to public URL for FAL.AI: ${publicImageUrl}`);
+    } else if (!input.imageDataUriOrUrl.startsWith('http://') && !input.imageDataUriOrUrl.startsWith('https://')) {
+      throw new Error(`Invalid image URL format for FAL.AI: ${input.imageDataUriOrUrl}. Expected data URI, local file path, or public URL.`);
+    }
+    
+    try {
+      const falResult = await generateWithGemini25Flash(
+        input.prompt || '',
+        publicImageUrl,
+        username
+      );
+      
+      console.log(`🔍 FAL.AI generated image at: ${falResult.imageUrl}`);
+      if (falResult.description) {
+        console.log(`🔍 FAL.AI description: ${falResult.description}`);
+      }
+      
+      // Download the FAL.AI generated image and store it locally for consistency
+      // This ensures all generated images follow the same storage pattern
+      const { relativeUrl: localImageUrl } = await downloadAndSaveImageFromUrl(
+        falResult.imageUrl,
+        `RefashionAI_fal_generated_${flowIdentifier}`,
+        'generated_images'
+      );
+      
+      console.log(`🔍 Successfully generated and stored FAL.AI image locally for ${flowIdentifier}: ${localImageUrl}`);
+      return { editedImageUrl: localImageUrl };
+    } catch (falError: unknown) {
+      const knownFalError = falError as Error;
+      console.error(`FAL.AI generation failed for ${flowIdentifier}:`, knownFalError);
+      throw new Error(`FAL.AI generation failed for ${flowIdentifier}: ${knownFalError.message}`);
+    }
+  }
+
+  // --- GOOGLE GEMINI 2.0 PATH (EXISTING LOGIC) ---
+  console.log(`🛰️ Routing to Google Gemini 2.0 for ${flowIdentifier}`);
   const apiKey = await getApiKeyForUser(username, 'gemini', keyIndex);
 
   let sourceImageDataForModelProcessing: { mimeType: string; data: string; } | null = null;
@@ -327,16 +410,16 @@ async function performSingleImageGeneration(
   }, `Image generation for ${flowIdentifier}`);
 }
 
-async function generateImageFlow1(input: GenerateImageEditInput, username: string): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, 'flow1', username, 1);
+async function generateImageFlow1(input: GenerateImageEditInput, user: FullUser): Promise<SingleImageOutput> {
+  return performSingleImageGeneration(input, user, 'flow1', 1);
 }
 
-async function generateImageFlow2(input: GenerateImageEditInput, username: string): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, 'flow2', username, 2);
+async function generateImageFlow2(input: GenerateImageEditInput, user: FullUser): Promise<SingleImageOutput> {
+  return performSingleImageGeneration(input, user, 'flow2', 2);
 }
 
-async function generateImageFlow3(input: GenerateImageEditInput, username: string): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, 'flow3', username, 3);
+async function generateImageFlow3(input: GenerateImageEditInput, user: FullUser): Promise<SingleImageOutput> {
+  return performSingleImageGeneration(input, user, 'flow3', 3);
 }
 
 const GenerateMultipleImagesOutputSchema = z.object({
@@ -354,15 +437,24 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
     throw new Error('Username is required to generate images.');
   }
 
+  // FETCH ONCE: Fetch the user object ONCE at the top level of the main function.
+  const user = dbService.findUserByUsername(username);
+  if (!user) {
+    throw new Error(`User ${username} not found.`);
+  }
+
   // NEW LOGIC: PROMPT GENERATION
   let prompts: (string | null)[];
   let finalConstructedPromptForHistory: string;
+
+  const modelToUse = user.image_generation_model;
 
   if (input.useAIPrompt && input.parameters && input.imageDataUriOrUrl) {
     console.log("Using AI to generate prompts...");
     
     let parametersForPrompts: ModelAttributes[];
-    if (input.useRandomizedAIPrompts) {
+    // Only randomize if we are using the Google model which makes separate calls
+    if (input.useRandomizedAIPrompts && modelToUse === 'google_gemini_2_0') {
       console.log("🎲 RANDOMIZATION ENABLED: Generating 3 different random parameter sets for AI prompts");
       // Generate 3 different random parameter sets
       parametersForPrompts = [
@@ -380,6 +472,9 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
     } else {
       // Use the same parameters for all 3 prompts
       parametersForPrompts = [input.parameters, input.parameters, input.parameters];
+      if (input.useRandomizedAIPrompts && modelToUse === 'fal_gemini_2_5') {
+        console.log("INFO: Randomization is disabled for Fal.ai model as it uses a single prompt for all images.");
+      }
     }
     
     const promptPromises = [
@@ -413,20 +508,6 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
       }
     });
     
-    // Log all received optimized prompts together
-    console.log(`\n🚀 ALL AI-GENERATED PROMPTS SUMMARY:`);
-    console.log('='.repeat(100));
-    prompts.forEach((prompt, index) => {
-      console.log(`\n📝 PROMPT ${index + 1}:`);
-      if (prompt) {
-        console.log(prompt);
-      } else {
-        console.log('❌ FAILED TO GENERATE');
-      }
-      console.log('-'.repeat(60));
-    });
-    console.log('='.repeat(100));
-    
     // For history, we'll save the first successfully generated prompt.
     finalConstructedPromptForHistory = prompts.find(p => p !== null) ?? "AI prompt generation failed.";
   } else {
@@ -449,6 +530,21 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
     finalConstructedPromptForHistory = constructedPrompt;
   }
   
+  // Log all received optimized prompts together
+  console.log(`\n🚀 ALL AI-GENERATED PROMPTS SUMMARY:`);
+  console.log('='.repeat(100));
+  console.log(`Target Model for Generation: ${modelToUse}`);
+  prompts.forEach((prompt, index) => {
+    console.log(`\n📝 PROMPT ${index + 1}:`);
+    if (prompt) {
+      console.log(prompt);
+    } else {
+      console.log('❌ FAILED TO GENERATE');
+    }
+    console.log('-'.repeat(60));
+  });
+  console.log('='.repeat(100));
+  
   console.log("Generated Prompts:", prompts);
 
   // MODIFIED LOGIC: IMAGE GENERATION
@@ -462,11 +558,11 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
       // Call the appropriate generation function
       switch (index) {
         case 0:
-          return generateImageFlow1(inputForGeneration, username);
+          return generateImageFlow1(inputForGeneration, user);
         case 1:
-          return generateImageFlow2(inputForGeneration, username);
+          return generateImageFlow2(inputForGeneration, user);
         case 2:
-          return generateImageFlow3(inputForGeneration, username);
+          return generateImageFlow3(inputForGeneration, user);
         default:
           throw new Error(`Invalid flow index: ${index}`);
       }
@@ -491,6 +587,28 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
     }
   });
 
+  // Add to history if at least one image succeeded
+  const successCount = editedImageUrlsResult.filter(url => url !== null).length;
+  if (successCount > 0) {
+    const modelUsed = user.image_generation_model;
+    if (username && input.imageDataUriOrUrl) {
+      try {
+        const newHistoryId = await addHistoryItem(
+          input.parameters,
+          finalConstructedPromptForHistory,
+          input.imageDataUriOrUrl,
+          editedImageUrlsResult,
+          input.settingsMode || 'basic',
+          modelUsed,
+          'completed'
+        );
+        // Optionally set active history item or refresh gallery here
+      } catch (err) {
+        console.error('Failed to add history item:', err);
+      }
+    }
+  }
+
   return {
     editedImageUrls: editedImageUrlsResult,
     constructedPrompt: finalConstructedPromptForHistory,
@@ -505,6 +623,12 @@ export async function generateSingleImageSlot(
 ): Promise<{ slotIndex: number; result: SingleImageOutput; constructedPrompt: string }> {
   if (!username) {
     throw new Error('Username is required to generate images.');
+  }
+
+  // Fetch the user object ONCE at the beginning
+  const user = dbService.findUserByUsername(username);
+  if (!user) {
+    throw new Error(`User ${username} not found.`);
   }
 
   // Generate prompt for this specific slot
@@ -568,13 +692,13 @@ export async function generateSingleImageSlot(
   let result: SingleImageOutput;
   switch (slotIndex) {
     case 0:
-      result = await generateImageFlow1(inputForGeneration, username);
+      result = await generateImageFlow1(inputForGeneration, user);
       break;
     case 1:
-      result = await generateImageFlow2(inputForGeneration, username);
+      result = await generateImageFlow2(inputForGeneration, user);
       break;
     case 2:
-      result = await generateImageFlow3(inputForGeneration, username);
+      result = await generateImageFlow3(inputForGeneration, user);
       break;
     default:
       throw new Error(`Invalid slot index: ${slotIndex}`);
@@ -591,14 +715,21 @@ export async function regenerateSingleImage(input: GenerateImageEditInput, flowI
   if (!username) {
     throw new Error('Username is required to re-roll an image.');
   }
+  
+  // Fetch the user object ONCE at the beginning
+  const user = dbService.findUserByUsername(username);
+  if (!user) {
+    throw new Error(`User ${username} not found.`);
+  }
+  
   console.log(`Attempting to re-roll image for flow index: ${flowIndex}`);
   switch (flowIndex) {
     case 0:
-      return performSingleImageGeneration(input, 'flow1-reroll', username, 1);
+      return performSingleImageGeneration(input, user, 'flow1-reroll', 1);
     case 1:
-      return performSingleImageGeneration(input, 'flow2-reroll', username, 2);
+      return performSingleImageGeneration(input, user, 'flow2-reroll', 2);
     case 2:
-      return performSingleImageGeneration(input, 'flow3-reroll', username, 3);
+      return performSingleImageGeneration(input, user, 'flow3-reroll', 3);
     default:
       throw new Error(`Invalid flow index: ${flowIndex}. Must be 0, 1, or 2.`);
   }
