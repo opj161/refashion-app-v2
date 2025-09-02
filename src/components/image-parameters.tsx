@@ -695,7 +695,6 @@ export default function ImageParameters({
                           {/* Detail Level & Randomize Action */}
                           <div className="flex items-end justify-between gap-4">
                             <div className="flex-grow">
-                              <Label className="text-sm font-medium">Detail Level</Label>
                               <div className="mt-2 inline-flex h-9 items-center justify-center rounded-md bg-background/50 p-1 text-muted-foreground">
                                 <Button variant={settingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('basic')} className="h-7 px-3 text-xs">Simple</Button>
                                 <Button variant={settingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
@@ -810,63 +809,36 @@ export default function ImageParameters({
                       disabled={!preparedImageUrl || isLoading} 
                       className="h-9 px-3 border-muted/60 hover:border-muted-foreground/40"
                     >
-                      <FileText className="mr-2 h-4 w-4"/>
-                      {showPromptPreview ? 'Hide' : 'Show'} Generated Prompt
-                      {showPromptPreview ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />}
+                      <Code className="mr-2 h-4 w-4" />
+                      {showPromptPreview ? "Hide" : "View"} Prompt
                     </Button>
                   </div>
                 </div>
 
-                {/* Enhanced Prompt Preview */}
-                <AnimatePresence>
-                  {showPromptPreview && (
-                    <motion.div 
-                      initial={{ height: 0, opacity: 0 }} 
-                      animate={{ height: "auto", opacity: 1 }} 
-                      exit={{ height: 0, opacity: 0 }} 
-                      transition={{ duration: 0.3, ease: 'easeInOut' }} 
-                      className="overflow-hidden"
-                    >
-                      <div className="bg-muted/20 rounded-lg p-4 border border-muted/30 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Code className="h-4 w-4 text-primary" />
-                          <Label className="text-sm font-semibold">Generated Prompt Preview</Label>
-                          {isPromptManuallyEdited && (
-                            <span className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full border border-amber-200">
-                              Modified
-                            </span>
-                          )}
-                        </div>
-                        <Textarea 
-                          id="imagePromptTextarea" 
-                          value={currentPrompt} 
-                          onChange={(e) => handlePromptChange(e.target.value)} 
-                          rows={6} 
-                          className="text-sm font-mono bg-background/50 border-muted/60 focus:border-primary/50 resize-none" 
-                          disabled={!preparedImageUrl || isLoading}
-                          placeholder="Your AI-generated prompt will appear here..."
-                        />
-                        {isManualPromptOutOfSync() && (
-                          <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-md">
-                            <div className="flex items-center gap-2">
-                              <AlertTriangle className="h-4 w-4 text-amber-600" />
-                              <span className="text-sm text-amber-800">Prompt is out of sync with your settings</span>
-                            </div>
-                            <Button
-                              onClick={resetPromptToAuto}
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs border-amber-300 hover:bg-amber-100"
-                            >
-                              <RefreshCw className="mr-1 h-3 w-3" />
-                              Sync
-                            </Button>
-                          </div>
-                        )}
+                {/* Prompt Preview Panel */}
+                {showPromptPreview && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={MOTION_TRANSITIONS.tween.standard}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-muted/30 rounded-lg p-4 border border-muted/30 space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <FileText className="h-4 w-4" />
+                        Generated Prompt Preview
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      <Textarea
+                        value={currentPrompt}
+                        readOnly
+                        placeholder="Your prompt will appear here once you configure your settings..."
+                        className="min-h-[120px] resize-none bg-background/50 border-muted/40 text-sm leading-relaxed"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+
               </AccordionContent>
             </AccordionItem>
           </Accordion>
