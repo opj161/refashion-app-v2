@@ -11,7 +11,8 @@ import { cn } from '@/lib/utils';
 
 export const MediaSlot = ({ children, className }: { children: React.ReactNode, className?: string }) => (
   <div className={cn(
-      "relative bg-muted/20 rounded-lg flex items-center justify-center overflow-hidden p-2",
+      // Add w-full and h-full to make the div fill its grid cell
+      "relative w-full h-full bg-muted/20 rounded-lg overflow-hidden p-2", // [!code focus]
       // On desktop, this slot is placed in the second row, first column
       "lg:row-start-2 lg:col-start-1",
       className
@@ -74,9 +75,10 @@ export function UnifiedMediaModal({ isOpen, onClose, title, description, footerL
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className={cn(
-          "max-w-6xl w-full max-h-[90vh] p-6 !gap-y-4 glass-card",
+          // FIX: Changed max-h to h- to give the grid a defined height, preventing row collapse.
+          "max-w-6xl w-full h-[90vh] p-6 !gap-y-4 glass-card flex flex-col",
           // THE CORE LAYOUT LOGIC (Desktop)
-          "grid grid-rows-[auto_1fr_auto] grid-cols-1 lg:grid-cols-[1fr,minmax(350px,400px)] lg:gap-x-6"
+          "lg:grid lg:grid-rows-[auto_1fr_auto] lg:grid-cols-[1fr,minmax(350px,400px)] lg:gap-x-6"
         )}>
           {ModalContent}
         </DialogContent>
@@ -90,10 +92,10 @@ export function UnifiedMediaModal({ isOpen, onClose, title, description, footerL
       <SheetContent side="bottom" className={cn(
         "h-[95vh] p-4 !gap-y-4",
         // THE CORE LAYOUT LOGIC (Mobile)
-        // --- THE FIX ---
-        // From [header, content, footer] to [header, media, scrollable_sidebar, footer]
-        // This gives the media its own auto-sized row, allowing it to be much larger.
-        "grid grid-rows-[auto_auto_minmax(0,1fr)_auto]"
+        // --- THE FIX: The image row was 'auto', causing collapse. ---
+        // We change it to a flexible unit '1.5fr' to give it proportional space.
+        // The sidebar gets '1fr', and both can shrink to zero if needed.
+        "grid grid-rows-[auto_minmax(0,1.5fr)_minmax(0,1fr)_auto]"
       )}>
         {ModalContent}
       </SheetContent>

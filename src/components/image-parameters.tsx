@@ -11,7 +11,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Palette, PersonStanding, Settings2, Sparkles, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit, X, AlertCircle, Code, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogOverlay } from "@/components/ui/dialog";
+import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { UnifiedMediaModal, MediaSlot, SidebarSlot } from "./UnifiedMediaModal";
 import { generateImageEdit, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
 import { upscaleImageAction, faceDetailerAction, isFaceDetailerAvailable } from "@/ai/actions/upscale-image.action";
 import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
@@ -985,41 +986,33 @@ export default function ImageParameters({
       )}
 
       {/* Image Viewer Modal */}
-      <Dialog open={isImageViewerOpen} onOpenChange={setIsImageViewerOpen}>
-        <DialogContent className="max-w-7xl w-[95vw] h-[95vh] p-0 border-0 bg-transparent shadow-none">
-          <DialogOverlay className="bg-black/90 backdrop-blur-sm" />
-          <div className="relative w-full h-full flex items-center justify-center">
-            {/* Close button */}
-            <button
-              onClick={handleCloseImageViewer}
-              className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors duration-200"
-              aria-label="Close image viewer"
-            >
-              <X className="h-6 w-6" />
-            </button>
-            
-            {/* Image container */}
-            {selectedImageUrl && (
-              <div className="relative max-w-full max-h-full">
-                <Image
-                  src={selectedImageUrl}
-                  alt={`Generated Image ${(selectedImageIndex ?? 0) + 1} - Large View`}
-                  width={1200}
-                  height={1600}
-                  className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg shadow-2xl"
-                  quality={95}
-                  priority
-                />
-                
-                {/* Image info overlay */}
-                <div className="absolute bottom-4 left-4 bg-black/70 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm">
-                  Image {(selectedImageIndex ?? 0) + 1} of {NUM_IMAGES_TO_GENERATE}
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AnimatePresence>
+        {isImageViewerOpen && selectedImageUrl && (
+          <UnifiedMediaModal
+            isOpen={isImageViewerOpen}
+            onClose={handleCloseImageViewer}
+            title={<DialogTitle>Image Viewer</DialogTitle>}
+            description={<DialogDescription>Viewing generated image {(selectedImageIndex ?? 0) + 1} of {NUM_IMAGES_TO_GENERATE}.</DialogDescription>}
+            footerRight={
+              <>
+                <Button variant="outline" onClick={handleCloseImageViewer}>
+                  <X className="w-4 h-4 mr-2" /> Close
+                </Button>
+              </>
+            }
+          >
+            <MediaSlot className="lg:col-span-2">
+              <Image
+                src={selectedImageUrl}
+                alt={`Generated Image ${(selectedImageIndex ?? 0) + 1} - Large View`}
+                fill
+                className="object-contain"
+                quality={95}
+              />
+            </MediaSlot>
+          </UnifiedMediaModal>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
