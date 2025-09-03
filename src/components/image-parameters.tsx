@@ -1001,15 +1001,50 @@ export default function ImageParameters({
               </>
             }
           >
-            <MediaSlot className="lg:col-span-2">
-              <Image
-                src={selectedImageUrl}
-                alt={`Generated Image ${(selectedImageIndex ?? 0) + 1} - Large View`}
-                fill
-                className="object-contain"
-                quality={95}
-              />
-            </MediaSlot>
+            <>
+              <MediaSlot>
+                <Image
+                  src={selectedImageUrl}
+                  alt={`Generated Image ${(selectedImageIndex ?? 0) + 1} - Large View`}
+                  fill
+                  className="object-contain"
+                  quality={95}
+                />
+              </MediaSlot>
+              <SidebarSlot>
+                <div className="p-4 flex flex-col gap-4">
+                  <h3 className="font-semibold">Actions</h3>
+                  <div className="grid grid-cols-1 gap-2">
+                    {isFaceDetailerServiceAvailable && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleFaceRetouch(selectedImageIndex!)}
+                        disabled={isGeneratingSlots.some(loading => loading) || isFaceRetouchingSlot !== null || isUpscalingSlot !== null || !!originalOutputImageUrls[selectedImageIndex!]}
+                      >
+                        <UserCheck className="mr-2 h-4 w-4" /> Face Retouch
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleUpscale(selectedImageIndex!)}
+                      disabled={isGeneratingSlots.some(loading => loading) || isUpscalingSlot !== null || isFaceRetouchingSlot !== null || !!originalOutputImageUrls[selectedImageIndex!]}
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" /> Upscale
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSendToVideoPage(outputImageUrls[selectedImageIndex!])}
+                      disabled={isGeneratingSlots.some(loading => loading) || isUpscalingSlot !== null || isFaceRetouchingSlot !== null}
+                    >
+                      <VideoIcon className="mr-2 h-4 w-4" /> Use for Video
+                    </Button>
+                  </div>
+                </div>
+              </SidebarSlot>
+            </>
           </UnifiedMediaModal>
         )}
       </AnimatePresence>
