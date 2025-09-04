@@ -80,21 +80,18 @@ export default function ImageParameters({
   const [timeOfDay, setTimeOfDay] = useState<string>(TIME_OF_DAY_OPTIONS[0].value);
   const [overallMood, setOverallMood] = useState<string>(OVERALL_MOOD_OPTIONS[0].value);
 
-  const [isCreativeModeEnabled, setIsCreativeModeEnabled] = useState<boolean>(true);
   const [settingsMode, setSettingsMode] = useState<'basic' | 'advanced'>('basic');
   const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
 
-  // NEW STATE for the AI prompt feature
-  const [useAIPrompt, setUseAIPrompt] = useState<boolean>(true);
+  // --- REFACTORED STATE MANAGEMENT ---
+  // Creative Mode is replaced by two independent states with new smart defaults.
+  const [useRandomization, setUseRandomization] = useState<boolean>(true); // Default ON for variety
+  const [useAIPrompt, setUseAIPrompt] = useState<boolean>(false); // Default OFF for speed
 
-  // Link Creative Mode and AI Enhancement for intuitive behavior
   useEffect(() => {
-    // If the user turns on Creative Mode, AI Enhancement should automatically turn on as well,
-    // as the core value of creative mode is the AI's varied output.
-    if (isCreativeModeEnabled) {
-      setUseAIPrompt(true);
-    }
-  }, [isCreativeModeEnabled]);
+    // This effect, which coupled the old states, is now removed.
+    // The two states are fully independent.
+  }, []); // Empty dependency array, this effect no longer does anything meaningful.
 
   // State for prompt preview visibility
   const [showPromptPreview, setShowPromptPreview] = useState<boolean>(false);
@@ -109,8 +106,8 @@ export default function ImageParameters({
   // When a history item is loaded, disable creative mode to reflect the loaded settings.
   useEffect(() => {
     if (historyItemToLoad) {
-      setIsCreativeModeEnabled(false);
       // The rest of the parameter state updates are handled in the other useEffect
+      setUseRandomization(false);
     }
   }, [historyItemToLoad]);
 
@@ -227,20 +224,22 @@ export default function ImageParameters({
   // Centralized handler for parameter changes to automatically disable creative mode
   const handleParamChange = useCallback((setter: (value: string) => void, value: string) => {
     setter(value);
-    // Any manual change by the user disables creative mode.
-    setIsCreativeModeEnabled(false);
+    // Any manual parameter change by the user implies specific intent, so disable randomization.
+    setUseRandomization(false);
   }, []);
 
   // Special handler for settingsMode
   const handleSettingsModeChange = useCallback((value: 'basic' | 'advanced') => {
     setSettingsMode(value);
-    setIsCreativeModeEnabled(false);
+    // This is a manual choice, so disable randomization.
+    setUseRandomization(false);
   }, []);
 
   // Special handler for useAIPrompt
   const handleAIPromptChange = useCallback((value: boolean) => {
     setUseAIPrompt(value);
-    setIsCreativeModeEnabled(false);
+    // Toggling the prompt method is also a manual choice that disables randomization.
+    setUseRandomization(false);
   }, []);
 
   // Consolidate all params for the hook
@@ -334,8 +333,8 @@ export default function ImageParameters({
     Object.entries(PARAMETER_CONFIG).forEach(([key, config]) => {
       handleParamChange(config.setter, pickRandom(config.options));
     });
-    // Manually randomizing is a direct user action, so disable creative mode.
-    setIsCreativeModeEnabled(false);
+    // This is a one-time manual action, so ensure randomization state is off.
+    setUseRandomization(false);
     toast({ title: "Manual Configuration Randomized!" });
   };
 
@@ -354,19 +353,16 @@ export default function ImageParameters({
     // Start all slots in a "generating" visual state
     setIsGeneratingSlots([true, true, true]);
 
-    // The decision to randomize is now based on the explicit `isCreativeModeEnabled` state.
-    const useRandomization = isCreativeModeEnabled;
-
     const generationInput: GenerateImageEditInput = {
       prompt: isPromptManuallyEdited ? currentPrompt : undefined,
       imageDataUriOrUrl: preparedImageUrl,
       parameters: currentImageGenParams,
       settingsMode: settingsMode,
       useAIPrompt: useAIPrompt,
-      useRandomizedAIPrompts: useRandomization, // Pass the explicit flag to the server
+      useRandomization: useRandomization, // Pass the new, decoupled randomization flag
     };
 
-    toast({ title: useRandomization ? "Starting Creative Generation..." : "Starting Generation...", description: useRandomization ? "Using randomized styles for variety." : "Using your custom settings." });
+    toast({ title: useRandomization ? "Starting Creative Generation..." : "Starting Generation...", description: useRandomization ? "Using randomized styles for variety." : "Using your selected settings." });
 
     try {
       const result: GenerateMultipleImagesOutput = await generateImageEdit(generationInput, currentUser?.username || '');
@@ -622,7 +618,7 @@ export default function ImageParameters({
               <Palette className="h-6 w-6 text-primary" />
               Image Generation Settings
             </CardTitle>
-            <CardDescription>{isCreativeModeEnabled ? 'Let our AI generate a variety of high-quality styles for you.' : 'Fine-tune every detail to match your vision.'}</CardDescription>
+            <CardDescription>{useRandomization ? 'Using automatic style randomization for variety. Change any setting to switch to manual mode.' : 'Fine-tune every detail to match your vision.'}</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -653,28 +649,25 @@ export default function ImageParameters({
 
                 {/* === START REFACTORED SETTINGS UI === */}
                 <div className="p-3 rounded-lg bg-muted/40 border border-border/20 space-y-4">
-                  {/* Primary Toggle: Creative Mode */}
+                  {/* Primary Toggle: Randomize Style */}
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="creative-mode-switch" className="text-sm font-medium flex flex-col cursor-pointer">
-                      Creative Mode
+                    <Label htmlFor="randomization-switch" className="text-sm font-medium flex flex-col cursor-pointer">
+                      Randomize Style
                       <span className="font-normal text-xs text-muted-foreground">
-                        {isCreativeModeEnabled ? "Let AI generate varied styles for you." : "Use your exact manual settings below."}
+                        {useRandomization ? "ON: Different styles for each image." : "OFF: Use your exact manual settings below."}
                       </span>
                     </Label>
                     <Switch
-                      id="creative-mode-switch"
-                      checked={isCreativeModeEnabled}
-                      onCheckedChange={setIsCreativeModeEnabled}
+                      id="randomization-switch"
+                      checked={useRandomization}
+                      onCheckedChange={setUseRandomization}
                     />
                   </div>
 
-                  {/* Progressively Disclosed Manual Controls */}
-                  <AnimatePresence>
-                    {!isCreativeModeEnabled && (
+                  {/* Manual Controls are now always available, not progressively disclosed */}
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.3, ease: 'easeInOut' }}
                         className="overflow-hidden"
                       >
@@ -689,7 +682,6 @@ export default function ImageParameters({
                               id="ai-prompt-switch"
                               checked={useAIPrompt}
                               onCheckedChange={handleAIPromptChange}
-                              disabled={isCreativeModeEnabled} // This is key for UX clarity
                             />
                           </div>
 
@@ -713,8 +705,6 @@ export default function ImageParameters({
                           </div>
                         </div>
                       </motion.div>
-                    )}
-                  </AnimatePresence>
                 </div>
                 {/* === END REFACTORED SETTINGS UI === */}
 

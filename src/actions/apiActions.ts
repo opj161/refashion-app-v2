@@ -49,7 +49,7 @@ export async function processApiGenerationJob(jobId: string, payload: Omit<ApiJo
       settingsMode: payload.settingsMode,
       imageDataUriOrUrl: payload.imageDataUri,
       useAIPrompt: false, // Default to false for API calls
-      useRandomizedAIPrompts: false // Default to false for API calls
+      useRandomization: false // Default to false for API calls
     }, username);
 
     // Update history item with results AND the constructed prompt

@@ -162,7 +162,7 @@ const GenerateImageEditInputSchema = z.object({
       "Optional: The image to edit, as a data URI (e.g., 'data:image/png;base64,...') or a publicly accessible HTTPS URL."
     ),
   useAIPrompt: z.boolean().optional().default(false).describe('Whether to use AI to generate the prompt itself.'),
-  useRandomizedAIPrompts: z.boolean().optional().default(false).describe('Whether to use different random parameters for each of the 3 AI prompts.'),
+  useRandomization: z.boolean().optional().default(false).describe('Whether to use different random parameters for each of the 3 AI prompts.'),
 });
 export type GenerateImageEditInput = z.infer<typeof GenerateImageEditInputSchema>;
 
@@ -449,17 +449,14 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
 
   const modelToUse = user.image_generation_model;
 
-  // ** THE CRITICAL FIX **
   // If the user provided a direct prompt, ALWAYS use it. This gives manual input the highest priority.
-  // Only proceed to AI prompt generation if no direct prompt was given AND the AI enhancement flag is on.
   const shouldGeneratePromptWithAI = input.useAIPrompt && !input.prompt;
 
   if (shouldGeneratePromptWithAI && input.parameters && input.imageDataUriOrUrl) {
     console.log("Using AI to generate prompts...");
     
     let parametersForPrompts: ModelAttributes[];
-    // Only randomize if we are using the Google model which makes separate calls
-    if (input.useRandomizedAIPrompts && modelToUse === 'google_gemini_2_0') {
+    if (input.useRandomization && modelToUse === 'google_gemini_2_0') {
       console.log("🎲 RANDOMIZATION ENABLED: Generating 3 different random parameter sets for AI prompts");
       // Generate 3 different random parameter sets
       parametersForPrompts = [
@@ -477,7 +474,7 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
     } else {
       // Use the same parameters for all 3 prompts
       parametersForPrompts = [input.parameters, input.parameters, input.parameters];
-      if (input.useRandomizedAIPrompts && modelToUse === 'fal_gemini_2_5') {
+      if (input.useRandomization && modelToUse === 'fal_gemini_2_5') {
         console.log("INFO: Randomization is disabled for Fal.ai model as it uses a single prompt for all images.");
       }
     }
@@ -644,7 +641,7 @@ export async function generateSingleImageSlot(
     console.log(`🎨 Generating AI prompt for slot ${slotIndex + 1}...`);
     
     let parametersForPrompt: ModelAttributes;
-    if (input.useRandomizedAIPrompts) {
+    if (input.useRandomization) {
       console.log(`🎲 Using randomized parameters for slot ${slotIndex + 1}`);
       parametersForPrompt = generateRandomBasicParameters(input.parameters);
       
