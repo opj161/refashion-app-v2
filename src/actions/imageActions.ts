@@ -270,3 +270,57 @@ export async function recreateStateFromHistoryAction(historyItemId: string): Pro
     return { success: false, error: `Failed to process history image: ${errorMessage}` };
   }
 }
+
+/**
+ * Rotates an existing image on the server by a specified angle.
+ * @param imageUrl The server-relative URL of the image to rotate.
+ * @param angle The angle of rotation (-90 for left, 90 for right).
+ * @returns An object with the new URL, hash, and dimensions of the rotated image.
+ */
+export async function rotateImage(
+  imageUrl: string,
+  angle: number
+): Promise<PrepareImageResult | { success: false; error: string }> {
+  if (!imageUrl || (angle !== 90 && angle !== -90)) {
+    return { success: false, error: 'Image URL and a valid angle (90 or -90) are required.' };
+  }
+
+  try {
+    // Use secure file system utility for reading the image
+    const originalBuffer = await getBufferFromLocalPath(imageUrl);
+
+    // Perform rotation and convert to a new PNG buffer
+    const rotatedBuffer = await sharp(originalBuffer)
+      .rotate(angle)
+      .png()
+      .toBuffer();
+
+    // Get the new dimensions after rotation
+    const newMetadata = await sharp(rotatedBuffer).metadata();
+    if (!newMetadata.width || !newMetadata.height) {
+      return { success: false, error: 'Could not read metadata of the rotated image.' };
+    }
+
+    // Save the new buffer to a file
+    const { relativeUrl, hash } = await saveFileFromBuffer(
+      rotatedBuffer,
+      'rotated',
+      'processed_images',
+      'png'
+    );
+
+    return {
+      success: true,
+      imageUrl: relativeUrl,
+      hash,
+      // Return the new dimensions so the client context can update its state
+      originalWidth: newMetadata.width,
+      originalHeight: newMetadata.height,
+      resized: false, // This wasn't a resize operation
+    };
+  } catch (error) {
+    console.error('Error rotating image:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: `Failed to rotate image: ${errorMessage}` };
+  }
+}

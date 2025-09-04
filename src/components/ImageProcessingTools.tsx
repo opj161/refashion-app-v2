@@ -14,8 +14,8 @@ import {
   isUpscaleServiceAvailable as checkUpscaleAvailable,
   isFaceDetailerAvailable as checkFaceDetailerAvailable
 } from "@/ai/actions/upscale-image.action";
-import { 
-  Wand2, Sparkles, UserCheck, CheckCircle, Loader2 
+import {
+  Wand2, Sparkles, UserCheck, CheckCircle, Loader2, RotateCcw, RotateCw 
 } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -62,6 +62,8 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
     removeBackground,
     upscaleImage,
     faceDetailer,
+    rotateImageLeft,
+    rotateImageRight,
     isProcessing,
     processingStep,
     setActiveVersion,
@@ -141,6 +143,19 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
 
   return (
     <div className="space-y-3">
+      {/* --- Rotation Tools --- */}
+      <h3 className="font-semibold text-sm">Rotate</h3>
+      <div className="grid grid-cols-2 gap-2">
+        <Button onClick={rotateImageLeft} variant="outline" size="sm" disabled={isToolDisabled}>
+          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+          Left
+        </Button>
+        <Button onClick={rotateImageRight} variant="outline" size="sm" disabled={isToolDisabled}>
+          <RotateCw className="mr-1.5 h-3.5 w-3.5" />
+          Right
+        </Button>
+      </div>
+
       <h3 className="font-semibold text-sm">Processing Tools</h3>
       <div className="space-y-2">
         {/* Background Removal */}

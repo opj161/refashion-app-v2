@@ -10,7 +10,7 @@ import { getDisplayableImageUrl } from '@/lib/utils';
 // Server Actions
 import { removeBackgroundAction } from "@/ai/actions/remove-background.action";
 import { upscaleImageAction, faceDetailerAction } from "@/ai/actions/upscale-image.action";
-import { prepareInitialImage, cropImage, recreateStateFromHistoryAction } from "@/actions/imageActions";
+import { prepareInitialImage, cropImage, recreateStateFromHistoryAction, rotateImage } from "@/actions/imageActions";
 
 // Types for the image preparation workflow
 export interface ImageVersion {
@@ -43,7 +43,7 @@ export interface ImagePreparationState {
   
   // Processing state
   isProcessing: boolean;
-  processingStep: 'upload' | 'crop' | 'bg' | 'upscale' | 'face' | 'confirm' | null;
+  processingStep: 'upload' | 'crop' | 'bg' | 'upscale' | 'face' | 'rotate' | 'confirm' | null;
   
   // Comparison state
   comparison: {
@@ -77,6 +77,8 @@ export interface ImagePreparationActions {
   removeBackground: (username: string) => Promise<void>;
   upscaleImage: (username: string) => Promise<void>;
   faceDetailer: (username: string) => Promise<void>;
+  rotateImageLeft: () => Promise<void>;
+  rotateImageRight: () => Promise<void>;
   uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
   initializeFromHistory: (item: HistoryItem) => Promise<void>;
 }
@@ -264,6 +266,46 @@ export const ImagePreparationProvider = ({ children }: { children: ReactNode }) 
     }
   }, [state, setProcessing, addVersion, setAspect]);
 
+  const handleRotation = useCallback(async (angle: 90 | -90) => {
+    const { activeVersionId, versions } = state;
+    if (!activeVersionId || !versions[activeVersionId]) {
+      toast({ title: 'No active image to rotate', variant: 'destructive' });
+      return;
+    }
+
+    const currentVersion = versions[activeVersionId];
+    setProcessing(true, 'rotate');
+
+    try {
+      const result = await rotateImage(currentVersion.imageUrl, angle);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      const newVersionId = addVersion({
+        imageUrl: result.imageUrl,
+        label: angle === -90 ? 'Rotated Left' : 'Rotated Right',
+        sourceVersionId: activeVersionId,
+        hash: result.hash,
+      });
+
+      // Explicitly update dimensions in the context.
+      // The canvas will reload via key change and its onLoad will also fire,
+      // but this makes the state update more immediate and robust.
+      setOriginalImageDimensions({ width: result.originalWidth, height: result.originalHeight });
+      
+      toast({ title: "Image Rotated", description: "A new rotated version has been created." });
+    } catch (error) {
+      console.error('Error rotating image:', error);
+      toast({ title: "Rotation Failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setProcessing(false, null);
+    }
+  }, [state, addVersion, setProcessing, setOriginalImageDimensions]);
+
+  const rotateImageLeft = useCallback(() => handleRotation(-90), [handleRotation]);
+  const rotateImageRight = useCallback(() => handleRotation(90), [handleRotation]);
+
   const removeBackground = useCallback(async (username: string) => {
     const { activeVersionId, versions } = state;
     if (!activeVersionId || !versions[activeVersionId]) {
@@ -427,6 +469,8 @@ export const ImagePreparationProvider = ({ children }: { children: ReactNode }) 
     removeBackground,
     upscaleImage,
     faceDetailer,
+    rotateImageLeft,
+    rotateImageRight,
     uploadOriginalImage,
     initializeFromHistory,
   };
