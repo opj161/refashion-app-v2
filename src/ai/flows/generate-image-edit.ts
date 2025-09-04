@@ -19,7 +19,9 @@ import { saveDataUriLocally } from '@/services/storage.service';
 import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 import mime from 'mime-types';
 import { getApiKeyForUser } from '@/services/apiKey.service';
-import { buildAIPrompt, GENDER_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS } from '@/lib/prompt-builder';
+import {
+  buildAIPrompt, GENDER_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS
+} from '@/lib/prompt-builder'; // <-- No change here, but POSE_STYLE_OPTIONS is now used below
 import { generatePromptWithAI } from '@/ai/actions/generate-prompt.action';
 import type { ModelAttributes } from '@/lib/types';
 import type { FullUser } from '@/services/database.service'; // Import the user type
@@ -92,20 +94,45 @@ interface GeminiErrorData { // Renamed from GeminiErrorResponse to avoid conflic
 // --- END Defined Types ---
 
 /**
- * Generate random parameters for stylistic settings only
+ * Generate random parameters for stylistic settings with tiered probability system
  * Excludes core model attributes (gender, bodyType, bodySize, ageRange) which should remain as user selected
- * Always randomizes background and ethnicity only
+ * Uses graduated probability: Background (100%), Ethnicity/Pose (50%), Hair (25%), Expression (15%)
  */
 function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAttributes {
-  const pickRandom = (options: any[]) => options[Math.floor(Math.random() * options.length)].value;
-  
-  // Randomize background and ethnicity only
-  const result = {
-    ...baseParameters, // Keep all existing parameters
-    background: pickRandom(BACKGROUND_OPTIONS),
-    ethnicity: pickRandom(ETHNICITY_OPTIONS),
+  // Helper that picks a random value from all available options, including "default".
+  // This allows randomization to include "no specific setting" as a valid choice.
+  const pickRandom = (options: any[]) => {
+    return options[Math.floor(Math.random() * options.length)].value;
   };
-  
+
+  const result = {
+    ...baseParameters, // Keep all existing parameters as base
+    background: pickRandom(BACKGROUND_OPTIONS), // Always randomize background (100%)
+  };
+
+  // Tier 1: High frequency randomization (50% chance)
+  // 50% chance to randomize ethnicity, otherwise keep user's original choice
+  if (Math.random() < 0.5) {
+    result.ethnicity = pickRandom(ETHNICITY_OPTIONS);
+  }
+
+  // 50% chance to randomize pose style, otherwise keep user's original choice  
+  if (Math.random() < 0.5) {
+    result.poseStyle = pickRandom(POSE_STYLE_OPTIONS);
+  }
+
+  // Tier 2: Medium frequency randomization (25% chance)
+  // 25% chance to randomize hair style, otherwise keep user's original choice
+  if (Math.random() < 0.25) {
+    result.hairStyle = pickRandom(HAIR_STYLE_OPTIONS);
+  }
+
+  // Tier 3: Low frequency randomization (15% chance) 
+  // 15% chance to randomize model expression, otherwise keep user's original choice
+  if (Math.random() < 0.15) {
+    result.modelExpression = pickRandom(MODEL_EXPRESSION_OPTIONS);
+  }
+
   return result;
 }
 
@@ -162,7 +189,7 @@ const GenerateImageEditInputSchema = z.object({
       "Optional: The image to edit, as a data URI (e.g., 'data:image/png;base64,...') or a publicly accessible HTTPS URL."
     ),
   useAIPrompt: z.boolean().optional().default(false).describe('Whether to use AI to generate the prompt itself.'),
-  useRandomization: z.boolean().optional().default(false).describe('Whether to use different random parameters for each of the 3 AI prompts.'),
+  useRandomization: z.boolean().optional().default(false).describe('Whether to use different random parameters for each of the 3 generation slots.'),
 });
 export type GenerateImageEditInput = z.infer<typeof GenerateImageEditInputSchema>;
 
@@ -449,88 +476,51 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
 
   const modelToUse = user.image_generation_model;
 
-  // If the user provided a direct prompt, ALWAYS use it. This gives manual input the highest priority.
-  const shouldGeneratePromptWithAI = input.useAIPrompt && !input.prompt;
+  // --- START REFACTORED LOGIC ---
 
-  if (shouldGeneratePromptWithAI && input.parameters && input.imageDataUriOrUrl) {
-    console.log("Using AI to generate prompts...");
-    
-    let parametersForPrompts: ModelAttributes[];
-    if (input.useRandomization && modelToUse === 'google_gemini_2_0') {
-      console.log("🎲 RANDOMIZATION ENABLED: Generating 3 different random parameter sets for AI prompts");
-      // Generate 3 different random parameter sets
-      parametersForPrompts = [
-        generateRandomBasicParameters(input.parameters),
-        generateRandomBasicParameters(input.parameters),
-        generateRandomBasicParameters(input.parameters)
-      ];
-      
-      // Log the randomized parameters for each prompt
-      parametersForPrompts.forEach((params, index) => {
-        console.log(`\n🎲 RANDOM PARAMETERS SET ${index + 1}:`);
-        console.log(`Ethnicity: ${params.ethnicity}, Background: ${params.background}`);
-        console.log(`[Keeping user's: Gender: ${params.gender}, Body: ${params.bodyShapeAndSize}, Age: ${params.ageRange}, Hair: ${params.hairStyle}, Expression: ${params.modelExpression}, Pose: ${params.poseStyle}]`);
-      });
-    } else {
-      // Use the same parameters for all 3 prompts
-      parametersForPrompts = [input.parameters, input.parameters, input.parameters];
-      if (input.useRandomization && modelToUse === 'fal_gemini_2_5') {
-        console.log("INFO: Randomization is disabled for Fal.ai model as it uses a single prompt for all images.");
-      }
-    }
-    
-    const promptPromises = [
-      generatePromptWithAI(parametersForPrompts[0], input.imageDataUriOrUrl, username, 1),
-      generatePromptWithAI(parametersForPrompts[1], input.imageDataUriOrUrl, username, 2),
-      generatePromptWithAI(parametersForPrompts[2], input.imageDataUriOrUrl, username, 3),
-    ];
-    const promptResults = await Promise.allSettled(promptPromises);
-    prompts = promptResults.map((res, index) => {
-      if (res.status === 'fulfilled') {
-        return res.value;
-      } else {
-        console.warn(`AI prompt generation failed for slot ${index + 1}. Using high-quality fallback prompt. Reason:`, res.reason);
-        
-        // Fallback to a high-quality, locally-built prompt
-        const fallbackParams: Omit<ModelAttributes, 'settingsMode'> = {
-          ...parametersForPrompts[index],
-          // Ensure some safe, high-quality defaults are set if not present
-          poseStyle: parametersForPrompts[index].poseStyle === 'default' ? 'standing_relaxed' : parametersForPrompts[index].poseStyle,
-          modelExpression: parametersForPrompts[index].modelExpression === 'default' ? 'neutral_subtle_smile' : parametersForPrompts[index].modelExpression,
-          background: parametersForPrompts[index].background === 'default' ? 'studio_neutral_gray' : parametersForPrompts[index].background,
-          lightingType: 'studio_lighting',
-          lightQuality: 'soft_even_light',
-          cameraAngle: 'eye_level',
-        };
-
-        return buildAIPrompt({
-          type: 'image',
-          params: fallbackParams
-        });
-      }
-    });
-    
-    // For history, we'll save the first successfully generated prompt.
-    finalConstructedPromptForHistory = prompts.find(p => p !== null) ?? "AI prompt generation failed.";
+  // High-priority override: If a manual prompt is provided, use it for all slots.
+  if (input.prompt) {
+    console.log('Using manually provided prompt for all image slots.');
+    prompts = Array(3).fill(input.prompt);
+    finalConstructedPromptForHistory = input.prompt;
   } else {
-    console.log("Using local prompt builder...");
-    let constructedPrompt: string;
-    if (input.parameters) {
-      constructedPrompt = buildAIPrompt({
-        type: 'image',
-        params: {
-          ...input.parameters,
-          settingsMode: input.settingsMode || 'basic'
-        }
-      });
-    } else if (input.prompt) {
-      constructedPrompt = input.prompt;
+    // STAGE 1: Determine the parameter sets for each slot (randomized or fixed).
+    let parameterSetsForSlots: ModelAttributes[];
+
+    // REMOVED: `&& modelToUse !== 'fal_gemini_2_5'` condition.
+    // This ensures randomization works consistently for all image generation models,
+    // honoring the user's explicit choice in the UI.
+    if (input.useRandomization) {
+      console.log('🎲 Randomization enabled. Generating 3 different parameter sets.');
+      parameterSetsForSlots = Array.from({ length: 3 }, () => generateRandomBasicParameters(input.parameters!));
     } else {
-      throw new Error('Either parameters or prompt must be provided');
+      console.log('⚙️ Using fixed parameters for all 3 slots.');
+      // The informational log about disabled randomization is no longer needed as the condition is removed.
+      parameterSetsForSlots = Array(3).fill(input.parameters);
     }
-    prompts = Array(3).fill(constructedPrompt);
-    finalConstructedPromptForHistory = constructedPrompt;
+
+    // STAGE 2: Build prompts from the determined parameter sets.
+    if (input.useAIPrompt && input.imageDataUriOrUrl) {
+      console.log('🧠 Using AI prompt enhancement...');
+      const promptPromises = parameterSetsForSlots.map((params, i) =>
+        generatePromptWithAI(params, input.imageDataUriOrUrl!, username, (i + 1) as 1 | 2 | 3)
+          .catch(err => {
+            console.warn(`AI prompt generation for slot ${i + 1} failed. Falling back to local builder. Reason:`, err);
+            return buildAIPrompt({ type: 'image', params: { ...params, settingsMode: 'advanced' } });
+          })
+      );
+      prompts = await Promise.all(promptPromises);
+    } else {
+      console.log('📝 Using local prompt builder...');
+      prompts = parameterSetsForSlots.map(params =>
+        buildAIPrompt({ type: 'image', params: { ...params, settingsMode: input.settingsMode || 'basic' } })
+      );
+    }
+
+    // The first prompt is considered the "main" one for history purposes.
+    finalConstructedPromptForHistory = prompts[0] || 'Prompt generation failed.';
   }
+  // --- END REFACTORED LOGIC ---
   
   // Log all received optimized prompts together
   console.log(`\n🚀 ALL AI-GENERATED PROMPTS SUMMARY:`);
@@ -549,41 +539,24 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
   
   console.log("Generated Prompts:", prompts);
 
-  // MODIFIED LOGIC: IMAGE GENERATION
-  const imageGenerationPromises = prompts.map((prompt, index) => {
-    if (prompt) {
-      // Create a specific input object for each generation with its unique prompt
-      const inputForGeneration: GenerateImageEditInput = {
-        ...input,
-        prompt: prompt,
-      };
-      // Call the appropriate generation function
-      switch (index) {
-        case 0:
-          return generateImageFlow1(inputForGeneration, user);
-        case 1:
-          return generateImageFlow2(inputForGeneration, user);
-        case 2:
-          return generateImageFlow3(inputForGeneration, user);
-        default:
-          throw new Error(`Invalid flow index: ${index}`);
-      }
-    }
-    // If prompt generation failed for this slot, return a rejected promise
-    return Promise.reject(new Error('Prompt was not generated for this slot.'));
-  });
+  const [prompt1, prompt2, prompt3] = prompts;
 
-  const results = await Promise.allSettled(imageGenerationPromises);
+  const generationPromises = [
+    performSingleImageGeneration({ ...input, prompt: prompt1! }, user, `flow1`, 1),
+    performSingleImageGeneration({ ...input, prompt: prompt2! }, user, `flow2`, 2),
+    performSingleImageGeneration({ ...input, prompt: prompt3! }, user, `flow3`, 3),
+  ];
 
-  const editedImageUrlsResult: (string | null)[] = [null, null, null];
-  const errorsResult: (string | null)[] = [null, null, null];
+  const settledResults = await Promise.allSettled(generationPromises);
 
-  results.forEach((result, index) => {
+  const editedImageUrlsResult: (string | null)[] = Array(3).fill(null);
+  const errorsResult: (string | null)[] = Array(3).fill(null);
+
+  settledResults.forEach((result, index) => {
     if (result.status === 'fulfilled') {
       editedImageUrlsResult[index] = result.value.editedImageUrl;
     } else {
       console.error(`Error from flow ${index + 1}:`, result.reason);
-      // Ensure result.reason is an Error before accessing .message
       const reasonError = result.reason as Error;
       errorsResult[index] = `Image ${index + 1} processing failed: ${reasonError?.message || 'Unknown error'}`;
     }
@@ -616,123 +589,4 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
     constructedPrompt: finalConstructedPromptForHistory,
     errors: errorsResult.some(e => e !== null) ? errorsResult : undefined
   };
-}
-
-export async function generateSingleImageSlot(
-  input: GenerateImageEditInput, 
-  slotIndex: 0 | 1 | 2, 
-  username: string
-): Promise<{ slotIndex: number; result: SingleImageOutput; constructedPrompt: string }> {
-  if (!username) {
-    throw new Error('Username is required to generate images.');
-  }
-
-  // Fetch the user object ONCE at the beginning
-  const user = dbService.findUserByUsername(username);
-  if (!user) {
-    throw new Error(`User ${username} not found.`);
-  }
-
-  // Generate prompt for this specific slot
-  let promptForSlot: string;
-  let finalConstructedPromptForHistory: string;
-
-  if (input.useAIPrompt && input.parameters && input.imageDataUriOrUrl) {
-    console.log(`🎨 Generating AI prompt for slot ${slotIndex + 1}...`);
-    
-    let parametersForPrompt: ModelAttributes;
-    if (input.useRandomization) {
-      console.log(`🎲 Using randomized parameters for slot ${slotIndex + 1}`);
-      parametersForPrompt = generateRandomBasicParameters(input.parameters);
-      
-      // Log the randomized parameters for this slot
-      console.log(`\n🎲 RANDOM PARAMETERS FOR SLOT ${slotIndex + 1}:`);
-      console.log(`Ethnicity: ${parametersForPrompt.ethnicity}, Hair: ${parametersForPrompt.hairStyle}`);
-      console.log(`Expression: ${parametersForPrompt.modelExpression}, Pose: ${parametersForPrompt.poseStyle}`);
-      console.log(`Background: ${parametersForPrompt.background}`);
-      console.log(`[Keeping user's: Gender: ${parametersForPrompt.gender}, Body: ${parametersForPrompt.bodyShapeAndSize}, Age: ${parametersForPrompt.ageRange}]`);
-    } else {
-      parametersForPrompt = input.parameters;
-    }
-    
-    try {
-      promptForSlot = await generatePromptWithAI(parametersForPrompt, input.imageDataUriOrUrl, username, (slotIndex + 1) as 1 | 2 | 3);
-      finalConstructedPromptForHistory = promptForSlot;
-      
-      console.log(`\n🚀 AI-GENERATED PROMPT FOR SLOT ${slotIndex + 1}:`);
-      console.log('='.repeat(60));
-      console.log(promptForSlot);
-      console.log('='.repeat(60));
-    } catch (error) {
-      console.error(`Failed to generate AI prompt for slot ${slotIndex + 1}:`, error);
-      throw new Error(`AI prompt generation failed for slot ${slotIndex + 1}: ${(error as Error).message}`);
-    }
-  } else {
-    console.log(`Using local prompt builder for slot ${slotIndex + 1}...`);
-    if (input.parameters) {
-      promptForSlot = buildAIPrompt({
-        type: 'image',
-        params: {
-          ...input.parameters,
-          settingsMode: input.settingsMode || 'basic'
-        }
-      });
-    } else if (input.prompt) {
-      promptForSlot = input.prompt;
-    } else {
-      throw new Error('Either parameters or prompt must be provided');
-    }
-    finalConstructedPromptForHistory = promptForSlot;
-  }
-
-  // Generate the image for this slot
-  const inputForGeneration: GenerateImageEditInput = {
-    ...input,
-    prompt: promptForSlot,
-  };
-
-  let result: SingleImageOutput;
-  switch (slotIndex) {
-    case 0:
-      result = await generateImageFlow1(inputForGeneration, user);
-      break;
-    case 1:
-      result = await generateImageFlow2(inputForGeneration, user);
-      break;
-    case 2:
-      result = await generateImageFlow3(inputForGeneration, user);
-      break;
-    default:
-      throw new Error(`Invalid slot index: ${slotIndex}`);
-  }
-
-  return {
-    slotIndex,
-    result,
-    constructedPrompt: finalConstructedPromptForHistory
-  };
-}
-
-export async function regenerateSingleImage(input: GenerateImageEditInput, flowIndex: number, username: string): Promise<SingleImageOutput> {
-  if (!username) {
-    throw new Error('Username is required to re-roll an image.');
-  }
-  
-  // Fetch the user object ONCE at the beginning
-  const user = dbService.findUserByUsername(username);
-  if (!user) {
-    throw new Error(`User ${username} not found.`);
-  }
-  
-  console.log(`Attempting to re-roll image for flow index: ${flowIndex}`);
-  switch (flowIndex) {
-    case 0:
-      return performSingleImageGeneration(input, user, 'flow1-reroll', 1);
-    case 1:
-      return performSingleImageGeneration(input, user, 'flow2-reroll', 2);
-    case 2:
-      return performSingleImageGeneration(input, user, 'flow3-reroll', 3);
-    default:
-      throw new Error(`Invalid flow index: ${flowIndex}. Must be 0, 1, or 2.`);
-  }
 }
