@@ -27,7 +27,7 @@ import { useActivePreparationImage, useImagePreparation } from "@/contexts/Image
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
     BODY_SHAPE_AND_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
-    POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS, TIME_OF_DAY_OPTIONS, OVERALL_MOOD_OPTIONS,
+    POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS, TIME_OF_DAY_OPTIONS, OVERALL_MOOD_OPTIONS, MODEL_ANGLE_OPTIONS,
     LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, CAMERA_ANGLE_OPTIONS, LENS_EFFECT_OPTIONS,
     DEPTH_OF_FIELD_OPTIONS, OptionWithPromptSegment
 } from '@/lib/prompt-builder';
@@ -74,7 +74,7 @@ export default function ImageParameters({
   const [modelExpression, setModelExpression] = useState<string>(MODEL_EXPRESSION_OPTIONS[0].value);
   const [lightingType, setLightingType] = useState<string>(LIGHTING_TYPE_OPTIONS[0].value);
   const [lightQuality, setLightQuality] = useState<string>(LIGHT_QUALITY_OPTIONS[0].value);
-  const [cameraAngle, setCameraAngle] = useState<string>(CAMERA_ANGLE_OPTIONS[0].value);
+  const [modelAngle, setModelAngle] = useState<string>(MODEL_ANGLE_OPTIONS[0].value);
   const [lensEffect, setLensEffect] = useState<string>(LENS_EFFECT_OPTIONS[0].value);
   const [depthOfField, setDepthOfField] = useState<string>(DEPTH_OF_FIELD_OPTIONS[0].value);
   const [timeOfDay, setTimeOfDay] = useState<string>(TIME_OF_DAY_OPTIONS[0].value);
@@ -127,7 +127,7 @@ export default function ImageParameters({
       setModelExpression(attrs.modelExpression || MODEL_EXPRESSION_OPTIONS[0].value);
       setLightingType(attrs.lightingType || LIGHTING_TYPE_OPTIONS[0].value);
       setLightQuality(attrs.lightQuality || LIGHT_QUALITY_OPTIONS[0].value);
-      setCameraAngle(attrs.cameraAngle || CAMERA_ANGLE_OPTIONS[0].value);
+      setModelAngle(attrs.modelAngle || MODEL_ANGLE_OPTIONS[0].value);
       setLensEffect(attrs.lensEffect || LENS_EFFECT_OPTIONS[0].value);
       setDepthOfField(attrs.depthOfField || DEPTH_OF_FIELD_OPTIONS[0].value);
       setTimeOfDay(attrs.timeOfDay || TIME_OF_DAY_OPTIONS[0].value);
@@ -178,7 +178,7 @@ export default function ImageParameters({
     modelExpression: { setter: setModelExpression, options: MODEL_EXPRESSION_OPTIONS, defaultVal: MODEL_EXPRESSION_OPTIONS[0].value },
     lightingType: { setter: setLightingType, options: LIGHTING_TYPE_OPTIONS, defaultVal: LIGHTING_TYPE_OPTIONS[0].value },
     lightQuality: { setter: setLightQuality, options: LIGHT_QUALITY_OPTIONS, defaultVal: LIGHT_QUALITY_OPTIONS[0].value },
-    cameraAngle: { setter: setCameraAngle, options: CAMERA_ANGLE_OPTIONS, defaultVal: CAMERA_ANGLE_OPTIONS[0].value },
+    modelAngle: { setter: setModelAngle, options: MODEL_ANGLE_OPTIONS, defaultVal: MODEL_ANGLE_OPTIONS[0].value },
     lensEffect: { setter: setLensEffect, options: LENS_EFFECT_OPTIONS, defaultVal: LENS_EFFECT_OPTIONS[0].value },
     depthOfField: { setter: setDepthOfField, options: DEPTH_OF_FIELD_OPTIONS, defaultVal: DEPTH_OF_FIELD_OPTIONS[0].value },
     timeOfDay: { setter: setTimeOfDay, options: TIME_OF_DAY_OPTIONS, defaultVal: TIME_OF_DAY_OPTIONS[0].value },
@@ -246,12 +246,12 @@ export default function ImageParameters({
   const currentImageGenParams = React.useMemo((): ImageGenerationParams => ({
     gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
     fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-    cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood,
+    modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
     settingsMode,
   }), [
     gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
     fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-    cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood,
+    modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
     settingsMode
   ]);
 
@@ -304,7 +304,7 @@ export default function ImageParameters({
     const currentSettingsToSave: ModelAttributes = {
       gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
       fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-      cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood,
+      modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
     };
     window.localStorage.setItem('imageForgeDefaults', JSON.stringify(currentSettingsToSave));
     toast({ 
@@ -736,6 +736,7 @@ export default function ImageParameters({
                         {renderSelect({ id: "fashionStyle", label: "Fashion Style", value: fashionStyle, onChange: setFashionStyle, options: FASHION_STYLE_OPTIONS })}
                         {renderSelect({ id: "poseStyle", label: "Pose Style", value: poseStyle, onChange: setPoseStyle, options: POSE_STYLE_OPTIONS })}
                         {renderSelect({ id: "modelExpression", label: "Model Expression", value: modelExpression, onChange: setModelExpression, options: MODEL_EXPRESSION_OPTIONS })}
+                        {renderSelect({ id: "modelAngle", label: "Model Angle", value: modelAngle, onChange: setModelAngle, options: MODEL_ANGLE_OPTIONS })}
                         {renderSelect({ id: "hairStyle", label: "Hair Style", value: hairStyle, onChange: setHairStyle, options: HAIR_STYLE_OPTIONS })}
                         {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS })}
                         {settingsMode === 'advanced' && renderSelect({ id: "timeOfDay", label: "Time of Day", value: timeOfDay, onChange: setTimeOfDay, options: TIME_OF_DAY_OPTIONS })}
@@ -755,7 +756,6 @@ export default function ImageParameters({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                           {renderSelect({ id: "lightingType", label: "Lighting Type", value: lightingType, onChange: setLightingType, options: LIGHTING_TYPE_OPTIONS })}
                           {renderSelect({ id: "lightQuality", label: "Light Quality", value: lightQuality, onChange: setLightQuality, options: LIGHT_QUALITY_OPTIONS })}
-                          {renderSelect({ id: "cameraAngle", label: "Camera Angle", value: cameraAngle, onChange: setCameraAngle, options: CAMERA_ANGLE_OPTIONS })}
                           {renderSelect({ id: "lensEffect", label: "Lens Effect", value: lensEffect, onChange: setLensEffect, options: LENS_EFFECT_OPTIONS })}
                           {renderSelect({ id: "depthOfField", label: "Depth of Field", value: depthOfField, onChange: setDepthOfField, options: DEPTH_OF_FIELD_OPTIONS })}
                         </div>

@@ -19,7 +19,7 @@ import { saveDataUriLocally } from '@/services/storage.service';
 import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 import mime from 'mime-types';
 import { getApiKeyForUser } from '@/services/apiKey.service';
-import {
+import { MODEL_ANGLE_OPTIONS,
   buildAIPrompt, GENDER_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS
 } from '@/lib/prompt-builder'; // <-- No change here, but POSE_STYLE_OPTIONS is now used below
 import { generatePromptWithAI } from '@/ai/actions/generate-prompt.action';
@@ -119,6 +119,11 @@ function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAt
   // 50% chance to randomize pose style, otherwise keep user's original choice  
   if (Math.random() < 0.5) {
     result.poseStyle = pickRandom(POSE_STYLE_OPTIONS);
+  }
+
+  // New: 30% chance to randomize model angle
+  if (Math.random() < 0.3) {
+    result.modelAngle = pickRandom(MODEL_ANGLE_OPTIONS);
   }
 
   // Tier 2: Medium frequency randomization (25% chance)

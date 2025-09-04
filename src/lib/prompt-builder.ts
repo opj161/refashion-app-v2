@@ -22,7 +22,7 @@ export interface BaseGenerationParams {
   modelExpression?: string;
   lightingType?: string;
   lightQuality?: string;
-  cameraAngle?: string;
+  modelAngle?: string;
   lensEffect?: string;
   depthOfField?: string;
   timeOfDay?: string; // Also used by image if relevant to background
@@ -347,16 +347,7 @@ export const LIGHT_QUALITY_OPTIONS: OptionWithPromptSegment[] = [
   { value: "glowing_radiant_luminous", displayLabel: "Glowing, Radiant, Luminous", promptSegment: "The light appears glowing, radiant, or luminous, perhaps with a slight bloom effect." },
 ];
 export const CAMERA_ANGLE_OPTIONS: OptionWithPromptSegment[] = [
-  { value: "default", displayLabel: "Default (Eye-Level)", promptSegment: "an eye-level shot" },
-  { value: "low_angle_emphasize_height", displayLabel: "Low-Angle (Emphasize Height)", promptSegment: "a low-angle shot, making the subject appear powerful and tall" },
-  { value: "high_angle_overview_diminish", displayLabel: "High-Angle (Overview/Diminish)", promptSegment: "a high-angle shot, offering an overview or making the subject seem smaller or more vulnerable" },
-  { value: "dutch_angle_dynamic_unease", displayLabel: "Dutch Angle (Dynamic/Unease)", promptSegment: "a Dutch angle (canted frame), creating a sense of dynamism, tension, or unease" },
-  { value: "profile_view_side", displayLabel: "Profile View (Side)", promptSegment: "a profile view, showing the subject from the side" },
-  { value: "three_quarter_view_classic_portrait", displayLabel: "Three-Quarter View (Classic Portrait)", promptSegment: "a three-quarter view, a classic angle for portraits showing some depth" },
-  { value: "full_body_shot_entire_outfit", displayLabel: "Full Body Shot (Entire Outfit)", promptSegment: "a full body shot, showcasing the entire outfit from head to toe" },
-  { value: "medium_shot_waist_up_focus", displayLabel: "Medium Shot (Waist Up)", promptSegment: "a medium shot, typically from the waist up, balancing subject and some context" },
-  { value: "close_up_facial_expression_details", displayLabel: "Close-Up (Facial Expression/Details)", promptSegment: "a close-up, focusing on facial expression or specific garment details" },
-  { value: "extreme_close_up_texture_jewelry", displayLabel: "Extreme Close-Up (Texture/Jewelry)", promptSegment: "an extreme close-up, highlighting fabric texture, intricate details, or small accessories like jewelry" },
+  // This is deprecated and will be replaced by MODEL_ANGLE_OPTIONS
 ];
 export const LENS_EFFECT_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default (Standard Perspective)", promptSegment: "Photographed with a standard lens perspective, offering a natural field of view." },
@@ -371,6 +362,12 @@ export const DEPTH_OF_FIELD_OPTIONS: OptionWithPromptSegment[] = [
   { value: "shallow_dof_creamy_bokeh_f1_8_style", displayLabel: "Shallow DoF (Creamy Bokeh, f/1.8 Style)", promptSegment: "Achieving a shallow depth of field (simulating an f/1.8 aperture) with a creamy, beautifully blurred bokeh background, making the subject pop." },
   { value: "deep_dof_all_sharp_f16_style", displayLabel: "Deep DoF (All Sharp, f/16 Style)", promptSegment: "Employing a deep depth of field (simulating an f/16 aperture) where both the subject and the background are in sharp focus, ideal for detailed environmental shots." },
   { value: "moderate_dof_subject_context_f5_6_style", displayLabel: "Moderate DoF (Subject & Context, f/5.6 Style)", promptSegment: "Using a moderate depth of field (simulating an f/5.6 aperture) to keep the subject sharp while retaining some recognizable detail in the background context." },
+];
+export const MODEL_ANGLE_OPTIONS: OptionWithPromptSegment[] = [
+  { value: "front_facing", displayLabel: "Default (Front-Facing)", promptSegment: "" },
+  { value: "slight_oblique", displayLabel: "Slight Angle (Oblique)", promptSegment: ", photographed from a slight oblique angle" },
+  { value: "three_quarter", displayLabel: "Three-Quarter View", promptSegment: ", photographed from a three-quarter angle" },
+  { value: "profile", displayLabel: "Profile View (Side Shot)", promptSegment: ", photographed in profile" },
 ];
 // For Video Generation
 export const PREDEFINED_PROMPTS: OptionWithPromptSegment[] = [
@@ -435,7 +432,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
     const {
         gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
         fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-        cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood,
+        modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
         settingsMode
     } = params;
 
@@ -462,7 +459,12 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
         modelDescriptionPart += ` standing in ${poseStyleOption.promptSegment}`;
       }
 
-      modelDescriptionPart += " wearing this clothing item in the image.";
+      const modelAngleOption = getSelectedOption(MODEL_ANGLE_OPTIONS, modelAngle);
+      if (modelAngleOption && modelAngleOption.value !== "front_facing" && modelAngleOption.promptSegment) {
+        modelDescriptionPart += `${modelAngleOption.promptSegment}`;
+      }
+
+      modelDescriptionPart += ", wearing this clothing item in the image.";
 
       let settingPart = "";
       const backgroundOption = getSelectedOption(BACKGROUND_OPTIONS, background);
@@ -556,7 +558,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
           if (opt && opt.value !== "default" && opt.promptSegment) shotDetailSegments.push(opt.promptSegment);
         };
 
-        addShotDetail(CAMERA_ANGLE_OPTIONS, cameraAngle);
+        addShotDetail(MODEL_ANGLE_OPTIONS, modelAngle);
         addShotDetail(LENS_EFFECT_OPTIONS, lensEffect);
         addShotDetail(DEPTH_OF_FIELD_OPTIONS, depthOfField);
 
@@ -564,7 +566,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
           prompt += `\n\nShot Details: ${shotDetailSegments.join('. ')}.`;
         } else {
           if (params.fashionStyle === "ecommerce_product") {
-            prompt += `\n\nShot Details: ${getSelectedOption(CAMERA_ANGLE_OPTIONS, "full_body_shot_entire_outfit")!.promptSegment}. ${getSelectedOption(LENS_EFFECT_OPTIONS, "default")!.promptSegment}.`;
+            prompt += `\n\nShot Details: a full body shot. ${getSelectedOption(LENS_EFFECT_OPTIONS, "default")!.promptSegment}.`;
           }
         }
 

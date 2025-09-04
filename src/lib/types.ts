@@ -53,7 +53,7 @@ export interface ModelAttributes {
   modelExpression: string;
   lightingType: string;
   lightQuality: string;
-  cameraAngle: string;
+  modelAngle: string;
   lensEffect: string;
   depthOfField: string;
   timeOfDay: string;

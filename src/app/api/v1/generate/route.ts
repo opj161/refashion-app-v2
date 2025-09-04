@@ -17,7 +17,7 @@ const ModelAttributesSchema = z.object({
   modelExpression: z.string(),
   lightingType: z.string(),
   lightQuality: z.string(),
-  cameraAngle: z.string(),
+  modelAngle: z.string(),
   lensEffect: z.string(),
   depthOfField: z.string(),
   timeOfDay: z.string(),

@@ -8,7 +8,7 @@ import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 import {
   GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS,
   HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS,
-  TIME_OF_DAY_OPTIONS, LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, CAMERA_ANGLE_OPTIONS,
+  TIME_OF_DAY_OPTIONS, LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, MODEL_ANGLE_OPTIONS,
   LENS_EFFECT_OPTIONS, DEPTH_OF_FIELD_OPTIONS, OVERALL_MOOD_OPTIONS,
   FASHION_STYLE_OPTIONS, type OptionWithPromptSegment
 } from '@/lib/prompt-builder';
@@ -121,8 +121,8 @@ function formatParametersForAI(params: ModelAttributes): string {
   const lightQualityText = getOptionText(LIGHT_QUALITY_OPTIONS, params.lightQuality);
   if (lightQualityText) technicalEnhancements.push(lightQualityText);
 
-  const cameraAngleText = getOptionText(CAMERA_ANGLE_OPTIONS, params.cameraAngle);
-  if (cameraAngleText) technicalEnhancements.push(cameraAngleText);
+  const modelAngleText = getOptionText(MODEL_ANGLE_OPTIONS, params.modelAngle);
+  if (modelAngleText) technicalEnhancements.push(modelAngleText);
 
   const lensEffectText = getOptionText(LENS_EFFECT_OPTIONS, params.lensEffect);
   if (lensEffectText) technicalEnhancements.push(lensEffectText);
