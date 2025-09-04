@@ -37,30 +37,34 @@ export async function prepareInitialImage(formData: FormData): Promise<PrepareIm
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer() as ArrayBuffer);
-    const image = sharp(buffer);
+
+    // Create a sharp instance and apply auto-orientation based on EXIF data.
+    // This normalizes the image before any other processing.
+    const image = sharp(buffer).autoOrient();
+
+    // Get metadata *after* orientation has been applied to get correct dimensions.
     const metadata = await image.metadata();
 
     if (!metadata.width || !metadata.height) {
       return { success: false, error: 'Could not read image metadata.' };
     }
 
-    let finalBuffer = buffer;
+    let processingPipeline = image;
     let resized = false;
 
     if (metadata.width > MAX_DIMENSION || metadata.height > MAX_DIMENSION) {
-      finalBuffer = Buffer.from(await image
+      processingPipeline = processingPipeline
         .resize({
           width: MAX_DIMENSION,
           height: MAX_DIMENSION,
           fit: 'inside',
           withoutEnlargement: true,
-        })
-        .toBuffer());
+        });
       resized = true;
     }
 
-    // Save as PNG instead of lossless WEBP for Next.js Image Optimizer compatibility
-    const outputBuffer = await sharp(finalBuffer).png().toBuffer();
+    // Convert to PNG and get the final buffer from the pipeline
+    const outputBuffer = await processingPipeline.png().toBuffer();
 
     // Use the storage service to save the processed buffer and get a URL
     const { relativeUrl, hash } = await saveFileFromBuffer(
