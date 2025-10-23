@@ -44,13 +44,13 @@ export async function createApiJob(payload: ApiJobPayload): Promise<string> {
 export async function processApiGenerationJob(jobId: string, payload: Omit<ApiJobPayload, 'username'>, username: string): Promise<void> {
   const { webhookUrl } = payload;
   try {
-    const result = await generateImageEdit({ 
+  const result = await generateImageEdit({ 
       parameters: payload.parameters,
       settingsMode: payload.settingsMode,
       imageDataUriOrUrl: payload.imageDataUri,
       useAIPrompt: false, // Default to false for API calls
       useRandomization: false // Default to false for API calls
-    }, username);
+  }, username, jobId); // Pass the existing jobId so generateImageEdit does NOT create a second history row
 
     // Update history item with results AND the constructed prompt
     await updateHistoryItem(jobId, {

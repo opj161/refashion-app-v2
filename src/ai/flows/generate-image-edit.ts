@@ -464,7 +464,11 @@ const GenerateMultipleImagesOutputSchema = z.object({
 export type GenerateMultipleImagesOutput = z.infer<typeof GenerateMultipleImagesOutputSchema>;
 
 
-export async function generateImageEdit(input: GenerateImageEditInput, username: string): Promise<GenerateMultipleImagesOutput> {
+export async function generateImageEdit(
+  input: GenerateImageEditInput,
+  username: string,
+  existingHistoryId?: string
+): Promise<GenerateMultipleImagesOutput & { newHistoryId?: string }> {
   if (!username) {
     throw new Error('Username is required to generate images.');
   }
@@ -573,16 +577,28 @@ export async function generateImageEdit(input: GenerateImageEditInput, username:
     const modelUsed = user.image_generation_model;
     if (username && input.imageDataUriOrUrl) {
       try {
-        const newHistoryId = await addHistoryItem(
-          input.parameters,
-          finalConstructedPromptForHistory,
-          input.imageDataUriOrUrl,
-          editedImageUrlsResult,
-          input.settingsMode || 'basic',
-          modelUsed,
-          'completed'
-        );
-        // Optionally set active history item or refresh gallery here
+        if (existingHistoryId) {
+          // When caller provided a job id, do NOT create a new history record here.
+          // Caller (e.g. API worker) is expected to call updateHistoryItem(jobId, ...) afterwards.
+          // This avoids creating a duplicate row for API job flows.
+        } else {
+          const newHistoryId = await addHistoryItem(
+            input.parameters,
+            finalConstructedPromptForHistory,
+            input.imageDataUriOrUrl,
+            editedImageUrlsResult,
+            input.settingsMode || 'basic',
+            modelUsed,
+            'completed'
+          );
+          // Return the created history id to caller so the client can set activeHistoryItemId.
+          return {
+            editedImageUrls: editedImageUrlsResult,
+            constructedPrompt: finalConstructedPromptForHistory,
+            errors: errorsResult.some(e => e !== null) ? errorsResult : undefined,
+            newHistoryId
+          };
+        }
       } catch (err) {
         console.error('Failed to add history item:', err);
       }

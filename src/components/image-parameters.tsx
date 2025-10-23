@@ -365,34 +365,21 @@ export default function ImageParameters({
     toast({ title: useRandomization ? "Starting Creative Generation..." : "Starting Generation...", description: useRandomization ? "Using randomized styles for variety." : "Using your selected settings." });
 
     try {
-      const result: GenerateMultipleImagesOutput = await generateImageEdit(generationInput, currentUser?.username || '');
-      setOutputImageUrls(result.editedImageUrls);
+  const result: GenerateMultipleImagesOutput & { newHistoryId?: string } = await generateImageEdit(generationInput, currentUser?.username || '');
+  setOutputImageUrls(result.editedImageUrls);
       
       // Store the prompt for history
       setLastUsedPrompt(result.constructedPrompt);
       
       const successCount = result.editedImageUrls.filter(url => url !== null).length;
       if (successCount > 0) {
-        // Add to history
-        if (currentUser && preparedImageUrl) {
-          try {
-            const newHistoryId = await addHistoryItem(
-              currentImageGenParams, 
-              result.constructedPrompt, 
-              preparedImageUrl, 
-              result.editedImageUrls, 
-              settingsMode, 
-              'google_gemini_2_0' // Default model for now, will be determined by user preference later
-            );
-            setActiveHistoryItemId(newHistoryId);
-            
-            // Refresh history gallery if available
-            if (typeof (window as any).refreshHistoryGallery === 'function') {
-              (window as any).refreshHistoryGallery();
-            }
-          } catch (error) {
-            console.error("Failed to save to history:", error);
-          }
+        // generateImageEdit already created the history item on the server and returns its id (newHistoryId).
+        if (result.newHistoryId) {
+          setActiveHistoryItemId(result.newHistoryId);
+        }
+        // Refresh history gallery if available (it will now fetch the new row from DB once).
+        if (typeof (window as any).refreshHistoryGallery === 'function') {
+          (window as any).refreshHistoryGallery();
         }
         toast({
           title: "Generation Complete!",
