@@ -10,7 +10,7 @@ import { getDisplayableImageUrl } from '@/lib/utils';
 // Server Actions
 import { removeBackgroundAction } from "@/ai/actions/remove-background.action";
 import { upscaleImageAction, faceDetailerAction } from "@/ai/actions/upscale-image.action";
-import { prepareInitialImage, cropImage, recreateStateFromHistoryAction, rotateImage } from "@/actions/imageActions";
+import { prepareInitialImage, cropImage, recreateStateFromHistoryAction, rotateImage, flipImage } from "@/actions/imageActions";
 
 // Types for the image preparation workflow
 export interface ImageVersion {
@@ -32,6 +32,10 @@ export interface ImagePreparationState {
   versions: Record<string, ImageVersion>;
   activeVersionId: string | null;
   
+  // Version history for undo/redo
+  versionHistory: string[]; // Array of version IDs in chronological order
+  historyIndex: number; // Current position in history (-1 means no history)
+  
   // Crop-related state
   crop?: Crop;
   completedCrop?: PixelCrop;
@@ -43,7 +47,7 @@ export interface ImagePreparationState {
   
   // Processing state
   isProcessing: boolean;
-  processingStep: 'upload' | 'crop' | 'bg' | 'upscale' | 'face' | 'rotate' | 'confirm' | null;
+  processingStep: 'upload' | 'crop' | 'bg' | 'upscale' | 'face' | 'rotate' | 'flip' | 'confirm' | null;
   
   // Comparison state
   comparison: {
@@ -58,6 +62,12 @@ export interface ImagePreparationActions {
   addVersion: (version: Omit<ImageVersion, 'id' | 'createdAt'>) => string;
   setActiveVersion: (versionId: string) => void;
   reset: () => void;
+  
+  // Undo/Redo actions
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   
   // Crop actions
   setCrop: (crop?: Crop) => void;
@@ -79,6 +89,8 @@ export interface ImagePreparationActions {
   faceDetailer: (username: string) => Promise<void>;
   rotateImageLeft: () => Promise<void>;
   rotateImageRight: () => Promise<void>;
+  flipHorizontal: () => Promise<void>;
+  flipVertical: () => Promise<void>;
   uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
   initializeFromHistory: (item: HistoryItem) => Promise<void>;
 }
@@ -94,6 +106,8 @@ const initialState: ImagePreparationState = {
   original: null,
   versions: {},
   activeVersionId: null,
+  versionHistory: [],
+  historyIndex: -1,
   crop: undefined,
   completedCrop: undefined,
   aspect: undefined,
@@ -129,6 +143,8 @@ export const ImagePreparationProvider = ({ children }: { children: ReactNode }) 
       original: { file, imageUrl, hash },
       versions: { original: originalVersion },
       activeVersionId: 'original',
+      versionHistory: ['original'],
+      historyIndex: 0,
     });
   }, []);
 
@@ -140,14 +156,23 @@ export const ImagePreparationProvider = ({ children }: { children: ReactNode }) 
       createdAt: Date.now(),
     };
 
-    setState(prev => ({
-      ...prev,
-      versions: {
-        ...prev.versions,
-        [id]: newVersion,
-      },
-      activeVersionId: id,
-    }));
+    setState(prev => {
+      // When adding a new version, clear any forward history if we're not at the end
+      const newHistory = prev.historyIndex < prev.versionHistory.length - 1
+        ? [...prev.versionHistory.slice(0, prev.historyIndex + 1), id]
+        : [...prev.versionHistory, id];
+
+      return {
+        ...prev,
+        versions: {
+          ...prev.versions,
+          [id]: newVersion,
+        },
+        activeVersionId: id,
+        versionHistory: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    });
 
     return id;
   }, []);
@@ -166,6 +191,51 @@ export const ImagePreparationProvider = ({ children }: { children: ReactNode }) 
   const reset = useCallback(() => {
     setState(initialState);
   }, []);
+
+  // Undo/Redo actions
+  const undo = useCallback(() => {
+    setState(prev => {
+      if (prev.historyIndex <= 0) return prev; // Can't undo further
+      
+      const newIndex = prev.historyIndex - 1;
+      const newActiveId = prev.versionHistory[newIndex];
+      
+      return {
+        ...prev,
+        activeVersionId: newActiveId,
+        historyIndex: newIndex,
+        // Reset crop/dimensions when undoing
+        crop: undefined,
+        completedCrop: undefined,
+        imageDimensions: undefined,
+        comparison: null,
+      };
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setState(prev => {
+      if (prev.historyIndex >= prev.versionHistory.length - 1) return prev; // Can't redo further
+      
+      const newIndex = prev.historyIndex + 1;
+      const newActiveId = prev.versionHistory[newIndex];
+      
+      return {
+        ...prev,
+        activeVersionId: newActiveId,
+        historyIndex: newIndex,
+        // Reset crop/dimensions when redoing
+        crop: undefined,
+        completedCrop: undefined,
+        imageDimensions: undefined,
+        comparison: null,
+      };
+    });
+  }, []);
+
+  // Derived state for undo/redo availability
+  const canUndo = state.historyIndex > 0;
+  const canRedo = state.historyIndex < state.versionHistory.length - 1;
 
   // Crop actions
   const setCrop = useCallback((crop?: Crop) => {
@@ -305,6 +375,45 @@ export const ImagePreparationProvider = ({ children }: { children: ReactNode }) 
 
   const rotateImageLeft = useCallback(() => handleRotation(-90), [handleRotation]);
   const rotateImageRight = useCallback(() => handleRotation(90), [handleRotation]);
+
+  const handleFlip = useCallback(async (direction: 'horizontal' | 'vertical') => {
+    const { activeVersionId, versions } = state;
+    if (!activeVersionId || !versions[activeVersionId]) {
+      toast({ title: 'No active image to flip', variant: 'destructive' });
+      return;
+    }
+
+    const currentVersion = versions[activeVersionId];
+    setProcessing(true, 'flip');
+
+    try {
+      const result = await flipImage(currentVersion.imageUrl, direction);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      const label = direction === 'horizontal' ? 'Flipped Horizontal' : 'Flipped Vertical';
+      const newVersionId = addVersion({
+        imageUrl: result.imageUrl,
+        label,
+        sourceVersionId: activeVersionId,
+        hash: result.hash,
+      });
+
+      // Update dimensions
+      setOriginalImageDimensions({ width: result.originalWidth, height: result.originalHeight });
+      
+      toast({ title: "Image Flipped", description: `A new ${label.toLowerCase()} version has been created.` });
+    } catch (error) {
+      console.error('Error flipping image:', error);
+      toast({ title: "Flip Failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setProcessing(false, null);
+    }
+  }, [state, addVersion, setProcessing, setOriginalImageDimensions]);
+
+  const flipHorizontal = useCallback(() => handleFlip('horizontal'), [handleFlip]);
+  const flipVertical = useCallback(() => handleFlip('vertical'), [handleFlip]);
 
   const removeBackground = useCallback(async (username: string) => {
     const { activeVersionId, versions } = state;
@@ -458,6 +567,10 @@ export const ImagePreparationProvider = ({ children }: { children: ReactNode }) 
     addVersion,
     setActiveVersion,
     reset,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
     setCrop,
     setCompletedCrop,
     setAspect,
@@ -471,6 +584,8 @@ export const ImagePreparationProvider = ({ children }: { children: ReactNode }) 
     faceDetailer,
     rotateImageLeft,
     rotateImageRight,
+    flipHorizontal,
+    flipVertical,
     uploadOriginalImage,
     initializeFromHistory,
   };

@@ -324,3 +324,63 @@ export async function rotateImage(
     return { success: false, error: `Failed to rotate image: ${errorMessage}` };
   }
 }
+
+/**
+ * Flips an existing image on the server horizontally or vertically.
+ * @param imageUrl The server-relative URL of the image to flip.
+ * @param direction The flip direction ('horizontal' or 'vertical').
+ * @returns An object with the new URL, hash, and dimensions of the flipped image.
+ */
+export async function flipImage(
+  imageUrl: string,
+  direction: 'horizontal' | 'vertical'
+): Promise<PrepareImageResult | { success: false; error: string }> {
+  if (!imageUrl || (direction !== 'horizontal' && direction !== 'vertical')) {
+    return { success: false, error: 'Image URL and a valid direction (horizontal or vertical) are required.' };
+  }
+
+  try {
+    // Use secure file system utility for reading the image
+    const originalBuffer = await getBufferFromLocalPath(imageUrl);
+
+    // Create sharp instance
+    let pipeline = sharp(originalBuffer);
+
+    // Apply flip based on direction
+    if (direction === 'horizontal') {
+      pipeline = pipeline.flop(); // Horizontal flip (mirror)
+    } else {
+      pipeline = pipeline.flip(); // Vertical flip (upside down)
+    }
+
+    // Convert to PNG buffer
+    const flippedBuffer = await pipeline.png().toBuffer();
+
+    // Get the dimensions (should be unchanged for flip operations)
+    const newMetadata = await sharp(flippedBuffer).metadata();
+    if (!newMetadata.width || !newMetadata.height) {
+      return { success: false, error: 'Could not read metadata of the flipped image.' };
+    }
+
+    // Save the new buffer to a file
+    const { relativeUrl, hash } = await saveFileFromBuffer(
+      flippedBuffer,
+      `flipped_${direction}`,
+      'processed_images',
+      'png'
+    );
+
+    return {
+      success: true,
+      imageUrl: relativeUrl,
+      hash,
+      originalWidth: newMetadata.width,
+      originalHeight: newMetadata.height,
+      resized: false,
+    };
+  } catch (error) {
+    console.error('Error flipping image:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: `Failed to flip image: ${errorMessage}` };
+  }
+}
