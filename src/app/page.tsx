@@ -4,6 +4,9 @@ import HistoryGallery from '@/components/history-gallery';
 import { getHistoryPaginated } from '@/actions/historyActions';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Force dynamic rendering for user-specific content
+export const dynamic = 'force-dynamic';
+
 // Simplified Server Component - no more searchParams handling
 export default async function CreatePage() {
   return (

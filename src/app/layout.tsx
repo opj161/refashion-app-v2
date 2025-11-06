@@ -6,8 +6,8 @@ import type { SessionUser } from '@/lib/types';
 import { cookies } from 'next/headers';
 import { AppBody } from '@/components/AppBody';
 
-// Force dynamic rendering to ensure authentication state is determined at request time
-export const dynamic = 'force-dynamic';
+// Removed force-dynamic from root - moved to per-page basis for better performance
+// Only pages requiring auth should use force-dynamic
 
 export const metadata: Metadata = {
   title: 'Refashion AI',

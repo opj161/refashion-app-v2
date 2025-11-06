@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Crop as CropIcon, Square, RectangleVertical, RectangleHorizontal, Monitor, Film, Smartphone, Camera
 } from "lucide-react";
@@ -74,85 +75,95 @@ export default function AspectRatioSelector({
 
   return (
     <div className={disabled ? 'opacity-50 pointer-events-none' : ''}>
-      <div className="flex justify-between items-center mb-3">
-        <Label className="font-semibold text-sm">Aspect Ratio</Label>
-      </div>
-      
-      {/* Compact grid layout */}
-      <div className="grid grid-cols-4 gap-1.5 mb-2">
-        {aspectRatios.map(ar => {
-          const isActive = ar.value === aspect || (activePreset?.name === ar.name);
-          return (
-            <TooltipProvider key={ar.name}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isActive ? "secondary" : "ghost"}
-                    onClick={() => onAspectChange(ar.value)}
-                    className="flex-col h-auto p-2 gap-0.5 text-[10px] leading-tight"
-                    disabled={disabled}
-                    size="sm"
-                  >
-                    {ar.icon}
-                    <span className="font-medium">{ar.name}</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{ar.tooltip}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          );
-        })}
-      </div>
+      <Accordion type="single" collapsible defaultValue="" className="w-full">
+        <AccordionItem value="aspect-ratios" className="border-0">
+          <AccordionTrigger className="py-2 px-0 hover:no-underline">
+            <div className="flex justify-between items-center w-full pr-2">
+              <Label className="font-semibold text-sm cursor-pointer">Aspect Ratio</Label>
+              {aspect && activePreset && (
+                <span className="text-xs text-muted-foreground">{activePreset.name}</span>
+              )}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-2 pb-0">
+            {/* Compact grid layout */}
+            <div className="grid grid-cols-4 gap-1.5 mb-2">
+              {aspectRatios.map(ar => {
+                const isActive = ar.value === aspect || (activePreset?.name === ar.name);
+                return (
+                  <TooltipProvider key={ar.name}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={isActive ? "secondary" : "ghost"}
+                          onClick={() => onAspectChange(ar.value)}
+                          className="flex-col h-auto p-2 gap-0.5 text-[10px] leading-tight"
+                          disabled={disabled}
+                          size="sm"
+                        >
+                          {ar.icon}
+                          <span className="font-medium">{ar.name}</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">{ar.tooltip}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              })}
+            </div>
 
-      {/* Custom Ratio Input */}
-      {!showCustomInput ? (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowCustomInput(true)}
-          disabled={disabled}
-          className="w-full text-xs"
-        >
-          Custom Ratio
-        </Button>
-      ) : (
-        <div className="flex gap-2 items-center">
-          <Input
-            type="number"
-            placeholder="W"
-            value={customWidth}
-            onChange={(e) => setCustomWidth(e.target.value)}
-            className="h-8 text-xs"
-            min="1"
-            step="0.1"
-          />
-          <span className="text-xs text-muted-foreground">:</span>
-          <Input
-            type="number"
-            placeholder="H"
-            value={customHeight}
-            onChange={(e) => setCustomHeight(e.target.value)}
-            className="h-8 text-xs"
-            min="1"
-            step="0.1"
-          />
-          <Button
-            size="sm"
-            onClick={handleCustomRatio}
-            className="h-8 text-xs"
-          >
-            Apply
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setShowCustomInput(false)}
-            className="h-8 text-xs"
-          >
-            Cancel
-          </Button>
-        </div>
-      )}
+            {/* Custom Ratio Input */}
+            {!showCustomInput ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCustomInput(true)}
+                disabled={disabled}
+                className="w-full text-xs"
+              >
+                Custom Ratio
+              </Button>
+            ) : (
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="number"
+                  placeholder="W"
+                  value={customWidth}
+                  onChange={(e) => setCustomWidth(e.target.value)}
+                  className="h-8 text-xs"
+                  min="1"
+                  step="0.1"
+                />
+                <span className="text-xs text-muted-foreground">:</span>
+                <Input
+                  type="number"
+                  placeholder="H"
+                  value={customHeight}
+                  onChange={(e) => setCustomHeight(e.target.value)}
+                  className="h-8 text-xs"
+                  min="1"
+                  step="0.1"
+                />
+                <Button
+                  size="sm"
+                  onClick={handleCustomRatio}
+                  className="h-8 text-xs"
+                >
+                  Apply
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowCustomInput(false)}
+                  className="h-8 text-xs"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </div>
   );
 }

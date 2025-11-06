@@ -40,7 +40,7 @@ export function SiteHeader() {
     >
       <div className="container mx-auto flex max-w-7xl items-center justify-between px-4 h-[var(--header-height)]">
         {/* Left Side: Branding */}
-        <Link href="/" className="flex items-center gap-3 text-foreground group">
+        <Link href="/" prefetch={true} className="flex items-center gap-3 text-foreground group">
           <Image
             src="/refashion.svg"
             alt="Refashion AI logo"
@@ -60,7 +60,7 @@ export function SiteHeader() {
           <div className="hidden md:flex items-center gap-2">
             {user?.role === 'admin' && (
               <Button asChild variant="ghost" size="sm">
-                <Link href="/admin">
+                <Link href="/admin" prefetch={true}>
                   <ShieldCheck className="h-4 w-4" />
                   <span className="ml-2">Admin</span>
                 </Link>
