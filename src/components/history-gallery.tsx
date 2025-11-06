@@ -10,6 +10,7 @@ import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertTriangle, ImageIcon } from "lucide-react";
 import HistoryCard from "./HistoryCard";
+import { HistoryGallerySkeleton } from "./HistoryCardSkeleton"; // Import skeleton loader
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
@@ -227,6 +228,11 @@ export default function HistoryGallery({
             <p className="text-muted-foreground mt-1">Creations for this filter will appear here once you&apos;ve made some.</p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Show skeleton loaders while loading */}
+      {isLoadingMore && historyItems.length === 0 && (
+        <HistoryGallerySkeleton count={9} />
       )}
 
       <LayoutGroup>

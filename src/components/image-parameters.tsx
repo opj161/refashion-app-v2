@@ -271,19 +271,19 @@ export default function ImageParameters({
     isFaceDetailerAvailable().then(setIsFaceDetailerServiceAvailable);
   }, []);
 
-  // Handler for opening image viewer modal
-  const handleImageClick = (imageUrl: string, index: number) => {
+  // Handler for opening image viewer modal - memoized
+  const handleImageClick = useCallback((imageUrl: string, index: number) => {
     setSelectedImageUrl(imageUrl);
     setSelectedImageIndex(index);
     setIsImageViewerOpen(true);
-  };
+  }, []);
 
-  // Handler for closing image viewer modal
-  const handleCloseImageViewer = () => {
+  // Handler for closing image viewer modal - memoized
+  const handleCloseImageViewer = useCallback(() => {
     setIsImageViewerOpen(false);
     setSelectedImageUrl(null);
     setSelectedImageIndex(null);
-  };
+  }, []);
 
   // Keyboard support for image viewer modal
   useEffect(() => {
@@ -299,7 +299,7 @@ export default function ImageParameters({
     }
   }, [isImageViewerOpen]);
 
-  const handleSaveDefaults = () => {
+  const handleSaveDefaults = useCallback(() => {
     if (typeof window === 'undefined') return;
     const currentSettingsToSave: ModelAttributes = {
       gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
@@ -311,13 +311,15 @@ export default function ImageParameters({
       title: "Defaults Saved",
       description: "Your current settings have been saved for future sessions."
     });
-  };
+  }, [gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
+      fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
+      modelAngle, lensEffect, depthOfField, timeOfDay, overallMood, toast]);
 
   const resetAllParametersToAppDefaults = useCallback(() => {
     Object.values(PARAMETER_CONFIG).forEach(config => config.setter(config.defaultVal));
   }, [PARAMETER_CONFIG]);
 
-  const handleClearDefaults = () => {
+  const handleClearDefaults = useCallback(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.removeItem('imageForgeDefaults');
     resetAllParametersToAppDefaults();
@@ -325,9 +327,9 @@ export default function ImageParameters({
       title: "Defaults Cleared",
       description: "All saved settings have been reset to application defaults."
     });
-  };
+  }, [resetAllParametersToAppDefaults, toast]);
 
-  const handleRandomizeConfiguration = () => {    
+  const handleRandomizeConfiguration = useCallback(() => {    
     // This button is only active in manual mode. It randomizes the UI fields directly.
     const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
     Object.entries(PARAMETER_CONFIG).forEach(([key, config]) => {
@@ -336,7 +338,7 @@ export default function ImageParameters({
     // This is a one-time manual action, so ensure randomization state is off.
     setUseRandomization(false);
     toast({ title: "Manual Configuration Randomized!" });
-  };
+  }, [PARAMETER_CONFIG, handleParamChange, toast]);
 
   const handleSubmit = async () => {
     if (!preparedImageUrl) {
@@ -484,7 +486,7 @@ export default function ImageParameters({
     }
   };
 
-  const handleDownloadOutput = (imageUrl: string | null, index: number) => {
+  const handleDownloadOutput = useCallback((imageUrl: string | null, index: number) => {
     if (!imageUrl) return;
     const downloadUrl = getDisplayableImageUrl(imageUrl);
     if (!downloadUrl) return;
@@ -505,9 +507,9 @@ export default function ImageParameters({
       }).catch(err => {
         toast({ title: "Download Error", variant: "destructive" });
     });
-  };
+  }, [toast]);
 
-  const handleSendToVideoPage = (imageUrl: string | null) => {
+  const handleSendToVideoPage = useCallback((imageUrl: string | null) => {
     if (!imageUrl) return;
 
     // Add the generated image as a new version in the context
@@ -540,7 +542,7 @@ export default function ImageParameters({
       title: "Switched to Video",
       description: "Ready to generate a video with your selected generated image.",
     });
-  };
+  }, [activeImage?.id, addVersion, setCurrentTab, toast]);
 
   // Helper to render select components with enhanced styling
   const renderSelect = ({ id, label, value, onChange, options, disabled }: {

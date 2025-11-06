@@ -143,8 +143,16 @@ function initSchema(db: Database.Database) {
       value TEXT NOT NULL
     );
 
+    -- Composite index for efficient username + timestamp queries (pagination)
     CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history (username, timestamp DESC);
+    -- Individual indexes for flexible query optimization
+    CREATE INDEX IF NOT EXISTS idx_history_username ON history (username);
+    CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history (timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_history_status ON history (status);
+    -- Foreign key index for image lookups
     CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images (history_id);
+    CREATE INDEX IF NOT EXISTS idx_history_images_type ON history_images (type);
+    -- User table indexes
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username);
   `);
 
