@@ -1,0 +1,168 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Trash folder
+__trash__/
+__trash__/*
+
+docs/
+docs*
+.dist
+.dist*
+
+src/app/icon0.svg
+
+api_feature.patch.txt
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+dist/src*
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+
+# lock files
+package-lock.json
+
+# env files
+
+# user data
+user_data*
+user_data/*
+user_data/history/admin.json
+backups
+
+# firebase
+firebase-debug.log
+firestore-debug.log
+imageforge-direnzo-firebase-adminsdk-fbsvc-3f9772e3de.json
+
+google-cloud-sdk/*
+google-cloud-sdk
+
+# uploads
+public/uploads*
+uploads*
+
+
+# misc project files
+app.py
+docker-compose.unraid.yml
+Dockerfile copy
+MIGRATION_COMPLETE.md
+repomix-output.xml
+PROXY_IMPLEMENTATION.md
+SECURITY_URGENT.md
+refashion-app.xml
+src/ai/genkit.ts
+image-forge-page-client_old.tsx
+debug-path-test.js
+test-recent-upload-bug.js
+generate-password-hash.js
+RECENT_UPLOADS_DEACTIVATION_COMPLETE.md
+GOOGLE_FONTS_ISSUE_RESOLVED.md
+CODE_ANALYSIS_REPORT.md
+COMPREHENSIVE_BUG_ANALYSIS_REPORT.md
+biome.json
+
+# Log files
+build-log.txt
+
+# Generated XML files
+my-refashion.xml
+
+# Temporary files
+.modified
+
+# IDE directories
+.vscode/
+.idea/
+
+# Windows thumbnail cache
+Thumbs.db
+
+
+THEME_TOGGLE_IMPROVEMENTS.md
+API_LAYER_REFACTORING_SUMMARY.md
+CODEBASE_CLEANUP_SUMMARY.md
+IMAGE_CACHE_IMPLEMENTATION.md
+MIGRATION_GUIDE.md
+NAMING_SCHEME_STANDARDIZATION.md
+PHASE_2_IMPLEMENTATION_SUMMARY.md
+REFACTORING_IMPLEMENTATION_SUMMARY.md
+REFACTORING_VERIFICATION.md
+REFASHION_NAMING_MIGRATION_COMPLETE.md
+SQLITE_MIGRATION_COMPLETE.md
+THEME_TOGGLE_IMPROVEMENTS.md
+WEBHOOK_IMPLEMENTATION_SUMMARY.md
+WEBHOOK_VIDEO_SETUP.md
+MOTION_OPTIMIZATION_REPORT.md
+PAGE_TRANSITION_FIX_SUMMARY.md
+VIDEO_STATUS_POLLING_OPTIMIZATION.md
+MOTION_LIBRARY_OPTIMIZATION_SUMMARY.md
+refashion.xml
+
+
+/dist*
+create_api_patch.sh
+user_data/history/history.db
+api_feature.patch
+differences_src.patch
+refashion-app-v2.xml
+entrypoint.sh.old
+data-handling.md
+.claude/settings.local.json
+logo-animation.md
+webhooks_fal.txt
+fal.ai_video_API.txt
+fal.ai-package.txt
+reload-config-fix.md
+crop_refactor.md
+crop_refactor_fix.md
+react-crop-image.txt
+# Screenshot 2025-07-30 005642.png
+.env
+
+my-refashion.xml
+unraid-template.xml
+GEMINI.md
+CROPPING_REFACTOR_SUMMARY.md
+.env.local
+.env.production
+FETCH_CACHING_IMPLEMENTATION.md
+.eslint/rules.js.README.md
+.eslint/rules.js
+eslint-local-rules.js
+.eslintignore
+code-diffs.md
+vps-branch-changes.txt
