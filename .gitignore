@@ -52,7 +52,7 @@ yarn-error.log*
 *.tsbuildinfo
 
 # lock files
-package-lock.json
+# package-lock.json
 
 # env files
 
@@ -74,6 +74,7 @@ google-cloud-sdk
 public/uploads*
 uploads*
 
+docs/
 
 # misc project files
 app.py
