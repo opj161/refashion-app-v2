@@ -7,10 +7,10 @@ import ImagePreparationContainer from "./ImagePreparationContainer";
 import ImageParameters from "./image-parameters";
 import VideoParameters from "./video-parameters";
 import { useToast } from "@/hooks/use-toast";
-import { ImagePreparationProvider, useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { useImagePreparation } from "@/contexts/ImagePreparationContext";
 
-// Internal component that uses the context
-function CreationHubInternal({
+// Main component - ImagePreparationProvider is now globally available from AppBody
+export default function CreationHub({
   children
 }: {
   children: React.ReactElement;
@@ -57,20 +57,5 @@ function CreationHubInternal({
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-
-// Main component that provides the context
-export default function CreationHub({
-  children
-}: {
-  children: React.ReactElement;
-}) {
-  return (
-    <ImagePreparationProvider>
-      <CreationHubInternal>
-        {children}
-      </CreationHubInternal>
-    </ImagePreparationProvider>
   );
 }

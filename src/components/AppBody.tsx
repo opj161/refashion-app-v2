@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { ImagePreparationProvider } from '@/contexts/ImagePreparationContext';
 import { SiteHeader } from '@/components/SiteHeader';
 import PageTransitionWrapper from '@/components/PageTransitionWrapper';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
@@ -34,12 +35,14 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
       {/* Main application content */}
       <AuthProvider initialUser={initialUser}>
         <ThemeProvider>
-          <SiteHeader />
-          {/* Use separate content offset variable to control spacing independently of header height */}
-          <main className="flex-1 flex flex-col" style={{ paddingTop: 'var(--content-offset)' }}>
-            <PageTransitionWrapper>{children}</PageTransitionWrapper>
-          </main>
-          <Toaster />
+          <ImagePreparationProvider>
+            <SiteHeader />
+            {/* Use separate content offset variable to control spacing independently of header height */}
+            <main className="flex-1 flex flex-col" style={{ paddingTop: 'var(--content-offset)' }}>
+              <PageTransitionWrapper>{children}</PageTransitionWrapper>
+            </main>
+            <Toaster />
+          </ImagePreparationProvider>
         </ThemeProvider>
       </AuthProvider>
     </>
