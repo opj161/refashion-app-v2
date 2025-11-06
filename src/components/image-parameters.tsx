@@ -13,6 +13,7 @@ import { Loader2, Palette, PersonStanding, Settings2, Sparkles, FileText, Shuffl
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { UnifiedMediaModal, MediaSlot, SidebarSlot } from "./UnifiedMediaModal";
+import { GenerationProgressIndicator } from "./GenerationProgressIndicator";
 import { generateImageEdit, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
 import { upscaleImageAction, faceDetailerAction, isFaceDetailerAvailable } from "@/ai/actions/upscale-image.action";
 import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
@@ -824,6 +825,16 @@ export default function ImageParameters({
           </Accordion>
         </CardFooter>
       </Card>
+
+      {/* Progress Indicator - Shows during generation */}
+      {isLoading && (
+        <GenerationProgressIndicator
+          isGenerating={isLoading}
+          stage={isGeneratingSlots.every(s => s) ? 'finalizing' : 'processing'}
+          progress={Math.round((isGeneratingSlots.filter(s => !s && outputImageUrls[isGeneratingSlots.indexOf(s)] !== null).length / NUM_IMAGES_TO_GENERATE) * 100)}
+          imageCount={NUM_IMAGES_TO_GENERATE}
+        />
+      )}
 
       {/* Generated Images Display */}
       {(outputImageUrls.some(uri => uri !== null) || generationErrors.some(err => err !== null) || isGeneratingSlots.some(loading => loading)) && (

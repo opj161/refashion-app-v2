@@ -33,12 +33,18 @@ const PageTransitionWrapper = ({ children }: { children: ReactNode }) => {
 
   return (
     <motion.div
-      // --- FIX: Removed key={pathname} to prevent full page remounts ---
-      // This preserves component state and allows for a true SPA-like navigation.
-      // A simple animation provides visual feedback without breaking Next.js architecture.
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.3, ease: 'easeInOut' }}
+      // Improved page transitions with slide effect
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={
+        shouldReduceMotion 
+          ? { duration: 0 } 
+          : {
+              duration: 0.3,
+              ease: [0.16, 1, 0.3, 1], // Smooth ease-out curve
+            }
+      }
       className="flex-1 flex flex-col"
     >
       {children}

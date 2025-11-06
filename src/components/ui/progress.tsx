@@ -19,15 +19,28 @@ const Progress = React.forwardRef<
   >
     <ProgressPrimitive.Indicator
       className={cn(
-        "h-full w-full flex-1 bg-primary transition-all duration-300",
+        "h-full w-full flex-1 bg-primary transition-all",
         {
-          'bg-green-600 animate-progress-completion': isCompleting,
-          'animate-progress-ribbings animate-progress-pulsation': isEstimating,
-          '[background-image:linear-gradient(45deg,rgba(255,255,255,.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,.15)_50%,rgba(255,255,255,.15)_75%,transparent_75%,transparent)] [background-size:40px_40px]': isEstimating,
+          'bg-green-500 dark:bg-green-600': isCompleting,
+          'animate-pulse': isEstimating,
         }
       )}
-      style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+      style={{ 
+        transform: `translateX(-${100 - (value || 0)}%)`,
+        transition: 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
     />
+    {/* Striped overlay for estimating state */}
+    {isEstimating && (
+      <div 
+        className="absolute inset-0 opacity-20"
+        style={{
+          backgroundImage: 'linear-gradient(45deg, rgba(255,255,255,.2) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.2) 50%, rgba(255,255,255,.2) 75%, transparent 75%, transparent)',
+          backgroundSize: '40px 40px',
+          animation: 'progress-stripes 1s linear infinite',
+        }}
+      />
+    )}
   </ProgressPrimitive.Root>
 ))
 Progress.displayName = ProgressPrimitive.Root.displayName
