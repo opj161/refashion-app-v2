@@ -46,6 +46,11 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '50mb', // Increase limit for image uploads
     },
   },
+  // Build caching configuration for faster subsequent builds
+  cacheMaxMemorySize: 50 * 1024 * 1024, // 50MB - optimize build cache
+  cacheHandler: process.env.NODE_ENV === 'production' 
+    ? undefined // Use default in production
+    : undefined, // Default for development
   images: {
     remotePatterns: [
       {
