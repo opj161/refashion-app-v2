@@ -15,7 +15,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useImagePreparation } from "@/contexts/ImagePreparationContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { transitions } from "@/lib/design-tokens";
 
 
 interface HistoryCardProps {
