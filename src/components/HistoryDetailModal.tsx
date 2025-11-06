@@ -69,7 +69,7 @@ export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: Hi
 
   const downloadUrl = getDisplayableImageUrl(selectedImageUrl);
   // Generate a filename based on the history item ID and a timestamp for uniqueness
-  const downloadFilename = `RefashionAI_image_${item.id.substring(0, 8)}_${Date.now()}.png`;
+  const downloadFilename = `RefashionAI_image_${item.id.slice(0, 8)}_${Date.now()}.png`;
 
   return (
     <UnifiedMediaModal

@@ -8,7 +8,7 @@ export async function authenticateApiRequest(request: NextRequest): Promise<Sess
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
-  const apiKey = authHeader.substring(7);
+  const apiKey = authHeader.slice(7);
   if (!apiKey) {
     return null;
   }

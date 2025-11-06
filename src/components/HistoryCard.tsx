@@ -96,7 +96,7 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
       if (localVideoUrl) {
         const downloadUrl = getDisplayableImageUrl(localVideoUrl);
         if (downloadUrl) {
-          triggerDownload(downloadUrl, `RefashionAI_video_${item.id.substring(0, 8)}.mp4`);
+          triggerDownload(downloadUrl, `RefashionAI_video_${item.id.slice(0, 8)}.mp4`);
         }
       }
     } else {
@@ -104,7 +104,7 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
       if (imageUrls.length > 0) {
         const downloadUrl = getDisplayableImageUrl(imageUrls[0]);
         if (downloadUrl) {
-          triggerDownload(downloadUrl, `RefashionAI_image_${item.id.substring(0, 8)}.png`);
+          triggerDownload(downloadUrl, `RefashionAI_image_${item.id.slice(0, 8)}.png`);
         }
       } else {
         toast({ title: "No images to download", variant: "destructive" });

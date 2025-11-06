@@ -115,7 +115,7 @@ export async function saveFileFromBuffer(
     const pgid = process.env.PGID;
     if (puid && pgid) {
       try {
-        await fs.chown(filePath, parseInt(puid), parseInt(pgid));
+        await fs.chown(filePath, parseInt(puid, 10), parseInt(pgid, 10));
         console.log(`Set file ownership to ${puid}:${pgid} for: ${filePath}`);
       } catch (chownError) {
         console.warn(`Warning: Could not set file ownership for ${filePath}:`, chownError);
@@ -183,13 +183,12 @@ export async function saveDataUriLocally(
     const pgid = process.env.PGID;
     if (puid && pgid) {
       try {
-        await fs.chown(filePath, parseInt(puid), parseInt(pgid));
+        await fs.chown(filePath, parseInt(puid, 10), parseInt(pgid, 10));
         console.log(`Set file ownership to ${puid}:${pgid} for: ${filePath}`);
       } catch (chownError) {
         console.warn(`Warning: Could not set file ownership for ${filePath}:`, chownError);
       }
     }
-    
     // Return relative URL
     const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
     console.log(`Data URI saved to: ${filePath}, accessible at: ${relativeUrl}`);

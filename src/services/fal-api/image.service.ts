@@ -26,7 +26,7 @@ export async function generateWithGemini25Flash(
     };
 
     console.log(`FAL.AI Input:`, { 
-      prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
+      prompt: prompt.slice(0, 100) + (prompt.length > 100 ? '...' : ''),
       image_urls: [imageUrl],
       num_images: 1,
       output_format: "png"
@@ -128,12 +128,8 @@ function dataUriToBlob(dataURI: string): Blob {
   const mimeMatch = header.match(/:(.*?);/);
   const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
   const byteString = atob(data);
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mime });
+  const byteArray = Uint8Array.from(byteString, char => char.charCodeAt(0));
+  return new Blob([byteArray], { type: mime });
 }
 
 /**

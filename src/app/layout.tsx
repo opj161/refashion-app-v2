@@ -50,10 +50,10 @@ export default async function RootLayout({
             (function() {
               function setTheme() {
                 try {
-                  var theme = localStorage.getItem('theme');
-                  var systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  var shouldBeDark = theme === 'dark' || (theme === 'system' && systemPrefersDark) || (!theme && true);
-                  var root = document.documentElement;
+                  const theme = localStorage.getItem('theme');
+                  const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  const shouldBeDark = theme === 'dark' || (theme === 'system' && systemPrefersDark) || (!theme && true);
+                  const root = document.documentElement;
                   
                   root.classList.remove('light', 'dark');
                   if (shouldBeDark) {

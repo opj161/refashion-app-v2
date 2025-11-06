@@ -20,7 +20,7 @@ export function getDisplayableImageUrl(originalPath: string | null): string | nu
   
   // For local files, point to the new dynamic image serving API route
   if (originalPath.startsWith("/uploads/")) {
-    return `/api/images${originalPath.substring('/uploads'.length)}`;
+    return `/api/images${originalPath.slice('/uploads'.length)}`;
   }
 
   return originalPath; // Return other paths (like external Fal URLs) as is.

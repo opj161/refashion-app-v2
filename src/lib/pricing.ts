@@ -32,7 +32,7 @@ export function calculateVideoCost(
   }
 
   // Calculate multiplier based on duration (5 seconds is the base)
-  const durationSeconds = parseInt(duration);
+  const durationSeconds = parseInt(duration, 10);
   const durationMultiplier = durationSeconds / 5;
   return basePrice * durationMultiplier;
 }
@@ -42,7 +42,7 @@ export function calculateVideoCost(
  * @returns A formatted string or an empty string if the price is null.
  */
 export function formatPrice(price: number | null): string {
-  if (price === null || price === undefined) {
+  if (price == null) {
     return "";
   }
   return `~${price.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}`;

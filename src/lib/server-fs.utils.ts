@@ -22,7 +22,7 @@ export async function getBufferFromLocalPath(relativePath: string): Promise<Buff
 
   const uploadsDir = path.join(process.cwd(), 'uploads');
   // path.join normalizes the path, helping to resolve ".." segments.
-  const absoluteFilePath = path.join(uploadsDir, relativePath.substring('/uploads/'.length));
+  const absoluteFilePath = path.join(uploadsDir, relativePath.slice('/uploads/'.length));
 
   // Final security check: ensure the resolved path is still within the intended directory after normalization.
   if (!absoluteFilePath.startsWith(uploadsDir)) {

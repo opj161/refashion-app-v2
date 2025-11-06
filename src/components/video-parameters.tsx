@@ -45,12 +45,8 @@ function dataUriToBlob(dataUri: string): Blob {
   const arr = dataUri.split(',');
   const mime = arr[0].match(/:(.*?);/)![1];
   const byteString = atob(arr[1]);
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mime });
+  const byteArray = Uint8Array.from(byteString, char => char.charCodeAt(0));
+  return new Blob([byteArray], { type: mime });
 }
 
 export default function VideoParameters() {
@@ -258,7 +254,7 @@ export default function VideoParameters() {
         videoModel,
         resolution,
         duration,
-        seed: seed === "-1" ? -1 : parseInt(seed),
+        seed: seed === "-1" ? -1 : parseInt(seed, 10),
         camera_fixed: cameraFixed,
         selectedPredefinedPrompt,
         modelMovement,
