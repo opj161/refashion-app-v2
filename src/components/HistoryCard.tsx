@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useImagePreparation } from "@/contexts/ImagePreparationContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { transitions, shadows } from "@/lib/design-tokens";
 
 
 interface HistoryCardProps {
@@ -146,14 +147,22 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
     <motion.div
       layout
       layoutId={`history-card-${item.id}`}
-      whileHover={{ y: -4 }}
-      whileTap={{ scale: 0.99 }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -6, transition: { duration: 0.2 } }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ type: "spring", stiffness: 260, damping: 20 }}
+      className="h-full"
     >
       <Card
         ref={cardRef}
         variant="glass"
-        className="h-full group shadow-sm transition-all duration-300 ease-in-out hover:shadow-primary/20 hover:border-primary/30"
+        className={cn(
+          "h-full group overflow-hidden",
+          transitions.base,
+          shadows.md,
+          "hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40"
+        )}
       >
         <div
           className="relative aspect-[2/3] w-full bg-muted rounded-md overflow-hidden cursor-pointer group"

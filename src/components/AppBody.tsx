@@ -9,6 +9,7 @@ import { ImagePreparationProvider } from '@/contexts/ImagePreparationContext';
 import { SiteHeader } from '@/components/SiteHeader';
 import PageTransitionWrapper from '@/components/PageTransitionWrapper';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { cn } from '@/lib/utils';
 
 import type { SessionUser } from '@/lib/types';
@@ -36,15 +37,17 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
       <AuthProvider initialUser={initialUser}>
         <ThemeProvider>
           <ImagePreparationProvider>
-            <SiteHeader />
-            {/* Use separate content offset variable to control spacing independently of header height */}
-            <main className="flex-1 flex flex-col" style={{ paddingTop: 'var(--content-offset)' }}>
-              <PageTransitionWrapper>{children}</PageTransitionWrapper>
-            </main>
-            <Toaster />
+            <ErrorBoundary>
+              <SiteHeader />
+              {/* Use separate content offset variable to control spacing independently of header height */}
+              <main className="flex-1 flex flex-col" style={{ paddingTop: 'var(--content-offset)' }}>
+                <PageTransitionWrapper>{children}</PageTransitionWrapper>
+              </main>
+              <Toaster />
+            </ErrorBoundary>
           </ImagePreparationProvider>
         </ThemeProvider>
       </AuthProvider>
     </>
   );
-          }
+}
