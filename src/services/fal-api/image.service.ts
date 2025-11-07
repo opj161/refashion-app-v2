@@ -2,6 +2,8 @@
 
 import 'server-only';
 
+import { fal } from '@/lib/fal-client';
+
 /**
  * Generates an image using Fal.ai's Gemini 2.5 Flash Image model.
  * @param prompt The text prompt for generation.
@@ -17,9 +19,6 @@ export async function generateWithGemini25Flash(
   try {
     console.log(`Calling FAL.AI Gemini 2.5 Flash for image generation...`);
 
-    const falKey = await getApiKeyForUser(username, 'fal');
-    const scopedFal = createFalClient({ credentials: falKey });
-
     const input = {
       prompt: prompt,
       image_urls: [imageUrl], // The API expects a list
@@ -34,7 +33,7 @@ export async function generateWithGemini25Flash(
       output_format: "png"
     });
 
-    const result: any = await scopedFal.subscribe("fal-ai/gemini-25-flash-image/edit", {
+    const result: any = await fal.subscribe("fal-ai/gemini-25-flash-image/edit", {
       input,
       logs: process.env.NODE_ENV === 'development',
       onQueueUpdate: (update: any) => {
@@ -107,10 +106,6 @@ export async function generateWithGemini25FlashLegacy(
  * They do not handle local storage.
  */
 
-import { fal, createFalClient } from '@fal-ai/client';
-import { uploadToFalStorage } from '@/ai/actions/generate-video.action';
-import { getApiKeyForUser } from '../apiKey.service';
-
 // Constants for upscaling and face enhancement
 const UPSCALE_PROMPT = "high quality fashion photography, high-quality clothing, natural, 8k";
 const NEGATIVE_UPSCALE_PROMPT = "low quality, ugly, make-up, fake, deformed";
@@ -122,53 +117,24 @@ const FACE_DETAILER_PROMPT = "photorealistic, detailed natural skin, high qualit
 const NEGATIVE_FACE_DETAILER_PROMPT = "weird, ugly, make-up, cartoon, anime";
 
 /**
- * Helper to convert data URI to Blob
- */
-function dataUriToBlob(dataURI: string): Blob {
-  // Split the data URI
-  const [header, data] = dataURI.split(',');
-  const mimeMatch = header.match(/:(.*?);/);
-  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-  const byteString = atob(data);
-  const byteArray = Uint8Array.from(byteString, char => char.charCodeAt(0));
-  return new Blob([byteArray], { type: mime });
-}
-
-/**
- * Helper to ensure we have a URL (uploads data URI to Fal Storage if needed)
- */
-async function ensureUrl(imageUrlOrDataUri: string, tempFileName: string, username: string): Promise<string> {
-  if (imageUrlOrDataUri.startsWith('data:')) {
-    console.log(`Data URI detected for ${tempFileName}, uploading to Fal Storage first...`);
-    const blob = dataUriToBlob(imageUrlOrDataUri);
-    const file = new File([blob], tempFileName, { type: blob.type || 'image/jpeg' });
-    const publicUrl = await uploadToFalStorage(file, username);
-    console.log(`Image uploaded to ${publicUrl}. Now processing.`);
-    return publicUrl;
-  }
-  return imageUrlOrDataUri;
-}
-
-/**
  * Generic helper to run a Fal.ai image workflow, handling subscription and response parsing.
+ * 
+ * This function uses the proxied fal client which automatically handles:
+ * - API key authentication via server-side proxy
+ * - Data URI uploads to Fal storage (no manual conversion needed)
+ * - Request queuing and progress tracking
+ * 
  * @param modelId The ID of the Fal.ai model to run.
- * @param input The input object for the model.
+ * @param input The input object for the model. Data URIs are automatically uploaded.
  * @param taskName A descriptive name for the task for logging purposes.
+ * @param username The username (preserved for compatibility, not used for auth).
  * @returns Promise<string> The URL of the processed image from Fal.ai.
  */
 async function runFalImageWorkflow(modelId: string, input: any, taskName: string, username: string): Promise<string> {
   try {
     console.log(`Calling Fal.ai ${modelId} for ${taskName}...`);
 
-    const falKey = await getApiKeyForUser(username, 'fal');
-    const scopedFal = createFalClient({ credentials: falKey });
-
-    // Ensure the input image is a public URL
-    if (input.image_url || input.loadimage_1) {
-      const key = input.image_url ? 'image_url' : 'loadimage_1';
-      input[key] = await ensureUrl(input[key], `${taskName.replace(/\s+/g, '-')}-input.jpg`, username);
-    }
-    const result: any = await scopedFal.subscribe(modelId, {
+    const result: any = await fal.subscribe(modelId, {
       input,
       logs: process.env.NODE_ENV === 'development',
       onQueueUpdate: (update: any) => {
@@ -250,10 +216,6 @@ export async function detailFaces(imageUrlOrDataUri: string, username: string): 
  * @returns {Promise<boolean>} True if the service is available, otherwise false.
  */
 export async function isServiceAvailable(): Promise<boolean> {
-  // Now, we can only check if the service is potentially available.
-  // A true availability check would require a username to check for keys.
-  // A simple check is to see if any global key is set.
-  const globalKey = (await import('../settings.service')).getSetting('global_fal_api_key');
-  const { decrypt } = await import('../encryption.service');
-  return !!decrypt(globalKey);
+  // Check if FAL_KEY environment variable is set (used by the proxy)
+  return !!process.env.FAL_KEY;
 }
