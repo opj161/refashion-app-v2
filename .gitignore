@@ -167,3 +167,5 @@ eslint-local-rules.js
 .eslintignore
 code-diffs.md
 vps-branch-changes.txt
+
+scripts/

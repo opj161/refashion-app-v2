@@ -77,17 +77,17 @@ export default function AspectRatioSelector({
     <div className={disabled ? 'opacity-50 pointer-events-none' : ''}>
       <Accordion type="single" collapsible defaultValue="" className="w-full">
         <AccordionItem value="aspect-ratios" className="border-0">
-          <AccordionTrigger className="py-2 px-0 hover:no-underline">
-            <div className="flex justify-between items-center w-full pr-2">
-              <Label className="font-semibold text-sm cursor-pointer">Aspect Ratio</Label>
+          <AccordionTrigger className="py-0 px-0 hover:no-underline [&[data-state=open]>div]:border-primary/50">
+            <div className="flex justify-between items-center w-full h-9 px-3 rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors">
+              <Label className="font-medium text-sm cursor-pointer">Aspect Ratio</Label>
               {aspect && activePreset && (
-                <span className="text-xs text-muted-foreground">{activePreset.name}</span>
+                <span className="text-xs text-muted-foreground mr-1">{activePreset.name}</span>
               )}
             </div>
           </AccordionTrigger>
-          <AccordionContent className="pt-2 pb-0">
+          <AccordionContent className="pt-3 pb-1 px-1">
             {/* Compact grid layout */}
-            <div className="grid grid-cols-4 gap-1.5 mb-2">
+            <div className="grid grid-cols-4 gap-2 mb-3">
               {aspectRatios.map(ar => {
                 const isActive = ar.value === aspect || (activePreset?.name === ar.name);
                 return (
@@ -97,7 +97,7 @@ export default function AspectRatioSelector({
                         <Button
                           variant={isActive ? "secondary" : "ghost"}
                           onClick={() => onAspectChange(ar.value)}
-                          className="flex-col h-auto p-2 gap-0.5 text-[10px] leading-tight"
+                          className="flex-col h-auto p-2.5 gap-1 text-[10px] leading-tight"
                           disabled={disabled}
                           size="sm"
                         >
@@ -119,35 +119,35 @@ export default function AspectRatioSelector({
                 size="sm"
                 onClick={() => setShowCustomInput(true)}
                 disabled={disabled}
-                className="w-full text-xs"
+                className="w-full text-xs h-9"
               >
                 Custom Ratio
               </Button>
             ) : (
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-2 items-center pt-1">
                 <Input
                   type="number"
                   placeholder="W"
                   value={customWidth}
                   onChange={(e) => setCustomWidth(e.target.value)}
-                  className="h-8 text-xs"
+                  className="h-9 text-xs"
                   min="1"
                   step="0.1"
                 />
-                <span className="text-xs text-muted-foreground">:</span>
+                <span className="text-xs text-muted-foreground font-semibold">:</span>
                 <Input
                   type="number"
                   placeholder="H"
                   value={customHeight}
                   onChange={(e) => setCustomHeight(e.target.value)}
-                  className="h-8 text-xs"
+                  className="h-9 text-xs"
                   min="1"
                   step="0.1"
                 />
                 <Button
                   size="sm"
                   onClick={handleCustomRatio}
-                  className="h-8 text-xs"
+                  className="h-9 text-xs px-4"
                 >
                   Apply
                 </Button>
@@ -155,7 +155,7 @@ export default function AspectRatioSelector({
                   size="sm"
                   variant="ghost"
                   onClick={() => setShowCustomInput(false)}
-                  className="h-8 text-xs"
+                  className="h-9 text-xs px-2"
                 >
                   Cancel
                 </Button>
