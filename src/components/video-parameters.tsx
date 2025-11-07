@@ -68,10 +68,10 @@ export default function VideoParameters() {
   // State for video parameters (initialized from store)
   const [videoModel, setVideoModel] = useState<VideoModel>(videoSettings.videoModel);
   const [resolution, setResolution] = useState<VideoResolution>(videoSettings.resolution);
-  const [duration, setDuration] = useState<VideoDuration>(videoSettings.duration);
+  const [duration, setDuration] = useState<VideoDuration>(videoSettings.duration as VideoDuration);
   const [seed, setSeed] = useState<string>(videoSettings.seed);
   const [cameraFixed, setCameraFixed] = useState<boolean>(videoSettings.cameraFixed);
-  const [estimatedCost, setEstimatedCost] = useState<number | null>(calculateVideoCost(videoSettings.videoModel, videoSettings.resolution, videoSettings.duration));
+  const [estimatedCost, setEstimatedCost] = useState<number | null>(calculateVideoCost(videoSettings.videoModel, videoSettings.resolution, videoSettings.duration as VideoDuration));
 
   // State for preset button selection and accordions
   const [activePreset, setActivePreset] = useState<string | null>(videoSettings.selectedPredefinedPrompt);
@@ -88,7 +88,7 @@ export default function VideoParameters() {
   useEffect(() => {
     setVideoModel(videoSettings.videoModel);
     setResolution(videoSettings.resolution);
-    setDuration(videoSettings.duration);
+    setDuration(videoSettings.duration as VideoDuration);
     setSeed(videoSettings.seed);
     setCameraFixed(videoSettings.cameraFixed);
     setSelectedPredefinedPrompt(videoSettings.selectedPredefinedPrompt);

@@ -38,7 +38,7 @@ import { MOTION_TRANSITIONS } from '@/lib/motion-constants';
 
 // Interface for image generation parameters
 interface ImageGenerationParams extends ModelAttributes {
-  localSettingsMode: 'basic' | 'advanced';
+  settingsMode: 'basic' | 'advanced';
 }
 
 // Props interface for the component
@@ -135,36 +135,9 @@ export default function ImageParameters({
   // When a history item is loaded, disable creative mode to reflect the loaded settings.
   useEffect(() => {
     if (historyItemToLoad) {
-      // The rest of the parameter state updates are handled in the other useEffect
+      // The rest of the parameter state updates are handled by the Zustand store now
       setUseRandomization(false);
     }
-  }, [historyItemToLoad]);
-
-  // Load form fields from history when historyItemToLoad changes
-  useEffect(() => {
-    if (historyItemToLoad && historyItemToLoad.attributes) {
-      const attrs = historyItemToLoad.attributes;
-      
-      setGender(attrs.gender || GENDER_OPTIONS[0].value);
-      setBodyShapeAndSize(attrs.bodyShapeAndSize || BODY_SHAPE_AND_SIZE_OPTIONS[0].value);
-      setAgeRange(attrs.ageRange || AGE_RANGE_OPTIONS[0].value);
-      setEthnicity(attrs.ethnicity || ETHNICITY_OPTIONS[0].value);
-      setPoseStyle(attrs.poseStyle || POSE_STYLE_OPTIONS[0].value);
-      setBackground(attrs.background || BACKGROUND_OPTIONS[0].value);
-      setFashionStyle(attrs.fashionStyle || FASHION_STYLE_OPTIONS[0].value);
-      setHairStyle(attrs.hairStyle || HAIR_STYLE_OPTIONS[0].value);
-      setModelExpression(attrs.modelExpression || MODEL_EXPRESSION_OPTIONS[0].value);
-      setLightingType(attrs.lightingType || LIGHTING_TYPE_OPTIONS[0].value);
-      setLightQuality(attrs.lightQuality || LIGHT_QUALITY_OPTIONS[0].value);
-      setModelAngle(attrs.modelAngle || MODEL_ANGLE_OPTIONS[0].value);
-      setLensEffect(attrs.lensEffect || LENS_EFFECT_OPTIONS[0].value);
-      setDepthOfField(attrs.depthOfField || DEPTH_OF_FIELD_OPTIONS[0].value);
-      setTimeOfDay(attrs.timeOfDay || TIME_OF_DAY_OPTIONS[0].value);
-      setOverallMood(attrs.overallMood || OVERALL_MOOD_OPTIONS[0].value);
-      
-      setSettingsMode(historyItemToLoad.settingsMode || 'basic');
-      setLoadedHistoryItemId(historyItemToLoad.id);
-    } // The dependency array correctly omits setters to avoid re-running on every render.
   }, [historyItemToLoad]);
   
   const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
@@ -425,7 +398,7 @@ export default function ImageParameters({
       prompt: isPromptManuallyEdited ? currentPrompt : undefined,
       imageDataUriOrUrl: preparedImageUrl,
       parameters: currentImageGenParams,
-      localSettingsMode: settingsMode,
+      settingsMode: localSettingsMode,
       useAIPrompt: useAIPrompt,
       useRandomization: useRandomization, // Pass the new, decoupled randomization flag
     };
