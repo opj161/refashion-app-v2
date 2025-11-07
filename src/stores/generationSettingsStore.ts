@@ -12,7 +12,7 @@ export interface VideoParameters {
   aestheticVibe: string;
   videoModel: 'lite' | 'pro';
   resolution: '480p' | '720p' | '1080p';
-  duration: string;
+  duration: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
   seed: string;
   cameraFixed: boolean;
 }
@@ -38,8 +38,23 @@ export interface GenerationSettingsActions {
   // Update settings mode
   setSettingsMode: (mode: 'basic' | 'advanced') => void;
   
-  // Load from history item
-  loadFromHistory: (attributes: ModelAttributes, videoParams?: any, mode?: 'basic' | 'advanced') => void;
+  // Load from history item - videoParams should match HistoryItem.videoGenerationParams
+  loadFromHistory: (
+    attributes: ModelAttributes, 
+    videoParams?: {
+      selectedPredefinedPrompt?: string;
+      modelMovement?: string;
+      fabricMotion?: string;
+      cameraAction?: string;
+      aestheticVibe?: string;
+      videoModel?: 'lite' | 'pro';
+      resolution?: string;
+      duration?: string;
+      seed?: number;
+      cameraFixed?: boolean;
+    },
+    mode?: 'basic' | 'advanced'
+  ) => void;
   
   // Reset to defaults
   reset: () => void;
@@ -61,7 +76,7 @@ const defaultImageSettings: ModelAttributes = {
   modelExpression: 'default', // MODEL_EXPRESSION_OPTIONS[0]
   lightingType: 'default', // LIGHTING_TYPE_OPTIONS[0]
   lightQuality: 'default', // LIGHT_QUALITY_OPTIONS[0]
-  modelAngle: 'default', // MODEL_ANGLE_OPTIONS[0]
+  modelAngle: 'front_facing', // MODEL_ANGLE_OPTIONS[0]
   lensEffect: 'default', // LENS_EFFECT_OPTIONS[0]
   depthOfField: 'default', // DEPTH_OF_FIELD_OPTIONS[0]
   timeOfDay: 'default', // TIME_OF_DAY_OPTIONS[0]
@@ -125,8 +140,8 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
               cameraAction: videoParams.cameraAction || defaultVideoSettings.cameraAction,
               aestheticVibe: videoParams.aestheticVibe || defaultVideoSettings.aestheticVibe,
               videoModel: videoParams.videoModel || defaultVideoSettings.videoModel,
-              resolution: videoParams.resolution || defaultVideoSettings.resolution,
-              duration: videoParams.duration || defaultVideoSettings.duration,
+              resolution: (videoParams.resolution as '480p' | '720p' | '1080p') || defaultVideoSettings.resolution,
+              duration: (videoParams.duration as VideoParameters['duration']) || defaultVideoSettings.duration,
               seed: videoParams.seed?.toString() || defaultVideoSettings.seed,
               cameraFixed: videoParams.cameraFixed ?? defaultVideoSettings.cameraFixed,
             };

@@ -132,10 +132,10 @@ export default function ImageParameters({
   // Ref for auto-scroll to results
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  // When a history item is loaded, disable creative mode to reflect the loaded settings.
+  // When a history item is loaded directly via props (legacy), disable creative mode
+  // Note: History loading is now primarily handled by the Zustand store via HistoryCard
   useEffect(() => {
     if (historyItemToLoad) {
-      // The rest of the parameter state updates are handled by the Zustand store now
       setUseRandomization(false);
     }
   }, [historyItemToLoad]);
