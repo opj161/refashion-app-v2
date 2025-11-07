@@ -31,6 +31,8 @@ import * as dbService from '@/services/database.service';
 import { addHistoryItem } from '@/actions/historyActions';
 import { generateWithGemini25Flash } from '@/services/fal-api/image.service';
 import { downloadAndSaveImageFromUrl } from '@/services/storage.service';
+import { removeBackgroundAction } from '@/ai/actions/remove-background.action';
+import { upscaleImageAction, faceDetailerAction } from '@/ai/actions/upscale-image.action';
 
 // Import Axios and HttpsProxyAgent for explicit proxy control
 import axios, { AxiosError } from 'axios';
@@ -197,6 +199,9 @@ const GenerateImageEditInputSchema = z.object({
     ),
   useAIPrompt: z.boolean().optional().default(false).describe('Whether to use AI to generate the prompt itself.'),
   useRandomization: z.boolean().optional().default(false).describe('Whether to use different random parameters for each of the 3 generation slots.'),
+  removeBackground: z.boolean().optional().default(false).describe('Whether to remove background before generation.'),
+  upscale: z.boolean().optional().default(false).describe('Whether to upscale the image before generation.'),
+  enhanceFace: z.boolean().optional().default(false).describe('Whether to enhance face details before generation.'),
 });
 export type GenerateImageEditInput = z.infer<typeof GenerateImageEditInputSchema>;
 
@@ -481,6 +486,47 @@ export async function generateImageEdit(
     throw new Error(`User ${username} not found.`);
   }
 
+  // === NON-DESTRUCTIVE PIPELINE: Apply image processing if requested ===
+  let processedImageUrl = input.imageDataUriOrUrl;
+  
+  if (input.imageDataUriOrUrl && (input.removeBackground || input.upscale || input.enhanceFace)) {
+    console.log('🔧 Applying non-destructive image processing pipeline...');
+    
+    try {
+      // Step 1: Background Removal (if enabled)
+      if (input.removeBackground) {
+        console.log('🎨 Step 1: Removing background...');
+        const bgResult = await removeBackgroundAction(processedImageUrl!, undefined);
+        processedImageUrl = bgResult.savedPath;
+        console.log(`✅ Background removed. New path: ${processedImageUrl}`);
+      }
+      
+      // Step 2: Upscale (if enabled)
+      if (input.upscale) {
+        console.log('🔍 Step 2: Upscaling image...');
+        const upscaleResult = await upscaleImageAction(processedImageUrl!, undefined);
+        processedImageUrl = upscaleResult.savedPath;
+        console.log(`✅ Image upscaled. New path: ${processedImageUrl}`);
+      }
+      
+      // Step 3: Face Enhancement (if enabled)
+      if (input.enhanceFace) {
+        console.log('👤 Step 3: Enhancing face details...');
+        const faceResult = await faceDetailerAction(processedImageUrl!, undefined);
+        processedImageUrl = faceResult.savedPath;
+        console.log(`✅ Face details enhanced. New path: ${processedImageUrl}`);
+      }
+      
+      console.log('✨ Pipeline complete. Processed image ready for generation.');
+    } catch (pipelineError) {
+      console.error('❌ Pipeline processing error:', pipelineError);
+      throw new Error(`Image processing pipeline failed: ${(pipelineError as Error).message}`);
+    }
+  }
+  
+  // Update the input with the processed image URL
+  const processedInput = { ...input, imageDataUriOrUrl: processedImageUrl };
+
   // NEW LOGIC: PROMPT GENERATION
   let prompts: (string | null)[];
   let finalConstructedPromptForHistory: string;
@@ -490,10 +536,10 @@ export async function generateImageEdit(
   // --- START REFACTORED LOGIC ---
 
   // High-priority override: If a manual prompt is provided, use it for all slots.
-  if (input.prompt) {
+  if (processedInput.prompt) {
     console.log('Using manually provided prompt for all image slots.');
-    prompts = Array(3).fill(input.prompt);
-    finalConstructedPromptForHistory = input.prompt;
+    prompts = Array(3).fill(processedInput.prompt);
+    finalConstructedPromptForHistory = processedInput.prompt;
   } else {
     // STAGE 1: Determine the parameter sets for each slot (randomized or fixed).
     let parameterSetsForSlots: ModelAttributes[];
@@ -501,20 +547,20 @@ export async function generateImageEdit(
     // REMOVED: `&& modelToUse !== 'fal_gemini_2_5'` condition.
     // This ensures randomization works consistently for all image generation models,
     // honoring the user's explicit choice in the UI.
-    if (input.useRandomization) {
+    if (processedInput.useRandomization) {
       console.log('🎲 Randomization enabled. Generating 3 different parameter sets.');
-      parameterSetsForSlots = Array.from({ length: 3 }, () => generateRandomBasicParameters(input.parameters!));
+      parameterSetsForSlots = Array.from({ length: 3 }, () => generateRandomBasicParameters(processedInput.parameters!));
     } else {
       console.log('⚙️ Using fixed parameters for all 3 slots.');
       // The informational log about disabled randomization is no longer needed as the condition is removed.
-      parameterSetsForSlots = Array(3).fill(input.parameters);
+      parameterSetsForSlots = Array(3).fill(processedInput.parameters);
     }
 
     // STAGE 2: Build prompts from the determined parameter sets.
-    if (input.useAIPrompt && input.imageDataUriOrUrl) {
+    if (processedInput.useAIPrompt && processedInput.imageDataUriOrUrl) {
       console.log('🧠 Using AI prompt enhancement...');
       const promptPromises = parameterSetsForSlots.map((params, i) =>
-        generatePromptWithAI(params, input.imageDataUriOrUrl!, username, (i + 1) as 1 | 2 | 3)
+        generatePromptWithAI(params, processedInput.imageDataUriOrUrl!, username, (i + 1) as 1 | 2 | 3)
           .catch(err => {
             console.warn(`AI prompt generation for slot ${i + 1} failed. Falling back to local builder. Reason:`, err);
             return buildAIPrompt({ type: 'image', params: { ...params, settingsMode: 'advanced' } });
@@ -524,7 +570,7 @@ export async function generateImageEdit(
     } else {
       console.log('📝 Using local prompt builder...');
       prompts = parameterSetsForSlots.map(params =>
-        buildAIPrompt({ type: 'image', params: { ...params, settingsMode: input.settingsMode || 'basic' } })
+        buildAIPrompt({ type: 'image', params: { ...params, settingsMode: processedInput.settingsMode || 'basic' } })
       );
     }
 
@@ -553,9 +599,9 @@ export async function generateImageEdit(
   const [prompt1, prompt2, prompt3] = prompts;
 
   const generationPromises = [
-    performSingleImageGeneration({ ...input, prompt: prompt1! }, user, `flow1`, 1),
-    performSingleImageGeneration({ ...input, prompt: prompt2! }, user, `flow2`, 2),
-    performSingleImageGeneration({ ...input, prompt: prompt3! }, user, `flow3`, 3),
+    performSingleImageGeneration({ ...processedInput, prompt: prompt1! }, user, `flow1`, 1),
+    performSingleImageGeneration({ ...processedInput, prompt: prompt2! }, user, `flow2`, 2),
+    performSingleImageGeneration({ ...processedInput, prompt: prompt3! }, user, `flow3`, 3),
   ];
 
   const settledResults = await Promise.allSettled(generationPromises);
@@ -577,7 +623,7 @@ export async function generateImageEdit(
   const successCount = editedImageUrlsResult.filter(url => url !== null).length;
   if (successCount > 0) {
     const modelUsed = user.image_generation_model;
-    if (username && input.imageDataUriOrUrl) {
+    if (username && processedInput.imageDataUriOrUrl) {
       try {
         if (existingHistoryId) {
           // When caller provided a job id, do NOT create a new history record here.
@@ -585,11 +631,11 @@ export async function generateImageEdit(
           // This avoids creating a duplicate row for API job flows.
         } else {
           const newHistoryId = await addHistoryItem(
-            input.parameters,
+            processedInput.parameters,
             finalConstructedPromptForHistory,
-            input.imageDataUriOrUrl,
+            input.imageDataUriOrUrl!, // Use original image URL for history, not processed
             editedImageUrlsResult,
-            input.settingsMode || 'basic',
+            processedInput.settingsMode || 'basic',
             modelUsed,
             'completed'
           );

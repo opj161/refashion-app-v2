@@ -9,13 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; 
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Palette, PersonStanding, Settings2, Sparkles, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit, X, AlertCircle, Code, ChevronDown, ChevronUp, Camera } from 'lucide-react';
+import { Loader2, Palette, PersonStanding, Settings2, Sparkles, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit, X, AlertCircle, Code, ChevronDown, ChevronUp, Camera, Wand2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { UnifiedMediaModal, MediaSlot, SidebarSlot } from "./UnifiedMediaModal";
 import { GenerationProgressIndicator } from "./GenerationProgressIndicator";
 import { generateImageEdit, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
-import { upscaleImageAction, faceDetailerAction, isFaceDetailerAvailable } from "@/ai/actions/upscale-image.action";
+import { upscaleImageAction, faceDetailerAction, isFaceDetailerAvailable, isUpscaleServiceAvailable } from "@/ai/actions/upscale-image.action";
+import { isBackgroundRemovalAvailable } from "@/ai/actions/remove-background.action";
 import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ModelAttributes, HistoryItem } from "@/lib/types";
@@ -69,6 +70,15 @@ export default function ImageParameters({
   const settingsMode = useGenerationSettingsStore(state => state.settingsMode);
   const setImageSettings = useGenerationSettingsStore(state => state.setImageSettings);
   const setSettingsModeStore = useGenerationSettingsStore(state => state.setSettingsMode);
+  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
+  
+  // Get preparation options from Zustand store
+  const backgroundRemovalEnabled = useGenerationSettingsStore(state => state.backgroundRemovalEnabled);
+  const upscaleEnabled = useGenerationSettingsStore(state => state.upscaleEnabled);
+  const faceDetailEnabled = useGenerationSettingsStore(state => state.faceDetailEnabled);
+  const setBackgroundRemovalEnabled = useGenerationSettingsStore(state => state.setBackgroundRemovalEnabled);
+  const setUpscaleEnabled = useGenerationSettingsStore(state => state.setUpscaleEnabled);
+  const setFaceDetailEnabled = useGenerationSettingsStore(state => state.setFaceDetailEnabled);
 
   // Local state for parameters (initialized from store)
   const [gender, setGender] = useState<string>(imageSettings.gender);
@@ -146,6 +156,8 @@ export default function ImageParameters({
   const [isUpscalingSlot, setIsUpscalingSlot] = useState<number | null>(null);
   const [isFaceRetouchingSlot, setIsFaceRetouchingSlot] = useState<number | null>(null);
   const [isFaceDetailerServiceAvailable, setIsFaceDetailerServiceAvailable] = useState<boolean>(false);
+  const [isBackgroundRemovalServiceAvailable, setIsBackgroundRemovalServiceAvailable] = useState<boolean>(false);
+  const [isUpscaleServiceAvailableState, setIsUpscaleServiceAvailableState] = useState<boolean>(false);
   const [comparingSlotIndex, setComparingSlotIndex] = useState<number | null>(null);
   const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
   
@@ -308,6 +320,8 @@ export default function ImageParameters({
   // Check Face Detailer service availability on mount
   useEffect(() => {
     isFaceDetailerAvailable().then(setIsFaceDetailerServiceAvailable);
+    isBackgroundRemovalAvailable().then(setIsBackgroundRemovalServiceAvailable);
+    isUpscaleServiceAvailable().then(setIsUpscaleServiceAvailableState);
   }, []);
 
   // Handler for opening image viewer modal - memoized
@@ -401,6 +415,9 @@ export default function ImageParameters({
       settingsMode: localSettingsMode,
       useAIPrompt: useAIPrompt,
       useRandomization: useRandomization, // Pass the new, decoupled randomization flag
+      removeBackground: backgroundRemovalEnabled,
+      upscale: upscaleEnabled,
+      enhanceFace: faceDetailEnabled,
     };
 
     toast({ title: useRandomization ? "Starting Creative Generation..." : "Starting Generation...", description: useRandomization ? "Using randomized styles for variety." : "Using your selected settings." });
@@ -418,10 +435,8 @@ export default function ImageParameters({
         if (result.newHistoryId) {
           setActiveHistoryItemId(result.newHistoryId);
         }
-        // Refresh history gallery if available (it will now fetch the new row from DB once).
-        if (typeof (window as any).refreshHistoryGallery === 'function') {
-          (window as any).refreshHistoryGallery();
-        }
+        // Trigger history gallery refresh via Zustand store
+        incrementGenerationCount();
         toast({
           title: "Generation Complete!",
           description: `${successCount} out of ${NUM_IMAGES_TO_GENERATE} images generated successfully.`
@@ -665,6 +680,64 @@ export default function ImageParameters({
               </AnimatePresence>
             </Button>
           </motion.div>
+          
+          {/* Image Processing Options - Non-Destructive Pipeline */}
+          <div className="mt-6 p-4 rounded-lg bg-muted/30 border border-muted/30 space-y-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Wand2 className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Image Processing Options</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              These options will be applied automatically during generation
+            </p>
+            
+            <div className="space-y-3">
+              {/* Background Removal Toggle */}
+              {isBackgroundRemovalServiceAvailable && (
+                <div className="flex items-center justify-between py-2">
+                  <Label htmlFor="bg-removal-switch" className="text-sm font-medium cursor-pointer">
+                    Remove Background
+                  </Label>
+                  <Switch
+                    id="bg-removal-switch"
+                    checked={backgroundRemovalEnabled}
+                    onCheckedChange={setBackgroundRemovalEnabled}
+                    disabled={isLoading}
+                  />
+                </div>
+              )}
+              
+              {/* Upscale Toggle */}
+              {isUpscaleServiceAvailableState && (
+                <div className="flex items-center justify-between py-2">
+                  <Label htmlFor="upscale-switch" className="text-sm font-medium cursor-pointer">
+                    Upscale Image
+                  </Label>
+                  <Switch
+                    id="upscale-switch"
+                    checked={upscaleEnabled}
+                    onCheckedChange={setUpscaleEnabled}
+                    disabled={isLoading}
+                  />
+                </div>
+              )}
+              
+              {/* Face Detail Toggle */}
+              {isFaceDetailerServiceAvailable && (
+                <div className="flex items-center justify-between py-2">
+                  <Label htmlFor="face-detail-switch" className="text-sm font-medium cursor-pointer">
+                    Enhance Face Details
+                  </Label>
+                  <Switch
+                    id="face-detail-switch"
+                    checked={faceDetailEnabled}
+                    onCheckedChange={setFaceDetailEnabled}
+                    disabled={isLoading}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
         <CardFooter className="flex-col items-stretch !pt-0">
           <Accordion type="single" collapsible className="w-full">

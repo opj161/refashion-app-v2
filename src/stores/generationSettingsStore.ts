@@ -26,6 +26,14 @@ export interface GenerationSettingsState {
   
   // Settings mode (shared between image and video potentially)
   settingsMode: 'basic' | 'advanced';
+  
+  // Generation counter for triggering history refresh
+  generationCount: number;
+  
+  // Image preparation options (for non-destructive pipeline)
+  backgroundRemovalEnabled: boolean;
+  upscaleEnabled: boolean;
+  faceDetailEnabled: boolean;
 }
 
 export interface GenerationSettingsActions {
@@ -37,6 +45,14 @@ export interface GenerationSettingsActions {
   
   // Update settings mode
   setSettingsMode: (mode: 'basic' | 'advanced') => void;
+  
+  // Increment generation counter to trigger history refresh
+  incrementGenerationCount: () => void;
+  
+  // Update image preparation options
+  setBackgroundRemovalEnabled: (enabled: boolean) => void;
+  setUpscaleEnabled: (enabled: boolean) => void;
+  setFaceDetailEnabled: (enabled: boolean) => void;
   
   // Load from history item - videoParams should match HistoryItem.videoGenerationParams
   loadFromHistory: (
@@ -101,6 +117,10 @@ const initialState: GenerationSettingsState = {
   imageSettings: defaultImageSettings,
   videoSettings: defaultVideoSettings,
   settingsMode: 'basic',
+  generationCount: 0,
+  backgroundRemovalEnabled: false,
+  upscaleEnabled: false,
+  faceDetailEnabled: false,
 };
 
 // Create the store
@@ -121,6 +141,18 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
       
       setSettingsMode: (mode) =>
         set({ settingsMode: mode }, false, 'setSettingsMode'),
+      
+      incrementGenerationCount: () =>
+        set((state) => ({ generationCount: state.generationCount + 1 }), false, 'incrementGenerationCount'),
+      
+      setBackgroundRemovalEnabled: (enabled) =>
+        set({ backgroundRemovalEnabled: enabled }, false, 'setBackgroundRemovalEnabled'),
+      
+      setUpscaleEnabled: (enabled) =>
+        set({ upscaleEnabled: enabled }, false, 'setUpscaleEnabled'),
+      
+      setFaceDetailEnabled: (enabled) =>
+        set({ faceDetailEnabled: enabled }, false, 'setFaceDetailEnabled'),
       
       loadFromHistory: (attributes, videoParams, mode) =>
         set((state) => {

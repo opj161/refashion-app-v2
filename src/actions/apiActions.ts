@@ -51,7 +51,10 @@ export async function processApiGenerationJob(jobId: string, payload: Omit<ApiJo
       settingsMode: payload.settingsMode,
       imageDataUriOrUrl: payload.imageDataUri,
       useAIPrompt: false, // Default to false for API calls
-      useRandomization: false // Default to false for API calls
+      useRandomization: false, // Default to false for API calls
+      removeBackground: false, // Default to false for API calls
+      upscale: false, // Default to false for API calls
+      enhanceFace: false, // Default to false for API calls
   }, username, jobId); // Pass the existing jobId so generateImageEdit does NOT create a second history row
 
     // Update history item with results AND the constructed prompt

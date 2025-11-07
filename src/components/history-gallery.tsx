@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { HistoryDetailModal } from './HistoryDetailModal'; // Import the new image modal
 import { VideoPlaybackModal } from './VideoPlaybackModal'; // Import the video modal
+import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 
 type FilterType = 'all' | 'image' | 'video';
 
@@ -44,7 +45,10 @@ export default function HistoryGallery({
   const [hasMore, setHasMore] = useState<boolean>(initialHistory.hasMore);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
-  // Function to refresh the history (can be called externally)
+  // Subscribe to generation counter from Zustand store
+  const generationCount = useGenerationSettingsStore(state => state.generationCount);
+
+  // Function to refresh the history (can be called internally)
   const refreshHistory = useCallback(async () => {
     try {
       const result = await getHistoryPaginated(1, 9, currentFilter);
@@ -56,13 +60,15 @@ export default function HistoryGallery({
     }
   }, [currentFilter]);
 
-  // Expose refresh function globally for other components to call
+  // Listen for generation count changes and refresh history
   useEffect(() => {
-    (window as any).refreshHistoryGallery = refreshHistory;
-    return () => {
-      delete (window as any).refreshHistoryGallery;
-    };
-  }, [refreshHistory]);
+    if (generationCount > 0) {
+      // Use router.refresh() for Next.js App Router to re-fetch server component data
+      router.refresh();
+      // Also refresh local state
+      refreshHistory();
+    }
+  }, [generationCount, router, refreshHistory]);
 
   // Animation variants for the gallery with enhanced stagger
   const containerVariants = {

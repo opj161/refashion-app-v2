@@ -30,6 +30,18 @@ describe('GenerationSettingsStore', () => {
       const state = useGenerationSettingsStore.getState();
       expect(state.settingsMode).toBe('basic');
     });
+
+    it('should have zero generation count by default', () => {
+      const state = useGenerationSettingsStore.getState();
+      expect(state.generationCount).toBe(0);
+    });
+
+    it('should have all preparation options disabled by default', () => {
+      const state = useGenerationSettingsStore.getState();
+      expect(state.backgroundRemovalEnabled).toBe(false);
+      expect(state.upscaleEnabled).toBe(false);
+      expect(state.faceDetailEnabled).toBe(false);
+    });
   });
 
   describe('setImageSettings', () => {
@@ -239,6 +251,84 @@ describe('GenerationSettingsStore', () => {
       expect(state.videoSettings.videoModel).toBe('lite');
       expect(state.videoSettings.resolution).toBe('480p');
       expect(state.settingsMode).toBe('basic');
+    });
+  });
+
+  describe('incrementGenerationCount', () => {
+    it('should increment generation count', () => {
+      const { result } = renderHook(() => useGenerationSettingsStore());
+
+      expect(result.current.generationCount).toBe(0);
+
+      act(() => {
+        result.current.incrementGenerationCount();
+      });
+
+      expect(result.current.generationCount).toBe(1);
+
+      act(() => {
+        result.current.incrementGenerationCount();
+      });
+
+      expect(result.current.generationCount).toBe(2);
+    });
+  });
+
+  describe('Preparation Options', () => {
+    it('should update background removal enabled state', () => {
+      const { result } = renderHook(() => useGenerationSettingsStore());
+
+      expect(result.current.backgroundRemovalEnabled).toBe(false);
+
+      act(() => {
+        result.current.setBackgroundRemovalEnabled(true);
+      });
+
+      expect(result.current.backgroundRemovalEnabled).toBe(true);
+
+      act(() => {
+        result.current.setBackgroundRemovalEnabled(false);
+      });
+
+      expect(result.current.backgroundRemovalEnabled).toBe(false);
+    });
+
+    it('should update upscale enabled state', () => {
+      const { result } = renderHook(() => useGenerationSettingsStore());
+
+      expect(result.current.upscaleEnabled).toBe(false);
+
+      act(() => {
+        result.current.setUpscaleEnabled(true);
+      });
+
+      expect(result.current.upscaleEnabled).toBe(true);
+    });
+
+    it('should update face detail enabled state', () => {
+      const { result } = renderHook(() => useGenerationSettingsStore());
+
+      expect(result.current.faceDetailEnabled).toBe(false);
+
+      act(() => {
+        result.current.setFaceDetailEnabled(true);
+      });
+
+      expect(result.current.faceDetailEnabled).toBe(true);
+    });
+
+    it('should allow multiple preparation options to be enabled simultaneously', () => {
+      const { result } = renderHook(() => useGenerationSettingsStore());
+
+      act(() => {
+        result.current.setBackgroundRemovalEnabled(true);
+        result.current.setUpscaleEnabled(true);
+        result.current.setFaceDetailEnabled(true);
+      });
+
+      expect(result.current.backgroundRemovalEnabled).toBe(true);
+      expect(result.current.upscaleEnabled).toBe(true);
+      expect(result.current.faceDetailEnabled).toBe(true);
     });
   });
 });
