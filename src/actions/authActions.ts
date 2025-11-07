@@ -13,7 +13,7 @@ import * as dbService from '@/services/database.service';
 import bcrypt from 'bcrypt';
 // ... other imports
 
-export async function loginUser(formData: FormData): Promise<{ error: string } | undefined> {
+export async function loginUser(previousState: string | null, formData: FormData): Promise<string | null> {
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
   const username = formData.get('username') as string;
   const submittedPassword = formData.get('password') as string;
@@ -24,12 +24,12 @@ export async function loginUser(formData: FormData): Promise<{ error: string } |
 
     // --- FIX: Check for invalid user or password inside the try block and return early ---
     if (!user || !(await bcrypt.compare(submittedPassword, user.passwordHash))) {
-      return { error: 'Invalid username or password.' };
+      return 'Invalid username or password.'; // Return error string directly
     }
   } catch (error) {
     // --- FIX: Simplified catch block for unexpected server errors ---
     console.error("Login action error:", error instanceof Error ? error.message : String(error));
-    return { error: 'An unexpected server error occurred.' };
+    return 'An unexpected server error occurred.'; // Return error string directly
   }
 
   // --- FIX: Success path is now outside the try...catch block ---

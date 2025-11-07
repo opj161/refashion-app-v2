@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useImagePreparation, useActivePreparationImage } from "@/contexts/ImagePreparationContext";
+import { useImageStore, useActivePreparationImage } from "@/stores/imageStore";
+import { useShallow } from 'zustand/react/shallow';
 import { useToast } from "@/hooks/use-toast";
 import {
   isBackgroundRemovalAvailable as checkBgAvailable,
@@ -63,6 +64,8 @@ interface ImageProcessingToolsProps {
 
 export default function ImageProcessingTools({ preparationMode, disabled = false }: ImageProcessingToolsProps) {
   const { toast } = useToast();
+  
+  // Use Zustand selectors to subscribe only to needed state
   const {
     removeBackground,
     upscaleImage,
@@ -77,9 +80,23 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
     canRedo,
     isProcessing,
     processingStep,
-    setActiveVersion,
-    versions
-  } = useImagePreparation();
+  } = useImageStore(
+    useShallow((state) => ({
+      removeBackground: state.removeBackground,
+      upscaleImage: state.upscaleImage,
+      faceDetailer: state.faceDetailer,
+      rotateImageLeft: state.rotateImageLeft,
+      rotateImageRight: state.rotateImageRight,
+      flipHorizontal: state.flipHorizontal,
+      flipVertical: state.flipVertical,
+      undo: state.undo,
+      redo: state.redo,
+      canUndo: state.canUndo,
+      canRedo: state.canRedo,
+      isProcessing: state.isProcessing,
+      processingStep: state.processingStep,
+    }))
+  );
   
   const activeImage = useActivePreparationImage();
   const { user } = useAuth();

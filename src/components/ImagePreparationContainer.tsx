@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { type PixelCrop, type Crop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import { motion } from 'motion/react';
-import { useImagePreparation, useActivePreparationImage } from "@/contexts/ImagePreparationContext";
+import { useImageStore, useActivePreparationImage } from "@/stores/imageStore";
+import { useShallow } from 'zustand/react/shallow';
 import { useIsMobile } from "@/hooks/use-mobile";
 
 import ImageUploader from "./ImageUploader";
@@ -22,7 +23,7 @@ interface ImagePreparationContainerProps {
   onReset: () => void;
 }
 
-// Internal component that uses the context
+// Internal component that uses the store
 function ImagePreparationContainerInternal({
   preparationMode,
   onReset,
@@ -30,19 +31,30 @@ function ImagePreparationContainerInternal({
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  // --- Read ALL state directly from the local context ---
+  // Use Zustand selectors to subscribe only to needed state
   const {
     versions,
     activeVersionId,
     isProcessing,
     crop,
     aspect,
-    imageDimensions,
     setCrop,
     setAspect,
     setOriginalImageDimensions,
     applyCrop,
-  } = useImagePreparation();
+  } = useImageStore(
+    useShallow((state) => ({
+      versions: state.versions,
+      activeVersionId: state.activeVersionId,
+      isProcessing: state.isProcessing,
+      crop: state.crop,
+      aspect: state.aspect,
+      setCrop: state.setCrop,
+      setAspect: state.setAspect,
+      setOriginalImageDimensions: state.setOriginalImageDimensions,
+      applyCrop: state.applyCrop,
+    }))
+  );
 
   const activeImage = useActivePreparationImage();
 
@@ -187,7 +199,7 @@ function ImagePreparationContainerInternal({
   );
 }
 
-// Main component - context is now provided by CreationHub
+// Main component - no context provider needed
 export default function ImagePreparationContainer(props: ImagePreparationContainerProps) {
   return <ImagePreparationContainerInternal {...props} />;
 }

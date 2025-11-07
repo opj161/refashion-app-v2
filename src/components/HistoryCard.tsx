@@ -12,7 +12,7 @@ import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, Play
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from 'motion/react';
 import { useToast } from "@/hooks/use-toast";
-import { useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { useImageStore } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -28,7 +28,8 @@ interface HistoryCardProps {
 
 export default function HistoryCard({ item, onViewDetails, onDeleteItem, username }: HistoryCardProps) {
   const { toast } = useToast();
-  const { initializeFromHistory, setCurrentTab } = useImagePreparation();
+  const initializeFromHistory = useImageStore(state => state.initializeFromHistory);
+  const setCurrentTab = useImageStore(state => state.setCurrentTab);
   const loadFromHistory = useGenerationSettingsStore(state => state.loadFromHistory);
   const [isInView, setIsInView] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
