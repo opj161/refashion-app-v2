@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { motion } from 'motion/react';
 import { useToast } from "@/hooks/use-toast";
 import { useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { transitions, shadows } from "@/lib/design-tokens";
@@ -28,6 +29,7 @@ interface HistoryCardProps {
 export default function HistoryCard({ item, onViewDetails, onDeleteItem, username }: HistoryCardProps) {
   const { toast } = useToast();
   const { initializeFromHistory, setCurrentTab } = useImagePreparation();
+  const loadFromHistory = useGenerationSettingsStore(state => state.loadFromHistory);
   const [isInView, setIsInView] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -116,9 +118,24 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
   const handleReload = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
+      // 1. Initialize image from history (existing functionality)
       await initializeFromHistory(item);
+      
+      // 2. Load generation settings into Zustand store (NEW!)
+      loadFromHistory(
+        item.attributes,
+        item.videoGenerationParams,
+        item.settingsMode
+      );
+      
+      // 3. Switch to the appropriate tab
       const targetTab = item.videoGenerationParams ? 'video' : 'image';
       setCurrentTab(targetTab);
+      
+      toast({
+        title: "Configuration Loaded",
+        description: "Image and settings restored from history.",
+      });
     } catch (error) {
       console.error('Failed to reload config:', error);
       toast({
@@ -127,7 +144,7 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
         variant: "destructive",
       });
     }
-  }, [initializeFromHistory, item, setCurrentTab, toast]);
+  }, [initializeFromHistory, loadFromHistory, item, setCurrentTab, toast]);
 
   const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
