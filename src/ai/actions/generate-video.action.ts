@@ -2,11 +2,10 @@
 
 import 'server-only';
 
-import { fal, createFalClient } from '@fal-ai/client';
+import { fal } from '@/lib/fal-client';
 import { getCurrentUser } from '@/actions/authActions';
 import { addStandaloneVideoHistoryItem, updateVideoHistoryItem } from '@/actions/historyActions';
 import * as videoService from '@/services/fal-api/video.service'; // Use the service layer
-import { getApiKeyForUser } from '@/services/apiKey.service';
 import { getDisplayableImageUrl } from '@/lib/utils';
 import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 
@@ -55,10 +54,8 @@ export async function isFalVideoGenerationAvailable(): Promise<{ available: bool
  */
 export async function uploadToFalStorage(file: File | Blob, username: string): Promise<string> {
   try {
-    const falKey = await getApiKeyForUser(username, 'fal');
-    // Use a per-user Fal client instance with the correct credentials
-    const scopedFal = createFalClient({ credentials: falKey });
-    const url = await scopedFal.storage.upload(file);
+    // Use the proxied fal client - no need for manual API key management
+    const url = await fal.storage.upload(file);
     console.log(`File uploaded to Fal Storage: ${url}`);
     return url;
   } catch (error: any) {

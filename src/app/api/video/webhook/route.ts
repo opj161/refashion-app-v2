@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateVideoHistoryItem } from '@/actions/historyActions';
 import { saveFileFromUrl } from '@/services/storage.service';
+import { verifyWebhookSignature } from '@/lib/webhook-verification';
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,7 +9,23 @@ export async function POST(request: NextRequest) {
     const bodyText = await request.text();
     const bodyBuffer = Buffer.from(bodyText, 'utf-8');
     
-    // Parse the JSON after we have the raw body
+    // Extract required headers for signature verification
+    const requestId = request.headers.get('x-fal-webhook-request-id');
+    const userId = request.headers.get('x-fal-webhook-user-id');
+    const timestamp = request.headers.get('x-fal-webhook-timestamp');
+    const signature = request.headers.get('x-fal-webhook-signature');
+
+    // Verify the webhook signature (CRITICAL SECURITY)
+    const isValid = await verifyWebhookSignature(requestId, userId, timestamp, signature, bodyBuffer);
+    
+    if (!isValid) {
+      console.warn('Webhook signature verification failed');
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+
+    console.log('Webhook signature verified successfully');
+    
+    // Parse the JSON after we have the raw body and verified it
     let result;
     try {
       result = JSON.parse(bodyText);
@@ -19,11 +36,6 @@ export async function POST(request: NextRequest) {
 
     const url = new URL(request.url);
     console.log('Webhook received:', JSON.stringify(result, null, 2));
-
-    // WARNING: Signature verification is not implemented.
-    // For production, it's highly recommended to implement webhook signature verification
-    // to ensure requests are genuinely from Fal.ai.
-    console.warn('Webhook signature verification disabled - processing request without verification');
 
     // Extract our custom payload from query parameters
     const historyItemId = url.searchParams.get('historyItemId');
