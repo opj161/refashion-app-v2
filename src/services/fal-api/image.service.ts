@@ -118,19 +118,21 @@ const NEGATIVE_FACE_DETAILER_PROMPT = "weird, ugly, make-up, cartoon, anime";
 
 /**
  * Generic helper to run a Fal.ai image workflow, handling subscription and response parsing.
+ * 
+ * This function uses the proxied fal client which automatically handles:
+ * - API key authentication via server-side proxy
+ * - Data URI uploads to Fal storage (no manual conversion needed)
+ * - Request queuing and progress tracking
+ * 
  * @param modelId The ID of the Fal.ai model to run.
- * @param input The input object for the model.
+ * @param input The input object for the model. Data URIs are automatically uploaded.
  * @param taskName A descriptive name for the task for logging purposes.
+ * @param username The username (preserved for compatibility, not used for auth).
  * @returns Promise<string> The URL of the processed image from Fal.ai.
  */
 async function runFalImageWorkflow(modelId: string, input: any, taskName: string, username: string): Promise<string> {
   try {
     console.log(`Calling Fal.ai ${modelId} for ${taskName}...`);
-
-    // NO MORE createFalClient, NO MORE ensureUrl
-    // The input object (e.g., { image_url: "data:image/png;base64,..." })
-    // is passed directly to the client. The fal client automatically handles
-    // data URIs by uploading them to Fal storage.
 
     const result: any = await fal.subscribe(modelId, {
       input,

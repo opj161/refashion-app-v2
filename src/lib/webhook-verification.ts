@@ -2,9 +2,6 @@
 import 'server-only';
 
 import crypto from 'crypto';
-
-// Import libsodium dynamically to avoid type issues
-// @ts-ignore - libsodium-wrappers types are not properly installed
 import sodium from 'libsodium-wrappers';
 
 const JWKS_URL = 'https://rest.alpha.fal.ai/.well-known/jwks.json';
@@ -69,7 +66,7 @@ export async function verifyWebhookSignature(
       timestamp,
       crypto.createHash('sha256').update(body).digest('hex')
     ];
-    if (messageParts.some(part => part == null)) {
+    if (messageParts.some(part => part === null)) {
       console.error('Missing required header value.');
       return false;
     }
