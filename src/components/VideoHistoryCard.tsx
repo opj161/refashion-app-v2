@@ -171,11 +171,11 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
               <div className="flex items-center gap-1 text-xs">
                 {getStatusIcon()}
                 <span
-                  className={cn(
-                    status === "processing" && "text-blue-600",
-                    status === "failed" && "text-red-600",
-                    status === "completed" && "text-green-600"
-                  )}
+                  className={cn({
+                    "text-blue-600": status === "processing",
+                    "text-red-600": status === "failed",
+                    "text-green-600": status === "completed",
+                  })}
                 >
                   {getStatusText()}
                 </span>
