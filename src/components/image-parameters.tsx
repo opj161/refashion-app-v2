@@ -25,6 +25,7 @@ import { useRouter } from 'next/navigation';
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
 import { useActivePreparationImage, useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
     BODY_SHAPE_AND_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
@@ -37,7 +38,7 @@ import { MOTION_TRANSITIONS } from '@/lib/motion-constants';
 
 // Interface for image generation parameters
 interface ImageGenerationParams extends ModelAttributes {
-  settingsMode: 'basic' | 'advanced';
+  localSettingsMode: 'basic' | 'advanced';
 }
 
 // Props interface for the component
@@ -63,26 +64,53 @@ export default function ImageParameters({
   const { setCurrentTab, addVersion } = useImagePreparation();
   const preparedImageUrl = activeImage?.imageUrl || null;
 
-  // State for parameters
-  const [gender, setGender] = useState<string>(GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value);
-  const [bodyShapeAndSize, setBodyShapeAndSize] = useState<string>(BODY_SHAPE_AND_SIZE_OPTIONS[0].value);
-  const [ageRange, setAgeRange] = useState<string>(AGE_RANGE_OPTIONS[0].value);
-  const [ethnicity, setEthnicity] = useState<string>(ETHNICITY_OPTIONS[0].value);
-  const [poseStyle, setPoseStyle] = useState<string>(POSE_STYLE_OPTIONS[0].value);
-  const [background, setBackground] = useState<string>(BACKGROUND_OPTIONS.find(o => o.value === "outdoor_nature_elements")?.value || BACKGROUND_OPTIONS[0].value);
-  const [fashionStyle, setFashionStyle] = useState<string>(FASHION_STYLE_OPTIONS[0].value);
-  const [hairStyle, setHairStyle] = useState<string>(HAIR_STYLE_OPTIONS[0].value);
-  const [modelExpression, setModelExpression] = useState<string>(MODEL_EXPRESSION_OPTIONS[0].value);
-  const [lightingType, setLightingType] = useState<string>(LIGHTING_TYPE_OPTIONS[0].value);
-  const [lightQuality, setLightQuality] = useState<string>(LIGHT_QUALITY_OPTIONS[0].value);
-  const [modelAngle, setModelAngle] = useState<string>(MODEL_ANGLE_OPTIONS[0].value);
-  const [lensEffect, setLensEffect] = useState<string>(LENS_EFFECT_OPTIONS[0].value);
-  const [depthOfField, setDepthOfField] = useState<string>(DEPTH_OF_FIELD_OPTIONS[0].value);
-  const [timeOfDay, setTimeOfDay] = useState<string>(TIME_OF_DAY_OPTIONS[0].value);
-  const [overallMood, setOverallMood] = useState<string>(OVERALL_MOOD_OPTIONS[0].value);
+  // Get settings from Zustand store
+  const imageSettings = useGenerationSettingsStore(state => state.imageSettings);
+  const settingsMode = useGenerationSettingsStore(state => state.settingsMode);
+  const setImageSettings = useGenerationSettingsStore(state => state.setImageSettings);
+  const setSettingsModeStore = useGenerationSettingsStore(state => state.setSettingsMode);
 
-  const [settingsMode, setSettingsMode] = useState<'basic' | 'advanced'>('basic');
+  // Local state for parameters (initialized from store)
+  const [gender, setGender] = useState<string>(imageSettings.gender);
+  const [bodyShapeAndSize, setBodyShapeAndSize] = useState<string>(imageSettings.bodyShapeAndSize);
+  const [ageRange, setAgeRange] = useState<string>(imageSettings.ageRange);
+  const [ethnicity, setEthnicity] = useState<string>(imageSettings.ethnicity);
+  const [poseStyle, setPoseStyle] = useState<string>(imageSettings.poseStyle);
+  const [background, setBackground] = useState<string>(imageSettings.background);
+  const [fashionStyle, setFashionStyle] = useState<string>(imageSettings.fashionStyle);
+  const [hairStyle, setHairStyle] = useState<string>(imageSettings.hairStyle);
+  const [modelExpression, setModelExpression] = useState<string>(imageSettings.modelExpression);
+  const [lightingType, setLightingType] = useState<string>(imageSettings.lightingType);
+  const [lightQuality, setLightQuality] = useState<string>(imageSettings.lightQuality);
+  const [modelAngle, setModelAngle] = useState<string>(imageSettings.modelAngle);
+  const [lensEffect, setLensEffect] = useState<string>(imageSettings.lensEffect);
+  const [depthOfField, setDepthOfField] = useState<string>(imageSettings.depthOfField);
+  const [timeOfDay, setTimeOfDay] = useState<string>(imageSettings.timeOfDay);
+  const [overallMood, setOverallMood] = useState<string>(imageSettings.overallMood);
+
+  const [localSettingsMode, setLocalSettingsMode] = useState<'basic' | 'advanced'>(settingsMode);
   const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
+
+  // Sync local state with store when store changes (e.g., from reload)
+  useEffect(() => {
+    setGender(imageSettings.gender);
+    setBodyShapeAndSize(imageSettings.bodyShapeAndSize);
+    setAgeRange(imageSettings.ageRange);
+    setEthnicity(imageSettings.ethnicity);
+    setPoseStyle(imageSettings.poseStyle);
+    setBackground(imageSettings.background);
+    setFashionStyle(imageSettings.fashionStyle);
+    setHairStyle(imageSettings.hairStyle);
+    setModelExpression(imageSettings.modelExpression);
+    setLightingType(imageSettings.lightingType);
+    setLightQuality(imageSettings.lightQuality);
+    setModelAngle(imageSettings.modelAngle);
+    setLensEffect(imageSettings.lensEffect);
+    setDepthOfField(imageSettings.depthOfField);
+    setTimeOfDay(imageSettings.timeOfDay);
+    setOverallMood(imageSettings.overallMood);
+    setLocalSettingsMode(settingsMode);
+  }, [imageSettings, settingsMode]);
 
   // --- REFACTORED STATE MANAGEMENT ---
   // Creative Mode is replaced by two independent states with new smart defaults.
@@ -191,7 +219,8 @@ export default function ImageParameters({
     if (typeof window !== 'undefined') {
       const storedMode = window.localStorage.getItem('imageForgeSettingsMode');
       if (storedMode === 'basic' || storedMode === 'advanced') {
-        setSettingsMode(storedMode);
+        setLocalSettingsMode(storedMode);
+        setSettingsModeStore(storedMode);
       }
 
       const savedDefaultsString = window.localStorage.getItem('imageForgeDefaults');
@@ -213,7 +242,7 @@ export default function ImageParameters({
         setShowPromptPreview(true);
       }
     }
-  }, [PARAMETER_CONFIG]);
+  }, [PARAMETER_CONFIG, setSettingsModeStore]);
 
   // Save prompt preview state to localStorage
   useEffect(() => {
@@ -221,6 +250,13 @@ export default function ImageParameters({
       window.localStorage.setItem('imageForgeShowPromptPreview', showPromptPreview.toString());
     }
   }, [showPromptPreview]);
+
+  // Save settings mode to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('imageForgeSettingsMode', localSettingsMode);
+    }
+  }, [localSettingsMode]);
 
   // Centralized handler for parameter changes to automatically disable creative mode
   const handleParamChange = useCallback((setter: (value: string) => void, value: string) => {
@@ -231,10 +267,39 @@ export default function ImageParameters({
 
   // Special handler for settingsMode
   const handleSettingsModeChange = useCallback((value: 'basic' | 'advanced') => {
-    setSettingsMode(value);
+    setLocalSettingsMode(value);
+    // Sync to Zustand store
+    setSettingsModeStore(value);
     // This is a manual choice, so disable randomization.
     setUseRandomization(false);
-  }, []);
+  }, [setSettingsModeStore]);
+
+  // Sync local state changes to the store
+  useEffect(() => {
+    setImageSettings({
+      gender,
+      bodyShapeAndSize,
+      ageRange,
+      ethnicity,
+      poseStyle,
+      background,
+      fashionStyle,
+      hairStyle,
+      modelExpression,
+      lightingType,
+      lightQuality,
+      modelAngle,
+      lensEffect,
+      depthOfField,
+      timeOfDay,
+      overallMood,
+    });
+  }, [
+    gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
+    fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
+    modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
+    setImageSettings
+  ]);
 
   // Special handler for useAIPrompt
   const handleAIPromptChange = useCallback((value: boolean) => {
@@ -248,12 +313,12 @@ export default function ImageParameters({
     gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
     fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
     modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
-    settingsMode,
+    settingsMode: localSettingsMode,
   }), [
     gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
     fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
     modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
-    settingsMode
+    localSettingsMode
   ]);
 
   const {
@@ -360,7 +425,7 @@ export default function ImageParameters({
       prompt: isPromptManuallyEdited ? currentPrompt : undefined,
       imageDataUriOrUrl: preparedImageUrl,
       parameters: currentImageGenParams,
-      settingsMode: settingsMode,
+      localSettingsMode: settingsMode,
       useAIPrompt: useAIPrompt,
       useRandomization: useRandomization, // Pass the new, decoupled randomization flag
     };
@@ -679,8 +744,8 @@ export default function ImageParameters({
                           <div className="flex items-end justify-between gap-4">
                             <div className="flex-grow">
                               <div className="mt-2 inline-flex h-9 items-center justify-center rounded-md bg-background/50 p-1 text-muted-foreground">
-                                <Button variant={settingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('basic')} className="h-7 px-3 text-xs">Simple</Button>
-                                <Button variant={settingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
+                                <Button variant={localSettingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('basic')} className="h-7 px-3 text-xs">Simple</Button>
+                                <Button variant={localSettingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
                               </div>
                             </div>
                             <Button
@@ -729,13 +794,13 @@ export default function ImageParameters({
                         {renderSelect({ id: "modelAngle", label: "Model Angle", value: modelAngle, onChange: setModelAngle, options: MODEL_ANGLE_OPTIONS })}
                         {renderSelect({ id: "hairStyle", label: "Hair Style", value: hairStyle, onChange: setHairStyle, options: HAIR_STYLE_OPTIONS })}
                         {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS })}
-                        {settingsMode === 'advanced' && renderSelect({ id: "timeOfDay", label: "Time of Day", value: timeOfDay, onChange: setTimeOfDay, options: TIME_OF_DAY_OPTIONS })}
-                        {settingsMode === 'advanced' && renderSelect({ id: "overallMood", label: "Overall Mood", value: overallMood, onChange: setOverallMood, options: OVERALL_MOOD_OPTIONS })}
+                        {localSettingsMode === 'advanced' && renderSelect({ id: "timeOfDay", label: "Time of Day", value: timeOfDay, onChange: setTimeOfDay, options: TIME_OF_DAY_OPTIONS })}
+                        {localSettingsMode === 'advanced' && renderSelect({ id: "overallMood", label: "Overall Mood", value: overallMood, onChange: setOverallMood, options: OVERALL_MOOD_OPTIONS })}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
 
-                  {settingsMode === 'advanced' && (
+                  {localSettingsMode === 'advanced' && (
                     <AccordionItem value="photography-technical">
                       <AccordionTrigger>
                         <div className="flex items-center gap-2">
