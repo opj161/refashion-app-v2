@@ -69,6 +69,7 @@ export default function ImageParameters({
   const settingsMode = useGenerationSettingsStore(state => state.settingsMode);
   const setImageSettings = useGenerationSettingsStore(state => state.setImageSettings);
   const setSettingsModeStore = useGenerationSettingsStore(state => state.setSettingsMode);
+  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
 
   // Local state for parameters (initialized from store)
   const [gender, setGender] = useState<string>(imageSettings.gender);
@@ -418,10 +419,8 @@ export default function ImageParameters({
         if (result.newHistoryId) {
           setActiveHistoryItemId(result.newHistoryId);
         }
-        // Refresh history gallery if available (it will now fetch the new row from DB once).
-        if (typeof (window as any).refreshHistoryGallery === 'function') {
-          (window as any).refreshHistoryGallery();
-        }
+        // Trigger history gallery refresh via Zustand store
+        incrementGenerationCount();
         toast({
           title: "Generation Complete!",
           description: `${successCount} out of ${NUM_IMAGES_TO_GENERATE} images generated successfully.`

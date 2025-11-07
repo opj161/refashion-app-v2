@@ -26,6 +26,9 @@ export interface GenerationSettingsState {
   
   // Settings mode (shared between image and video potentially)
   settingsMode: 'basic' | 'advanced';
+  
+  // Generation counter for triggering history refresh
+  generationCount: number;
 }
 
 export interface GenerationSettingsActions {
@@ -37,6 +40,9 @@ export interface GenerationSettingsActions {
   
   // Update settings mode
   setSettingsMode: (mode: 'basic' | 'advanced') => void;
+  
+  // Increment generation counter to trigger history refresh
+  incrementGenerationCount: () => void;
   
   // Load from history item - videoParams should match HistoryItem.videoGenerationParams
   loadFromHistory: (
@@ -101,6 +107,7 @@ const initialState: GenerationSettingsState = {
   imageSettings: defaultImageSettings,
   videoSettings: defaultVideoSettings,
   settingsMode: 'basic',
+  generationCount: 0,
 };
 
 // Create the store
@@ -121,6 +128,9 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
       
       setSettingsMode: (mode) =>
         set({ settingsMode: mode }, false, 'setSettingsMode'),
+      
+      incrementGenerationCount: () =>
+        set((state) => ({ generationCount: state.generationCount + 1 }), false, 'incrementGenerationCount'),
       
       loadFromHistory: (attributes, videoParams, mode) =>
         set((state) => {
