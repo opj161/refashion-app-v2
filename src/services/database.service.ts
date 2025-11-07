@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { cache } from 'react';
 import Database from 'better-sqlite3';
 import path from 'path';

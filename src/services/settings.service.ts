@@ -1,4 +1,6 @@
 // src/services/settings.service.ts
+import 'server-only';
+
 import * as dbService from '@/services/database.service';
 
 const DEFAULTS = {

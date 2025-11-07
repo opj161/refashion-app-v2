@@ -1,6 +1,8 @@
 // src/actions/adminActions.ts
 'use server';
 
+import 'server-only';
+
 import { revalidatePath } from 'next/cache';
 import * as dbService from '@/services/database.service';
 import { getCurrentUser } from './authActions';

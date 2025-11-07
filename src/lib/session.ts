@@ -1,3 +1,5 @@
+import 'server-only';
+
 import type { SessionOptions } from 'iron-session';
 import type { SessionData } from '@/lib/types';
 

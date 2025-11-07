@@ -1,5 +1,7 @@
 'use server';
 
+import 'server-only';
+
 import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
 import { getApiKeyForUser } from '@/services/apiKey.service';
 import type { ModelAttributes } from '@/lib/types';

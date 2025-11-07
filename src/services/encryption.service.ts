@@ -1,4 +1,6 @@
 // src/services/encryption.service.ts
+import 'server-only';
+
 import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';

@@ -1,4 +1,6 @@
 // src/lib/api-auth.ts
+import 'server-only';
+
 import { NextRequest } from 'next/server';
 import { findUserByApiKey } from '@/services/database.service';
 import type { SessionUser } from '@/lib/types';

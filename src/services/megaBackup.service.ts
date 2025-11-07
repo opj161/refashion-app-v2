@@ -1,4 +1,5 @@
 // src/services/megaBackup.service.ts
+import 'server-only';
 
 import { exec } from 'child_process';
 import { promisify } from 'util';

@@ -1,4 +1,6 @@
 // src/services/webhook.service.ts
+import 'server-only';
+
 interface WebhookPayload {
   status: 'completed' | 'failed';
   generatedImageUrls?: (string | null)[];

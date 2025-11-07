@@ -1,5 +1,7 @@
 'use server';
 
+import 'server-only';
+
 /**
  * @fileOverview Server action for background removal using Fal.ai API
  * 

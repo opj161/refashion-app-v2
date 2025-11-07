@@ -1,5 +1,7 @@
 'use server';
 
+import 'server-only';
+
 import { getCurrentUser } from './authActions';
 import type { HistoryItem, ModelAttributes } from '@/lib/types';
 import * as dbService from '@/services/database.service';

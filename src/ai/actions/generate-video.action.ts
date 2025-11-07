@@ -1,5 +1,7 @@
 'use server';
 
+import 'server-only';
+
 import { fal, createFalClient } from '@fal-ai/client';
 import { getCurrentUser } from '@/actions/authActions';
 import { addStandaloneVideoHistoryItem, updateVideoHistoryItem } from '@/actions/historyActions';

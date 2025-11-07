@@ -1,5 +1,7 @@
 'use server';
 
+import 'server-only';
+
 /**
  * @fileOverview Centralized storage service for handling file downloads and local storage
  * 
