@@ -127,13 +127,9 @@ export const useImageStore = create<ImagePreparationStore>()(
     (set, get) => ({
       ...initialState,
       
-      // Derived state for undo/redo
-      get canUndo() {
-        return get().historyIndex > 0;
-      },
-      get canRedo() {
-        return get().historyIndex < get().versionHistory.length - 1;
-      },
+      // Derived state for undo/redo (computed values, not getters)
+      canUndo: false,
+      canRedo: false,
       
       // Core actions
       setOriginalImage: (file: File, imageUrl: string, hash: string) => {
@@ -153,6 +149,8 @@ export const useImageStore = create<ImagePreparationStore>()(
           activeVersionId: 'original',
           versionHistory: ['original'],
           historyIndex: 0,
+          canUndo: false,
+          canRedo: false,
         });
       },
 
@@ -168,6 +166,7 @@ export const useImageStore = create<ImagePreparationStore>()(
           const newHistory = state.historyIndex < state.versionHistory.length - 1
             ? [...state.versionHistory.slice(0, state.historyIndex + 1), id]
             : [...state.versionHistory, id];
+          const newIndex = newHistory.length - 1;
 
           return {
             versions: {
@@ -176,7 +175,9 @@ export const useImageStore = create<ImagePreparationStore>()(
             },
             activeVersionId: id,
             versionHistory: newHistory,
-            historyIndex: newHistory.length - 1,
+            historyIndex: newIndex,
+            canUndo: newIndex > 0,
+            canRedo: false, // We're at the end after adding
           };
         });
 
@@ -212,6 +213,8 @@ export const useImageStore = create<ImagePreparationStore>()(
             completedCrop: undefined,
             imageDimensions: undefined,
             comparison: null,
+            canUndo: newIndex > 0,
+            canRedo: true, // We can always redo after undo
           };
         });
       },
@@ -230,6 +233,8 @@ export const useImageStore = create<ImagePreparationStore>()(
             completedCrop: undefined,
             imageDimensions: undefined,
             comparison: null,
+            canUndo: true, // We can always undo after redo
+            canRedo: newIndex < state.versionHistory.length - 1,
           };
         });
       },
@@ -608,9 +613,9 @@ export const useImageStore = create<ImagePreparationStore>()(
 
 // Convenience selector to get the active image
 export const useActivePreparationImage = () => {
-  const activeVersionId = useImageStore(state => state.activeVersionId);
-  const versions = useImageStore(state => state.versions);
-  return activeVersionId ? versions[activeVersionId] : null;
+  return useImageStore((state) => 
+    state.activeVersionId ? state.versions[state.activeVersionId] : null
+  );
 };
 
 // For development - access in console
