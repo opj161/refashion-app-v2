@@ -25,7 +25,8 @@ import Image from "next/image";
 import { useRouter } from 'next/navigation';
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
-import { useActivePreparationImage, useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { useActivePreparationImage } from "@/stores/imageStore";
+import { useImageStore } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
@@ -60,9 +61,10 @@ export default function ImageParameters({
   const { toast } = useToast();
   const router = useRouter();
   
-  // Get the active image and tab state from context
+  // Get the active image and tab state from store
   const activeImage = useActivePreparationImage();
-  const { setCurrentTab, addVersion } = useImagePreparation();
+  const setCurrentTab = useImageStore(state => state.setCurrentTab);
+  const addVersion = useImageStore(state => state.addVersion);
   const preparedImageUrl = activeImage?.imageUrl || null;
 
   // Get settings from Zustand store

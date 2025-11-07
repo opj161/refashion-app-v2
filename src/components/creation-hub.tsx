@@ -7,20 +7,27 @@ import ImagePreparationContainer from "./ImagePreparationContainer";
 import ImageParameters from "./image-parameters";
 import VideoParameters from "./video-parameters";
 import { useToast } from "@/hooks/use-toast";
-import { useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { useImageStore } from "@/stores/imageStore";
+import { useShallow } from 'zustand/react/shallow';
 
-// Main component - ImagePreparationProvider is now globally available from AppBody
+// Main component - no context provider needed, uses Zustand directly
 export default function CreationHub({
   children
 }: {
   children: React.ReactElement;
 }) {
   const { toast } = useToast();
-  const { reset, currentTab, setCurrentTab } = useImagePreparation(); // GET tab state from context
+  const { reset, currentTab, setCurrentTab } = useImageStore(
+    useShallow((state) => ({
+      reset: state.reset,
+      currentTab: state.currentTab,
+      setCurrentTab: state.setCurrentTab,
+    }))
+  );
 
   // Pure client-side reset - no URL manipulation
   const handleReset = useCallback(() => {
-    reset(); // Reset the context state
+    reset(); // Reset the store state
     toast({
       title: "Image Cleared",
       description: "You can now upload a new image to start over.",

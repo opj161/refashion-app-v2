@@ -11,7 +11,7 @@ import { getDisplayableImageUrl } from "@/lib/utils";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { useImageStore } from "@/stores/imageStore";
 
 interface HistoryDetailModalProps {
   item: HistoryItem | null;
@@ -23,7 +23,8 @@ interface HistoryDetailModalProps {
 export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: HistoryDetailModalProps) {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const { toast } = useToast();
-  const { initializeFromHistory, setCurrentTab } = useImagePreparation();
+  const initializeFromHistory = useImageStore(state => state.initializeFromHistory);
+  const setCurrentTab = useImageStore(state => state.setCurrentTab);
 
   const allImages = useMemo(() => {
     if (!item) return [];

@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { useImageStore } from "@/stores/imageStore";
+import { useShallow } from 'zustand/react/shallow';
 import { UploadCloud } from "lucide-react";
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -20,8 +21,14 @@ export default function ImageUploader() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
   
-  // Context state
-  const { original, isProcessing, reset, uploadOriginalImage } = useImagePreparation();
+  // Store state
+  const { original, isProcessing, uploadOriginalImage } = useImageStore(
+    useShallow((state) => ({
+      original: state.original,
+      isProcessing: state.isProcessing,
+      uploadOriginalImage: state.uploadOriginalImage,
+    }))
+  );
   
   // Local UI state
   const [isDraggingOverPage, setIsDraggingOverPage] = useState(false);
