@@ -2,6 +2,8 @@
 
 import 'server-only';
 
+import { fal } from '@/lib/fal-client';
+
 /**
  * Generates an image using Fal.ai's Gemini 2.5 Flash Image model.
  * @param prompt The text prompt for generation.
@@ -103,8 +105,6 @@ export async function generateWithGemini25FlashLegacy(
  * These functions expect data URIs as input and return raw URLs from Fal.ai.
  * They do not handle local storage.
  */
-
-import { fal } from '@/lib/fal-client';
 
 // Constants for upscaling and face enhancement
 const UPSCALE_PROMPT = "high quality fashion photography, high-quality clothing, natural, 8k";

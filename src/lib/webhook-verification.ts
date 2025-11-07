@@ -66,10 +66,6 @@ export async function verifyWebhookSignature(
       timestamp,
       crypto.createHash('sha256').update(body).digest('hex')
     ];
-    if (messageParts.some(part => part === null)) {
-      console.error('Missing required header value.');
-      return false;
-    }
     const messageToVerify = messageParts.join('\n');
     const messageBytes = Buffer.from(messageToVerify, 'utf-8');
 
