@@ -42,8 +42,10 @@ module.exports = {
 
             // Check if the options object is an ObjectExpression
             if (optionsArg.type !== 'ObjectExpression') {
-              // Options are dynamic or from a variable - we can't validate
-              // Assume it's correct (to avoid false positives)
+              // Options are dynamic or from a variable - we can't statically validate.
+              // Design decision: Allow dynamic options to avoid false positives.
+              // Developers are trusted to include cache policies in dynamic option objects.
+              // Example: const opts = { cache: 'no-store', ...otherOptions }; fetch(url, opts);
               return;
             }
 
