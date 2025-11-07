@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
 import { useAuth } from "@/contexts/AuthContext";
 import { useActivePreparationImage } from "@/contexts/ImagePreparationContext";
+import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
     PREDEFINED_PROMPTS, MODEL_MOVEMENT_OPTIONS, FABRIC_MOTION_OPTIONS_VIDEO, // Use FABRIC_MOTION_OPTIONS_VIDEO
@@ -57,27 +58,66 @@ export default function VideoParameters() {
   const activeImage = useActivePreparationImage();
   const preparedImageUrl = activeImage?.imageUrl || null;
 
+  // Get video settings from Zustand store
+  const videoSettings = useGenerationSettingsStore(state => state.videoSettings);
+  const setVideoSettings = useGenerationSettingsStore(state => state.setVideoSettings);
+
   // Service availability state
   const [isServiceAvailable, setIsServiceAvailable] = useState(true); // Assume available initially
 
-  // State for video parameters
-  const [videoModel, setVideoModel] = useState<VideoModel>('lite');
-  const [resolution, setResolution] = useState<VideoResolution>('480p');
-  const [duration, setDuration] = useState<VideoDuration>('5');
-  const [seed, setSeed] = useState<string>("-1");
-  const [cameraFixed, setCameraFixed] = useState<boolean>(false);
-  const [estimatedCost, setEstimatedCost] = useState<number | null>(calculateVideoCost('lite', '480p', '5'));
+  // State for video parameters (initialized from store)
+  const [videoModel, setVideoModel] = useState<VideoModel>(videoSettings.videoModel);
+  const [resolution, setResolution] = useState<VideoResolution>(videoSettings.resolution);
+  const [duration, setDuration] = useState<VideoDuration>(videoSettings.duration as VideoDuration);
+  const [seed, setSeed] = useState<string>(videoSettings.seed);
+  const [cameraFixed, setCameraFixed] = useState<boolean>(videoSettings.cameraFixed);
+  const [estimatedCost, setEstimatedCost] = useState<number | null>(calculateVideoCost(videoSettings.videoModel, videoSettings.resolution, videoSettings.duration as VideoDuration));
 
   // State for preset button selection and accordions
-  const [activePreset, setActivePreset] = useState<string | null>(PREDEFINED_PROMPTS[0]?.value || null);
+  const [activePreset, setActivePreset] = useState<string | null>(videoSettings.selectedPredefinedPrompt);
   const [openAccordions, setOpenAccordions] = useState<string[]>([]);
 
-  // Prompt builder states
-  const [selectedPredefinedPrompt, setSelectedPredefinedPrompt] = useState<string>(PREDEFINED_PROMPTS[0]?.value || 'custom');
-  const [modelMovement, setModelMovement] = useState<string>(MODEL_MOVEMENT_OPTIONS[0].value);
-  const [fabricMotion, setFabricMotion] = useState<string>(FABRIC_MOTION_OPTIONS_VIDEO[0].value);
-  const [cameraAction, setCameraAction] = useState<string>(CAMERA_ACTION_OPTIONS[0].value);
-  const [aestheticVibe, setAestheticVibe] = useState<string>(AESTHETIC_STYLE_OPTIONS[0].value);
+  // Prompt builder states (initialized from store)
+  const [selectedPredefinedPrompt, setSelectedPredefinedPrompt] = useState<string>(videoSettings.selectedPredefinedPrompt);
+  const [modelMovement, setModelMovement] = useState<string>(videoSettings.modelMovement);
+  const [fabricMotion, setFabricMotion] = useState<string>(videoSettings.fabricMotion);
+  const [cameraAction, setCameraAction] = useState<string>(videoSettings.cameraAction);
+  const [aestheticVibe, setAestheticVibe] = useState<string>(videoSettings.aestheticVibe);
+
+  // Sync local state with store when store changes (e.g., from reload)
+  useEffect(() => {
+    setVideoModel(videoSettings.videoModel);
+    setResolution(videoSettings.resolution);
+    setDuration(videoSettings.duration as VideoDuration);
+    setSeed(videoSettings.seed);
+    setCameraFixed(videoSettings.cameraFixed);
+    setSelectedPredefinedPrompt(videoSettings.selectedPredefinedPrompt);
+    setActivePreset(videoSettings.selectedPredefinedPrompt);
+    setModelMovement(videoSettings.modelMovement);
+    setFabricMotion(videoSettings.fabricMotion);
+    setCameraAction(videoSettings.cameraAction);
+    setAestheticVibe(videoSettings.aestheticVibe);
+  }, [videoSettings]);
+
+  // Sync local state changes to the store
+  useEffect(() => {
+    setVideoSettings({
+      videoModel,
+      resolution,
+      duration,
+      seed,
+      cameraFixed,
+      selectedPredefinedPrompt,
+      modelMovement,
+      fabricMotion,
+      cameraAction,
+      aestheticVibe,
+    });
+  }, [
+    videoModel, resolution, duration, seed, cameraFixed,
+    selectedPredefinedPrompt, modelMovement, fabricMotion,
+    cameraAction, aestheticVibe, setVideoSettings
+  ]);
 
   // Generation states
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
