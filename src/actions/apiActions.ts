@@ -1,6 +1,8 @@
 // src/actions/apiActions.ts
 'use server';
 
+import 'server-only';
+
 
 import { sendWebhook } from '@/services/webhook.service';
 import { getDisplayableImageUrl } from '@/lib/utils';

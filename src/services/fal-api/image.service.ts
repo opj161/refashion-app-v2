@@ -1,5 +1,7 @@
 'use server';
 
+import 'server-only';
+
 /**
  * Generates an image using Fal.ai's Gemini 2.5 Flash Image model.
  * @param prompt The text prompt for generation.

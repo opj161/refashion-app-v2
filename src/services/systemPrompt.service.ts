@@ -1,4 +1,5 @@
 // src/services/systemPrompt.service.ts
+import 'server-only';
 
 import * as settingsService from './settings.service';
 import * as fs from 'fs/promises';

@@ -1,5 +1,7 @@
 'use server';
 
+import 'server-only';
+
 import { saveFileFromBuffer } from '@/services/storage.service';
 import sharp, { type Region } from 'sharp';
 import type { PixelCrop } from '@/lib/types';

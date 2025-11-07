@@ -1,5 +1,7 @@
 'use server';
 
+import 'server-only';
+
 /**
  * @fileOverview Server action for image upscaling and face enhancement using Fal.ai API
  * 

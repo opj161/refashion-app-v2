@@ -1,6 +1,8 @@
 // src/services/apiKey.service.ts
 'use server';
 
+import 'server-only';
+
 import * as dbService from './database.service';
 import * as settingsService from './settings.service';
 import { decrypt } from './encryption.service';

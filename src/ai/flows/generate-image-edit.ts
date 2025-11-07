@@ -1,6 +1,8 @@
 // This is a server-side file.
 'use server';
 
+import 'server-only';
+
 /**
  * @fileOverview AI agent for editing an image based on a text prompt,
  * or generating an image purely from text if no source image is provided.

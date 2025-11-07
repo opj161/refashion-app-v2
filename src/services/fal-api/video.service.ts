@@ -1,5 +1,7 @@
 'use server';
 
+import 'server-only';
+
 /**
  * @fileOverview Fal.ai API service for video processing operations
  * 
