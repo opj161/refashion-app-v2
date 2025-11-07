@@ -163,7 +163,6 @@ CROPPING_REFACTOR_SUMMARY.md
 FETCH_CACHING_IMPLEMENTATION.md
 .eslint/rules.js.README.md
 .eslint/rules.js
-eslint-local-rules.js
 .eslintignore
 code-diffs.md
 vps-branch-changes.txt
