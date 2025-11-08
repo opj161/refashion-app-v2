@@ -1,6 +1,7 @@
 // src/app/admin/page.tsx
 
 import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import {
   GalleryVertical,
   AlertTriangle as AlertTriangleIcon,
@@ -11,11 +12,20 @@ import {
 } from 'lucide-react';
 import { getDashboardAnalytics } from '@/actions/adminActions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 
 import { KpiCard } from './_components/dashboard/KpiCard';
-import { ActivityChart } from './_components/dashboard/ActivityChart';
 import { UserActivityTable } from './_components/dashboard/UserActivityTable';
 import { ParameterInsightPanel } from './_components/dashboard/ParameterInsightPanel';
+
+// Dynamically import the ActivityChart component to reduce initial bundle size
+const ActivityChart = dynamic(
+  () => import('./_components/dashboard/ActivityChart').then((mod) => mod.ActivityChart),
+  {
+    ssr: false, // This component is client-only (uses recharts which needs browser APIs)
+    loading: () => <Skeleton className="h-[426px] w-full rounded-lg" /> // Match the chart's dimensions
+  }
+);
 
 // Main Dashboard Data Fetching and Layout Component
 async function DashboardData() {
