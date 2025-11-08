@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { getDashboardAnalytics } from '@/actions/adminActions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
 
 import { KpiCard } from './_components/dashboard/KpiCard';
 import { UserActivityTable } from './_components/dashboard/UserActivityTable';
@@ -21,10 +20,7 @@ import { ParameterInsightPanel } from './_components/dashboard/ParameterInsightP
 // Dynamically import the ActivityChart component to reduce initial bundle size
 const ActivityChart = dynamic(
   () => import('./_components/dashboard/ActivityChart').then((mod) => mod.ActivityChart),
-  {
-    ssr: false, // This component is client-only (uses recharts which needs browser APIs)
-    loading: () => <Skeleton className="h-[426px] w-full rounded-lg" /> // Match the chart's dimensions
-  }
+  { ssr: false } // This component is client-only (uses recharts which needs browser APIs)
 );
 
 // Main Dashboard Data Fetching and Layout Component
