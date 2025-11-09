@@ -410,8 +410,11 @@ export async function generateImageAction(
   formData: FormData
 ): Promise<ImageGenerationFormState> {
   // Import here to avoid circular dependencies
-  const { generateImageEdit, type GenerateImageEditInput } = await import('@/ai/flows/generate-image-edit');
+  const { generateImageEdit } = await import('@/ai/flows/generate-image-edit');
   const { getCurrentUser } = await import('./authActions');
+  
+  // Type will be inferred from the imported function
+  type GenerateImageEditInput = Parameters<typeof generateImageEdit>[0];
   
   try {
     // Get current user
