@@ -18,9 +18,9 @@ import { UserActivityTable } from './_components/dashboard/UserActivityTable';
 import { ParameterInsightPanel } from './_components/dashboard/ParameterInsightPanel';
 
 // Dynamically import the ActivityChart component to reduce initial bundle size
+// Note: ActivityChart is already a Client Component ('use client'), so it won't SSR
 const ActivityChart = dynamic(
-  () => import('./_components/dashboard/ActivityChart').then((mod) => mod.ActivityChart),
-  { ssr: false } // This component is client-only (uses recharts which needs browser APIs)
+  () => import('./_components/dashboard/ActivityChart').then((mod) => mod.ActivityChart)
 );
 
 // Main Dashboard Data Fetching and Layout Component
