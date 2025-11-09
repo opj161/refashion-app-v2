@@ -40,6 +40,14 @@ export interface GenerateVideoOutput {
   error?: string | null;
 }
 
+// Form state type for useActionState
+export type VideoGenerationFormState = {
+  message: string;
+  taskId?: string;
+  historyItemId?: string;
+  error?: string;
+};
+
 /**
  * Checks if the Fal.ai video generation service is configured and available.
  * Returns an object for clarity and future expansion.
@@ -159,5 +167,97 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
       videoModel: input.videoModel || 'lite',
     });
     return { error: 'Failed to submit video generation job.' };
+  }
+}
+
+/**
+ * Server Action wrapper for video generation compatible with useActionState.
+ * This action extracts parameters from FormData and calls the existing startVideoGenerationAndCreateHistory flow.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing all generation parameters
+ * @returns A FormState object with generation results or errors
+ */
+export async function generateVideoAction(
+  previousState: VideoGenerationFormState | null,
+  formData: FormData
+): Promise<VideoGenerationFormState> {
+  try {
+    // Extract all parameters from FormData
+    const prompt = formData.get('prompt') as string;
+    const imageUrl = formData.get('imageUrl') as string;
+    const localImagePath = formData.get('localImagePath') as string | null;
+    const videoModel = (formData.get('videoModel') as 'lite' | 'pro') || 'lite';
+    const resolution = (formData.get('resolution') as '480p' | '720p' | '1080p') || '480p';
+    const duration = formData.get('duration') as string || '5';
+    const seedStr = formData.get('seed') as string;
+    const seed = seedStr === '-1' ? -1 : parseInt(seedStr, 10);
+    const cameraFixed = formData.get('cameraFixed') === 'true';
+    
+    // Structured parameters
+    const selectedPredefinedPrompt = formData.get('selectedPredefinedPrompt') as string || 'custom';
+    const modelMovement = formData.get('modelMovement') as string || '';
+    const fabricMotion = formData.get('fabricMotion') as string || '';
+    const cameraAction = formData.get('cameraAction') as string || '';
+    const aestheticVibe = formData.get('aestheticVibe') as string || '';
+
+    // Validate required fields
+    if (!imageUrl) {
+      return {
+        message: 'Image required',
+        error: 'No image provided',
+      };
+    }
+
+    if (!prompt || !prompt.trim()) {
+      return {
+        message: 'Prompt required',
+        error: 'Prompt is empty',
+      };
+    }
+
+    // Build the generation input
+    const videoInput: GenerateVideoInput = {
+      prompt,
+      image_url: imageUrl,
+      local_image_path: localImagePath || imageUrl,
+      videoModel,
+      resolution,
+      duration: duration as any,
+      seed,
+      camera_fixed: cameraFixed,
+      selectedPredefinedPrompt,
+      modelMovement,
+      fabricMotion,
+      cameraAction,
+      aestheticVibe,
+    };
+
+    // Call the existing generation flow
+    const result = await startVideoGenerationAndCreateHistory(videoInput);
+
+    // Check for errors
+    if (result.error) {
+      return {
+        message: 'Video generation failed to start',
+        error: result.error,
+      };
+    }
+
+    // Return success state
+    return {
+      message: 'Video generation started successfully. Check the History tab for the result.',
+      taskId: result.taskId,
+      historyItemId: result.historyItemId,
+    };
+
+  } catch (error) {
+    console.error('Error in generateVideoAction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
+    // Return error state (never throw)
+    return {
+      message: 'Failed to start video generation',
+      error: errorMessage,
+    };
   }
 }
