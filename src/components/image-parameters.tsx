@@ -1,7 +1,8 @@
 // src/components/image-parameters.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo, useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button"; 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { UnifiedMediaModal, MediaSlot, SidebarSlot } from "./UnifiedMediaModal";
 import { GenerationProgressIndicator } from "./GenerationProgressIndicator";
-import { generateImageEdit, type GenerateImageEditInput, type GenerateMultipleImagesOutput } from "@/ai/flows/generate-image-edit";
+import { generateImageAction, type ImageGenerationFormState } from "@/actions/imageActions";
 import { upscaleImageAction, faceDetailerAction, isFaceDetailerAvailable, isUpscaleServiceAvailable } from "@/ai/actions/upscale-image.action";
 import { isBackgroundRemovalAvailable } from "@/ai/actions/remove-background.action";
 import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
@@ -51,6 +52,29 @@ interface ImageParametersProps {
 
 // Constants
 const NUM_IMAGES_TO_GENERATE = 3;
+
+// SubmitButton component using useFormStatus for pending state
+function SubmitButton({ preparedImageUrl }: { preparedImageUrl: string | null }) {
+  const { pending } = useFormStatus();
+  
+  return (
+    <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+      <Button type="submit" disabled={pending || !preparedImageUrl} className="w-full text-lg h-14">
+        <AnimatePresence mode="wait" initial={false}>
+          {pending ? (
+            <motion.span key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating...
+            </motion.span>
+          ) : (
+            <motion.span key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">
+              <Sparkles className="mr-2 h-5 w-5" /> Generate {NUM_IMAGES_TO_GENERATE} Images
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </Button>
+    </motion.div>
+  );
+}
 
 // Component now accepts props for loading configuration
 export default function ImageParameters({
@@ -98,9 +122,40 @@ export default function ImageParameters({
   const [showPromptPreview, setShowPromptPreview] = useState<boolean>(false);
 
   // State for generation results
-  const [outputImageUrls, setOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-  const [originalOutputImageUrls, setOriginalOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+  // REMOVED: Manual state management replaced with useActionState
+  // const [outputImageUrls, setOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+  // const [originalOutputImageUrls, setOriginalOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+  // const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+  // const [isLoading, setIsLoading] = useState<boolean>(false);
+  // const [isGeneratingSlots, setIsGeneratingSlots] = useState<boolean[]>([false, false, false]);
+  // const [lastUsedPrompt, setLastUsedPrompt] = useState<string>('');
+  // const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
 
+  // NEW: useActionState for form-based generation
+  const initialState: ImageGenerationFormState = { message: '' };
+  const [formState, formAction, isPending] = useActionState(generateImageAction, initialState);
+  
+  // Local state for post-generation operations (upscale, face detail)
+  // These are initialized from formState but can be modified independently
+  const [localOutputImageUrls, setLocalOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+  const [originalOutputImageUrls, setOriginalOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+  
+  // Update local state when form state changes
+  useEffect(() => {
+    if (formState.editedImageUrls) {
+      setLocalOutputImageUrls(formState.editedImageUrls);
+    }
+  }, [formState.editedImageUrls]);
+  
+  // Derive state for UI rendering
+  const outputImageUrls = localOutputImageUrls;
+  const generationErrors = formState.errors || Array(NUM_IMAGES_TO_GENERATE).fill(null);
+  const lastUsedPrompt = formState.constructedPrompt || '';
+  const activeHistoryItemId = formState.newHistoryId || null;
+  
+  // Local state for loading indicators
+  const [isGeneratingSlots, setIsGeneratingSlots] = useState<boolean[]>([false, false, false]);
+  
   // Ref for auto-scroll to results
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -112,26 +167,28 @@ export default function ImageParameters({
     }
   }, [historyItemToLoad]);
   
-  const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isGeneratingSlots, setIsGeneratingSlots] = useState<boolean[]>([false, false, false]); // Track each slot independently
+  // REMOVED: Manual state management
+  // const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
+  // const [isLoading, setIsLoading] = useState<boolean>(false);
+  // const [isGeneratingSlots, setIsGeneratingSlots] = useState<boolean[]>([false, false, false]); // Track each slot independently
+  
   const [isUpscalingSlot, setIsUpscalingSlot] = useState<number | null>(null);
   const [isFaceRetouchingSlot, setIsFaceRetouchingSlot] = useState<number | null>(null);
   const [isFaceDetailerServiceAvailable, setIsFaceDetailerServiceAvailable] = useState<boolean>(false);
   const [isBackgroundRemovalServiceAvailable, setIsBackgroundRemovalServiceAvailable] = useState<boolean>(false);
   const [isUpscaleServiceAvailableState, setIsUpscaleServiceAvailableState] = useState<boolean>(false);
   const [comparingSlotIndex, setComparingSlotIndex] = useState<number | null>(null);
-  const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
+  // REMOVED: const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
   
   // Image viewer modal state
   const [isImageViewerOpen, setIsImageViewerOpen] = useState<boolean>(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
-  const [lastUsedPrompt, setLastUsedPrompt] = useState<string>(''); // Store the last constructed prompt for history
+  // REMOVED: const [lastUsedPrompt, setLastUsedPrompt] = useState<string>(''); // Store the last constructed prompt for history
 
   // Auto-scroll to results when generation starts
   useEffect(() => {
-    if (isLoading && resultsRef.current) {
+    if (isPending && resultsRef.current) {
       const timer = setTimeout(() => {
         resultsRef.current?.scrollIntoView({ 
           behavior: 'smooth', 
@@ -140,7 +197,7 @@ export default function ImageParameters({
       }, 100); // Small delay to ensure the results section is rendered
       return () => clearTimeout(timer);
     }
-  }, [isLoading]);
+  }, [isPending]);
 
   const PARAMETER_CONFIG = React.useMemo(() => ({
     gender: { options: GENDER_OPTIONS, defaultVal: GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value },
@@ -316,75 +373,32 @@ export default function ImageParameters({
     toast({ title: "Manual Configuration Randomized!" });
   }, [PARAMETER_CONFIG, setImageSettings, toast]);
 
-  const handleSubmit = async () => {
-    if (!preparedImageUrl) {
-      toast({ title: "Image Not Prepared", description: "Please prepare an image in the previous step.", variant: "destructive" });
-      return;
-    }
+  // REMOVED: handleSubmit function - replaced with form-based submission via useActionState
+  // The form action will be handled by formAction from useActionState
 
-    // 1. Set global loading state
-    setIsLoading(true);
-    setOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-    setOriginalOutputImageUrls(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-    setGenerationErrors(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-    
-    // Start all slots in a "generating" visual state
-    setIsGeneratingSlots([true, true, true]);
-
-    const generationInput: GenerateImageEditInput = {
-      prompt: isPromptManuallyEdited ? currentPrompt : undefined,
-      imageDataUriOrUrl: preparedImageUrl,
-      parameters: currentImageGenParams,
-      settingsMode: settingsMode,
-      useAIPrompt: useAIPrompt,
-      useRandomization: useRandomization, // Pass the new, decoupled randomization flag
-      removeBackground: backgroundRemovalEnabled,
-      upscale: upscaleEnabled,
-      enhanceFace: faceDetailEnabled,
-    };
-
-    toast({ title: useRandomization ? "Starting Creative Generation..." : "Starting Generation...", description: useRandomization ? "Using randomized styles for variety." : "Using your selected settings." });
-
-    try {
-  const result: GenerateMultipleImagesOutput & { newHistoryId?: string } = await generateImageEdit(generationInput, currentUser?.username || '');
-  setOutputImageUrls(result.editedImageUrls);
+  // Effect to handle form submission results
+  useEffect(() => {
+    if (formState.message && formState.editedImageUrls) {
+      const successCount = formState.editedImageUrls.filter(url => url !== null).length;
       
-      // Store the prompt for history
-      setLastUsedPrompt(result.constructedPrompt);
-      
-      const successCount = result.editedImageUrls.filter(url => url !== null).length;
       if (successCount > 0) {
-        // generateImageEdit already created the history item on the server and returns its id (newHistoryId).
-        if (result.newHistoryId) {
-          setActiveHistoryItemId(result.newHistoryId);
-        }
         // Trigger history gallery refresh via Zustand store
         incrementGenerationCount();
         toast({
           title: "Generation Complete!",
-          description: `${successCount} out of ${NUM_IMAGES_TO_GENERATE} images generated successfully.`
+          description: formState.message
         });
-      } else {
+      } else if (formState.errors) {
         toast({
           title: "All Generations Failed",
           description: "Please check the errors or try again.",
           variant: "destructive"
         });
       }
-      if (result.errors) {
-        setGenerationErrors(result.errors);
-      }
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred during generation.";
-      console.error("Error calling generateImageEdit:", error);
-      toast({ title: "Generation Failed", description: errorMessage, variant: "destructive" });
-      setGenerationErrors(Array(NUM_IMAGES_TO_GENERATE).fill(errorMessage));
-    } finally {
-      setIsLoading(false);
-      setIsGeneratingSlots([false, false, false]);
+    } else if (formState.message && formState.errors) {
+      toast({ title: "Generation Failed", description: formState.message, variant: "destructive" });
     }
-  };
+  }, [formState, toast, incrementGenerationCount]);
 
   // Re-roll functionality has been replaced with Face Retouch
 
@@ -413,7 +427,7 @@ export default function ImageParameters({
         return newOriginals;
       });
 
-      setOutputImageUrls(prev => {
+      setLocalOutputImageUrls(prev => {
         const newUrls = [...prev]; newUrls[slotIndex] = savedPath;
         return newUrls;
       });
@@ -449,7 +463,7 @@ export default function ImageParameters({
         return newOriginals;
       });
 
-      setOutputImageUrls(prev => {
+      setLocalOutputImageUrls(prev => {
         const newUrls = [...prev]; newUrls[slotIndex] = savedPath;
         return newUrls;
       });
@@ -588,21 +602,34 @@ export default function ImageParameters({
           </div>
         </CardHeader>
         <CardContent>
-          <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-            <Button onClick={handleSubmit} disabled={isLoading || !preparedImageUrl} className="w-full text-lg h-14">
-              <AnimatePresence mode="wait" initial={false}>
-                {isLoading ? (
-                  <motion.span key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating...
-                  </motion.span>
-                ) : (
-                  <motion.span key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">
-                    <Sparkles className="mr-2 h-5 w-5" /> Generate {NUM_IMAGES_TO_GENERATE} Images
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </Button>
-          </motion.div>
+          <form action={formAction}>
+            {/* Hidden inputs for all generation parameters */}
+            <input type="hidden" name="imageDataUriOrUrl" value={preparedImageUrl || ''} />
+            <input type="hidden" name="gender" value={imageSettings.gender} />
+            <input type="hidden" name="bodyShapeAndSize" value={imageSettings.bodyShapeAndSize} />
+            <input type="hidden" name="ageRange" value={imageSettings.ageRange} />
+            <input type="hidden" name="ethnicity" value={imageSettings.ethnicity} />
+            <input type="hidden" name="poseStyle" value={imageSettings.poseStyle} />
+            <input type="hidden" name="background" value={imageSettings.background} />
+            <input type="hidden" name="fashionStyle" value={imageSettings.fashionStyle} />
+            <input type="hidden" name="hairStyle" value={imageSettings.hairStyle} />
+            <input type="hidden" name="modelExpression" value={imageSettings.modelExpression} />
+            <input type="hidden" name="lightingType" value={imageSettings.lightingType} />
+            <input type="hidden" name="lightQuality" value={imageSettings.lightQuality} />
+            <input type="hidden" name="modelAngle" value={imageSettings.modelAngle} />
+            <input type="hidden" name="lensEffect" value={imageSettings.lensEffect} />
+            <input type="hidden" name="depthOfField" value={imageSettings.depthOfField} />
+            <input type="hidden" name="timeOfDay" value={imageSettings.timeOfDay} />
+            <input type="hidden" name="overallMood" value={imageSettings.overallMood} />
+            <input type="hidden" name="settingsMode" value={settingsMode} />
+            <input type="hidden" name="useAIPrompt" value={String(useAIPrompt)} />
+            <input type="hidden" name="useRandomization" value={String(useRandomization)} />
+            <input type="hidden" name="removeBackground" value={String(backgroundRemovalEnabled)} />
+            <input type="hidden" name="upscale" value={String(upscaleEnabled)} />
+            <input type="hidden" name="enhanceFace" value={String(faceDetailEnabled)} />
+            {isPromptManuallyEdited && <input type="hidden" name="manualPrompt" value={currentPrompt} />}
+            
+            <SubmitButton preparedImageUrl={preparedImageUrl} />
           
           {/* Image Processing Options - Non-Destructive Pipeline */}
           <div className="mt-6 p-4 rounded-lg bg-muted/30 border border-muted/30 space-y-3">
@@ -625,7 +652,7 @@ export default function ImageParameters({
                     id="bg-removal-switch"
                     checked={backgroundRemovalEnabled}
                     onCheckedChange={setBackgroundRemovalEnabled}
-                    disabled={isLoading}
+                    disabled={isPending}
                   />
                 </div>
               )}
@@ -640,7 +667,7 @@ export default function ImageParameters({
                     id="upscale-switch"
                     checked={upscaleEnabled}
                     onCheckedChange={setUpscaleEnabled}
-                    disabled={isLoading}
+                    disabled={isPending}
                   />
                 </div>
               )}
@@ -655,12 +682,13 @@ export default function ImageParameters({
                     id="face-detail-switch"
                     checked={faceDetailEnabled}
                     onCheckedChange={setFaceDetailEnabled}
-                    disabled={isLoading}
+                    disabled={isPending}
                   />
                 </div>
               )}
             </div>
           </div>
+          </form>
         </CardContent>
         <CardFooter className="flex-col items-stretch !pt-0">
           <Accordion type="single" collapsible className="w-full">
@@ -722,7 +750,7 @@ export default function ImageParameters({
                               size="sm"
                               onClick={handleRandomizeConfiguration}
                               className="h-9 px-3"
-                              disabled={isLoading || !preparedImageUrl}>
+                              disabled={isPending || !preparedImageUrl}>
                               <Shuffle className="mr-2 h-4 w-4"/>
                               Randomize
                             </Button>
@@ -798,7 +826,7 @@ export default function ImageParameters({
                         variant="outline" 
                         onClick={handleSaveDefaults} 
                         size="sm" 
-                        disabled={!preparedImageUrl || isLoading}
+                        disabled={!preparedImageUrl || isPending}
                         className="h-9 px-3 border-muted/60 hover:border-muted-foreground/40"
                       >
                         <Save className="mr-2 h-4 w-4"/>
@@ -808,7 +836,7 @@ export default function ImageParameters({
                         variant="ghost" 
                         onClick={handleClearDefaults} 
                         size="sm" 
-                        disabled={!preparedImageUrl || isLoading}
+                        disabled={!preparedImageUrl || isPending}
                         className="h-9 px-3 text-muted-foreground hover:text-foreground"
                       >
                         <Trash2 className="mr-2 h-4 w-4"/>
@@ -821,7 +849,7 @@ export default function ImageParameters({
                       variant={showPromptPreview ? "secondary" : "outline"} 
                       onClick={() => setShowPromptPreview(!showPromptPreview)} 
                       size="sm" 
-                      disabled={!preparedImageUrl || isLoading} 
+                      disabled={!preparedImageUrl || isPending} 
                       className="h-9 px-3 border-muted/60 hover:border-muted-foreground/40"
                     >
                       <Code className="mr-2 h-4 w-4" />
@@ -861,9 +889,9 @@ export default function ImageParameters({
       </Card>
 
       {/* Progress Indicator - Shows during generation */}
-      {isLoading && (
+      {isPending && (
         <GenerationProgressIndicator
-          isGenerating={isLoading}
+          isGenerating={isPending}
           stage={isGeneratingSlots.every(s => s) ? 'finalizing' : 'processing'}
           progress={Math.round((isGeneratingSlots.filter(s => !s && outputImageUrls[isGeneratingSlots.indexOf(s)] !== null).length / NUM_IMAGES_TO_GENERATE) * 100)}
           imageCount={NUM_IMAGES_TO_GENERATE}
