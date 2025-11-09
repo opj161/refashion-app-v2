@@ -386,3 +386,129 @@ export async function flipImage(
     return { success: false, error: `Failed to flip image: ${errorMessage}` };
   }
 }
+
+/**
+ * Form State type for useActionState hook integration
+ */
+export type ImageGenerationFormState = {
+  message: string;
+  editedImageUrls?: (string | null)[];
+  constructedPrompt?: string;
+  errors?: (string | null)[];
+  newHistoryId?: string;
+};
+
+/**
+ * Server Action wrapper for image generation compatible with useActionState.
+ * This action extracts parameters from FormData and calls the existing generateImageEdit flow.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing all generation parameters
+ * @returns A FormState object with generation results or errors
+ */
+export async function generateImageAction(
+  previousState: ImageGenerationFormState | null,
+  formData: FormData
+): Promise<ImageGenerationFormState> {
+  // Import here to avoid circular dependencies
+  const { generateImageEdit } = await import('@/ai/flows/generate-image-edit');
+  const { getCurrentUser } = await import('./authActions');
+  
+  // Type will be inferred from the imported function
+  type GenerateImageEditInput = Parameters<typeof generateImageEdit>[0];
+  
+  try {
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user || !user.username) {
+      return {
+        message: 'Authentication required',
+        errors: [null, null, null].map(() => 'User not authenticated'),
+      };
+    }
+
+    // Extract required parameters from FormData
+    const imageDataUriOrUrl = formData.get('imageDataUriOrUrl') as string;
+    if (!imageDataUriOrUrl) {
+      return {
+        message: 'Image required',
+        errors: [null, null, null].map(() => 'No image provided'),
+      };
+    }
+
+    // Extract all ModelAttributes parameters
+    const parameters = {
+      gender: formData.get('gender') as string,
+      bodyShapeAndSize: formData.get('bodyShapeAndSize') as string,
+      ageRange: formData.get('ageRange') as string,
+      ethnicity: formData.get('ethnicity') as string,
+      poseStyle: formData.get('poseStyle') as string,
+      background: formData.get('background') as string,
+      fashionStyle: formData.get('fashionStyle') as string,
+      hairStyle: formData.get('hairStyle') as string,
+      modelExpression: formData.get('modelExpression') as string,
+      lightingType: formData.get('lightingType') as string,
+      lightQuality: formData.get('lightQuality') as string,
+      modelAngle: formData.get('modelAngle') as string,
+      lensEffect: formData.get('lensEffect') as string,
+      depthOfField: formData.get('depthOfField') as string,
+      timeOfDay: formData.get('timeOfDay') as string,
+      overallMood: formData.get('overallMood') as string,
+    };
+
+    // Extract generation options
+    const settingsMode = (formData.get('settingsMode') as 'basic' | 'advanced') || 'basic';
+    const useAIPrompt = formData.get('useAIPrompt') === 'true';
+    const useRandomization = formData.get('useRandomization') === 'true';
+    const removeBackground = formData.get('removeBackground') === 'true';
+    const upscale = formData.get('upscale') === 'true';
+    const enhanceFace = formData.get('enhanceFace') === 'true';
+    const manualPrompt = formData.get('manualPrompt') as string | null;
+
+    // Build the generation input
+    const generationInput: GenerateImageEditInput = {
+      imageDataUriOrUrl,
+      parameters,
+      settingsMode,
+      useAIPrompt,
+      useRandomization,
+      removeBackground,
+      upscale,
+      enhanceFace,
+      ...(manualPrompt && { prompt: manualPrompt }),
+    };
+
+    // Call the existing generation flow
+    const result = await generateImageEdit(generationInput, user.username);
+
+    // Check for success
+    const successCount = result.editedImageUrls.filter(url => url !== null).length;
+    
+    if (successCount === 0) {
+      return {
+        message: 'All generations failed',
+        editedImageUrls: result.editedImageUrls,
+        constructedPrompt: result.constructedPrompt,
+        errors: result.errors || [null, null, null].map(() => 'Generation failed'),
+      };
+    }
+
+    // Return success state
+    return {
+      message: `${successCount} out of 3 images generated successfully`,
+      editedImageUrls: result.editedImageUrls,
+      constructedPrompt: result.constructedPrompt,
+      errors: result.errors,
+      newHistoryId: result.newHistoryId,
+    };
+
+  } catch (error) {
+    console.error('Error in generateImageAction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
+    // Return error state (never throw)
+    return {
+      message: 'Generation failed',
+      errors: [errorMessage, errorMessage, errorMessage],
+    };
+  }
+}
