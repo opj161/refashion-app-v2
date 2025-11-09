@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
@@ -58,66 +57,17 @@ export default function VideoParameters() {
   const activeImage = useActivePreparationImage();
   const preparedImageUrl = activeImage?.imageUrl || null;
 
-  // Get video settings from Zustand store
+  // Get video settings from Zustand store - read and write directly
   const videoSettings = useGenerationSettingsStore(state => state.videoSettings);
   const setVideoSettings = useGenerationSettingsStore(state => state.setVideoSettings);
 
   // Service availability state
   const [isServiceAvailable, setIsServiceAvailable] = useState(true); // Assume available initially
 
-  // State for video parameters (initialized from store)
-  const [videoModel, setVideoModel] = useState<VideoModel>(videoSettings.videoModel);
-  const [resolution, setResolution] = useState<VideoResolution>(videoSettings.resolution);
-  const [duration, setDuration] = useState<VideoDuration>(videoSettings.duration as VideoDuration);
-  const [seed, setSeed] = useState<string>(videoSettings.seed);
-  const [cameraFixed, setCameraFixed] = useState<boolean>(videoSettings.cameraFixed);
+  // Local UI state only (not duplicating store values)
   const [estimatedCost, setEstimatedCost] = useState<number | null>(calculateVideoCost(videoSettings.videoModel, videoSettings.resolution, videoSettings.duration as VideoDuration));
-
-  // State for preset button selection and accordions
   const [activePreset, setActivePreset] = useState<string | null>(videoSettings.selectedPredefinedPrompt);
   const [openAccordions, setOpenAccordions] = useState<string[]>([]);
-
-  // Prompt builder states (initialized from store)
-  const [selectedPredefinedPrompt, setSelectedPredefinedPrompt] = useState<string>(videoSettings.selectedPredefinedPrompt);
-  const [modelMovement, setModelMovement] = useState<string>(videoSettings.modelMovement);
-  const [fabricMotion, setFabricMotion] = useState<string>(videoSettings.fabricMotion);
-  const [cameraAction, setCameraAction] = useState<string>(videoSettings.cameraAction);
-  const [aestheticVibe, setAestheticVibe] = useState<string>(videoSettings.aestheticVibe);
-
-  // Sync local state with store when store changes (e.g., from reload)
-  useEffect(() => {
-    setVideoModel(videoSettings.videoModel);
-    setResolution(videoSettings.resolution);
-    setDuration(videoSettings.duration as VideoDuration);
-    setSeed(videoSettings.seed);
-    setCameraFixed(videoSettings.cameraFixed);
-    setSelectedPredefinedPrompt(videoSettings.selectedPredefinedPrompt);
-    setActivePreset(videoSettings.selectedPredefinedPrompt);
-    setModelMovement(videoSettings.modelMovement);
-    setFabricMotion(videoSettings.fabricMotion);
-    setCameraAction(videoSettings.cameraAction);
-    setAestheticVibe(videoSettings.aestheticVibe);
-  }, [videoSettings]);
-
-  // Sync local state changes to the store
-  useEffect(() => {
-    setVideoSettings({
-      videoModel,
-      resolution,
-      duration,
-      seed,
-      cameraFixed,
-      selectedPredefinedPrompt,
-      modelMovement,
-      fabricMotion,
-      cameraAction,
-      aestheticVibe,
-    });
-  }, [
-    videoModel, resolution, duration, seed, cameraFixed,
-    selectedPredefinedPrompt, modelMovement, fabricMotion,
-    cameraAction, aestheticVibe, setVideoSettings
-  ]);
 
   // Generation states
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -145,36 +95,33 @@ export default function VideoParameters() {
   // Video parameters are now managed entirely on the client side
   const [generatedSeedValue, setGeneratedSeedValue] = useState<number | null>(null);
 
-  // For webhook-based flow
-  const [generationTaskId, setGenerationTaskId] = useState<string | null>(null);
-  const [historyItemId, setHistoryItemId] = useState<string | null>(null);
-  const [progressValue, setProgressValue] = useState(0);
+  // Webhook-based flow - task tracking removed (webhook updates DB directly)
 
   // Check if data URI is provided (not a server URL)
   const isDataUri = preparedImageUrl?.startsWith('data:') || false;
   const commonFormDisabled = isGenerating || isUploadingToFal || !isServiceAvailable || !preparedImageUrl;
 
   const currentVideoGenParams = React.useMemo((): VideoGenerationParams => ({
-    selectedPredefinedPrompt,
-    modelMovement,
-    fabricMotion, // Ensure this is the video-specific one from prompt-builder if names differ
-    cameraAction,
-    aestheticVibe,
-  }), [selectedPredefinedPrompt, modelMovement, fabricMotion, cameraAction, aestheticVibe]);
+    selectedPredefinedPrompt: videoSettings.selectedPredefinedPrompt,
+    modelMovement: videoSettings.modelMovement,
+    fabricMotion: videoSettings.fabricMotion,
+    cameraAction: videoSettings.cameraAction,
+    aestheticVibe: videoSettings.aestheticVibe,
+  }), [videoSettings.selectedPredefinedPrompt, videoSettings.modelMovement, videoSettings.fabricMotion, videoSettings.cameraAction, videoSettings.aestheticVibe]);
 
   // Handler for when a preset button is clicked
   const handlePresetChange = useCallback((presetValue: string) => {
     setActivePreset(presetValue);
-    setSelectedPredefinedPrompt(presetValue);
-  }, []);
+    setVideoSettings({ selectedPredefinedPrompt: presetValue });
+  }, [setVideoSettings]);
 
   // Handler for when a granular animation control is changed
-  const handleGranularChange = useCallback( <T,>(setter: React.Dispatch<React.SetStateAction<T>>, value: T) => {
-      setter(value);
+  const handleGranularChange = useCallback((key: string, value: string) => {
+      setVideoSettings({ [key]: value });
       setActivePreset(null); // Deselect any active preset button
-      setSelectedPredefinedPrompt('custom');
+      setVideoSettings({ selectedPredefinedPrompt: 'custom' });
     },
-    []
+    [setVideoSettings]
   );
 
   // Effect to automatically select the first preset on mount or image change
@@ -205,13 +152,13 @@ export default function VideoParameters() {
 
   // Effect to calculate and update the estimated cost  
   useEffect(() => {
-    const cost = calculateVideoCost(videoModel, resolution, duration);
+    const cost = calculateVideoCost(videoSettings.videoModel, videoSettings.resolution, videoSettings.duration as VideoDuration);
     setEstimatedCost(cost);
-  }, [videoModel, resolution, duration]);
+  }, [videoSettings.videoModel, videoSettings.resolution, videoSettings.duration]);
 
   // Dynamic resolution options based on the selected model
   const resolutionOptions = React.useMemo(() => {
-    if (videoModel === 'pro') {
+    if (videoSettings.videoModel === 'pro') {
       return [
         { value: '480p', displayLabel: '480p (Faster)', promptSegment: '' },
         { value: '1080p', displayLabel: '1080p (Higher Quality)', promptSegment: '' },
@@ -222,18 +169,18 @@ export default function VideoParameters() {
       { value: '480p', displayLabel: '480p (Faster)', promptSegment: '' },
       { value: '720p', displayLabel: '720p (Higher Quality)', promptSegment: '' },
     ];
-  }, [videoModel]);
+  }, [videoSettings.videoModel]);
 
   // Effect to reset resolution if it becomes invalid after a model change
   useEffect(() => {
-    if (!resolutionOptions.some(opt => opt.value === resolution)) {
-      setResolution('480p');
+    if (!resolutionOptions.some(opt => opt.value === videoSettings.resolution)) {
+      setVideoSettings({ resolution: '480p' });
     }
-  }, [videoModel, resolution, resolutionOptions]);
+  }, [videoSettings.videoModel, videoSettings.resolution, resolutionOptions, setVideoSettings]);
 
   // History loading is now handled by the client-side store
 
-  const handleRandomSeed = () => setSeed("-1");
+  const handleRandomSeed = () => setVideoSettings({ seed: "-1" });
 
   const handleGenerateVideo = async () => {
     if (!preparedImageUrl) {
@@ -254,8 +201,6 @@ export default function VideoParameters() {
     setGeneratedVideoUrl(null);
     setGeneratedLocalVideoUrl(null);
     setGeneratedSeedValue(null);
-    setGenerationTaskId(null);
-    setHistoryItemId(null);
 
     try {
       let imageUrlForVideo: string = preparedImageUrl || '';
@@ -291,16 +236,16 @@ export default function VideoParameters() {
         prompt: currentPrompt,
         image_url: imageUrlForVideo,
         local_image_path: preparedImageUrl, // Always pass the original local path for history storage
-        videoModel,
-        resolution,
-        duration,
-        seed: seed === "-1" ? -1 : parseInt(seed, 10),
-        camera_fixed: cameraFixed,
-        selectedPredefinedPrompt,
-        modelMovement,
-        fabricMotion,
-        cameraAction,
-        aestheticVibe,
+        videoModel: videoSettings.videoModel,
+        resolution: videoSettings.resolution,
+        duration: videoSettings.duration,
+        seed: videoSettings.seed === "-1" ? -1 : parseInt(videoSettings.seed, 10),
+        camera_fixed: videoSettings.cameraFixed,
+        selectedPredefinedPrompt: videoSettings.selectedPredefinedPrompt,
+        modelMovement: videoSettings.modelMovement,
+        fabricMotion: videoSettings.fabricMotion,
+        cameraAction: videoSettings.cameraAction,
+        aestheticVibe: videoSettings.aestheticVibe,
       };
 
       // CACHE-STRATEGY: Policy: Dynamic - This is a client-side POST request to initiate a server action. It must never be cached.
@@ -318,14 +263,15 @@ export default function VideoParameters() {
       }
 
       const { taskId, historyItemId: hId } = await response.json();
-      setGenerationTaskId(taskId);
-      setHistoryItemId(hId);
 
       toast({
         title: "Video Generation Started",
-        description: "Processing in background. Result will appear here and in history.",
+        description: "Processing in background. Result will appear in your 'History' tab when complete.",
         duration: 5000
       });
+
+      // Keep showing "Processing..." state - user checks History tab for result
+      // isGenerating remains true to show persistent processing message
 
     } catch (error) {
       console.error('Error initiating video generation:', error);
@@ -338,96 +284,21 @@ export default function VideoParameters() {
 
   const handleCancelGeneration = useCallback(() => {
     setIsGenerating(false);
-    setGenerationTaskId(null);
-    setHistoryItemId(null);
-    // TODO: If there's a way to cancel on the backend via taskId, implement here
-    toast({ title: "Generation Cancelled", description: "Video generation stopped by user." });
+    toast({ title: "Generation Cancelled", description: "Video generation UI cleared. Check 'History' tab for result." });
   }, [toast]);
-
-
-  // Efficient video status polling using dedicated endpoint
-  useEffect(() => {
-    if (!historyItemId || !isGenerating) return;
-
-    let isCancelled = false;
-    const poll = async () => {
-      if (isCancelled) return;
-
-      try {
-        // Call the new, specific endpoint
-        const response = await fetch(`/api/history/${historyItemId}/status`, { cache: 'no-store' });
-
-        if (!response.ok) {
-          // Stop polling on server errors like 404 or 500
-          console.error(`Status check failed: ${response.status}`);
-          setGenerationError(`Status check failed: ${response.statusText}`);
-          setIsGenerating(false);
-          return;
-        }
-
-        const data: import('@/services/database.service').VideoStatusPayload = await response.json();
-
-        if (data.status === 'completed') {
-          setGeneratedVideoUrl(data.videoUrl || null);
-          setGeneratedLocalVideoUrl(data.localVideoUrl || null);
-          setGeneratedSeedValue(data.seed || null);
-          setIsGenerating(false);
-          toast({ title: "Video Generated!", description: "Video is ready." });
-          
-          // Refresh history gallery if available
-          if (typeof (window as any).refreshHistoryGallery === 'function') {
-            (window as any).refreshHistoryGallery();
-          }
-        } else if (data.status === 'failed') {
-          setGenerationError(data.error || 'Video generation failed');
-          setIsGenerating(false);
-          toast({ title: "Generation Failed", description: data.error || 'An unknown error occurred.', variant: "destructive" });
-        } else {
-          // Still processing, schedule the next poll
-          setTimeout(poll, 5000); 
-        }
-
-      } catch (error) {
-        console.error("Error checking video status:", error);
-        // Don't stop polling on network errors, just try again
-        setTimeout(poll, 5000);
-      }
-    };
-
-    // Start the first poll
-    poll();
-
-    // Safety timeout
-    const timeout = setTimeout(() => {
-      if (isGenerating) {
-          isCancelled = true;
-          setIsGenerating(false);
-          toast({ title: "Generation Timed Out", description: "Taking too long. Check history later." });
-      }
-    }, 10 * 60 * 1000); // 10 min timeout
-
-    return () => {
-      isCancelled = true;
-      clearTimeout(timeout);
-    };
-  }, [historyItemId, isGenerating, toast]);
 
   // Effect to simulate progress during generation
   useEffect(() => {
     let progressInterval: NodeJS.Timeout | undefined;
     if (isGenerating && !generatedVideoUrl) {
-      setProgressValue(10); // Start with a small amount
+      // Simple progress simulation for UI feedback only
+      const startTime = Date.now();
       progressInterval = setInterval(() => {
-        setProgressValue(prev => {
-          if (prev >= 95) { // Cap progress before completion
-            clearInterval(progressInterval);
-            return 95;
-          }
-          return prev + Math.floor(Math.random() * 3) + 1; // Increment slowly and randomly
-        });
-      }, 800);
-    } else {
-      setProgressValue(0);
+        const elapsed = Date.now() - startTime;
+        // Cap at 90% since we don't know actual completion
+        const simulatedProgress = Math.min(90, Math.floor((elapsed / 120000) * 90));
+        // Progress bar removed - using spinner instead
+      }, 1000);
     }
     return () => clearInterval(progressInterval);
   }, [isGenerating, generatedVideoUrl]);
@@ -479,35 +350,35 @@ export default function VideoParameters() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="model-movement" className="text-sm">Model Movement</Label>
-                      <Select value={modelMovement} onValueChange={(v) => handleGranularChange(setModelMovement, v)} disabled={commonFormDisabled}>
+                      <Select value={videoSettings.modelMovement} onValueChange={(v) => handleGranularChange('modelMovement', v)} disabled={commonFormDisabled}>
                         <SelectTrigger id="model-movement" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>{MODEL_MOVEMENT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.displayLabel}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label htmlFor="fabric-motion" className="text-sm">Fabric Motion</Label>
-                      <Select value={fabricMotion} onValueChange={(v) => handleGranularChange(setFabricMotion, v)} disabled={commonFormDisabled}>
+                      <Select value={videoSettings.fabricMotion} onValueChange={(v) => handleGranularChange('fabricMotion', v)} disabled={commonFormDisabled}>
                         <SelectTrigger id="fabric-motion" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>{FABRIC_MOTION_OPTIONS_VIDEO.map(o => <SelectItem key={o.value} value={o.value}>{o.displayLabel}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label htmlFor="camera-action" className="text-sm">Camera Action</Label>
-                      <Select value={cameraAction} onValueChange={(v) => handleGranularChange(setCameraAction, v)} disabled={commonFormDisabled}>
+                      <Select value={videoSettings.cameraAction} onValueChange={(v) => handleGranularChange('cameraAction', v)} disabled={commonFormDisabled}>
                         <SelectTrigger id="camera-action" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>{CAMERA_ACTION_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.displayLabel}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label htmlFor="aesthetic-vibe" className="text-sm">Aesthetic Vibe</Label>
-                      <Select value={aestheticVibe} onValueChange={(v) => handleGranularChange(setAestheticVibe, v)} disabled={commonFormDisabled}>
+                      <Select value={videoSettings.aestheticVibe} onValueChange={(v) => handleGranularChange('aestheticVibe', v)} disabled={commonFormDisabled}>
                         <SelectTrigger id="aesthetic-vibe" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>{AESTHETIC_STYLE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.displayLabel}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2 pt-2">
-                    <Switch id="cameraFixed" checked={cameraFixed} onCheckedChange={setCameraFixed} disabled={commonFormDisabled} />
+                    <Switch id="cameraFixed" checked={videoSettings.cameraFixed} onCheckedChange={(checked) => setVideoSettings({ cameraFixed: checked })} disabled={commonFormDisabled} />
                     <Label htmlFor="cameraFixed" className="text-sm cursor-pointer">Fix Camera Position</Label>
                   </div>
                    <div className="pt-2">
@@ -536,7 +407,7 @@ export default function VideoParameters() {
                 <AccordionContent className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="video-model" className="text-sm">Video Model</Label>
-                    <Select value={videoModel} onValueChange={(v: string) => setVideoModel(v as VideoModel)} disabled={commonFormDisabled}>
+                    <Select value={videoSettings.videoModel} onValueChange={(v: string) => setVideoSettings({ videoModel: v as VideoModel })} disabled={commonFormDisabled}>
                       <SelectTrigger id="video-model" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="lite">Seedance Lite (Default)</SelectItem>
@@ -546,14 +417,14 @@ export default function VideoParameters() {
                   </div>
                   <div>
                     <Label htmlFor="resolution" className="text-sm">Resolution</Label>
-                    <Select value={resolution} onValueChange={(v: string) => setResolution(v as VideoResolution)} disabled={commonFormDisabled}>
+                    <Select value={videoSettings.resolution} onValueChange={(v: string) => setVideoSettings({ resolution: v as VideoResolution })} disabled={commonFormDisabled}>
                       <SelectTrigger id="resolution" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {resolutionOptions.map(option => (
                           <SelectItem key={option.value} value={option.value} className="text-sm">
                             <div className="flex justify-between w-full items-center">
                               <span>{option.displayLabel}</span>
-                              <span className="text-xs text-muted-foreground ml-2">{formatPrice(calculateVideoCost(videoModel, option.value as VideoResolution, duration))}</span>
+                              <span className="text-xs text-muted-foreground ml-2">{formatPrice(calculateVideoCost(videoSettings.videoModel, option.value as VideoResolution, videoSettings.duration as VideoDuration))}</span>
                             </div>
                           </SelectItem>
                         ))}
@@ -562,14 +433,14 @@ export default function VideoParameters() {
                   </div>
                   <div>
                     <Label htmlFor="duration" className="text-sm">Duration</Label>
-                    <Select value={duration} onValueChange={(v: string) => setDuration(v as VideoDuration)} disabled={commonFormDisabled}>
+                    <Select value={videoSettings.duration} onValueChange={(v: string) => setVideoSettings({ duration: v as VideoDuration })} disabled={commonFormDisabled}>
                       <SelectTrigger id="duration" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {['3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(d => (
                            <SelectItem key={d} value={d} className="text-sm">
                              <div className="flex justify-between w-full items-center">
                                <span>{d} seconds</span>
-                               <span className="text-xs text-muted-foreground ml-2">{formatPrice(calculateVideoCost(videoModel, resolution, d as VideoDuration))}</span>
+                               <span className="text-xs text-muted-foreground ml-2">{formatPrice(calculateVideoCost(videoSettings.videoModel, videoSettings.resolution, d as VideoDuration))}</span>
                              </div>
                            </SelectItem>
                         ))}
@@ -579,7 +450,7 @@ export default function VideoParameters() {
                   <div>
                     <Label htmlFor="seed" className="text-sm">Seed</Label>
                     <div className="flex items-center gap-2 mt-1">
-                      <Input id="seed" type="text" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="-1 for random" disabled={commonFormDisabled} className="text-sm"/>
+                      <Input id="seed" type="text" value={videoSettings.seed} onChange={(e) => setVideoSettings({ seed: e.target.value })} placeholder="-1 for random" disabled={commonFormDisabled} className="text-sm"/>
                       <Button variant="outline" size="icon" onClick={handleRandomSeed} disabled={commonFormDisabled} title="Use Random Seed"><Shuffle className="h-4 w-4" /></Button>
                     </div>
                   </div>
@@ -637,10 +508,10 @@ export default function VideoParameters() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Loader2 className="h-6 w-6 text-primary animate-spin" />
-              {isUploadingToFal ? "Uploading Image..." : "Generating Video..."}
+              {isUploadingToFal ? "Uploading Image..." : "Video Generation in Progress"}
             </CardTitle>
             <CardDescription>
-              Your video is being processed. This may take a minute. Please wait.
+              Your video is being processed. This may take several minutes. The result will appear in your &apos;History&apos; tab when complete.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center items-center py-10">
@@ -648,11 +519,9 @@ export default function VideoParameters() {
               <div className="aspect-video bg-muted/50 rounded-md flex items-center justify-center relative overflow-hidden">
                 <Video className="h-16 w-16 text-muted-foreground/50" />
               </div>
-              <Progress 
-                value={progressValue}
-                isEstimating={true}
-                className="h-2"
-              />
+              <p className="text-center text-sm text-muted-foreground">
+                Check your History tab for the completed video
+              </p>
             </div>
           </CardContent>
           <CardFooter>
@@ -662,7 +531,7 @@ export default function VideoParameters() {
               onClick={handleCancelGeneration}
               className="w-full text-muted-foreground hover:text-destructive"
             >
-              Cancel Generation
+              Dismiss
             </Button>
           </CardFooter>
         </Card>

@@ -67,7 +67,7 @@ export default function ImageParameters({
   const addVersion = useImageStore(state => state.addVersion);
   const preparedImageUrl = activeImage?.imageUrl || null;
 
-  // Get settings from Zustand store
+  // Get settings from Zustand store - read and write directly to store
   const imageSettings = useGenerationSettingsStore(state => state.imageSettings);
   const settingsMode = useGenerationSettingsStore(state => state.settingsMode);
   const setImageSettings = useGenerationSettingsStore(state => state.setImageSettings);
@@ -82,47 +82,7 @@ export default function ImageParameters({
   const setUpscaleEnabled = useGenerationSettingsStore(state => state.setUpscaleEnabled);
   const setFaceDetailEnabled = useGenerationSettingsStore(state => state.setFaceDetailEnabled);
 
-  // Local state for parameters (initialized from store)
-  const [gender, setGender] = useState<string>(imageSettings.gender);
-  const [bodyShapeAndSize, setBodyShapeAndSize] = useState<string>(imageSettings.bodyShapeAndSize);
-  const [ageRange, setAgeRange] = useState<string>(imageSettings.ageRange);
-  const [ethnicity, setEthnicity] = useState<string>(imageSettings.ethnicity);
-  const [poseStyle, setPoseStyle] = useState<string>(imageSettings.poseStyle);
-  const [background, setBackground] = useState<string>(imageSettings.background);
-  const [fashionStyle, setFashionStyle] = useState<string>(imageSettings.fashionStyle);
-  const [hairStyle, setHairStyle] = useState<string>(imageSettings.hairStyle);
-  const [modelExpression, setModelExpression] = useState<string>(imageSettings.modelExpression);
-  const [lightingType, setLightingType] = useState<string>(imageSettings.lightingType);
-  const [lightQuality, setLightQuality] = useState<string>(imageSettings.lightQuality);
-  const [modelAngle, setModelAngle] = useState<string>(imageSettings.modelAngle);
-  const [lensEffect, setLensEffect] = useState<string>(imageSettings.lensEffect);
-  const [depthOfField, setDepthOfField] = useState<string>(imageSettings.depthOfField);
-  const [timeOfDay, setTimeOfDay] = useState<string>(imageSettings.timeOfDay);
-  const [overallMood, setOverallMood] = useState<string>(imageSettings.overallMood);
-
-  const [localSettingsMode, setLocalSettingsMode] = useState<'basic' | 'advanced'>(settingsMode);
   const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
-
-  // Sync local state with store when store changes (e.g., from reload)
-  useEffect(() => {
-    setGender(imageSettings.gender);
-    setBodyShapeAndSize(imageSettings.bodyShapeAndSize);
-    setAgeRange(imageSettings.ageRange);
-    setEthnicity(imageSettings.ethnicity);
-    setPoseStyle(imageSettings.poseStyle);
-    setBackground(imageSettings.background);
-    setFashionStyle(imageSettings.fashionStyle);
-    setHairStyle(imageSettings.hairStyle);
-    setModelExpression(imageSettings.modelExpression);
-    setLightingType(imageSettings.lightingType);
-    setLightQuality(imageSettings.lightQuality);
-    setModelAngle(imageSettings.modelAngle);
-    setLensEffect(imageSettings.lensEffect);
-    setDepthOfField(imageSettings.depthOfField);
-    setTimeOfDay(imageSettings.timeOfDay);
-    setOverallMood(imageSettings.overallMood);
-    setLocalSettingsMode(settingsMode);
-  }, [imageSettings, settingsMode]);
 
   // --- REFACTORED STATE MANAGEMENT ---
   // Creative Mode is replaced by two independent states with new smart defaults.
@@ -183,30 +143,29 @@ export default function ImageParameters({
   }, [isLoading]);
 
   const PARAMETER_CONFIG = React.useMemo(() => ({
-    gender: { setter: setGender, options: GENDER_OPTIONS, defaultVal: GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value },
-    bodyShapeAndSize: { setter: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS, defaultVal: BODY_SHAPE_AND_SIZE_OPTIONS[0].value },
-    ageRange: { setter: setAgeRange, options: AGE_RANGE_OPTIONS, defaultVal: AGE_RANGE_OPTIONS[0].value },
-    ethnicity: { setter: setEthnicity, options: ETHNICITY_OPTIONS, defaultVal: ETHNICITY_OPTIONS[0].value },
-    poseStyle: { setter: setPoseStyle, options: POSE_STYLE_OPTIONS, defaultVal: POSE_STYLE_OPTIONS[0].value },
-    background: { setter: setBackground, options: BACKGROUND_OPTIONS, defaultVal: BACKGROUND_OPTIONS.find(o => o.value === "outdoor_nature_elements")?.value || BACKGROUND_OPTIONS[0].value },
-    fashionStyle: { setter: setFashionStyle, options: FASHION_STYLE_OPTIONS, defaultVal: FASHION_STYLE_OPTIONS[0].value },
-    hairStyle: { setter: setHairStyle, options: HAIR_STYLE_OPTIONS, defaultVal: HAIR_STYLE_OPTIONS[0].value },
-    modelExpression: { setter: setModelExpression, options: MODEL_EXPRESSION_OPTIONS, defaultVal: MODEL_EXPRESSION_OPTIONS[0].value },
-    lightingType: { setter: setLightingType, options: LIGHTING_TYPE_OPTIONS, defaultVal: LIGHTING_TYPE_OPTIONS[0].value },
-    lightQuality: { setter: setLightQuality, options: LIGHT_QUALITY_OPTIONS, defaultVal: LIGHT_QUALITY_OPTIONS[0].value },
-    modelAngle: { setter: setModelAngle, options: MODEL_ANGLE_OPTIONS, defaultVal: MODEL_ANGLE_OPTIONS[0].value },
-    lensEffect: { setter: setLensEffect, options: LENS_EFFECT_OPTIONS, defaultVal: LENS_EFFECT_OPTIONS[0].value },
-    depthOfField: { setter: setDepthOfField, options: DEPTH_OF_FIELD_OPTIONS, defaultVal: DEPTH_OF_FIELD_OPTIONS[0].value },
-    timeOfDay: { setter: setTimeOfDay, options: TIME_OF_DAY_OPTIONS, defaultVal: TIME_OF_DAY_OPTIONS[0].value },
-    overallMood: { setter: setOverallMood, options: OVERALL_MOOD_OPTIONS, defaultVal: OVERALL_MOOD_OPTIONS[0].value },
+    gender: { options: GENDER_OPTIONS, defaultVal: GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value },
+    bodyShapeAndSize: { options: BODY_SHAPE_AND_SIZE_OPTIONS, defaultVal: BODY_SHAPE_AND_SIZE_OPTIONS[0].value },
+    ageRange: { options: AGE_RANGE_OPTIONS, defaultVal: AGE_RANGE_OPTIONS[0].value },
+    ethnicity: { options: ETHNICITY_OPTIONS, defaultVal: ETHNICITY_OPTIONS[0].value },
+    poseStyle: { options: POSE_STYLE_OPTIONS, defaultVal: POSE_STYLE_OPTIONS[0].value },
+    background: { options: BACKGROUND_OPTIONS, defaultVal: BACKGROUND_OPTIONS.find(o => o.value === "outdoor_nature_elements")?.value || BACKGROUND_OPTIONS[0].value },
+    fashionStyle: { options: FASHION_STYLE_OPTIONS, defaultVal: FASHION_STYLE_OPTIONS[0].value },
+    hairStyle: { options: HAIR_STYLE_OPTIONS, defaultVal: HAIR_STYLE_OPTIONS[0].value },
+    modelExpression: { options: MODEL_EXPRESSION_OPTIONS, defaultVal: MODEL_EXPRESSION_OPTIONS[0].value },
+    lightingType: { options: LIGHTING_TYPE_OPTIONS, defaultVal: LIGHTING_TYPE_OPTIONS[0].value },
+    lightQuality: { options: LIGHT_QUALITY_OPTIONS, defaultVal: LIGHT_QUALITY_OPTIONS[0].value },
+    modelAngle: { options: MODEL_ANGLE_OPTIONS, defaultVal: MODEL_ANGLE_OPTIONS[0].value },
+    lensEffect: { options: LENS_EFFECT_OPTIONS, defaultVal: LENS_EFFECT_OPTIONS[0].value },
+    depthOfField: { options: DEPTH_OF_FIELD_OPTIONS, defaultVal: DEPTH_OF_FIELD_OPTIONS[0].value },
+    timeOfDay: { options: TIME_OF_DAY_OPTIONS, defaultVal: TIME_OF_DAY_OPTIONS[0].value },
+    overallMood: { options: OVERALL_MOOD_OPTIONS, defaultVal: OVERALL_MOOD_OPTIONS[0].value },
   }), []);
 
-  // Load/Save settingsMode, user defaults, and prompt preview state from localStorage
+  // Load/Save settingsMode and user defaults from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedMode = window.localStorage.getItem('imageForgeSettingsMode');
       if (storedMode === 'basic' || storedMode === 'advanced') {
-        setLocalSettingsMode(storedMode);
         setSettingsModeStore(storedMode);
       }
 
@@ -214,12 +173,8 @@ export default function ImageParameters({
       if (savedDefaultsString) {
         try {
           const savedDefaults = JSON.parse(savedDefaultsString) as ModelAttributes;
-          Object.entries(savedDefaults).forEach(([key, value]) => {
-            const config = PARAMETER_CONFIG[key as keyof ModelAttributes];
-            if (config && config.options.some(opt => opt.value === value)) {
-              config.setter(value as string);
-            }
-          });
+          // Load directly into store
+          setImageSettings(savedDefaults);
         } catch (e) { console.error("Failed to parse imageForgeDefaults", e); }
       }
 
@@ -229,7 +184,7 @@ export default function ImageParameters({
         setShowPromptPreview(true);
       }
     }
-  }, [PARAMETER_CONFIG, setSettingsModeStore]);
+  }, [setImageSettings, setSettingsModeStore]);
 
   // Save prompt preview state to localStorage
   useEffect(() => {
@@ -241,52 +196,24 @@ export default function ImageParameters({
   // Save settings mode to localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem('imageForgeSettingsMode', localSettingsMode);
+      window.localStorage.setItem('imageForgeSettingsMode', settingsMode);
     }
-  }, [localSettingsMode]);
+  }, [settingsMode]);
 
   // Centralized handler for parameter changes to automatically disable creative mode
-  const handleParamChange = useCallback((setter: (value: string) => void, value: string) => {
-    setter(value);
+  const handleParamChange = useCallback((key: keyof ModelAttributes, value: string) => {
+    setImageSettings({ [key]: value });
     // Any manual parameter change by the user implies specific intent, so disable randomization.
     setUseRandomization(false);
-  }, []);
+  }, [setImageSettings]);
 
   // Special handler for settingsMode
   const handleSettingsModeChange = useCallback((value: 'basic' | 'advanced') => {
-    setLocalSettingsMode(value);
-    // Sync to Zustand store
+    // Write directly to Zustand store
     setSettingsModeStore(value);
     // This is a manual choice, so disable randomization.
     setUseRandomization(false);
   }, [setSettingsModeStore]);
-
-  // Sync local state changes to the store
-  useEffect(() => {
-    setImageSettings({
-      gender,
-      bodyShapeAndSize,
-      ageRange,
-      ethnicity,
-      poseStyle,
-      background,
-      fashionStyle,
-      hairStyle,
-      modelExpression,
-      lightingType,
-      lightQuality,
-      modelAngle,
-      lensEffect,
-      depthOfField,
-      timeOfDay,
-      overallMood,
-    });
-  }, [
-    gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
-    fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-    modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
-    setImageSettings
-  ]);
 
   // Special handler for useAIPrompt
   const handleAIPromptChange = useCallback((value: boolean) => {
@@ -295,18 +222,11 @@ export default function ImageParameters({
     setUseRandomization(false);
   }, []);
 
-  // Consolidate all params for the hook
+  // Consolidate all params for the hook - use values directly from store
   const currentImageGenParams = React.useMemo((): ImageGenerationParams => ({
-    gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
-    fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-    modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
-    settingsMode: localSettingsMode,
-  }), [
-    gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
-    fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-    modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
-    localSettingsMode
-  ]);
+    ...imageSettings,
+    settingsMode,
+  }), [imageSettings, settingsMode]);
 
   const {
     currentPrompt,
@@ -356,23 +276,22 @@ export default function ImageParameters({
 
   const handleSaveDefaults = useCallback(() => {
     if (typeof window === 'undefined') return;
-    const currentSettingsToSave: ModelAttributes = {
-      gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
-      fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-      modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
-    };
-    window.localStorage.setItem('imageForgeDefaults', JSON.stringify(currentSettingsToSave));
+    // Save current store settings directly
+    window.localStorage.setItem('imageForgeDefaults', JSON.stringify(imageSettings));
     toast({ 
       title: "Defaults Saved",
       description: "Your current settings have been saved for future sessions."
     });
-  }, [gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
-      fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-      modelAngle, lensEffect, depthOfField, timeOfDay, overallMood, toast]);
+  }, [imageSettings, toast]);
 
   const resetAllParametersToAppDefaults = useCallback(() => {
-    Object.values(PARAMETER_CONFIG).forEach(config => config.setter(config.defaultVal));
-  }, [PARAMETER_CONFIG]);
+    // Reset each parameter to its default value in the store
+    const defaults: Partial<ModelAttributes> = {};
+    Object.entries(PARAMETER_CONFIG).forEach(([key, config]) => {
+      defaults[key as keyof ModelAttributes] = config.defaultVal;
+    });
+    setImageSettings(defaults);
+  }, [PARAMETER_CONFIG, setImageSettings]);
 
   const handleClearDefaults = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -387,13 +306,15 @@ export default function ImageParameters({
   const handleRandomizeConfiguration = useCallback(() => {    
     // This button is only active in manual mode. It randomizes the UI fields directly.
     const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
+    const randomized: Partial<ModelAttributes> = {};
     Object.entries(PARAMETER_CONFIG).forEach(([key, config]) => {
-      handleParamChange(config.setter, pickRandom(config.options));
+      randomized[key as keyof ModelAttributes] = pickRandom(config.options);
     });
+    setImageSettings(randomized);
     // This is a one-time manual action, so ensure randomization state is off.
     setUseRandomization(false);
     toast({ title: "Manual Configuration Randomized!" });
-  }, [PARAMETER_CONFIG, handleParamChange, toast]);
+  }, [PARAMETER_CONFIG, setImageSettings, toast]);
 
   const handleSubmit = async () => {
     if (!preparedImageUrl) {
@@ -414,7 +335,7 @@ export default function ImageParameters({
       prompt: isPromptManuallyEdited ? currentPrompt : undefined,
       imageDataUriOrUrl: preparedImageUrl,
       parameters: currentImageGenParams,
-      settingsMode: localSettingsMode,
+      settingsMode: settingsMode,
       useAIPrompt: useAIPrompt,
       useRandomization: useRandomization, // Pass the new, decoupled randomization flag
       removeBackground: backgroundRemovalEnabled,
@@ -601,14 +522,14 @@ export default function ImageParameters({
   }, [activeImage?.id, addVersion, setCurrentTab, toast]);
 
   // Helper to render select components with enhanced styling
-  const renderSelect = ({ id, label, value, onChange, options, disabled }: {
-    id: string; label: string; value: string; onChange: (value: string) => void; options: OptionWithPromptSegment[]; disabled?: boolean;
+  const renderSelect = ({ id, label, value, options, disabled }: {
+    id: keyof ModelAttributes; label: string; value: string; options: OptionWithPromptSegment[]; disabled?: boolean;
   }) => {
 
     return (
     <div className="space-y-2">
       <Label htmlFor={id} className="text-sm font-medium text-foreground/80">{label}</Label>
-      <Select value={value} onValueChange={(v) => handleParamChange(onChange, v)} disabled={disabled}>
+      <Select value={value} onValueChange={(v) => handleParamChange(id, v)} disabled={disabled}>
         <SelectTrigger id={id} className="w-full h-10 text-sm border-muted/60 focus:border-primary/50 bg-background/50">
           <SelectValue placeholder={options.find(o => o.value === value)?.displayLabel || `Select ${label.toLowerCase()}`} />
         </SelectTrigger>
@@ -792,8 +713,8 @@ export default function ImageParameters({
                           <div className="flex items-end justify-between gap-4">
                             <div className="flex-grow">
                               <div className="mt-2 inline-flex h-9 items-center justify-center rounded-md bg-background/50 p-1 text-muted-foreground">
-                                <Button variant={localSettingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('basic')} className="h-7 px-3 text-xs">Simple</Button>
-                                <Button variant={localSettingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
+                                <Button variant={settingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('basic')} className="h-7 px-3 text-xs">Simple</Button>
+                                <Button variant={settingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
                               </div>
                             </div>
                             <Button
@@ -820,10 +741,10 @@ export default function ImageParameters({
                     </AccordionTrigger>
                     <AccordionContent className="pt-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-                        {renderSelect({ id: "gender", label: "Gender", value: gender, onChange: setGender, options: GENDER_OPTIONS })}
-                        {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: bodyShapeAndSize, onChange: setBodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
-                        {renderSelect({ id: "ageRange", label: "Age Range", value: ageRange, onChange: setAgeRange, options: AGE_RANGE_OPTIONS })}
-                        {renderSelect({ id: "ethnicity", label: "Ethnicity", value: ethnicity, onChange: setEthnicity, options: ETHNICITY_OPTIONS })}
+                        {renderSelect({ id: "gender", label: "Gender", value: imageSettings.gender, options: GENDER_OPTIONS })}
+                        {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: imageSettings.bodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
+                        {renderSelect({ id: "ageRange", label: "Age Range", value: imageSettings.ageRange, options: AGE_RANGE_OPTIONS })}
+                        {renderSelect({ id: "ethnicity", label: "Ethnicity", value: imageSettings.ethnicity, options: ETHNICITY_OPTIONS })}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -836,19 +757,19 @@ export default function ImageParameters({
                     </AccordionTrigger>
                     <AccordionContent className="pt-4">
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-                        {renderSelect({ id: "fashionStyle", label: "Fashion Style", value: fashionStyle, onChange: setFashionStyle, options: FASHION_STYLE_OPTIONS })}
-                        {renderSelect({ id: "poseStyle", label: "Pose Style", value: poseStyle, onChange: setPoseStyle, options: POSE_STYLE_OPTIONS })}
-                        {renderSelect({ id: "modelExpression", label: "Model Expression", value: modelExpression, onChange: setModelExpression, options: MODEL_EXPRESSION_OPTIONS })}
-                        {renderSelect({ id: "modelAngle", label: "Model Angle", value: modelAngle, onChange: setModelAngle, options: MODEL_ANGLE_OPTIONS })}
-                        {renderSelect({ id: "hairStyle", label: "Hair Style", value: hairStyle, onChange: setHairStyle, options: HAIR_STYLE_OPTIONS })}
-                        {renderSelect({ id: "background", label: "Background Setting", value: background, onChange: setBackground, options: BACKGROUND_OPTIONS })}
-                        {localSettingsMode === 'advanced' && renderSelect({ id: "timeOfDay", label: "Time of Day", value: timeOfDay, onChange: setTimeOfDay, options: TIME_OF_DAY_OPTIONS })}
-                        {localSettingsMode === 'advanced' && renderSelect({ id: "overallMood", label: "Overall Mood", value: overallMood, onChange: setOverallMood, options: OVERALL_MOOD_OPTIONS })}
+                        {renderSelect({ id: "fashionStyle", label: "Fashion Style", value: imageSettings.fashionStyle, options: FASHION_STYLE_OPTIONS })}
+                        {renderSelect({ id: "poseStyle", label: "Pose Style", value: imageSettings.poseStyle, options: POSE_STYLE_OPTIONS })}
+                        {renderSelect({ id: "modelExpression", label: "Model Expression", value: imageSettings.modelExpression, options: MODEL_EXPRESSION_OPTIONS })}
+                        {renderSelect({ id: "modelAngle", label: "Model Angle", value: imageSettings.modelAngle, options: MODEL_ANGLE_OPTIONS })}
+                        {renderSelect({ id: "hairStyle", label: "Hair Style", value: imageSettings.hairStyle, options: HAIR_STYLE_OPTIONS })}
+                        {renderSelect({ id: "background", label: "Background Setting", value: imageSettings.background, options: BACKGROUND_OPTIONS })}
+                        {settingsMode === 'advanced' && renderSelect({ id: "timeOfDay", label: "Time of Day", value: imageSettings.timeOfDay, options: TIME_OF_DAY_OPTIONS })}
+                        {settingsMode === 'advanced' && renderSelect({ id: "overallMood", label: "Overall Mood", value: imageSettings.overallMood, options: OVERALL_MOOD_OPTIONS })}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
 
-                  {localSettingsMode === 'advanced' && (
+                  {settingsMode === 'advanced' && (
                     <AccordionItem value="photography-technical">
                       <AccordionTrigger>
                         <div className="flex items-center gap-2">
@@ -857,10 +778,10 @@ export default function ImageParameters({
                       </AccordionTrigger>
                       <AccordionContent className="pt-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-                          {renderSelect({ id: "lightingType", label: "Lighting Type", value: lightingType, onChange: setLightingType, options: LIGHTING_TYPE_OPTIONS })}
-                          {renderSelect({ id: "lightQuality", label: "Light Quality", value: lightQuality, onChange: setLightQuality, options: LIGHT_QUALITY_OPTIONS })}
-                          {renderSelect({ id: "lensEffect", label: "Lens Effect", value: lensEffect, onChange: setLensEffect, options: LENS_EFFECT_OPTIONS })}
-                          {renderSelect({ id: "depthOfField", label: "Depth of Field", value: depthOfField, onChange: setDepthOfField, options: DEPTH_OF_FIELD_OPTIONS })}
+                          {renderSelect({ id: "lightingType", label: "Lighting Type", value: imageSettings.lightingType, options: LIGHTING_TYPE_OPTIONS })}
+                          {renderSelect({ id: "lightQuality", label: "Light Quality", value: imageSettings.lightQuality, options: LIGHT_QUALITY_OPTIONS })}
+                          {renderSelect({ id: "lensEffect", label: "Lens Effect", value: imageSettings.lensEffect, options: LENS_EFFECT_OPTIONS })}
+                          {renderSelect({ id: "depthOfField", label: "Depth of Field", value: imageSettings.depthOfField, options: DEPTH_OF_FIELD_OPTIONS })}
                         </div>
                       </AccordionContent>
                     </AccordionItem>

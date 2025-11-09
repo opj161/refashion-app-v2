@@ -1,7 +1,7 @@
 // src/components/history-gallery.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useOptimistic, startTransition } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -37,13 +37,20 @@ export default function HistoryGallery({
   const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
   const [detailItem, setDetailItem] = useState<HistoryItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<HistoryItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // State is now initialized from server-provided props
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>(initialHistory.items);
   const [currentPage, setCurrentPage] = useState<number>(initialHistory.currentPage + 1);
   const [hasMore, setHasMore] = useState<boolean>(initialHistory.hasMore);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+
+  // Add useOptimistic hook for instant UI updates on deletion
+  const [optimisticHistory, removeOptimisticHistoryItem] = useOptimistic(
+    historyItems,
+    (currentHistory: HistoryItem[], itemIdToDelete: string) => {
+      return currentHistory.filter(item => item.id !== itemIdToDelete);
+    }
+  );
 
   // Subscribe to generation counter from Zustand store
   const generationCount = useGenerationSettingsStore(state => state.generationCount);
@@ -176,31 +183,31 @@ export default function HistoryGallery({
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
 
-    setIsDeleting(true);
-    try {
-      const result = await deleteHistoryItem(itemToDelete.id);
+    // Start optimistic update immediately - item disappears from UI instantly
+    startTransition(() => {
+      removeOptimisticHistoryItem(itemToDelete.id);
+    });
 
-      if (result.success) {
-        // Optimistic UI Update: Remove the item from the local state
-        setHistoryItems(prevItems => prevItems.filter(item => item.id !== itemToDelete.id));
-        toast({
-          title: "Item Deleted",
-          description: "The history item has been permanently removed.",
-        });
-      } else {
-        throw new Error(result.error || "Failed to delete the item.");
-      }
-    } catch (err) {
-      console.error("Deletion failed:", err);
+    // Call server action without blocking UI
+    const result = await deleteHistoryItem(itemToDelete.id);
+
+    if (result.success) {
+      // On success, sync the real state to match the optimistic one
+      setHistoryItems(prevItems => prevItems.filter(item => item.id !== itemToDelete.id));
+      toast({
+        title: "Item Deleted",
+        description: "The history item has been permanently removed.",
+      });
+    } else {
+      // On failure, useOptimistic automatically reverts. We just show a toast.
       toast({
         title: "Deletion Failed",
-        description: err instanceof Error ? err.message : "An unknown error occurred.",
+        description: result.error || "An unknown error occurred.",
         variant: "destructive",
       });
-    } finally {
-      setIsDeleting(false);
-      setItemToDelete(null); // Close the dialog
     }
+    
+    setItemToDelete(null); // Close dialog regardless of outcome
   };
 
 
@@ -264,7 +271,7 @@ export default function HistoryGallery({
               layout
             >
               <AnimatePresence>
-                {historyItems.map((item) => (
+                {optimisticHistory.map((item) => (
                   <motion.div key={item.id} variants={itemVariants} layout>
                     <HistoryCard
                       item={item}
@@ -316,13 +323,9 @@ export default function HistoryGallery({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-              {isDeleting ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...</>
-              ) : (
-                "Yes, delete it"
-              )}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete it
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
