@@ -1,7 +1,8 @@
 // src/components/video-parameters.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
     Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle
@@ -13,8 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
-import { useAuth } from "@/contexts/AuthContext";
+import { isFalVideoGenerationAvailable, generateVideoAction, type VideoGenerationFormState } from '@/ai/actions/generate-video.action';
 import { useActivePreparationImage } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -22,10 +22,9 @@ import {
     PREDEFINED_PROMPTS, MODEL_MOVEMENT_OPTIONS, FABRIC_MOTION_OPTIONS_VIDEO, // Use FABRIC_MOTION_OPTIONS_VIDEO
     CAMERA_ACTION_OPTIONS, AESTHETIC_VIBE_OPTIONS as AESTHETIC_STYLE_OPTIONS
 } from "@/lib/prompt-builder";
-import { AlertTriangle, CheckCircle, Download, Info, Loader2, PaletteIcon, Settings2, Shuffle, Video, Code, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, Info, Loader2, PaletteIcon, Settings2, Shuffle, Video, Code, ChevronDown, ChevronUp } from "lucide-react";
 import { OptionWithPromptSegment } from "@/lib/prompt-builder";
 import { usePromptManager } from "@/hooks/usePromptManager";
-import { getDisplayableImageUrl } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { calculateVideoCost, formatPrice, VideoModel, VideoResolution, VideoDuration } from "@/lib/pricing";
 import { motion, AnimatePresence } from 'motion/react';
@@ -40,18 +39,53 @@ interface VideoGenerationParams {
   aestheticVibe: string;
 }
 
-// Helper function to convert data URI to Blob
-function dataUriToBlob(dataUri: string): Blob {
-  const arr = dataUri.split(',');
-  const mime = arr[0].match(/:(.*?);/)![1];
-  const byteString = atob(arr[1]);
-  const byteArray = Uint8Array.from(byteString, char => char.charCodeAt(0));
-  return new Blob([byteArray], { type: mime });
+// REMOVED: dataUriToBlob helper - server action handles image upload
+
+// SubmitButton component using useFormStatus for pending state
+function SubmitButton({ 
+  preparedImageUrl, 
+  currentPrompt, 
+  estimatedCost 
+}: { 
+  preparedImageUrl: string | null; 
+  currentPrompt: string;
+  estimatedCost: number | null;
+}) {
+  const { pending } = useFormStatus();
+  
+  return (
+    <Button
+      type="submit"
+      variant="default"
+      disabled={pending || !preparedImageUrl || !currentPrompt.trim()}
+      className="w-full text-lg hover:animate-shimmer"
+      size="lg"
+    >
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          Generating...
+        </>
+      ) : (
+        <div className="flex items-center justify-center w-full relative">
+          <div className="flex items-center justify-center">
+            <Video className="mr-2 h-5 w-5" />
+            <span>Generate Video</span>
+          </div>
+          {estimatedCost !== null && !pending && (
+            <Badge variant="secondary" className="absolute right-0 text-base">
+              {formatPrice(estimatedCost)}
+            </Badge>
+          )}
+        </div>
+      )}
+    </Button>
+  );
 }
 
 export default function VideoParameters() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  // REMOVED: useAuth - authentication handled by server action
   
   // Get the active image from the context
   const activeImage = useActivePreparationImage();
@@ -61,6 +95,10 @@ export default function VideoParameters() {
   const videoSettings = useGenerationSettingsStore(state => state.videoSettings);
   const setVideoSettings = useGenerationSettingsStore(state => state.setVideoSettings);
 
+  // NEW: useActionState for form-based video generation
+  const initialState: VideoGenerationFormState = { message: '' };
+  const [formState, formAction, isPending] = useActionState(generateVideoAction, initialState);
+
   // Service availability state
   const [isServiceAvailable, setIsServiceAvailable] = useState(true); // Assume available initially
 
@@ -69,19 +107,19 @@ export default function VideoParameters() {
   const [activePreset, setActivePreset] = useState<string | null>(videoSettings.selectedPredefinedPrompt);
   const [openAccordions, setOpenAccordions] = useState<string[]>([]);
 
-  // Generation states
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [isUploadingToFal, setIsUploadingToFal] = useState<boolean>(false);
-  const [generationError, setGenerationError] = useState<string | null>(null);
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
-  const [generatedLocalVideoUrl, setGeneratedLocalVideoUrl] = useState<string | null>(null);
+  // REMOVED: Manual generation states - replaced with isPending from useActionState
+  // const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  // const [isUploadingToFal, setIsUploadingToFal] = useState<boolean>(false);
+  // const [generationError, setGenerationError] = useState<string | null>(null);
+  // const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+  // const [generatedLocalVideoUrl, setGeneratedLocalVideoUrl] = useState<string | null>(null);
 
   // Ref for auto-scroll to results
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to results when generation starts
   useEffect(() => {
-    if (isGenerating && resultsRef.current) {
+    if (isPending && resultsRef.current) {
       const timer = setTimeout(() => {
         resultsRef.current?.scrollIntoView({ 
           behavior: 'smooth', 
@@ -90,16 +128,15 @@ export default function VideoParameters() {
       }, 100); // Small delay to ensure the results section is rendered
       return () => clearTimeout(timer);
     }
-  }, [isGenerating]);
+  }, [isPending]);
 
   // Video parameters are now managed entirely on the client side
-  const [generatedSeedValue, setGeneratedSeedValue] = useState<number | null>(null);
+  // REMOVED: const [generatedSeedValue, setGeneratedSeedValue] = useState<number | null>(null);
 
   // Webhook-based flow - task tracking removed (webhook updates DB directly)
 
-  // Check if data URI is provided (not a server URL)
-  const isDataUri = preparedImageUrl?.startsWith('data:') || false;
-  const commonFormDisabled = isGenerating || isUploadingToFal || !isServiceAvailable || !preparedImageUrl;
+  // REMOVED: isDataUri check - server action handles all image formats
+  const commonFormDisabled = isPending || !isServiceAvailable || !preparedImageUrl;
 
   const currentVideoGenParams = React.useMemo((): VideoGenerationParams => ({
     selectedPredefinedPrompt: videoSettings.selectedPredefinedPrompt,
@@ -182,126 +219,32 @@ export default function VideoParameters() {
 
   const handleRandomSeed = () => setVideoSettings({ seed: "-1" });
 
-  const handleGenerateVideo = async () => {
-    if (!preparedImageUrl) {
-      toast({ title: "Image Not Prepared", description: "Please prepare an image in the previous step.", variant: "destructive" });
-      return;
-    }
-    if (!currentPrompt.trim()) {
-      toast({ title: "Missing Prompt", description: "Prompt is empty. Please select options or modify it.", variant: "destructive" });
-      return;
-    }
-    if (!user?.username) {
-        toast({ title: "Authentication Error", description: "Could not determine current user. Please log in again.", variant: "destructive" });
-        return;
-    }
+  // REMOVED: handleGenerateVideo - replaced with form-based submission via useActionState
+  // The form action will be handled by formAction from useActionState
 
-    setIsGenerating(true);
-    setGenerationError(null);
-    setGeneratedVideoUrl(null);
-    setGeneratedLocalVideoUrl(null);
-    setGeneratedSeedValue(null);
-
-    try {
-      let imageUrlForVideo: string = preparedImageUrl || '';
-
-      // If we have a data URI, convert it to a Fal storage URL
-      if (isDataUri) {
-        setIsUploadingToFal(true);
-        // Use a single toast and update it after upload
-        const { update, dismiss, id: toastId } = toast({ 
-          title: "Uploading Image...", 
-          description: "Preparing your image for video generation." 
-        });
-        try {
-          // Convert data URI to Blob
-          const imageBlob = dataUriToBlob(preparedImageUrl);
-          const imageFile = new File([imageBlob], "prepared-image.jpg", { type: "image/jpeg" });
-          // Upload to Fal storage
-          const uploadedUrl = await uploadToFalStorage(imageFile, user.username);
-          imageUrlForVideo = uploadedUrl;
-          update({ id: toastId, title: "Image Uploaded!", description: "Starting video generation..." });
-        } catch (uploadError) {
-          console.error("Error uploading to Fal storage:", uploadError);
-          update({ id: toastId, title: "Upload Failed", description: "Failed to upload image to Fal.ai storage.", variant: "destructive" });
-          setIsGenerating(false);
-          setIsUploadingToFal(false);
-          return;
-        } finally {
-          setIsUploadingToFal(false);
-        }
-      }
-
-      const videoInput = {
-        prompt: currentPrompt,
-        image_url: imageUrlForVideo,
-        local_image_path: preparedImageUrl, // Always pass the original local path for history storage
-        videoModel: videoSettings.videoModel,
-        resolution: videoSettings.resolution,
-        duration: videoSettings.duration,
-        seed: videoSettings.seed === "-1" ? -1 : parseInt(videoSettings.seed, 10),
-        camera_fixed: videoSettings.cameraFixed,
-        selectedPredefinedPrompt: videoSettings.selectedPredefinedPrompt,
-        modelMovement: videoSettings.modelMovement,
-        fabricMotion: videoSettings.fabricMotion,
-        cameraAction: videoSettings.cameraAction,
-        aestheticVibe: videoSettings.aestheticVibe,
-      };
-
-      // CACHE-STRATEGY: Policy: Dynamic - This is a client-side POST request to initiate a server action. It must never be cached.
-      const response = await fetch('/api/video/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(videoInput),
-        // Explicitly set no-store to satisfy the linter for this dynamic action.
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: `Failed to start generation: ${response.statusText}` }));
-        throw new Error(errorData.error || `Failed to start generation: ${response.statusText}`);
-      }
-
-      const { taskId, historyItemId: hId } = await response.json();
-
-      toast({
-        title: "Video Generation Started",
-        description: "Processing in background. Result will appear in your 'History' tab when complete.",
-        duration: 5000
-      });
-
-      // Keep showing "Processing..." state - user checks History tab for result
-      // isGenerating remains true to show persistent processing message
-
-    } catch (error) {
-      console.error('Error initiating video generation:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error.';
-      setGenerationError(errorMessage);
-      toast({ title: "Generation Error", description: errorMessage, variant: "destructive" });
-      setIsGenerating(false); // Set to false only on error
-    }
-  };
-
-  const handleCancelGeneration = useCallback(() => {
-    setIsGenerating(false);
-    toast({ title: "Generation Cancelled", description: "Video generation UI cleared. Check 'History' tab for result." });
-  }, [toast]);
-
-  // Effect to simulate progress during generation
+  // Effect to handle form submission results
   useEffect(() => {
-    let progressInterval: NodeJS.Timeout | undefined;
-    if (isGenerating && !generatedVideoUrl) {
-      // Simple progress simulation for UI feedback only
-      const startTime = Date.now();
-      progressInterval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        // Cap at 90% since we don't know actual completion
-        const simulatedProgress = Math.min(90, Math.floor((elapsed / 120000) * 90));
-        // Progress bar removed - using spinner instead
-      }, 1000);
+    if (formState.message) {
+      if (formState.error) {
+        // Error case
+        toast({ 
+          title: "Video Generation Failed", 
+          description: formState.error, 
+          variant: "destructive" 
+        });
+      } else if (formState.taskId && formState.historyItemId) {
+        // Success case
+        toast({
+          title: "Video Generation Started",
+          description: formState.message,
+          duration: 5000
+        });
+      }
     }
-    return () => clearInterval(progressInterval);
-  }, [isGenerating, generatedVideoUrl]);
+  }, [formState, toast]);
+
+  // REMOVED: handleCancelGeneration and progress simulation
+  // Webhook-based completion means no client-side polling needed
 
 
   return (
@@ -316,6 +259,22 @@ export default function VideoParameters() {
             <CardDescription>Define your video&apos;s motion, style, and technical details.</CardDescription>
           </div>
         </CardHeader>
+        <form action={formAction}>
+          {/* Hidden inputs for all video generation parameters */}
+          <input type="hidden" name="prompt" value={currentPrompt} />
+          <input type="hidden" name="imageUrl" value={preparedImageUrl || ''} />
+          <input type="hidden" name="localImagePath" value={preparedImageUrl || ''} />
+          <input type="hidden" name="videoModel" value={videoSettings.videoModel} />
+          <input type="hidden" name="resolution" value={videoSettings.resolution} />
+          <input type="hidden" name="duration" value={videoSettings.duration} />
+          <input type="hidden" name="seed" value={videoSettings.seed} />
+          <input type="hidden" name="cameraFixed" value={String(videoSettings.cameraFixed)} />
+          <input type="hidden" name="selectedPredefinedPrompt" value={videoSettings.selectedPredefinedPrompt} />
+          <input type="hidden" name="modelMovement" value={videoSettings.modelMovement} />
+          <input type="hidden" name="fabricMotion" value={videoSettings.fabricMotion} />
+          <input type="hidden" name="cameraAction" value={videoSettings.cameraAction} />
+          <input type="hidden" name="aestheticVibe" value={videoSettings.aestheticVibe} />
+          
         <CardContent className="space-y-6">
           {!preparedImageUrl && (
             <Alert>
@@ -460,33 +419,13 @@ export default function VideoParameters() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button
-            variant="default"
-            onClick={handleGenerateVideo}
-            disabled={commonFormDisabled || isGenerating || !currentPrompt.trim()}
-            className="w-full text-lg hover:animate-shimmer"
-            size="lg"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <div className="flex items-center justify-center w-full relative">
-                <div className="flex items-center justify-center">
-                  <Video className="mr-2 h-5 w-5" />
-                  <span>Generate Video</span>
-                </div>
-                {estimatedCost !== null && !isGenerating && (
-                  <Badge variant="secondary" className="absolute right-0 text-base">
-                    {formatPrice(estimatedCost)}
-                  </Badge>
-                )}
-              </div>
-            )}
-          </Button>
+          <SubmitButton 
+            preparedImageUrl={preparedImageUrl} 
+            currentPrompt={currentPrompt}
+            estimatedCost={estimatedCost}
+          />
         </CardFooter>
+        </form>
       </Card>
 
       {!isServiceAvailable && (
@@ -496,74 +435,8 @@ export default function VideoParameters() {
         </Card>
       )}
 
-      {generationError && (
-        <Card variant="glass" className="border-destructive bg-destructive/10 text-destructive">
-          <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle /> Generation Failed</CardTitle></CardHeader>
-          <CardContent><p>{generationError}</p></CardContent>
-        </Card>
-      )}
-
-      {isGenerating && !generatedVideoUrl && (
-        <Card ref={resultsRef}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Loader2 className="h-6 w-6 text-primary animate-spin" />
-              {isUploadingToFal ? "Uploading Image..." : "Video Generation in Progress"}
-            </CardTitle>
-            <CardDescription>
-              Your video is being processed. This may take several minutes. The result will appear in your &apos;History&apos; tab when complete.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-center items-center py-10">
-            <div className="w-full max-w-md space-y-4">
-              <div className="aspect-video bg-muted/50 rounded-md flex items-center justify-center relative overflow-hidden">
-                <Video className="h-16 w-16 text-muted-foreground/50" />
-              </div>
-              <p className="text-center text-sm text-muted-foreground">
-                Check your History tab for the completed video
-              </p>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCancelGeneration}
-              className="w-full text-muted-foreground hover:text-destructive"
-            >
-              Dismiss
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-
-      {generatedVideoUrl && !isGenerating && (
-        <Card ref={resultsRef}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-600">
-              <CheckCircle /> Video Ready!
-            </CardTitle>
-            {generatedSeedValue !== null && (<CardDescription>Seed used: {generatedSeedValue}</CardDescription>)}
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {/* --- MODIFIED CONTAINER AND VIDEO ELEMENT --- */}
-            <div className="w-full max-h-[75vh] flex justify-center items-center bg-muted/20 rounded-lg p-2">
-              <video
-                src={getDisplayableImageUrl(generatedVideoUrl) || undefined}
-                controls
-                autoPlay
-                loop
-                playsInline
-                className="w-auto h-auto max-w-full max-h-full rounded-md"
-              />
-            </div>
-            {/* --- END MODIFICATION --- */}
-            <Button asChild variant="outline" className="w-full">
-              <a href={getDisplayableImageUrl(generatedLocalVideoUrl || generatedVideoUrl) || undefined} download={`RefashionAI_video_${generatedSeedValue || Date.now()}.mp4`}><Download className="h-4 w-4 mr-2" />Download Video</a>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* REMOVED: Error, processing, and result display sections
+          Video generation is webhook-based - results appear in History tab */}
     </div>
   );
 }
