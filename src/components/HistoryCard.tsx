@@ -36,6 +36,7 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
   const loadFromHistory = useGenerationSettingsStore(state => state.loadFromHistory);
   const setGenerationMode = useGenerationSettingsStore(state => state.setGenerationMode);
   const [isInView, setIsInView] = useState(false);
+  const [isLoadingAction, setIsLoadingAction] = useState<'reload' | 'send' | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const isVideoItem = !!(item.videoGenerationParams || (item.generatedVideoUrls && item.generatedVideoUrls.some(url => !!url)));
@@ -122,6 +123,7 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
 
   const handleReload = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
+    setIsLoadingAction('reload');
     try {
       // 1. Initialize image from history (existing functionality)
       await initializeFromHistory(item);
@@ -144,6 +146,8 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
         description: "Could not load configuration from this item.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoadingAction(null);
     }
   }, [initializeFromHistory, loadFromHistory, item, setCurrentTab, toast]);
 
@@ -167,6 +171,7 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
       return;
     }
 
+    setIsLoadingAction('send');
     try {
       // 1. Load the generated image into the preparation workflow
       await initializeFromImageUrl(imageUrlToSend);
@@ -181,6 +186,8 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
       // Errors are already handled with toasts inside the store action,
       // but we can log them here for debugging.
       console.error("Failed to send image to Creative Studio:", error);
+    } finally {
+      setIsLoadingAction(null);
     }
   }, [item, initializeFromImageUrl, setGenerationMode, setCurrentTab, router, toast]);
 
@@ -296,20 +303,28 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
                   </Tooltip>
                 </TooltipProvider>
                 <DropdownMenuContent align="end" onClick={handleActionClick}>
-                  <DropdownMenuItem onClick={handleReload}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    <span>Reload Config</span>
+                  <DropdownMenuItem onClick={handleReload} disabled={!!isLoadingAction}>
+                    {isLoadingAction === 'reload' ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                    )}
+                    <span>{isLoadingAction === 'reload' ? 'Loading...' : 'Reload Config'}</span>
                   </DropdownMenuItem>
                   
                   {/* Conditionally render the "Use in Creative" action for Studio Mode items */}
                   {item.generation_mode === 'studio' && (
-                    <DropdownMenuItem onClick={handleSendToCreative}>
-                      <Sparkles className="mr-2 h-4 w-4 text-primary" />
-                      <span>Use in Creative</span>
+                    <DropdownMenuItem onClick={handleSendToCreative} disabled={!!isLoadingAction}>
+                      {isLoadingAction === 'send' ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                      )}
+                      <span>{isLoadingAction === 'send' ? 'Loading...' : 'Use in Creative'}</span>
                     </DropdownMenuItem>
                   )}
                   
-                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDelete}>
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDelete} disabled={!!isLoadingAction}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     <span>Delete</span>
                   </DropdownMenuItem>

@@ -1,7 +1,8 @@
 // src/components/image-parameters.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button"; 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,9 @@ import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
 import { useActivePreparationImage } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
+import { generateImageAction, type ImageGenerationFormState } from '@/actions/imageActions';
+import { ImageResultsDisplay } from './ImageResultsDisplay';
+import { GenerationProgressIndicator } from './GenerationProgressIndicator';
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
     BODY_SHAPE_AND_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
@@ -31,14 +35,6 @@ import { MOTION_TRANSITIONS } from '@/lib/motion-constants';
 // Interface for image generation parameters
 interface ImageGenerationParams extends ModelAttributes {
   settingsMode: 'basic' | 'advanced';
-}
-
-// Props interface for the component
-interface ImageParametersProps {
-  historyItemToLoad?: HistoryItem | null;
-  isLoadingHistory?: boolean;
-  formAction: (payload: FormData) => void;
-  isPending: boolean;
 }
 
 // Constants
@@ -67,14 +63,54 @@ function SubmitButton({ preparedImageUrl }: { preparedImageUrl: string | null })
   );
 }
 
-// Component now accepts props for loading configuration
-export default function ImageParameters({
-  historyItemToLoad = null,
-  isLoadingHistory = false,
-  formAction,
-  isPending,
-}: ImageParametersProps) {
+// Component is now self-contained with its own form and state
+export default function ImageParameters() {
   const { toast } = useToast();
+  const generationMode = useGenerationSettingsStore(state => state.generationMode);
+  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
+  
+  // Form state management
+  const initialState: ImageGenerationFormState = { message: '' };
+  const [formState, formAction, isPending] = useActionState(generateImageAction, initialState);
+  
+  // Ref for auto-scroll to results
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to results when generation starts
+  useEffect(() => {
+    if (isPending && resultsRef.current) {
+      const timer = setTimeout(() => {
+        resultsRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isPending]);
+
+  // Effect to handle form submission results
+  useEffect(() => {
+    if (formState.message && formState.editedImageUrls) {
+      const successCount = formState.editedImageUrls.filter(url => url !== null).length;
+
+      if (successCount > 0) {
+        incrementGenerationCount();
+        toast({
+          title: 'Generation Complete!',
+          description: formState.message,
+        });
+      } else if (formState.errors) {
+        toast({
+          title: 'All Generations Failed',
+          description: 'Please check the errors or try again.',
+          variant: 'destructive',
+        });
+      }
+    } else if (formState.message && formState.errors) {
+      toast({ title: 'Generation Failed', description: formState.message, variant: 'destructive' });
+    }
+  }, [formState, toast, incrementGenerationCount]);
   
   // Get the active image from store
   const activeImage = useActivePreparationImage();
@@ -85,7 +121,6 @@ export default function ImageParameters({
   const settingsMode = useGenerationSettingsStore(state => state.settingsMode);
   const setImageSettings = useGenerationSettingsStore(state => state.setImageSettings);
   const setSettingsModeStore = useGenerationSettingsStore(state => state.setSettingsMode);
-  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
   
   // Get preparation options from Zustand store
   const backgroundRemovalEnabled = useGenerationSettingsStore(state => state.backgroundRemovalEnabled);
@@ -94,8 +129,6 @@ export default function ImageParameters({
   const setBackgroundRemovalEnabled = useGenerationSettingsStore(state => state.setBackgroundRemovalEnabled);
   const setUpscaleEnabled = useGenerationSettingsStore(state => state.setUpscaleEnabled);
   const setFaceDetailEnabled = useGenerationSettingsStore(state => state.setFaceDetailEnabled);
-
-  const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
 
   // --- REFACTORED STATE MANAGEMENT ---
   // Creative Mode is replaced by two independent states with new smart defaults.
@@ -114,14 +147,6 @@ export default function ImageParameters({
   const [isFaceDetailerServiceAvailable, setIsFaceDetailerServiceAvailable] = useState<boolean>(false);
   const [isBackgroundRemovalServiceAvailable, setIsBackgroundRemovalServiceAvailable] = useState<boolean>(false);
   const [isUpscaleServiceAvailableState, setIsUpscaleServiceAvailableState] = useState<boolean>(false);
-
-  // When a history item is loaded directly via props (legacy), disable creative mode
-  // Note: History loading is now primarily handled by the Zustand store via HistoryCard
-  useEffect(() => {
-    if (historyItemToLoad) {
-      setUseRandomization(false);
-    }
-  }, [historyItemToLoad]);
 
   const PARAMETER_CONFIG = React.useMemo(() => ({
     gender: { options: GENDER_OPTIONS, defaultVal: GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value },
@@ -295,21 +320,22 @@ export default function ImageParameters({
 
   return (
     <div className="space-y-6">
-      {/* --- RESTRUCTURED CARD --- */}
-      <Card variant="glass">
-        <CardHeader>
-          <div>
-            <CardTitle className="text-xl flex items-center gap-2">
-              <Palette className="h-6 w-6 text-primary" />
-              Image Generation Settings
-            </CardTitle>
-            <CardDescription>{useRandomization ? 'Using automatic style randomization for variety. Change any setting to switch to manual mode.' : 'Fine-tune every detail to match your vision.'}</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Hidden inputs for all generation parameters */}
-          <input type="hidden" name="imageDataUriOrUrl" value={preparedImageUrl || ''} />
-          <input type="hidden" name="gender" value={imageSettings.gender} />
+      <form action={formAction}>
+        {/* --- RESTRUCTURED CARD --- */}
+        <Card variant="glass">
+          <CardHeader>
+            <div>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Palette className="h-6 w-6 text-primary" />
+                Image Generation Settings
+              </CardTitle>
+              <CardDescription>{useRandomization ? 'Using automatic style randomization for variety. Change any setting to switch to manual mode.' : 'Fine-tune every detail to match your vision.'}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Hidden inputs for all generation parameters */}
+            <input type="hidden" name="imageDataUriOrUrl" value={preparedImageUrl || ''} />
+            <input type="hidden" name="gender" value={imageSettings.gender} />
             <input type="hidden" name="bodyShapeAndSize" value={imageSettings.bodyShapeAndSize} />
             <input type="hidden" name="ageRange" value={imageSettings.ageRange} />
             <input type="hidden" name="ethnicity" value={imageSettings.ethnicity} />
@@ -590,6 +616,22 @@ export default function ImageParameters({
           </Accordion>
         </CardFooter>
       </Card>
+      </form>
+
+      {/* Progress Indicator - Shows during generation */}
+      {isPending && (
+        <GenerationProgressIndicator
+          isGenerating={isPending}
+          stage="processing"
+          progress={0}
+          imageCount={NUM_IMAGES_TO_GENERATE}
+        />
+      )}
+
+      {/* Results Display */}
+      <div ref={resultsRef} key={generationMode}>
+        <ImageResultsDisplay formState={formState} isPending={isPending} />
+      </div>
     </div>
   );
 }
