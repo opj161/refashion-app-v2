@@ -254,15 +254,28 @@ export async function getGlobalApiKeysForDisplay() {
   };
 }
 
-export async function getSystemPromptForAdmin() {
+export async function getSystemPromptsForAdmin() {
   await verifyAdmin();
   try {
-    const prompt = await systemPromptService.getSystemPrompt();
-    const source = await systemPromptService.getSystemPromptSource();
-    return { success: true, prompt, source };
+    const engineerPrompt = await systemPromptService.getSystemPrompt();
+    const engineerSource = await systemPromptService.getSystemPromptSource();
+    
+    // Fetch the new studio prompt directly from settings service
+    const studioPrompt = settingsService.getSetting('ai_studio_mode_prompt_template');
+
+    return { 
+      success: true, 
+      prompts: {
+        engineer: engineerPrompt,
+        studio: studioPrompt
+      },
+      sources: {
+        engineer: engineerSource,
+      } 
+    };
   } catch (error) {
-    console.error('Error getting system prompt:', error);
-    return { success: false, error: 'Failed to get system prompt.' };
+    console.error('Error getting system prompts:', error);
+    return { success: false, error: 'Failed to get system prompts.' };
   }
 }
 
@@ -433,7 +446,7 @@ export type ApiKeysFormState = {
   error?: string;
 };
 
-export type SystemPromptFormState = {
+export type SystemPromptsFormState = {
   message: string;
   success?: boolean;
   error?: string;
@@ -521,40 +534,48 @@ export async function handleApiKeysUpdate(
 }
 
 /**
- * Server Action for updating system prompt, compatible with useActionState.
+ * Server Action for updating system prompts, compatible with useActionState.
  * @param previousState The previous form state (unused but required by useActionState signature)
- * @param formData The form data containing the system prompt
+ * @param formData The form data containing the system prompts
  * @returns A FormState object with success/error status
  */
 export async function handleSystemPromptUpdate(
-  previousState: SystemPromptFormState | null,
+  previousState: SystemPromptsFormState | null,
   formData: FormData
-): Promise<SystemPromptFormState> {
+): Promise<SystemPromptsFormState> {
   await verifyAdmin();
   
-  const prompt = formData.get('systemPrompt') as string;
-  
-  if (!prompt || prompt.trim() === '') {
-    return {
-      success: false,
-      error: 'System prompt cannot be empty.',
-      message: 'Please enter a valid system prompt.'
-    };
-  }
+  const engineerPrompt = formData.get('systemPrompt') as string;
+  const studioPrompt = formData.get('studioPromptTemplate') as string;
   
   try {
-    systemPromptService.updateSystemPrompt(prompt);
+    const updatedFields: string[] = [];
+
+    if (engineerPrompt && engineerPrompt.trim() !== '') {
+      systemPromptService.updateSystemPrompt(engineerPrompt);
+      updatedFields.push('Prompt Engineer instruction');
+    }
+
+    if (studioPrompt && studioPrompt.trim() !== '') {
+      settingsService.setSetting('ai_studio_mode_prompt_template', studioPrompt);
+      updatedFields.push('Studio Mode template');
+    }
+
+    if (updatedFields.length === 0) {
+        return { message: "No changes submitted.", success: true };
+    }
+
     revalidatePath('/admin/settings');
     return { 
       success: true, 
-      message: 'AI prompt engineer system instruction has been saved.' 
+      message: `${updatedFields.join(' and ')} saved successfully.` 
     };
   } catch (error) {
-    console.error('Error updating system prompt:', error);
+    console.error('Error updating system prompts:', error);
     return { 
       success: false,
-      error: 'Failed to update system prompt.',
-      message: 'An error occurred while updating the system prompt.'
+      error: 'Failed to update system prompts.',
+      message: 'An error occurred while updating the system prompts.'
     };
   }
 }

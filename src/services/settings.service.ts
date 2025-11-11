@@ -3,6 +3,14 @@ import 'server-only';
 
 import * as dbService from '@/services/database.service';
 
+const STUDIO_MODE_PROMPT_TEMPLATE = `Create a PHOTOREALISTIC image of a female fashion model, of Indigenous descent, wearing this clothing item in the image with a {fitDescription}.
+
+Setting: a modern studio setting with a seamless cyclorama with a subtle, even gradient as background
+
+Style: The model should look authentic and relatable, with a natural expression and subtle smile
+
+Technical details: Full-body shot. Superior clarity, well-exposed, and masterful composition.`;
+
 const DEFAULTS = {
   'feature_video_generation': 'true',
   'feature_background_removal': 'true',
@@ -15,6 +23,7 @@ const DEFAULTS = {
   'global_fal_api_key': '',
   // AI System Prompts
   'ai_prompt_engineer_system': '',
+  'ai_studio_mode_prompt_template': STUDIO_MODE_PROMPT_TEMPLATE.trim(),
 };
 
 // Type for keys to ensure type safety

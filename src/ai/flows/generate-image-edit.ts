@@ -33,6 +33,7 @@ import { generateWithGemini25Flash } from '@/services/fal-api/image.service';
 import { downloadAndSaveImageFromUrl } from '@/services/storage.service';
 import { removeBackgroundAction } from '@/ai/actions/remove-background.action';
 import { upscaleImageAction, faceDetailerAction } from '@/ai/actions/upscale-image.action';
+import { getSetting } from '@/services/settings.service'; // Add this import for Studio Mode prompt
 
 // Import Axios and HttpsProxyAgent for explicit proxy control
 import axios, { AxiosError } from 'axios';
@@ -162,13 +163,24 @@ function getStudioModeFitDescription(fit: 'slim' | 'regular' | 'relaxed'): strin
  */
 function buildStudioModePrompt(fit: 'slim' | 'regular' | 'relaxed'): string {
   const fitDescription = getStudioModeFitDescription(fit);
-  return `Create a PHOTOREALISTIC image of a female fashion model, of Indigenous descent, wearing this clothing item in the image with a ${fitDescription}.
+
+  // Fetch the template from the database via the settings service.
+  const promptTemplate = getSetting('ai_studio_mode_prompt_template');
+  
+  // Define a hardcoded fallback for resilience in case the setting is empty.
+  const fallbackTemplate = `Create a PHOTOREALISTIC image of a female fashion model, of Indigenous descent, wearing this clothing item in the image with a {fitDescription}.
 
 Setting: a modern studio setting with a seamless cyclorama with a subtle, even gradient as background
 
 Style: The model should look authentic and relatable, with a natural expression and subtle smile
 
 Technical details: Full-body shot. Superior clarity, well-exposed, and masterful composition.`;
+
+  // Use the database template if available; otherwise, use the fallback.
+  const templateToUse = promptTemplate && promptTemplate.trim() ? promptTemplate : fallbackTemplate;
+
+  // Inject the dynamic fit description.
+  return templateToUse.replace('{fitDescription}', fitDescription);
 }
 
 /**

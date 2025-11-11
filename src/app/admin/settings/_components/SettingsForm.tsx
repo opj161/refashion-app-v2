@@ -14,7 +14,7 @@ import {
   handleSystemPromptUpdate, 
   handleCacheCleanup,
   type ApiKeysFormState,
-  type SystemPromptFormState,
+  type SystemPromptsFormState,
   type CacheCleanupFormState
 } from '@/actions/adminActions';
 import { Loader2, Video, Wand2, Sparkles, UserCheck, Trash2, KeyRound, FileText } from 'lucide-react';
@@ -23,10 +23,15 @@ import { Textarea } from '@/components/ui/textarea';
 
 type SettingsState = Record<SettingKey, boolean>;
 
-interface SystemPromptData {
+type SystemPromptData = {
   success: boolean;
-  prompt?: string;
-  source?: 'database' | 'file' | 'none';
+  prompts?: {
+    engineer?: string;
+    studio?: string;
+  };
+  sources?: {
+    engineer?: 'database' | 'file' | 'none';
+  };
   error?: string;
 }
 
@@ -97,13 +102,14 @@ export function SettingsForm({ initialSettings, maskedApiKeys, systemPromptData 
     global_gemini_api_key_3: false,
     global_fal_api_key: false,
     ai_prompt_engineer_system: false,
+    ai_studio_mode_prompt_template: false,
   });
   
   // Initialize useActionState for each form
   const initialApiKeysState: ApiKeysFormState = { message: '' };
   const [apiKeysState, apiKeysAction] = useActionState(handleApiKeysUpdate, initialApiKeysState);
   
-  const initialSystemPromptState: SystemPromptFormState = { message: '' };
+  const initialSystemPromptState: SystemPromptsFormState = { message: '' };
   const [systemPromptState, systemPromptAction] = useActionState(handleSystemPromptUpdate, initialSystemPromptState);
   
   const initialCacheCleanupState: CacheCleanupFormState = { message: '' };
@@ -238,30 +244,41 @@ export function SettingsForm({ initialSettings, maskedApiKeys, systemPromptData 
           <CardHeader>
             <CardTitle>AI System Prompts</CardTitle>
             <CardDescription>
-              Configure the system prompts used by AI models. Changes take effect immediately.
-              {systemPromptData?.source && (
-                <span className="block mt-1 text-xs">
-                  Current source: <span className="font-mono">{systemPromptData.source}</span>
-                </span>
-              )}
+              Configure the base instructions used by AI models. Changes take effect immediately.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={systemPromptAction} className="space-y-4">
+            <form action={systemPromptAction} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="systemPrompt">Prompt Engineer System Instruction</Label>
+                <Label htmlFor="systemPrompt">Prompt Engineer System Instruction (Creative Mode)</Label>
                 <Textarea 
                   id="systemPrompt" 
                   name="systemPrompt"
-                  defaultValue={systemPromptData?.prompt || ''}
+                  defaultValue={systemPromptData?.prompts?.engineer || ''}
                   placeholder="Enter the system instruction for the AI prompt engineer..."
-                  rows={12}
+                  rows={10}
                   className="font-mono text-sm"
                 />
                 <div className="text-xs text-muted-foreground">
-                  This prompt instructs the AI on how to generate optimized prompts for image generation.
+                  Current source: <span className="font-mono">{systemPromptData?.sources?.engineer || 'none'}</span>.
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="studioPromptTemplate">Studio Mode Prompt Template</Label>
+                <Textarea 
+                  id="studioPromptTemplate" 
+                  name="studioPromptTemplate"
+                  defaultValue={systemPromptData?.prompts?.studio || ''}
+                  placeholder="Enter the prompt template for Studio Mode..."
+                  rows={10}
+                  className="font-mono text-sm"
+                />
+                <div className="text-xs text-muted-foreground">
+                  This prompt is used for consistent product shots. You must include the <code className="bg-muted px-1 py-0.5 rounded">{'{fitDescription}'}</code> placeholder.
+                </div>
+              </div>
+
               <div className="flex justify-end">
                 <SystemPromptSubmitButton />
               </div>

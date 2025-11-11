@@ -243,7 +243,8 @@ function initSchema(db: Database.Database) {
       ('global_gemini_api_key_2', ''),
       ('global_gemini_api_key_3', ''),
       ('global_fal_api_key', ''),
-      ('ai_prompt_engineer_system', '')
+      ('ai_prompt_engineer_system', ''),
+      ('ai_studio_mode_prompt_template', '')
   `);
 
   // Load environment variables into database settings if they exist and database values are empty
