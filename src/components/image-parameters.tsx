@@ -329,7 +329,7 @@ export default function ImageParameters({
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isImageViewerOpen]);
+  }, [isImageViewerOpen, handleCloseImageViewer]);
 
   const handleSaveDefaults = useCallback(() => {
     if (typeof window === 'undefined') return;
