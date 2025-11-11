@@ -307,10 +307,9 @@ export default function ImageParameters({
           </div>
         </CardHeader>
         <CardContent>
-          <form action={formAction}>
-            {/* Hidden inputs for all generation parameters */}
-            <input type="hidden" name="imageDataUriOrUrl" value={preparedImageUrl || ''} />
-            <input type="hidden" name="gender" value={imageSettings.gender} />
+          {/* Hidden inputs for all generation parameters */}
+          <input type="hidden" name="imageDataUriOrUrl" value={preparedImageUrl || ''} />
+          <input type="hidden" name="gender" value={imageSettings.gender} />
             <input type="hidden" name="bodyShapeAndSize" value={imageSettings.bodyShapeAndSize} />
             <input type="hidden" name="ageRange" value={imageSettings.ageRange} />
             <input type="hidden" name="ethnicity" value={imageSettings.ethnicity} />
@@ -393,7 +392,6 @@ export default function ImageParameters({
               )}
             </div>
           </div>
-          </form>
         </CardContent>
         <CardFooter className="flex-col items-stretch !pt-0">
           <Accordion type="single" collapsible className="w-full">

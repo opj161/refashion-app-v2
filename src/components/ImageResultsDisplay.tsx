@@ -21,9 +21,10 @@ const NUM_IMAGES_TO_GENERATE = 3;
 
 interface ImageResultsDisplayProps {
   formState: ImageGenerationFormState | null;
+  isPending: boolean;
 }
 
-export function ImageResultsDisplay({ formState }: ImageResultsDisplayProps) {
+export function ImageResultsDisplay({ formState, isPending }: ImageResultsDisplayProps) {
   const { toast } = useToast();
   const setCurrentTab = useImageStore(state => state.setCurrentTab);
   const addVersion = useImageStore(state => state.addVersion);
@@ -265,8 +266,8 @@ export function ImageResultsDisplay({ formState }: ImageResultsDisplayProps) {
     ? { hidden: { opacity: 0 }, visible: { opacity: 1 } }
     : resultItemVariant;
 
-  // Don't render anything if there are no results
-  if (!outputImageUrls.some(uri => uri !== null) && !generationErrors.some(err => err !== null)) {
+  // Don't render anything if there are no results and not currently generating
+  if (!outputImageUrls.some(uri => uri !== null) && !generationErrors.some(err => err !== null) && !isPending) {
     return null;
   }
 
@@ -308,6 +309,21 @@ export function ImageResultsDisplay({ formState }: ImageResultsDisplayProps) {
                       <p className="text-xs text-muted-foreground/60 leading-relaxed">
                         {generationErrors[index]}
                       </p>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Show skeleton loader when generating
+              if (uri === null && isPending) {
+                return (
+                  <div
+                    key={`loader-${index}`}
+                    className="aspect-[3/4] bg-muted/50 rounded-md border animate-pulse flex items-center justify-center"
+                  >
+                    <div className="text-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground">Generating Image {index + 1}...</p>
                     </div>
                   </div>
                 );

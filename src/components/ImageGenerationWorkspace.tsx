@@ -63,21 +63,23 @@ export function ImageGenerationWorkspace() {
 
   return (
     <div className="space-y-6">
-      {/* Parameter Panels */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={generationMode}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0, transition: { duration: 0.3 } }}
-          exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
-        >
-          {generationMode === 'creative' ? (
-            <ImageParameters formAction={formAction} isPending={isPending} />
-          ) : (
-            <StudioParameters formAction={formAction} isPending={isPending} />
-          )}
-        </motion.div>
-      </AnimatePresence>
+      {/* Parameter Panels wrapped in a single form */}
+      <form action={formAction}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={generationMode}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.3 } }}
+            exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
+          >
+            {generationMode === 'creative' ? (
+              <ImageParameters formAction={formAction} isPending={isPending} />
+            ) : (
+              <StudioParameters formAction={formAction} isPending={isPending} />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </form>
 
       {/* Progress Indicator - Shows during generation */}
       {isPending && (
@@ -91,7 +93,7 @@ export function ImageGenerationWorkspace() {
 
       {/* Results Display */}
       <div ref={resultsRef}>
-        <ImageResultsDisplay formState={formState} />
+        <ImageResultsDisplay formState={formState} isPending={isPending} />
       </div>
     </div>
   );
