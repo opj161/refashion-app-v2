@@ -25,14 +25,24 @@ interface HistoryCardProps {
   onViewDetails: (item: HistoryItem) => void;
   onDeleteItem: (item: HistoryItem) => void;
   username?: string;
+  onLoadFromHistory?: (item: HistoryItem) => void;
+  onLoadFromImageUrl?: (imageUrl: string) => void;
+  currentTab?: string;
+  setCurrentTab?: (tab: string) => void;
 }
 
-export default function HistoryCard({ item, onViewDetails, onDeleteItem, username }: HistoryCardProps) {
+export default function HistoryCard({ 
+  item, 
+  onViewDetails, 
+  onDeleteItem, 
+  username,
+  onLoadFromHistory,
+  onLoadFromImageUrl,
+  currentTab,
+  setCurrentTab 
+}: HistoryCardProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const initializeFromHistory = useImageStore(state => state.initializeFromHistory);
-  const initializeFromImageUrl = useImageStore(state => state.initializeFromImageUrl);
-  const setCurrentTab = useImageStore(state => state.setCurrentTab);
   const loadFromHistory = useGenerationSettingsStore(state => state.loadFromHistory);
   const setGenerationMode = useGenerationSettingsStore(state => state.setGenerationMode);
   const [isInView, setIsInView] = useState(false);
@@ -123,17 +133,19 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
 
   const handleReload = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    if (!onLoadFromHistory) {
+      toast({ title: "Error", description: "Cannot load from history", variant: "destructive" });
+      return;
+    }
+    
     setIsLoadingAction('reload');
     try {
-      // 1. Initialize image from history (existing functionality)
-      await initializeFromHistory(item);
+      // 1. Initialize image from history
+      onLoadFromHistory(item);
       
-      // 2. Load generation settings into Zustand store - now takes full HistoryItem
+      // 2. Load generation settings into Zustand store
       loadFromHistory(item);
-      
-      // 3. Switch to the appropriate tab
-      const targetTab = item.videoGenerationParams ? 'video' : 'image';
-      setCurrentTab(targetTab);
       
       toast({
         title: "Configuration Loaded",
@@ -149,7 +161,7 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
     } finally {
       setIsLoadingAction(null);
     }
-  }, [initializeFromHistory, loadFromHistory, item, setCurrentTab, toast]);
+  }, [onLoadFromHistory, loadFromHistory, item, toast]);
 
   const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -171,25 +183,28 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
       return;
     }
 
+    if (!onLoadFromImageUrl || !setCurrentTab) {
+      toast({ title: "Error", description: "Cannot load image", variant: "destructive" });
+      return;
+    }
+
     setIsLoadingAction('send');
     try {
       // 1. Load the generated image into the preparation workflow
-      await initializeFromImageUrl(imageUrlToSend);
+      onLoadFromImageUrl(imageUrlToSend);
       
-      // 2. Switch the UI state to Creative Mode on the Image tab
+      // 2. Switch the UI state to Creative Mode
       setGenerationMode('creative');
-      setCurrentTab('image');
 
       // 3. Navigate to the main page to ensure CreationHub is visible
       router.push('/');
     } catch (error) {
-      // Errors are already handled with toasts inside the store action,
-      // but we can log them here for debugging.
       console.error("Failed to send image to Creative Studio:", error);
+      toast({ title: "Error", description: "Failed to load image", variant: "destructive" });
     } finally {
       setIsLoadingAction(null);
     }
-  }, [item, initializeFromImageUrl, setGenerationMode, setCurrentTab, router, toast]);
+  }, [item, onLoadFromImageUrl, setGenerationMode, setCurrentTab, router, toast]);
 
   const triggerDownload = (url: string, filename: string) => {
     const link = document.createElement('a');

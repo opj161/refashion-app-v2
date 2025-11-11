@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Camera, Crop as CropIcon, Wand2, Sparkles, UserCheck, Clock } from "lucide-react";
-import { useImageStore } from "@/stores/imageStore";
+import { useImagePreparation } from "@/contexts/ImagePreparationContext";
 import { cn } from "@/lib/utils";
 
 interface ImageVersion {
@@ -53,7 +53,11 @@ export default function ImageVersionStack({
   activeVersionId,
   isProcessing,
 }: ImageVersionStackProps) {
-  const setActiveVersion = useImageStore(state => state.setActiveVersion);
+  const { dispatch } = useImagePreparation();
+  
+  const setActiveVersion = (versionId: string) => {
+    dispatch({ type: 'SET_ACTIVE_VERSION', payload: { versionId } });
+  };
   
   // Sort versions by creation time, with original first
   const sortedVersions = Object.values(versions).sort((a, b) => {
