@@ -126,14 +126,8 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
       // 1. Initialize image from history (existing functionality)
       await initializeFromHistory(item);
       
-      // 2. Load generation settings into Zustand store (NEW!)
-      loadFromHistory(
-        item.attributes,
-        item.videoGenerationParams,
-        item.settingsMode,
-        item.generation_mode,
-        (item.attributes as any).studioFit // Extract studioFit from attributes if present
-      );
+      // 2. Load generation settings into Zustand store - now takes full HistoryItem
+      loadFromHistory(item);
       
       // 3. Switch to the appropriate tab
       const targetTab = item.videoGenerationParams ? 'video' : 'image';

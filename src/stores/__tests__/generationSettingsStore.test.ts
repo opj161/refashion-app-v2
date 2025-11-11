@@ -1,7 +1,28 @@
 // src/stores/__tests__/generationSettingsStore.test.ts
 import { renderHook, act } from '@testing-library/react';
 import { useGenerationSettingsStore } from '../generationSettingsStore';
-import type { ModelAttributes } from '@/lib/types';
+import type { ModelAttributes, HistoryItem } from '@/lib/types';
+
+// Helper function to create a minimal HistoryItem for testing
+const createHistoryItem = (
+  attributes: ModelAttributes,
+  options?: {
+    settingsMode?: 'basic' | 'advanced';
+    generation_mode?: 'creative' | 'studio';
+    videoGenerationParams?: HistoryItem['videoGenerationParams'];
+  }
+): HistoryItem => ({
+  id: 'test-id',
+  timestamp: Date.now(),
+  attributes,
+  constructedPrompt: 'Test prompt',
+  originalClothingUrl: '/test/image.png',
+  editedImageUrls: [],
+  username: 'testuser',
+  settingsMode: options?.settingsMode,
+  generation_mode: options?.generation_mode,
+  videoGenerationParams: options?.videoGenerationParams,
+});
 
 describe('GenerationSettingsStore', () => {
   beforeEach(() => {
@@ -139,8 +160,10 @@ describe('GenerationSettingsStore', () => {
         overallMood: 'confident',
       };
 
+      const historyItem = createHistoryItem(historyAttributes);
+
       act(() => {
-        result.current.loadFromHistory(historyAttributes);
+        result.current.loadFromHistory(historyItem);
       });
 
       expect(result.current.imageSettings).toEqual(historyAttributes);
@@ -169,20 +192,24 @@ describe('GenerationSettingsStore', () => {
       };
 
       const videoParams = {
+        prompt: 'Test video prompt',
         selectedPredefinedPrompt: 'turn_to_profile',
         modelMovement: 'elegant_turn_profile',
         fabricMotion: 'soft_flow_with_movement',
         cameraAction: 'slow_zoom_in',
         aestheticVibe: 'timeless_chic_sophistication',
         videoModel: 'pro' as 'lite' | 'pro',
-        resolution: '1080p' as '480p' | '720p' | '1080p',
+        resolution: '1080p',
         duration: '8',
         seed: 42,
         cameraFixed: true,
+        sourceImageUrl: '/test/source.png',
       };
 
+      const historyItem = createHistoryItem(historyAttributes, { videoGenerationParams: videoParams });
+
       act(() => {
-        result.current.loadFromHistory(historyAttributes, videoParams);
+        result.current.loadFromHistory(historyItem);
       });
 
       expect(result.current.videoSettings.selectedPredefinedPrompt).toBe('turn_to_profile');
@@ -213,8 +240,10 @@ describe('GenerationSettingsStore', () => {
         overallMood: 'default',
       };
 
+      const historyItem = createHistoryItem(historyAttributes, { settingsMode: 'advanced' });
+
       act(() => {
-        result.current.loadFromHistory(historyAttributes, undefined, 'advanced');
+        result.current.loadFromHistory(historyItem);
       });
 
       expect(result.current.settingsMode).toBe('advanced');
@@ -227,8 +256,10 @@ describe('GenerationSettingsStore', () => {
         gender: 'male',
       } as Partial<ModelAttributes>;
 
+      const historyItem = createHistoryItem(partialAttributes as ModelAttributes);
+
       act(() => {
-        result.current.loadFromHistory(partialAttributes as ModelAttributes);
+        result.current.loadFromHistory(historyItem);
       });
 
       expect(result.current.imageSettings.gender).toBe('male');
@@ -411,7 +442,7 @@ describe('GenerationSettingsStore', () => {
       it('should load studio mode and fit from history', () => {
         const { result } = renderHook(() => useGenerationSettingsStore());
 
-        const historyAttributes: ModelAttributes = {
+        const historyAttributes: ModelAttributes & { studioFit?: 'slim' | 'regular' | 'relaxed' } = {
           gender: 'female',
           bodyShapeAndSize: 'default',
           ageRange: 'default',
@@ -428,16 +459,16 @@ describe('GenerationSettingsStore', () => {
           depthOfField: 'default',
           timeOfDay: 'default',
           overallMood: 'default',
+          studioFit: 'slim', // Studio fit stored in attributes
         };
 
+        const historyItem = createHistoryItem(historyAttributes, {
+          settingsMode: 'basic',
+          generation_mode: 'studio',
+        });
+
         act(() => {
-          result.current.loadFromHistory(
-            historyAttributes,
-            undefined,
-            'basic',
-            'studio',
-            'slim'
-          );
+          result.current.loadFromHistory(historyItem);
         });
 
         expect(result.current.generationMode).toBe('studio');
@@ -466,8 +497,10 @@ describe('GenerationSettingsStore', () => {
           overallMood: 'default',
         };
 
+        const historyItem = createHistoryItem(historyAttributes);
+
         act(() => {
-          result.current.loadFromHistory(historyAttributes);
+          result.current.loadFromHistory(historyItem);
         });
 
         // Should remain creative mode when not specified
