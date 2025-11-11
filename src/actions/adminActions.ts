@@ -449,6 +449,15 @@ export type UserFormState = {
   message: string;
   success?: boolean;
   error?: string;
+  user?: {
+    username: string;
+    role: 'admin' | 'user';
+    gemini_api_key_1_mode: 'global' | 'user_specific';
+    gemini_api_key_2_mode: 'global' | 'user_specific';
+    gemini_api_key_3_mode: 'global' | 'user_specific';
+    fal_api_key_mode: 'global' | 'user_specific';
+    image_generation_model: 'google_gemini_2_0' | 'fal_gemini_2_5';
+  };
 };
 
 // --- useActionState-compatible Server Actions ---
@@ -626,9 +635,20 @@ export async function handleCreateUser(
   const result = await createUser(formData);
   
   if (result.success) {
+    const username = formData.get('username') as string;
+    const user = dbService.findUserByUsername(username);
     return {
       success: true,
-      message: `User '${formData.get('username')}' has been successfully created.`
+      message: `User '${username}' has been successfully created.`,
+      user: user ? {
+        username: user.username,
+        role: user.role as 'admin' | 'user',
+        gemini_api_key_1_mode: (user.gemini_api_key_1_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_2_mode: (user.gemini_api_key_2_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_3_mode: (user.gemini_api_key_3_mode || 'global') as 'global' | 'user_specific',
+        fal_api_key_mode: (user.fal_api_key_mode || 'global') as 'global' | 'user_specific',
+        image_generation_model: (user.image_generation_model || 'google_gemini_2_0') as 'google_gemini_2_0' | 'fal_gemini_2_5',
+      } : undefined
     };
   } else {
     return {
@@ -652,9 +672,20 @@ export async function handleUpdateUserConfiguration(
   const result = await updateUserConfiguration(formData);
   
   if (result.success) {
+    const username = formData.get('username') as string;
+    const user = dbService.findUserByUsername(username);
     return {
       success: true,
-      message: `User '${formData.get('username')}' has been updated.`
+      message: `User '${username}' has been updated.`,
+      user: user ? {
+        username: user.username,
+        role: user.role as 'admin' | 'user',
+        gemini_api_key_1_mode: (user.gemini_api_key_1_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_2_mode: (user.gemini_api_key_2_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_3_mode: (user.gemini_api_key_3_mode || 'global') as 'global' | 'user_specific',
+        fal_api_key_mode: (user.fal_api_key_mode || 'global') as 'global' | 'user_specific',
+        image_generation_model: (user.image_generation_model || 'google_gemini_2_0') as 'google_gemini_2_0' | 'fal_gemini_2_5',
+      } : undefined
     };
   } else {
     return {

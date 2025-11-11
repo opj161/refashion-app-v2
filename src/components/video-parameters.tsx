@@ -85,6 +85,7 @@ function SubmitButton({
 
 export default function VideoParameters() {
   const { toast } = useToast();
+  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
   // REMOVED: useAuth - authentication handled by server action
   
   // Get the active image from the context
@@ -94,7 +95,6 @@ export default function VideoParameters() {
   // Get video settings from Zustand store - read and write directly
   const videoSettings = useGenerationSettingsStore(state => state.videoSettings);
   const setVideoSettings = useGenerationSettingsStore(state => state.setVideoSettings);
-  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
 
   // NEW: useActionState for form-based video generation
   const initialState: VideoGenerationFormState = { message: '' };
