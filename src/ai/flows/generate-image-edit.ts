@@ -162,19 +162,13 @@ function getStudioModeFitDescription(fit: 'slim' | 'regular' | 'relaxed'): strin
  */
 function buildStudioModePrompt(fit: 'slim' | 'regular' | 'relaxed'): string {
   const fitDescription = getStudioModeFitDescription(fit);
-  return `Your primary task is to generate a photorealistic e-commerce product photograph. The highest priority is the accurate and faithful representation of the provided clothing item. DO NOT alter the garment's design, length, color, texture, or core structure.
+  return `Create a PHOTOREALISTIC image of a female fashion model, of Indigenous descent, wearing this clothing item in the image with a ${fitDescription}.
 
-Model: The model is a 170cm tall, 60kg female with a slim, neutral body shape. She has light brown hair tied back in a simple ponytail and a neutral, professional facial expression.
+Setting: a modern studio setting with a seamless cyclorama with a subtle, even gradient as background
 
-Pose: The model is standing in a standard A-pose, facing directly forward toward the camera.
+Style: The model should look authentic and relatable, with a natural expression and subtle smile
 
-Garment Fit: The provided garment must be rendered with a ${fitDescription}
-
-Scene: The setting is a professional photography studio. The background is a seamless cyclorama with a subtle, even gradient from light grey (#e5e5e5) at the top to a slightly darker grey (#cccccc) at the bottom.
-
-Lighting: The lighting is diffuse and even, originating from a large softbox positioned in front of the model. This lighting must eliminate harsh shadows and prevent blown-out highlights.
-
-Technical Shot Details: This is a full-body shot. Aspect ratio must be exactly 9:16. Photographed with a standard 85mm portrait lens (f/5.6) for natural perspective and no distortion. The entire image, especially the garment, must be sharp and in focus.`;
+Technical details: Full-body shot. Superior clarity, well-exposed, and masterful composition.`;
 }
 
 /**
