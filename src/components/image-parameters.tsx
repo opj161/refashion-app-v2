@@ -16,7 +16,7 @@ import { isBackgroundRemovalAvailable } from "@/ai/actions/remove-background.act
 import type { ModelAttributes } from "@/lib/types";
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
-import { useActivePreparationImage } from "@/stores/imageStore";
+import { useActivePreparationImage } from "@/contexts/ImagePreparationContext";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,

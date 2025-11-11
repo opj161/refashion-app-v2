@@ -275,22 +275,29 @@ export function ImagePreparationProvider({
     });
   }, [state.crop, activeImage, state.imageDimensions, withProcessing, addVersion]);
 
-  // Generic async action handler
-  const createAsyncAction = useCallback((
-    label: string, 
-    step: ImagePreparationState['processingStep'], 
-    serverAction: (imageUrl: string, hash?: string) => Promise<{ savedPath: string; outputHash: string }>
-  ) => async (username: string) => { // username parameter kept for signature compatibility
+  const removeBackground = useCallback(async (username: string) => {
     if (!activeImage) throw new Error('No active image.');
-    await withProcessing(step, async () => {
-      const { savedPath, outputHash } = await serverAction(activeImage.imageUrl, activeImage.hash);
-      addVersion({ imageUrl: savedPath, label, sourceVersionId: activeImage.id, hash: outputHash });
+    await withProcessing('bg', async () => {
+      const { savedPath, outputHash } = await removeBackgroundAction(activeImage.imageUrl, activeImage.hash);
+      addVersion({ imageUrl: savedPath, label: 'Background Removed', sourceVersionId: activeImage.id, hash: outputHash });
     });
   }, [activeImage, withProcessing, addVersion]);
 
-  const removeBackground = useCallback(createAsyncAction('Background Removed', 'bg', removeBackgroundAction), [createAsyncAction]);
-  const upscaleImage = useCallback(createAsyncAction('Upscaled', 'upscale', upscaleImageAction), [createAsyncAction]);
-  const faceDetailer = useCallback(createAsyncAction('Face Enhanced', 'face', faceDetailerAction), [createAsyncAction]);
+  const upscaleImage = useCallback(async (username: string) => {
+    if (!activeImage) throw new Error('No active image.');
+    await withProcessing('upscale', async () => {
+      const { savedPath, outputHash } = await upscaleImageAction(activeImage.imageUrl, activeImage.hash);
+      addVersion({ imageUrl: savedPath, label: 'Upscaled', sourceVersionId: activeImage.id, hash: outputHash });
+    });
+  }, [activeImage, withProcessing, addVersion]);
+
+  const faceDetailer = useCallback(async (username: string) => {
+    if (!activeImage) throw new Error('No active image.');
+    await withProcessing('face', async () => {
+      const { savedPath, outputHash } = await faceDetailerAction(activeImage.imageUrl, activeImage.hash);
+      addVersion({ imageUrl: savedPath, label: 'Face Enhanced', sourceVersionId: activeImage.id, hash: outputHash });
+    });
+  }, [activeImage, withProcessing, addVersion]);
   
   // Handlers for rotate and flip
   const createTransformAction = useCallback((

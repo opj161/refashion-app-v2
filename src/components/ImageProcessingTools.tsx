@@ -1,7 +1,7 @@
 // src/components/ImageProcessingTools.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -84,9 +84,9 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   const activeImage = useActivePreparationImage();
   const { user } = useAuth();
 
-  // Undo/Redo actions
-  const undo = () => dispatch({ type: 'UNDO' });
-  const redo = () => dispatch({ type: 'REDO' });
+  // Undo/Redo actions - wrapped in useCallback to prevent recreation
+  const undo = useCallback(() => dispatch({ type: 'UNDO' }), [dispatch]);
+  const redo = useCallback(() => dispatch({ type: 'REDO' }), [dispatch]);
 
   // Service availability state
   const [isBgRemovalAvailable, setIsBgRemovalAvailable] = useState(false);
