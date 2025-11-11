@@ -439,26 +439,6 @@ export async function generateImageAction(
     const generationMode = (formData.get('generationMode') as 'creative' | 'studio') || 'creative';
     const studioFit = (formData.get('studioFit') as 'slim' | 'regular' | 'relaxed') || 'regular';
 
-    // Extract all ModelAttributes parameters
-    const parameters = {
-      gender: formData.get('gender') as string,
-      bodyShapeAndSize: formData.get('bodyShapeAndSize') as string,
-      ageRange: formData.get('ageRange') as string,
-      ethnicity: formData.get('ethnicity') as string,
-      poseStyle: formData.get('poseStyle') as string,
-      background: formData.get('background') as string,
-      fashionStyle: formData.get('fashionStyle') as string,
-      hairStyle: formData.get('hairStyle') as string,
-      modelExpression: formData.get('modelExpression') as string,
-      lightingType: formData.get('lightingType') as string,
-      lightQuality: formData.get('lightQuality') as string,
-      modelAngle: formData.get('modelAngle') as string,
-      lensEffect: formData.get('lensEffect') as string,
-      depthOfField: formData.get('depthOfField') as string,
-      timeOfDay: formData.get('timeOfDay') as string,
-      overallMood: formData.get('overallMood') as string,
-    };
-
     // Extract generation options
     const settingsMode = (formData.get('settingsMode') as 'basic' | 'advanced') || 'basic';
     const useAIPrompt = formData.get('useAIPrompt') === 'true';
@@ -473,7 +453,25 @@ export async function generateImageAction(
       imageDataUriOrUrl,
       generationMode,
       studioFit,
-      parameters,
+      // Only extract and pass parameters for Creative Mode
+      parameters: generationMode === 'creative' ? {
+        gender: formData.get('gender') as string,
+        bodyShapeAndSize: formData.get('bodyShapeAndSize') as string,
+        ageRange: formData.get('ageRange') as string,
+        ethnicity: formData.get('ethnicity') as string,
+        poseStyle: formData.get('poseStyle') as string,
+        background: formData.get('background') as string,
+        fashionStyle: formData.get('fashionStyle') as string,
+        hairStyle: formData.get('hairStyle') as string,
+        modelExpression: formData.get('modelExpression') as string,
+        lightingType: formData.get('lightingType') as string,
+        lightQuality: formData.get('lightQuality') as string,
+        modelAngle: formData.get('modelAngle') as string,
+        lensEffect: formData.get('lensEffect') as string,
+        depthOfField: formData.get('depthOfField') as string,
+        timeOfDay: formData.get('timeOfDay') as string,
+        overallMood: formData.get('overallMood') as string,
+      } : undefined,
       settingsMode,
       useAIPrompt,
       useRandomization,

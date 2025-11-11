@@ -193,6 +193,7 @@ export const useImageStore = create<ImagePreparationStore>()(
           imageDimensions: undefined,
           crop: undefined,
           completedCrop: undefined,
+          aspect: undefined, // Also reset aspect when switching versions
         });
       },
 
