@@ -126,7 +126,9 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
       loadFromHistory(
         item.attributes,
         item.videoGenerationParams,
-        item.settingsMode
+        item.settingsMode,
+        item.generation_mode,
+        (item.attributes as any).studioFit // Extract studioFit from attributes if present
       );
       
       // 3. Switch to the appropriate tab
@@ -227,6 +229,13 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
             {isVideoItem ? <Video className="h-3 w-3 mr-1.5" /> : <ImageIcon className="h-3 w-3 mr-1.5" />}
             {isVideoItem ? "Video" : "Image"}
           </Badge>
+
+          {/* Studio Mode Badge */}
+          {item.generation_mode === 'studio' && (
+            <Badge variant="outline" className="absolute top-2 right-2 z-10 text-xs bg-black/50 border-white/30 text-white">
+              Studio
+            </Badge>
+          )}
 
           {/* Hover/Focus Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 sm:p-4 flex flex-col justify-between opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300 ease-in-out">
