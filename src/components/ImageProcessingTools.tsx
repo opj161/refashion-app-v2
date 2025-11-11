@@ -130,39 +130,30 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   const handleApplyBackgroundRemoval = async () => {
     try {
       await removeBackground();
-      toast({ title: 'Background Removed', description: 'A new version has been created.' });
+      // Toast is now handled by the optimistic action wrapper
     } catch (error) {
-      toast({
-        title: 'Background Removal Failed',
-        description: (error as Error).message,
-        variant: 'destructive'
-      });
+      // Error toast is also handled by the optimistic action wrapper
+      console.error('Background removal error:', error);
     }
   };
 
   const handleUpscaleImage = async () => {
     try {
       await upscaleImage();
-      toast({ title: 'Image Upscaled', description: 'Your image has been upscaled successfully.' });
+      // Toast is now handled by the optimistic action wrapper
     } catch (error) {
-      toast({ 
-        title: 'Upscaling Failed', 
-        description: (error as Error).message, 
-        variant: 'destructive' 
-      });
+      // Error toast is also handled by the optimistic action wrapper
+      console.error('Upscale error:', error);
     }
   };
 
   const handleFaceDetailer = async () => {
     try {
       await faceDetailer();
-      toast({ title: 'Face Details Enhanced', description: 'Face details have been enhanced successfully.' });
+      // Toast is now handled by the optimistic action wrapper
     } catch (error) {
-      toast({ 
-        title: 'Face Enhancement Failed', 
-        description: (error as Error).message, 
-        variant: 'destructive' 
-      });
+      // Error toast is also handled by the optimistic action wrapper
+      console.error('Face detailer error:', error);
     }
   };
 

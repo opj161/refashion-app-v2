@@ -102,7 +102,7 @@ function imagePreparationReducer(state: ImagePreparationState, action: Action): 
     case 'SET_ORIGINAL': {
       const { file, imageUrl, hash, width, height } = action.payload;
       const originalVersion: ImageVersion = {
-        id: 'original', imageUrl, label: 'Original', sourceVersionId: '', createdAt: Date.now(), hash
+        id: 'original', imageUrl, label: 'Original', sourceVersionId: '', createdAt: Date.now(), hash, status: 'complete'
       };
       return {
         ...initialState,
@@ -281,12 +281,18 @@ export function ImagePreparationProvider({
   // A generic wrapper for all optimistic image processing actions
   const createOptimisticAction = useCallback((
     label: string,
-    serverAction: (...args: any[]) => Promise<{ imageUrl?: string; savedPath?: string; hash?: string; outputHash?: string; [key: string]: any; }>
+    serverAction: (imageUrl: string, hash: string) => Promise<{ imageUrl?: string; savedPath?: string; hash?: string; outputHash?: string; [key: string]: any; }>
   ) => {
-    return async (...args: any[]) => {
+    return async () => {
       const activeVersionId = state.activeVersionId; // Use the "real" state here, not optimisticState
       if (!activeVersionId) {
         toast({ title: "No active image selected.", variant: "destructive" });
+        return;
+      }
+      
+      const sourceImage = state.versions[activeVersionId];
+      if (!sourceImage) {
+        toast({ title: "Source image not found.", variant: "destructive" });
         return;
       }
       
@@ -296,8 +302,8 @@ export function ImagePreparationProvider({
       });
 
       try {
-        // Await the actual server action
-        const result = await serverAction(...args);
+        // Await the actual server action with the source image data
+        const result = await serverAction(sourceImage.imageUrl, sourceImage.hash);
         
         // --- STATE CONSISTENCY CHECK ---
         // Before dispatching the final result, check if the source version is still part of the committed state.
@@ -430,58 +436,37 @@ export function ImagePreparationProvider({
   // Refactor all async actions using the generic wrapper
   const removeBackground = createOptimisticAction(
     'Background Removed',
-    () => {
-      if (!activeImage) throw new Error('No active image.');
-      return removeBackgroundAction(activeImage.imageUrl, activeImage.hash);
-    }
+    (imageUrl: string, hash: string) => removeBackgroundAction(imageUrl, hash)
   );
   
   const upscaleImage = createOptimisticAction(
     'Upscaled',
-    () => {
-      if (!activeImage) throw new Error('No active image.');
-      return upscaleImageAction(activeImage.imageUrl, activeImage.hash);
-    }
+    (imageUrl: string, hash: string) => upscaleImageAction(imageUrl, hash)
   );
   
   const faceDetailer = createOptimisticAction(
     'Face Enhanced',
-    () => {
-      if (!activeImage) throw new Error('No active image.');
-      return faceDetailerAction(activeImage.imageUrl, activeImage.hash);
-    }
+    (imageUrl: string, hash: string) => faceDetailerAction(imageUrl, hash)
   );
 
   const rotateImageLeft = createOptimisticAction(
     'Rotated Left',
-    () => {
-      if (!activeImage) throw new Error('No active image.');
-      return rotateImage(activeImage.imageUrl, -90);
-    }
+    (imageUrl: string, hash: string) => rotateImage(imageUrl, -90)
   );
 
   const rotateImageRight = createOptimisticAction(
     'Rotated Right',
-    () => {
-      if (!activeImage) throw new Error('No active image.');
-      return rotateImage(activeImage.imageUrl, 90);
-    }
+    (imageUrl: string, hash: string) => rotateImage(imageUrl, 90)
   );
 
   const flipHorizontal = createOptimisticAction(
     'Flipped Horizontal',
-    () => {
-      if (!activeImage) throw new Error('No active image.');
-      return flipImage(activeImage.imageUrl, 'horizontal');
-    }
+    (imageUrl: string, hash: string) => flipImage(imageUrl, 'horizontal')
   );
 
   const flipVertical = createOptimisticAction(
     'Flipped Vertical',
-    () => {
-      if (!activeImage) throw new Error('No active image.');
-      return flipImage(activeImage.imageUrl, 'vertical');
-    }
+    (imageUrl: string, hash: string) => flipImage(imageUrl, 'vertical')
   );
 
   const reset = useCallback(() => {
