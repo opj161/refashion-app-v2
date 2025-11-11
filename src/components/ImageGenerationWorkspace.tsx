@@ -11,7 +11,13 @@ import { useToast } from '@/hooks/use-toast';
 import { ImageResultsDisplay } from './ImageResultsDisplay';
 import { GenerationProgressIndicator } from './GenerationProgressIndicator';
 
-export function ImageGenerationWorkspace() {
+export function ImageGenerationWorkspace({ 
+  setCurrentTab, 
+  onLoadImageUrl 
+}: { 
+  setCurrentTab?: (tab: string) => void;
+  onLoadImageUrl?: (imageUrl: string) => void;
+}) {
   const generationMode = useGenerationSettingsStore(state => state.generationMode);
   const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
   const { toast } = useToast();
@@ -83,7 +89,12 @@ export function ImageGenerationWorkspace() {
             imageCount={3}
           />
         )}
-        <ImageResultsDisplay formState={formState} isPending={isPending} />
+        <ImageResultsDisplay 
+          formState={formState} 
+          isPending={isPending} 
+          setCurrentTab={setCurrentTab}
+          onLoadImageUrl={onLoadImageUrl}
+        />
       </div>
     </div>
   );

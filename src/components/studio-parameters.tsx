@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useImageStore } from '@/stores/imageStore';
+import { useImagePreparation, useActivePreparationImage } from '@/contexts/ImagePreparationContext';
 import { useGenerationSettingsStore } from '@/stores/generationSettingsStore';
 import { Sparkles, Loader2, Info } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
@@ -37,16 +37,10 @@ interface StudioParametersProps {
 }
 
 export default function StudioParameters({ isPending }: StudioParametersProps) {
-  // Optimized selector - only subscribe to the specific state we need
-  const { preparedImageUrl, isImageReady } = useImageStore(
-    useShallow((state) => {
-      const activeImage = state.activeVersionId ? state.versions[state.activeVersionId] : null;
-      return {
-        preparedImageUrl: activeImage?.imageUrl || '',
-        isImageReady: !!activeImage?.imageUrl,
-      };
-    })
-  );
+  // Get prepared image from context
+  const activeImage = useActivePreparationImage();
+  const preparedImageUrl = activeImage?.imageUrl || '';
+  const isImageReady = !!activeImage?.imageUrl;
 
   const { studioFit, setStudioFit } = useGenerationSettingsStore(
     useShallow((state) => ({

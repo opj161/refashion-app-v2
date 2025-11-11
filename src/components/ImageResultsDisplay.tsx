@@ -12,7 +12,6 @@ import Image from 'next/image';
 import { getDisplayableImageUrl } from '@/lib/utils';
 import { upscaleImageAction, faceDetailerAction, isFaceDetailerAvailable } from '@/ai/actions/upscale-image.action';
 import { updateHistoryItem } from '@/actions/historyActions';
-import { useImageStore } from '@/stores/imageStore';
 import { UnifiedMediaModal, MediaSlot, SidebarSlot } from './UnifiedMediaModal';
 import { DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import type { ImageGenerationFormState } from '@/actions/imageActions';
@@ -22,15 +21,17 @@ const NUM_IMAGES_TO_GENERATE = 3;
 interface ImageResultsDisplayProps {
   formState: ImageGenerationFormState | null;
   isPending: boolean;
+  setCurrentTab?: (tab: string) => void;
+  onLoadImageUrl?: (imageUrl: string) => void;
 }
 
-export function ImageResultsDisplay({ formState, isPending }: ImageResultsDisplayProps) {
+export function ImageResultsDisplay({ 
+  formState, 
+  isPending,
+  setCurrentTab,
+  onLoadImageUrl 
+}: ImageResultsDisplayProps) {
   const { toast } = useToast();
-  const setCurrentTab = useImageStore(state => state.setCurrentTab);
-  const addVersion = useImageStore(state => state.addVersion);
-  const activeImage = useImageStore(state => 
-    state.activeVersionId ? state.versions[state.activeVersionId] : null
-  );
 
   // Local state for post-generation operations (upscale, face detail)
   const [localOutputImageUrls, setLocalOutputImageUrls] = useState<(string | null)[]>(
@@ -185,13 +186,17 @@ export function ImageResultsDisplay({ formState, isPending }: ImageResultsDispla
     (imageUrl: string | null) => {
       if (!imageUrl) return;
 
-      const newVersionId = addVersion({
-        imageUrl: imageUrl,
-        label: 'Generated for Video',
-        sourceVersionId: activeImage?.id || 'original',
-        hash: `generated_${Date.now()}`,
-      });
+      if (!setCurrentTab || !onLoadImageUrl) {
+        toast({
+          title: 'Error',
+          description: 'Cannot switch to video page',
+          variant: 'destructive'
+        });
+        return;
+      }
 
+      // Load the generated image into the video tab's preparation workflow
+      onLoadImageUrl(imageUrl);
       setCurrentTab('video');
 
       setTimeout(() => {
@@ -214,7 +219,7 @@ export function ImageResultsDisplay({ formState, isPending }: ImageResultsDispla
         description: 'Ready to generate a video with your selected generated image.',
       });
     },
-    [activeImage?.id, addVersion, setCurrentTab, toast]
+    [setCurrentTab, onLoadImageUrl, toast]
   );
 
   const handleImageClick = useCallback((imageUrl: string, index: number) => {

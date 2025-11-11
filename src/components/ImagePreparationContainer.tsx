@@ -17,19 +17,15 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 import { UploadCloud, Trash2, Brush } from "lucide-react";
 import type { HistoryItem } from '@/lib/types';
-import { ImagePreparationProvider } from '@/contexts/ImagePreparationContext';
 
 interface ImagePreparationContainerProps {
   preparationMode: 'image' | 'video';
   onReset: () => void;
-  initialHistoryItem?: HistoryItem | null;
-  initialImageUrl?: string | null;
-  onInitializationComplete?: () => void;
   resetRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-// Internal component that uses the context
-function ImagePreparationContainerInternal({
+// Component that uses the context
+export default function ImagePreparationContainer({
   preparationMode,
   onReset,
   resetRef,
@@ -192,17 +188,3 @@ function ImagePreparationContainerInternal({
   );
 }
 
-// Main component - wraps with Context Provider
-export default function ImagePreparationContainer(props: ImagePreparationContainerProps) {
-  const { initialHistoryItem, initialImageUrl, onInitializationComplete, ...internalProps } = props;
-  
-  return (
-    <ImagePreparationProvider
-      initialHistoryItem={initialHistoryItem}
-      initialImageUrl={initialImageUrl}
-      onInitializationComplete={onInitializationComplete}
-    >
-      <ImagePreparationContainerInternal {...internalProps} />
-    </ImagePreparationProvider>
-  );
-}

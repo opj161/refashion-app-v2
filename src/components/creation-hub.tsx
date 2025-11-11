@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { useShallow } from 'zustand/react/shallow';
 import type { HistoryItem } from '@/lib/types';
+import { ImagePreparationProvider } from '@/contexts/ImagePreparationContext';
 
 export default function CreationHub({
   children
@@ -78,7 +79,7 @@ export default function CreationHub({
     onLoadFromImageUrl: handleLoadFromImageUrl,
     currentTab,
     setCurrentTab,
-  });
+  } as any);
   
   return (
     <div className="space-y-8">
@@ -114,29 +115,38 @@ export default function CreationHub({
         </AnimatePresence>
 
         <TabsContent value="image" className="space-y-6 mt-5" forceMount>
-          <ImagePreparationContainer
-            preparationMode="image"
-            onReset={handleReset}
+          <ImagePreparationProvider
             initialHistoryItem={currentTab === 'image' ? initHistoryItem : null}
             initialImageUrl={currentTab === 'image' ? initImageUrl : null}
             onInitializationComplete={handleInitializationComplete}
-            resetRef={imageContainerResetRef}
-          />
-          
-          {/* Unified workspace with both modes and results display */}
-          <ImageGenerationWorkspace />
+          >
+            <ImagePreparationContainer
+              preparationMode="image"
+              onReset={handleReset}
+              resetRef={imageContainerResetRef}
+            />
+            
+            {/* Unified workspace with both modes and results display */}
+            <ImageGenerationWorkspace 
+              setCurrentTab={setCurrentTab}
+              onLoadImageUrl={handleLoadFromImageUrl}
+            />
+          </ImagePreparationProvider>
         </TabsContent>
 
         <TabsContent value="video" className="space-y-6 mt-5" forceMount>
-          <ImagePreparationContainer
-            preparationMode="video"
-            onReset={handleReset}
+          <ImagePreparationProvider
             initialHistoryItem={currentTab === 'video' ? initHistoryItem : null}
             initialImageUrl={null}
             onInitializationComplete={handleInitializationComplete}
-            resetRef={videoContainerResetRef}
-          />
-          <VideoParameters />
+          >
+            <ImagePreparationContainer
+              preparationMode="video"
+              onReset={handleReset}
+              resetRef={videoContainerResetRef}
+            />
+            <VideoParameters />
+          </ImagePreparationProvider>
         </TabsContent>
 
         <TabsContent value="history" className="space-y-6 mt-5" forceMount>

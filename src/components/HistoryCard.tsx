@@ -12,7 +12,6 @@ import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, Play
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from 'motion/react';
 import { useToast } from "@/hooks/use-toast";
-import { useImageStore } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
