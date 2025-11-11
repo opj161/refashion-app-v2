@@ -518,3 +518,40 @@ export async function generateImageAction(
     };
   }
 }
+
+/**
+ * Recreate state from an existing image URL (for "Send to Creative Studio" feature)
+ * Takes a server-relative image URL and returns metadata needed to initialize the image preparation workflow
+ * @param imageUrl The server-relative URL of the image (e.g., /uploads/generated_images/...)
+ * @returns Metadata including hash and dimensions
+ */
+export async function recreateStateFromImageUrl(imageUrl: string): Promise<PrepareImageResult> {
+  if (!imageUrl || !imageUrl.startsWith('/uploads/')) {
+    return { success: false, error: 'A valid server image URL is required.' };
+  }
+
+  try {
+    const imageBuffer = await getBufferFromLocalPath(imageUrl);
+
+    const image = sharp(imageBuffer);
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height) {
+      return { success: false, error: 'Could not read image metadata from the provided URL.' };
+    }
+
+    const hash = crypto.createHash('sha256').update(imageBuffer).digest('hex');
+
+    return {
+      success: true,
+      imageUrl, // Return the original URL, as the file already exists
+      hash,
+      originalWidth: metadata.width,
+      originalHeight: metadata.height,
+      resized: false,
+    };
+  } catch (error) {
+    console.error('Error recreating state from image URL:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: `Failed to process the image from URL: ${errorMessage}` };
+  }
+}

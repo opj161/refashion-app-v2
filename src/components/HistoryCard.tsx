@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { HistoryItem } from "@/lib/types";
 import { getDisplayableImageUrl } from "@/lib/utils";
-import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle, MoreVertical, Trash2, Download } from "lucide-react";
+import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle, MoreVertical, Trash2, Download, Sparkles } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from 'motion/react';
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,7 @@ import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { transitions, shadows } from "@/lib/design-tokens";
+import { useRouter } from 'next/navigation';
 
 
 interface HistoryCardProps {
@@ -28,9 +29,12 @@ interface HistoryCardProps {
 
 export default function HistoryCard({ item, onViewDetails, onDeleteItem, username }: HistoryCardProps) {
   const { toast } = useToast();
+  const router = useRouter();
   const initializeFromHistory = useImageStore(state => state.initializeFromHistory);
+  const initializeFromImageUrl = useImageStore(state => state.initializeFromImageUrl);
   const setCurrentTab = useImageStore(state => state.setCurrentTab);
   const loadFromHistory = useGenerationSettingsStore(state => state.loadFromHistory);
+  const setGenerationMode = useGenerationSettingsStore(state => state.setGenerationMode);
   const [isInView, setIsInView] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -154,6 +158,38 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
     onDeleteItem(item);
   }, [onDeleteItem, item]);
 
+  const handleSendToCreative = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Find the first valid generated image to send
+    const imageUrlToSend = item.editedImageUrls?.find(url => !!url);
+    
+    if (!imageUrlToSend) {
+      toast({
+        title: "No Image Available",
+        description: "This history item does not have a valid generated image to edit.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // 1. Load the generated image into the preparation workflow
+      await initializeFromImageUrl(imageUrlToSend);
+      
+      // 2. Switch the UI state to Creative Mode on the Image tab
+      setGenerationMode('creative');
+      setCurrentTab('image');
+
+      // 3. Navigate to the main page to ensure CreationHub is visible
+      router.push('/');
+    } catch (error) {
+      // Errors are already handled with toasts inside the store action,
+      // but we can log them here for debugging.
+      console.error("Failed to send image to Creative Studio:", error);
+    }
+  }, [item, initializeFromImageUrl, setGenerationMode, setCurrentTab, router, toast]);
+
   const triggerDownload = (url: string, filename: string) => {
     const link = document.createElement('a');
     link.href = url;
@@ -270,6 +306,15 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
                     <RefreshCw className="mr-2 h-4 w-4" />
                     <span>Reload Config</span>
                   </DropdownMenuItem>
+                  
+                  {/* Conditionally render the "Use in Creative" action for Studio Mode items */}
+                  {item.generation_mode === 'studio' && (
+                    <DropdownMenuItem onClick={handleSendToCreative}>
+                      <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                      <span>Use in Creative</span>
+                    </DropdownMenuItem>
+                  )}
+                  
                   <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDelete}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     <span>Delete</span>

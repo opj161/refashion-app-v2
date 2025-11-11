@@ -13,7 +13,8 @@ import {
   cropImage, 
   recreateStateFromHistoryAction, 
   rotateImage, 
-  flipImage 
+  flipImage,
+  recreateStateFromImageUrl
 } from '@/actions/imageActions';
 
 // Types for the image preparation workflow
@@ -98,6 +99,7 @@ export interface ImagePreparationActions {
   flipVertical: () => Promise<void>;
   uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
   initializeFromHistory: (item: HistoryItem) => Promise<void>;
+  initializeFromImageUrl: (imageUrl: string) => Promise<void>;
 }
 
 type ImagePreparationStore = ImagePreparationState & ImagePreparationActions & {
@@ -597,6 +599,43 @@ export const useImageStore = create<ImagePreparationStore>()(
           toast({
             title: "Error",
             description: "Could not load image from history.",
+            variant: "destructive"
+          });
+          throw error;
+        } finally {
+          setProcessing(false, null);
+        }
+      },
+
+      initializeFromImageUrl: async (imageUrl: string) => {
+        const { reset, setProcessing, setOriginalImage, setOriginalImageDimensions } = get();
+        reset();
+        setProcessing(true, 'upload');
+
+        try {
+          const result = await recreateStateFromImageUrl(imageUrl);
+
+          if (!result.success) {
+            throw new Error(result.error);
+          }
+
+          const { hash, originalWidth, originalHeight } = result;
+
+          // Use a dummy File object as it's required by setOriginalImage, 
+          // but the important parts are the URL and hash
+          setOriginalImage(new File([], "generated_image.png"), imageUrl, hash);
+          setOriginalImageDimensions({ width: originalWidth, height: originalHeight });
+
+          toast({
+            title: "Image Loaded into Creative Studio",
+            description: "You can now begin a new creative workflow.",
+          });
+
+        } catch (error) {
+          console.error('Failed to initialize from image URL:', error);
+          toast({
+            title: "Error Loading Image",
+            description: "Could not load the selected image for editing.",
             variant: "destructive"
           });
           throw error;
