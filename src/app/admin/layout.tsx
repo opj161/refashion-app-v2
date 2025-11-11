@@ -1,5 +1,5 @@
 // src/app/admin/layout.tsx
-import { ReactNode, Suspense } from 'react';
+import { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCurrentUser } from '@/actions/authActions';
@@ -44,9 +44,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
       <div className="container mx-auto max-w-7xl flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10 py-10">
         <aside className="fixed top-16 z-30 -ml-2 hidden h-[calc(100vh-64px)] w-full shrink-0 md:sticky md:block">
           <div className="h-full py-6 pr-6">
-              <Suspense fallback={<div>Loading nav...</div>}>
-                <AdminNav />
-              </Suspense>
+            <AdminNav />
           </div>
         </aside>
         <main className="w-full">{children}</main>

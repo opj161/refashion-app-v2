@@ -425,3 +425,243 @@ export async function getGenerationActivityAction(
   }
 }
 
+// --- Form State Types for useActionState ---
+
+export type ApiKeysFormState = {
+  message: string;
+  success?: boolean;
+  error?: string;
+};
+
+export type SystemPromptFormState = {
+  message: string;
+  success?: boolean;
+  error?: string;
+};
+
+export type CacheCleanupFormState = {
+  message: string;
+  success?: boolean;
+  error?: string;
+};
+
+export type UserFormState = {
+  message: string;
+  success?: boolean;
+  error?: string;
+};
+
+// --- useActionState-compatible Server Actions ---
+
+/**
+ * Server Action for updating API keys, compatible with useActionState.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing API key values
+ * @returns A FormState object with success/error status
+ */
+export async function handleApiKeysUpdate(
+  previousState: ApiKeysFormState | null,
+  formData: FormData
+): Promise<ApiKeysFormState> {
+  await verifyAdmin();
+  
+  try {
+    // Create an array of update promises
+    const updatePromises = [];
+    
+    // Only add an update promise if the user has entered a new value
+    const gemini1 = formData.get('gemini1') as string;
+    const gemini2 = formData.get('gemini2') as string;
+    const gemini3 = formData.get('gemini3') as string;
+    const fal = formData.get('fal') as string;
+    
+    if (gemini1) {
+      updatePromises.push(updateEncryptedSetting('global_gemini_api_key_1', gemini1));
+    }
+    if (gemini2) {
+      updatePromises.push(updateEncryptedSetting('global_gemini_api_key_2', gemini2));
+    }
+    if (gemini3) {
+      updatePromises.push(updateEncryptedSetting('global_gemini_api_key_3', gemini3));
+    }
+    if (fal) {
+      updatePromises.push(updateEncryptedSetting('global_fal_api_key', fal));
+    }
+
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
+      return { 
+        success: true, 
+        message: 'Global API keys have been saved.' 
+      };
+    } else {
+      return { 
+        success: false, 
+        message: 'No new API keys were entered.' 
+      };
+    }
+
+  } catch (error) {
+    console.error('Error updating API keys:', error);
+    return { 
+      success: false,
+      error: 'Failed to update API keys.',
+      message: 'An error occurred while updating the API keys.'
+    };
+  }
+}
+
+/**
+ * Server Action for updating system prompt, compatible with useActionState.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing the system prompt
+ * @returns A FormState object with success/error status
+ */
+export async function handleSystemPromptUpdate(
+  previousState: SystemPromptFormState | null,
+  formData: FormData
+): Promise<SystemPromptFormState> {
+  await verifyAdmin();
+  
+  const prompt = formData.get('systemPrompt') as string;
+  
+  if (!prompt || prompt.trim() === '') {
+    return {
+      success: false,
+      error: 'System prompt cannot be empty.',
+      message: 'Please enter a valid system prompt.'
+    };
+  }
+  
+  try {
+    systemPromptService.updateSystemPrompt(prompt);
+    revalidatePath('/admin/settings');
+    return { 
+      success: true, 
+      message: 'AI prompt engineer system instruction has been saved.' 
+    };
+  } catch (error) {
+    console.error('Error updating system prompt:', error);
+    return { 
+      success: false,
+      error: 'Failed to update system prompt.',
+      message: 'An error occurred while updating the system prompt.'
+    };
+  }
+}
+
+/**
+ * Server Action for cache cleanup, compatible with useActionState.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data (empty for this action)
+ * @returns A FormState object with success/error status
+ */
+export async function handleCacheCleanup(
+  previousState: CacheCleanupFormState | null,
+  formData: FormData
+): Promise<CacheCleanupFormState> {
+  await verifyAdmin();
+  
+  try {
+    const cacheFilePath = path.join(process.cwd(), '.cache', 'image-processing-cache.json');
+    const maxAgeMs = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+    let cache: Record<string, any> = {};
+    try {
+      const data = await fs.readFile(cacheFilePath, 'utf-8');
+      cache = JSON.parse(data);
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        return { 
+          success: true, 
+          message: 'Cache file does not exist. Nothing to clean up.' 
+        };
+      }
+      throw error;
+    }
+
+    const now = Date.now();
+    let removedCount = 0;
+    const initialCount = Object.keys(cache).length;
+
+    for (const [hash, entry] of Object.entries(cache)) {
+      if (entry.timestamp && (now - entry.timestamp) > maxAgeMs) {
+        delete cache[hash];
+        removedCount++;
+      }
+    }
+
+    if (removedCount > 0) {
+      await fs.writeFile(cacheFilePath, JSON.stringify(cache, null, 2));
+      return { 
+        success: true, 
+        message: `Cache cleanup complete. Removed ${removedCount} of ${initialCount} entries.` 
+      };
+    } else {
+      return { 
+        success: true, 
+        message: `Cache is clean. No entries were old enough to remove (${initialCount} entries remain).` 
+      };
+    }
+  } catch (error) {
+    console.error('Error during cache cleanup from admin panel:', error);
+    return { 
+      success: false,
+      error: 'Cache cleanup failed.',
+      message: 'An error occurred during cache cleanup.'
+    };
+  }
+}
+
+/**
+ * Server Action for creating a user, compatible with useActionState.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing user details
+ * @returns A FormState object with success/error status
+ */
+export async function handleCreateUser(
+  previousState: UserFormState | null,
+  formData: FormData
+): Promise<UserFormState> {
+  const result = await createUser(formData);
+  
+  if (result.success) {
+    return {
+      success: true,
+      message: `User '${formData.get('username')}' has been successfully created.`
+    };
+  } else {
+    return {
+      success: false,
+      error: result.error || 'Failed to create user.',
+      message: result.error || 'An error occurred while creating the user.'
+    };
+  }
+}
+
+/**
+ * Server Action for updating user configuration, compatible with useActionState.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing user configuration
+ * @returns A FormState object with success/error status
+ */
+export async function handleUpdateUserConfiguration(
+  previousState: UserFormState | null,
+  formData: FormData
+): Promise<UserFormState> {
+  const result = await updateUserConfiguration(formData);
+  
+  if (result.success) {
+    return {
+      success: true,
+      message: `User '${formData.get('username')}' has been updated.`
+    };
+  } else {
+    return {
+      success: false,
+      error: result.error || 'Failed to update user.',
+      message: result.error || 'An error occurred while updating the user.'
+    };
+  }
+}
+
