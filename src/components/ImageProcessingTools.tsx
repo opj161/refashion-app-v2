@@ -18,7 +18,6 @@ import {
 import {
   Wand2, Sparkles, UserCheck, CheckCircle, Loader2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Undo2, Redo2
 } from "lucide-react";
-import { useAuth } from '@/contexts/AuthContext';
 import { spacing } from "@/lib/design-tokens";
 
 // --- Reusable Row Component for a consistent look ---
@@ -82,7 +81,6 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   const { isProcessing, processingStep } = state;
   
   const activeImage = useActivePreparationImage();
-  const { user } = useAuth();
 
   // Undo/Redo actions - wrapped in useCallback to prevent recreation
   const undo = useCallback(() => dispatch({ type: 'UNDO' }), [dispatch]);
@@ -130,9 +128,8 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
 
   // --- Event Handlers ---
   const handleApplyBackgroundRemoval = async () => {
-    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     try {
-      await removeBackground(user.username);
+      await removeBackground();
       toast({ title: 'Background Removed', description: 'A new version has been created.' });
     } catch (error) {
       toast({
@@ -144,9 +141,8 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   };
 
   const handleUpscaleImage = async () => {
-    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     try {
-      await upscaleImage(user.username);
+      await upscaleImage();
       toast({ title: 'Image Upscaled', description: 'Your image has been upscaled successfully.' });
     } catch (error) {
       toast({ 
@@ -158,9 +154,8 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   };
 
   const handleFaceDetailer = async () => {
-    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     try {
-      await faceDetailer(user.username);
+      await faceDetailer();
       toast({ title: 'Face Details Enhanced', description: 'Face details have been enhanced successfully.' });
     } catch (error) {
       toast({ 
@@ -171,7 +166,11 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
     }
   };
 
-  const isToolDisabled = disabled || isProcessing;
+  // Check if ANY version is currently in an optimistic 'processing' state.
+  const isAnyVersionProcessing = Object.values(state.versions).some(v => v.status === 'processing');
+  
+  // The master disable flag now also checks for any optimistic versions
+  const isToolDisabled = disabled || state.isProcessing || isAnyVersionProcessing;
 
   return (
     <div className="space-y-4">
