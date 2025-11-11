@@ -76,8 +76,6 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
     flipVertical,
     undo,
     redo,
-    canUndo,
-    canRedo,
     isProcessing,
     processingStep,
   } = useImageStore(
@@ -91,12 +89,14 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
       flipVertical: state.flipVertical,
       undo: state.undo,
       redo: state.redo,
-      canUndo: state.canUndo,
-      canRedo: state.canRedo,
       isProcessing: state.isProcessing,
       processingStep: state.processingStep,
     }))
   );
+
+  // Get canUndo/canRedo directly for UI display (not for event listener)
+  const canUndo = useImageStore(state => state.canUndo);
+  const canRedo = useImageStore(state => state.canRedo);
   
   const activeImage = useActivePreparationImage();
   const { user } = useAuth();
@@ -117,6 +117,9 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   // Keyboard shortcuts for undo/redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Get the latest state directly within the handler
+      const { canUndo, canRedo } = useImageStore.getState();
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         if (canUndo) undo();
@@ -129,7 +132,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canUndo, canRedo, undo, redo]);
+  }, [undo, redo]); // Dependencies are now stable functions, so this runs only once.
 
   // Don't render if no active image
   if (!activeImage) {

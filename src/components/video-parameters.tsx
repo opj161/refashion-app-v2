@@ -94,6 +94,7 @@ export default function VideoParameters() {
   // Get video settings from Zustand store - read and write directly
   const videoSettings = useGenerationSettingsStore(state => state.videoSettings);
   const setVideoSettings = useGenerationSettingsStore(state => state.setVideoSettings);
+  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
 
   // NEW: useActionState for form-based video generation
   const initialState: VideoGenerationFormState = { message: '' };
@@ -233,7 +234,8 @@ export default function VideoParameters() {
           variant: "destructive" 
         });
       } else if (formState.taskId && formState.historyItemId) {
-        // Success case
+        // Success case - trigger history gallery refresh
+        incrementGenerationCount();
         toast({
           title: "Video Generation Started",
           description: formState.message,
@@ -241,7 +243,7 @@ export default function VideoParameters() {
         });
       }
     }
-  }, [formState, toast]);
+  }, [formState, toast, incrementGenerationCount]);
 
   // REMOVED: handleCancelGeneration and progress simulation
   // Webhook-based completion means no client-side polling needed

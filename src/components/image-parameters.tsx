@@ -1,7 +1,8 @@
 // src/components/image-parameters.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useMemo, useActionState } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button"; 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,44 +11,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; 
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Palette, PersonStanding, Settings2, Sparkles, FileText, Shuffle, Save, Trash2, Eye, RefreshCw, Download, Video as VideoIcon, UserCheck, UploadCloud, AlertTriangle, BrainCircuit, X, AlertCircle, Code, ChevronDown, ChevronUp, Camera, Wand2 } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { UnifiedMediaModal, MediaSlot, SidebarSlot } from "./UnifiedMediaModal";
-import { GenerationProgressIndicator } from "./GenerationProgressIndicator";
-import { generateImageAction, type ImageGenerationFormState } from "@/actions/imageActions";
-import { upscaleImageAction, faceDetailerAction, isFaceDetailerAvailable, isUpscaleServiceAvailable } from "@/ai/actions/upscale-image.action";
+import { Loader2, Palette, PersonStanding, Settings2, Sparkles, FileText, Shuffle, Save, Trash2, BrainCircuit, Code, Camera, Wand2 } from 'lucide-react';
+import { isFaceDetailerAvailable, isUpscaleServiceAvailable } from "@/ai/actions/upscale-image.action";
 import { isBackgroundRemovalAvailable } from "@/ai/actions/remove-background.action";
-import { addHistoryItem, updateHistoryItem, getHistoryItemById } from "@/actions/historyActions";
-import { useAuth } from "@/contexts/AuthContext";
 import type { ModelAttributes, HistoryItem } from "@/lib/types";
-import { getDisplayableImageUrl } from "@/lib/utils";
-import Image from "next/image";
-import { useRouter } from 'next/navigation';
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
 import { useActivePreparationImage } from "@/stores/imageStore";
-import { useImageStore } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
+import { generateImageAction, type ImageGenerationFormState } from '@/actions/imageActions';
+import { ImageResultsDisplay } from './ImageResultsDisplay';
+import { GenerationProgressIndicator } from './GenerationProgressIndicator';
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
     BODY_SHAPE_AND_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
     POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS, TIME_OF_DAY_OPTIONS, OVERALL_MOOD_OPTIONS, MODEL_ANGLE_OPTIONS,
-    LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, CAMERA_ANGLE_OPTIONS, LENS_EFFECT_OPTIONS,
+    LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, LENS_EFFECT_OPTIONS,
     DEPTH_OF_FIELD_OPTIONS, OptionWithPromptSegment
 } from '@/lib/prompt-builder';
-import { motion, AnimatePresence, useReducedMotion, Variants } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { MOTION_TRANSITIONS } from '@/lib/motion-constants';
 
 // Interface for image generation parameters
 interface ImageGenerationParams extends ModelAttributes {
   settingsMode: 'basic' | 'advanced';
-}
-
-// Props interface for the component
-interface ImageParametersProps {
-  historyItemToLoad?: HistoryItem | null;
-  isLoadingHistory?: boolean;
 }
 
 // Constants
@@ -76,19 +63,57 @@ function SubmitButton({ preparedImageUrl }: { preparedImageUrl: string | null })
   );
 }
 
-// Component now accepts props for loading configuration
-export default function ImageParameters({
-  historyItemToLoad = null,
-  isLoadingHistory = false,
-}: ImageParametersProps) {
-  const { user: currentUser } = useAuth();
+// Component is now self-contained with its own form and state
+export default function ImageParameters() {
   const { toast } = useToast();
-  const router = useRouter();
+  const generationMode = useGenerationSettingsStore(state => state.generationMode);
+  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
   
-  // Get the active image and tab state from store
+  // Form state management
+  const initialState: ImageGenerationFormState = { message: '' };
+  const [formState, formAction, isPending] = useActionState(generateImageAction, initialState);
+  
+  // Ref for auto-scroll to results
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to results when generation starts
+  useEffect(() => {
+    if (isPending && resultsRef.current) {
+      const timer = setTimeout(() => {
+        resultsRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isPending]);
+
+  // Effect to handle form submission results
+  useEffect(() => {
+    if (formState.message && formState.editedImageUrls) {
+      const successCount = formState.editedImageUrls.filter(url => url !== null).length;
+
+      if (successCount > 0) {
+        incrementGenerationCount();
+        toast({
+          title: 'Generation Complete!',
+          description: formState.message,
+        });
+      } else if (formState.errors) {
+        toast({
+          title: 'All Generations Failed',
+          description: 'Please check the errors or try again.',
+          variant: 'destructive',
+        });
+      }
+    } else if (formState.message && formState.errors) {
+      toast({ title: 'Generation Failed', description: formState.message, variant: 'destructive' });
+    }
+  }, [formState, toast, incrementGenerationCount]);
+  
+  // Get the active image from store
   const activeImage = useActivePreparationImage();
-  const setCurrentTab = useImageStore(state => state.setCurrentTab);
-  const addVersion = useImageStore(state => state.addVersion);
   const preparedImageUrl = activeImage?.imageUrl || null;
 
   // Get settings from Zustand store - read and write directly to store
@@ -96,7 +121,6 @@ export default function ImageParameters({
   const settingsMode = useGenerationSettingsStore(state => state.settingsMode);
   const setImageSettings = useGenerationSettingsStore(state => state.setImageSettings);
   const setSettingsModeStore = useGenerationSettingsStore(state => state.setSettingsMode);
-  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
   
   // Get preparation options from Zustand store
   const backgroundRemovalEnabled = useGenerationSettingsStore(state => state.backgroundRemovalEnabled);
@@ -105,8 +129,6 @@ export default function ImageParameters({
   const setBackgroundRemovalEnabled = useGenerationSettingsStore(state => state.setBackgroundRemovalEnabled);
   const setUpscaleEnabled = useGenerationSettingsStore(state => state.setUpscaleEnabled);
   const setFaceDetailEnabled = useGenerationSettingsStore(state => state.setFaceDetailEnabled);
-
-  const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
 
   // --- REFACTORED STATE MANAGEMENT ---
   // Creative Mode is replaced by two independent states with new smart defaults.
@@ -121,83 +143,10 @@ export default function ImageParameters({
   // State for prompt preview visibility
   const [showPromptPreview, setShowPromptPreview] = useState<boolean>(false);
 
-  // State for generation results
-  // REMOVED: Manual state management replaced with useActionState
-  // const [outputImageUrls, setOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-  // const [originalOutputImageUrls, setOriginalOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-  // const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-  // const [isLoading, setIsLoading] = useState<boolean>(false);
-  // const [isGeneratingSlots, setIsGeneratingSlots] = useState<boolean[]>([false, false, false]);
-  // const [lastUsedPrompt, setLastUsedPrompt] = useState<string>('');
-  // const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
-
-  // NEW: useActionState for form-based generation
-  const initialState: ImageGenerationFormState = { message: '' };
-  const [formState, formAction, isPending] = useActionState(generateImageAction, initialState);
-  
-  // Local state for post-generation operations (upscale, face detail)
-  // These are initialized from formState but can be modified independently
-  const [localOutputImageUrls, setLocalOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-  const [originalOutputImageUrls, setOriginalOutputImageUrls] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-  
-  // Update local state when form state changes
-  useEffect(() => {
-    if (formState.editedImageUrls) {
-      setLocalOutputImageUrls(formState.editedImageUrls);
-    }
-  }, [formState.editedImageUrls]);
-  
-  // Derive state for UI rendering
-  const outputImageUrls = localOutputImageUrls;
-  const generationErrors = formState.errors || Array(NUM_IMAGES_TO_GENERATE).fill(null);
-  const lastUsedPrompt = formState.constructedPrompt || '';
-  const activeHistoryItemId = formState.newHistoryId || null;
-  
-  // Local state for loading indicators
-  const [isGeneratingSlots, setIsGeneratingSlots] = useState<boolean[]>([false, false, false]);
-  
-  // Ref for auto-scroll to results
-  const resultsRef = useRef<HTMLDivElement>(null);
-
-  // When a history item is loaded directly via props (legacy), disable creative mode
-  // Note: History loading is now primarily handled by the Zustand store via HistoryCard
-  useEffect(() => {
-    if (historyItemToLoad) {
-      setUseRandomization(false);
-    }
-  }, [historyItemToLoad]);
-  
-  // REMOVED: Manual state management
-  // const [generationErrors, setGenerationErrors] = useState<(string | null)[]>(Array(NUM_IMAGES_TO_GENERATE).fill(null));
-  // const [isLoading, setIsLoading] = useState<boolean>(false);
-  // const [isGeneratingSlots, setIsGeneratingSlots] = useState<boolean[]>([false, false, false]); // Track each slot independently
-  
-  const [isUpscalingSlot, setIsUpscalingSlot] = useState<number | null>(null);
-  const [isFaceRetouchingSlot, setIsFaceRetouchingSlot] = useState<number | null>(null);
+  // Service availability state
   const [isFaceDetailerServiceAvailable, setIsFaceDetailerServiceAvailable] = useState<boolean>(false);
   const [isBackgroundRemovalServiceAvailable, setIsBackgroundRemovalServiceAvailable] = useState<boolean>(false);
   const [isUpscaleServiceAvailableState, setIsUpscaleServiceAvailableState] = useState<boolean>(false);
-  const [comparingSlotIndex, setComparingSlotIndex] = useState<number | null>(null);
-  // REMOVED: const [activeHistoryItemId, setActiveHistoryItemId] = useState<string | null>(null);
-  
-  // Image viewer modal state
-  const [isImageViewerOpen, setIsImageViewerOpen] = useState<boolean>(false);
-  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
-  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
-  // REMOVED: const [lastUsedPrompt, setLastUsedPrompt] = useState<string>(''); // Store the last constructed prompt for history
-
-  // Auto-scroll to results when generation starts
-  useEffect(() => {
-    if (isPending && resultsRef.current) {
-      const timer = setTimeout(() => {
-        resultsRef.current?.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start' 
-        });
-      }, 100); // Small delay to ensure the results section is rendered
-      return () => clearTimeout(timer);
-    }
-  }, [isPending]);
 
   const PARAMETER_CONFIG = React.useMemo(() => ({
     gender: { options: GENDER_OPTIONS, defaultVal: GENDER_OPTIONS.find(o => o.value === "female")?.value || GENDER_OPTIONS[0].value },
@@ -303,33 +252,18 @@ export default function ImageParameters({
     isUpscaleServiceAvailable().then(setIsUpscaleServiceAvailableState);
   }, []);
 
-  // Handler for opening image viewer modal - memoized
-  const handleImageClick = useCallback((imageUrl: string, index: number) => {
-    setSelectedImageUrl(imageUrl);
-    setSelectedImageIndex(index);
-    setIsImageViewerOpen(true);
-  }, []);
-
-  // Handler for closing image viewer modal - memoized
-  const handleCloseImageViewer = useCallback(() => {
-    setIsImageViewerOpen(false);
-    setSelectedImageUrl(null);
-    setSelectedImageIndex(null);
-  }, []);
-
-  // Keyboard support for image viewer modal
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (isImageViewerOpen && event.key === 'Escape') {
-        handleCloseImageViewer();
-      }
-    };
-
-    if (isImageViewerOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [isImageViewerOpen, handleCloseImageViewer]);
+  const handleRandomizeConfiguration = useCallback(() => {    
+    // This button is only active in manual mode. It randomizes the UI fields directly.
+    const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
+    const randomized: Partial<ModelAttributes> = {};
+    Object.entries(PARAMETER_CONFIG).forEach(([key, config]) => {
+      randomized[key as keyof ModelAttributes] = pickRandom(config.options);
+    });
+    setImageSettings(randomized);
+    // This is a one-time manual action, so ensure randomization state is off.
+    setUseRandomization(false);
+    toast({ title: "Manual Configuration Randomized!" });
+  }, [PARAMETER_CONFIG, setImageSettings, toast]);
 
   const handleSaveDefaults = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -360,181 +294,6 @@ export default function ImageParameters({
     });
   }, [resetAllParametersToAppDefaults, toast]);
 
-  const handleRandomizeConfiguration = useCallback(() => {    
-    // This button is only active in manual mode. It randomizes the UI fields directly.
-    const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
-    const randomized: Partial<ModelAttributes> = {};
-    Object.entries(PARAMETER_CONFIG).forEach(([key, config]) => {
-      randomized[key as keyof ModelAttributes] = pickRandom(config.options);
-    });
-    setImageSettings(randomized);
-    // This is a one-time manual action, so ensure randomization state is off.
-    setUseRandomization(false);
-    toast({ title: "Manual Configuration Randomized!" });
-  }, [PARAMETER_CONFIG, setImageSettings, toast]);
-
-  // REMOVED: handleSubmit function - replaced with form-based submission via useActionState
-  // The form action will be handled by formAction from useActionState
-
-  // Effect to handle form submission results
-  useEffect(() => {
-    if (formState.message && formState.editedImageUrls) {
-      const successCount = formState.editedImageUrls.filter(url => url !== null).length;
-      
-      if (successCount > 0) {
-        // Trigger history gallery refresh via Zustand store
-        incrementGenerationCount();
-        toast({
-          title: "Generation Complete!",
-          description: formState.message
-        });
-      } else if (formState.errors) {
-        toast({
-          title: "All Generations Failed",
-          description: "Please check the errors or try again.",
-          variant: "destructive"
-        });
-      }
-    } else if (formState.message && formState.errors) {
-      toast({ title: "Generation Failed", description: formState.message, variant: "destructive" });
-    }
-  }, [formState, toast, incrementGenerationCount]);
-
-  // Re-roll functionality has been replaced with Face Retouch
-
-  const handleUpscale = async (slotIndex: number) => {    
-    const imageUrlToUpscale = outputImageUrls[slotIndex];    
-    if (!imageUrlToUpscale) return toast({ title: "Image Not Available", variant: "destructive" });    
-    setIsUpscalingSlot(slotIndex);
-    try {
-      // We pass undefined for hash as this is a generated image, not the original upload
-      // PHASE 2 OPTIMIZATION: Pass the local file path directly to the server action.
-      // The inefficient download/re-upload cycle is now eliminated.
-      const { savedPath } = await upscaleImageAction(imageUrlToUpscale, undefined);
-
-      if (activeHistoryItemId) {
-        // The state isn't updated yet, so we build the arrays manually for the DB update
-        const finalOriginals = [...originalOutputImageUrls]; finalOriginals[slotIndex] = imageUrlToUpscale;
-        const finalOutputs = [...outputImageUrls]; finalOutputs[slotIndex] = savedPath;
-        await updateHistoryItem(activeHistoryItemId, {
-          editedImageUrls: finalOutputs,
-          originalImageUrls: finalOriginals,
-        });
-      }
-
-      setOriginalOutputImageUrls(prev => {
-        const newOriginals = [...prev]; newOriginals[slotIndex] = imageUrlToUpscale;
-        return newOriginals;
-      });
-
-      setLocalOutputImageUrls(prev => {
-        const newUrls = [...prev]; newUrls[slotIndex] = savedPath;
-        return newUrls;
-      });
-
-      toast({ title: `Image ${slotIndex + 1} Upscaled Successfully` });
-    } catch (error) {
-      console.error(`Error upscaling image ${slotIndex}:`, error);
-      toast({ title: "Upscaling Failed", description: (error as Error).message || "Unexpected error during upscaling.", variant: "destructive" });
-    } finally {
-      setIsUpscalingSlot(null);
-    }
-  };
-
-  const handleFaceRetouch = async (slotIndex: number) => {
-    const imageUrlToRetouch = outputImageUrls[slotIndex];    
-    if (!imageUrlToRetouch) return toast({ title: "Image Not Available", variant: "destructive" });    
-    setIsFaceRetouchingSlot(slotIndex);
-    try {
-      // PHASE 2 OPTIMIZATION: Just like upscale, pass the path directly.
-      const { savedPath } = await faceDetailerAction(imageUrlToRetouch, undefined);
-
-      if (activeHistoryItemId) {
-        const finalOriginals = [...originalOutputImageUrls]; finalOriginals[slotIndex] = imageUrlToRetouch;
-        const finalOutputs = [...outputImageUrls]; finalOutputs[slotIndex] = savedPath;
-        await updateHistoryItem(activeHistoryItemId, {
-          editedImageUrls: finalOutputs,
-          originalImageUrls: finalOriginals,
-        });
-      }
-
-      setOriginalOutputImageUrls(prev => {
-        const newOriginals = [...prev]; newOriginals[slotIndex] = imageUrlToRetouch;
-        return newOriginals;
-      });
-
-      setLocalOutputImageUrls(prev => {
-        const newUrls = [...prev]; newUrls[slotIndex] = savedPath;
-        return newUrls;
-      });
-
-      toast({ title: `Image ${slotIndex + 1} Face Retouched Successfully` });
-    } catch (error) {
-      console.error(`Error face retouching image ${slotIndex}:`, error);
-      toast({ title: "Face Retouch Failed", description: (error as Error).message || "Unexpected error during face retouching.", variant: "destructive" });
-    } finally {
-      setIsFaceRetouchingSlot(null);
-    }
-  };
-
-  const handleDownloadOutput = useCallback((imageUrl: string | null, index: number) => {
-    if (!imageUrl) return;
-    const downloadUrl = getDisplayableImageUrl(imageUrl);
-    if (!downloadUrl) return;
-
-    // CACHE-STRATEGY: Policy: Dynamic - This fetch is for downloading the current version of the file.
-    // Use no-store to ensure we get the latest version, not a potentially stale cached version.
-    fetch(downloadUrl, { cache: 'no-store' })
-      .then(res => res.blob())
-      .then(blob => {
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.href = url;
-        link.download = `RefashionAI_image_${index + 1}_${Date.now()}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }).catch(err => {
-        toast({ title: "Download Error", variant: "destructive" });
-    });
-  }, [toast]);
-
-  const handleSendToVideoPage = useCallback((imageUrl: string | null) => {
-    if (!imageUrl) return;
-
-    // Add the generated image as a new version in the context
-    const newVersionId = addVersion({
-      imageUrl: imageUrl,
-      label: 'Generated for Video',
-      sourceVersionId: activeImage?.id || 'original',
-      hash: `generated_${Date.now()}`, // Generate a unique hash for the generated image
-    });
-
-    // Switch to the video tab with the new image active
-    setCurrentTab('video');
-    
-    // Smooth scroll to the image preparation container after a short delay
-    setTimeout(() => {
-      const imagePreparationElement = document.querySelector('[data-testid="image-preparation-container"]') ||
-                                     document.querySelector('h1, h2, h3')?.closest('.space-y-6, .space-y-8') ||
-                                     document.querySelector('.container');
-      
-      if (imagePreparationElement) {
-        imagePreparationElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-          inline: 'nearest'
-        });
-      }
-    }, 100); // Small delay to ensure tab switch is complete
-    
-    toast({
-      title: "Switched to Video",
-      description: "Ready to generate a video with your selected generated image.",
-    });
-  }, [activeImage?.id, addVersion, setCurrentTab, toast]);
-
   // Helper to render select components with enhanced styling
   const renderSelect = ({ id, label, value, options, disabled }: {
     id: keyof ModelAttributes; label: string; value: string; options: OptionWithPromptSegment[]; disabled?: boolean;
@@ -559,50 +318,21 @@ export default function ImageParameters({
     )
   };
 
-  // Animation variants for results grid
-  const resultsContainerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        delayChildren: 0.1,
-      },
-    },
-  };
-  const resultItemVariant = {
-    hidden: { opacity: 0, scale: 0.9 },
-    visible: { opacity: 1, scale: 1, transition: MOTION_TRANSITIONS.spring.standard },
-  };
-  
-  const shouldReduceMotion = useReducedMotion();
-  const containerAnim = shouldReduceMotion
-    ? {
-        hidden: { opacity: 0 },
-        visible: { opacity: 1 },
-      }
-    : resultsContainerVariants;
-  const itemAnim = shouldReduceMotion
-    ? {
-        hidden: { opacity: 0 },
-        visible: { opacity: 1 },
-      }
-    : resultItemVariant;
-
   return (
     <div className="space-y-6">
-      {/* --- RESTRUCTURED CARD --- */}
-      <Card variant="glass">
-        <CardHeader>
-          <div>
-            <CardTitle className="text-xl flex items-center gap-2">
-              <Palette className="h-6 w-6 text-primary" />
-              Image Generation Settings
-            </CardTitle>
-            <CardDescription>{useRandomization ? 'Using automatic style randomization for variety. Change any setting to switch to manual mode.' : 'Fine-tune every detail to match your vision.'}</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form action={formAction}>
+      <form action={formAction}>
+        {/* --- RESTRUCTURED CARD --- */}
+        <Card variant="glass">
+          <CardHeader>
+            <div>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Palette className="h-6 w-6 text-primary" />
+                Image Generation Settings
+              </CardTitle>
+              <CardDescription>{useRandomization ? 'Using automatic style randomization for variety. Change any setting to switch to manual mode.' : 'Fine-tune every detail to match your vision.'}</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
             {/* Hidden inputs for all generation parameters */}
             <input type="hidden" name="imageDataUriOrUrl" value={preparedImageUrl || ''} />
             <input type="hidden" name="gender" value={imageSettings.gender} />
@@ -688,7 +418,6 @@ export default function ImageParameters({
               )}
             </div>
           </div>
-          </form>
         </CardContent>
         <CardFooter className="flex-col items-stretch !pt-0">
           <Accordion type="single" collapsible className="w-full">
@@ -887,219 +616,22 @@ export default function ImageParameters({
           </Accordion>
         </CardFooter>
       </Card>
+      </form>
 
       {/* Progress Indicator - Shows during generation */}
       {isPending && (
         <GenerationProgressIndicator
           isGenerating={isPending}
-          stage={isGeneratingSlots.every(s => s) ? 'finalizing' : 'processing'}
-          progress={Math.round((isGeneratingSlots.filter(s => !s && outputImageUrls[isGeneratingSlots.indexOf(s)] !== null).length / NUM_IMAGES_TO_GENERATE) * 100)}
+          stage="processing"
+          progress={0}
           imageCount={NUM_IMAGES_TO_GENERATE}
         />
       )}
 
-      {/* Generated Images Display */}
-      {(outputImageUrls.some(uri => uri !== null) || generationErrors.some(err => err !== null) || isGeneratingSlots.some(loading => loading)) && (
-        <Card variant="glass" ref={resultsRef}>
-          <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2">
-              <Palette className="h-6 w-6 text-primary" />
-              Generated Images
-            </CardTitle>
-            <CardDescription className="hidden lg:block">Your AI-generated fashion model images.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <motion.div
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-              variants={containerAnim}
-              initial="hidden"
-              animate="visible"
-            >
-              {/* Render slots with independent loading states */}
-              {Array.from({ length: NUM_IMAGES_TO_GENERATE }).map((_, index) => {
-                const uri = outputImageUrls[index];
-                const isSlotGenerating = isGeneratingSlots[index];
-                const hasError = generationErrors[index] !== null;
-
-                // Show loading state for this specific slot
-                if (isSlotGenerating && uri === null) {
-                  return (
-                    <div key={`loader-${index}`} className="aspect-[3/4] bg-muted/50 rounded-md border animate-pulse flex items-center justify-center">
-                      <div className="text-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-2" />
-                        <p className="text-xs text-muted-foreground">Generating Image {index + 1}...</p>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Show error state
-                if (hasError && uri === null) {
-                  return (
-                    <div key={index} className="aspect-[3/4] bg-muted/30 rounded-md border border-muted-foreground/20 flex items-center justify-center">
-                      <div className="text-center p-4 max-w-[80%]">
-                        <AlertCircle className="h-5 w-5 text-muted-foreground/60 mx-auto mb-2" />
-                        <p className="text-xs text-muted-foreground/80 mb-1">Generation incomplete</p>
-                        <p className="text-xs text-muted-foreground/60 leading-relaxed">{generationErrors[index]}</p>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Show empty state (not started or failed without error)
-                if (uri === null) {
-                  return (
-                    <div key={index} className="aspect-[3/4] bg-muted/50 rounded-md border flex items-center justify-center">
-                      <p className="text-sm text-muted-foreground">Image {index + 1} pending...</p>
-                    </div>
-                  );
-                }
-
-                // Show completed image
-                const displayUrl = getDisplayableImageUrl(comparingSlotIndex === index ? originalOutputImageUrls[index] : uri) || '';
-                return (
-                  <motion.div key={index} variants={itemAnim} className="group rounded-md overflow-hidden flex flex-col border border-border/20">
-                    <div 
-                      className="relative aspect-[2/3] w-full cursor-pointer"
-                      onClick={() => handleImageClick(displayUrl || '', index)}
-                    >
-                      <Image
-                        src={displayUrl || ''}
-                        alt={`Generated Image ${index + 1}`}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        className="object-cover group-hover:scale-102 transition-transform duration-250"
-                      />
-                      {/* Loading overlay for face retouch/upscale */}
-                      {(isFaceRetouchingSlot === index || isUpscalingSlot === index) && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <Loader2 className="h-8 w-8 text-white animate-spin" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-2 bg-card/80 backdrop-blur-md space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* Face Retouch button - only show if service is available */}
-                        {isFaceDetailerServiceAvailable && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleFaceRetouch(index)}
-                            disabled={isGeneratingSlots.some(loading => loading) || isFaceRetouchingSlot !== null || isUpscalingSlot !== null || !!originalOutputImageUrls[index]}
-                          >
-                            <UserCheck className="mr-2 h-4 w-4" /> Face Retouch
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleUpscale(index)}
-                          disabled={isGeneratingSlots.some(loading => loading) || isUpscalingSlot !== null || isFaceRetouchingSlot !== null || !!originalOutputImageUrls[index]}
-                        >
-                          <Sparkles className="mr-2 h-4 w-4" /> Upscale
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownloadOutput(uri, index)}
-                          className="flex-1"
-                          disabled={isGeneratingSlots.some(loading => loading) || isFaceRetouchingSlot !== null || isUpscalingSlot !== null}
-                        >
-                          <Download className="mr-2 h-4 w-4" /> Download
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleSendToVideoPage(uri)}
-                          className="flex-1"
-                          disabled={isGeneratingSlots.some(loading => loading) || isFaceRetouchingSlot !== null || isUpscalingSlot !== null}
-                        >
-                          <VideoIcon className="mr-2 h-4 w-4" /> Video
-                        </Button>
-                      </div>
-                      {originalOutputImageUrls[index] && (
-                        <Button variant="ghost" size="sm" className="w-full select-none"
-                          onMouseDown={() => setComparingSlotIndex(index)}
-                          onMouseUp={() => setComparingSlotIndex(null)}
-                          onMouseLeave={() => setComparingSlotIndex(null)}
-                          onTouchStart={(e) => { e.preventDefault(); setComparingSlotIndex(index); }}
-                          onTouchEnd={() => setComparingSlotIndex(null)}
-                        >
-                          <Eye className="mr-2 h-4 w-4" /> Hold to Compare
-                        </Button>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Image Viewer Modal */}
-      <AnimatePresence>
-        {isImageViewerOpen && selectedImageUrl && (
-          <UnifiedMediaModal
-            isOpen={isImageViewerOpen}
-            onClose={handleCloseImageViewer}
-            title={<DialogTitle>Image Viewer</DialogTitle>}
-            description={<DialogDescription>Viewing generated image {(selectedImageIndex ?? 0) + 1} of {NUM_IMAGES_TO_GENERATE}.</DialogDescription>}
-            footerRight={
-              <>
-                <Button variant="outline" onClick={handleCloseImageViewer}>
-                  <X className="w-4 h-4 mr-2" /> Close
-                </Button>
-              </>
-            }
-          >
-            <>
-              <MediaSlot>
-                <Image
-                  src={selectedImageUrl}
-                  alt={`Generated Image ${(selectedImageIndex ?? 0) + 1} - Large View`}
-                  fill
-                  className="object-contain"
-                  quality={95}
-                />
-              </MediaSlot>
-              <SidebarSlot>
-                <div className="p-4 flex flex-col gap-4">
-                  <h3 className="font-semibold">Actions</h3>
-                  <div className="grid grid-cols-1 gap-2">
-                    {isFaceDetailerServiceAvailable && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleFaceRetouch(selectedImageIndex!)}
-                        disabled={isGeneratingSlots.some(loading => loading) || isFaceRetouchingSlot !== null || isUpscalingSlot !== null || !!originalOutputImageUrls[selectedImageIndex!]}
-                      >
-                        <UserCheck className="mr-2 h-4 w-4" /> Face Retouch
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleUpscale(selectedImageIndex!)}
-                      disabled={isGeneratingSlots.some(loading => loading) || isUpscalingSlot !== null || isFaceRetouchingSlot !== null || !!originalOutputImageUrls[selectedImageIndex!]}
-                    >
-                      <Sparkles className="mr-2 h-4 w-4" /> Upscale
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSendToVideoPage(outputImageUrls[selectedImageIndex!])}
-                      disabled={isGeneratingSlots.some(loading => loading) || isUpscalingSlot !== null || isFaceRetouchingSlot !== null}
-                    >
-                      <VideoIcon className="mr-2 h-4 w-4" /> Use for Video
-                    </Button>
-                  </div>
-                </div>
-              </SidebarSlot>
-            </>
-          </UnifiedMediaModal>
-        )}
-      </AnimatePresence>
+      {/* Results Display */}
+      <div ref={resultsRef} key={generationMode}>
+        <ImageResultsDisplay formState={formState} isPending={isPending} />
+      </div>
     </div>
   );
 }
