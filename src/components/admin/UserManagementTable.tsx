@@ -320,7 +320,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
               <div className="space-y-2">
                 <Label htmlFor="edit-role">Role</Label>
-                <Select name="role" value={editedUserConfig?.role} onValueChange={(value) => handleConfigChange('role', value)}>
+                <Select name="role" value={editedUserConfig?.role || ''} onValueChange={(value) => handleConfigChange('role', value)}>
                   <SelectTrigger id="edit-role"><SelectValue placeholder="Select a role" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">User</SelectItem>
@@ -330,7 +330,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-image-model">Image Generation Model</Label>
-                <Select name="image_generation_model" value={editedUserConfig?.image_generation_model} onValueChange={(value) => handleConfigChange('image_generation_model', value)}>
+                <Select name="image_generation_model" value={editedUserConfig?.image_generation_model || ''} onValueChange={(value) => handleConfigChange('image_generation_model', value)}>
                   <SelectTrigger id="edit-image-model">
                     <SelectValue placeholder="Select a model" />
                   </SelectTrigger>
