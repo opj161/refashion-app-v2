@@ -1,7 +1,6 @@
 // src/components/studio-parameters.tsx
 'use client';
 
-import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -10,9 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useImageStore } from '@/stores/imageStore';
 import { useGenerationSettingsStore } from '@/stores/generationSettingsStore';
-import { generateImageAction, type ImageGenerationFormState } from '@/actions/imageActions';
 import { Sparkles, Loader2, Info } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
+
+interface StudioParametersProps {
+  formAction: (payload: FormData) => void;
+  isPending: boolean;
+}
 
 // Submit button component specific to this form
 function SubmitButton({ isImageReady }: { isImageReady: boolean }) {
@@ -32,7 +35,7 @@ function SubmitButton({ isImageReady }: { isImageReady: boolean }) {
   );
 }
 
-export default function StudioParameters() {
+export default function StudioParameters({ formAction, isPending }: StudioParametersProps) {
   // Optimized selector - only subscribe to the specific state we need
   const { preparedImageUrl, isImageReady } = useImageStore(
     useShallow((state) => {
@@ -51,11 +54,8 @@ export default function StudioParameters() {
     }))
   );
 
-  const initialState: ImageGenerationFormState = { message: '' };
-  const [formState, formAction, isPending] = useActionState(generateImageAction, initialState);
-
   return (
-    <form action={formAction}>
+    <>
       {/* Hidden inputs to pass data to the server action */}
       <input type="hidden" name="imageDataUriOrUrl" value={preparedImageUrl} />
       <input type="hidden" name="generationMode" value="studio" />
@@ -106,6 +106,6 @@ export default function StudioParameters() {
           <SubmitButton isImageReady={isImageReady} />
         </CardFooter>
       </Card>
-    </form>
+    </>
   );
 }
