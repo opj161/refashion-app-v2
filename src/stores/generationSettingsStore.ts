@@ -27,6 +27,12 @@ export interface GenerationSettingsState {
   // Settings mode (shared between image and video potentially)
   settingsMode: 'basic' | 'advanced';
   
+  // Generation mode (Creative or Studio)
+  generationMode: 'creative' | 'studio';
+  
+  // Studio mode settings
+  studioFit: 'slim' | 'regular' | 'relaxed';
+  
   // Generation counter for triggering history refresh
   generationCount: number;
   
@@ -45,6 +51,12 @@ export interface GenerationSettingsActions {
   
   // Update settings mode
   setSettingsMode: (mode: 'basic' | 'advanced') => void;
+  
+  // Update generation mode
+  setGenerationMode: (mode: 'creative' | 'studio') => void;
+  
+  // Update studio fit
+  setStudioFit: (fit: 'slim' | 'regular' | 'relaxed') => void;
   
   // Increment generation counter to trigger history refresh
   incrementGenerationCount: () => void;
@@ -69,7 +81,9 @@ export interface GenerationSettingsActions {
       seed?: number;
       cameraFixed?: boolean;
     },
-    mode?: 'basic' | 'advanced'
+    mode?: 'basic' | 'advanced',
+    generationMode?: 'creative' | 'studio',
+    studioFit?: 'slim' | 'regular' | 'relaxed'
   ) => void;
   
   // Reset to defaults
@@ -117,6 +131,8 @@ const initialState: GenerationSettingsState = {
   imageSettings: defaultImageSettings,
   videoSettings: defaultVideoSettings,
   settingsMode: 'basic',
+  generationMode: 'creative',
+  studioFit: 'regular',
   generationCount: 0,
   backgroundRemovalEnabled: false,
   upscaleEnabled: false,
@@ -142,6 +158,12 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
       setSettingsMode: (mode) =>
         set({ settingsMode: mode }, false, 'setSettingsMode'),
       
+      setGenerationMode: (mode) =>
+        set({ generationMode: mode }, false, 'setGenerationMode'),
+      
+      setStudioFit: (fit) =>
+        set({ studioFit: fit }, false, 'setStudioFit'),
+      
       incrementGenerationCount: () =>
         set((state) => ({ generationCount: state.generationCount + 1 }), false, 'incrementGenerationCount'),
       
@@ -154,7 +176,7 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
       setFaceDetailEnabled: (enabled) =>
         set({ faceDetailEnabled: enabled }, false, 'setFaceDetailEnabled'),
       
-      loadFromHistory: (attributes, videoParams, mode) =>
+      loadFromHistory: (attributes, videoParams, mode, generationMode, studioFit) =>
         set((state) => {
           const newState: Partial<GenerationSettingsState> = {
             imageSettings: { ...defaultImageSettings, ...attributes },
@@ -162,6 +184,14 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
           
           if (mode) {
             newState.settingsMode = mode;
+          }
+          
+          if (generationMode) {
+            newState.generationMode = generationMode;
+          }
+          
+          if (studioFit) {
+            newState.studioFit = studioFit;
           }
           
           if (videoParams) {

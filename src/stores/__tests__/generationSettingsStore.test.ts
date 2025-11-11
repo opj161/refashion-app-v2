@@ -31,6 +31,16 @@ describe('GenerationSettingsStore', () => {
       expect(state.settingsMode).toBe('basic');
     });
 
+    it('should have creative generation mode by default', () => {
+      const state = useGenerationSettingsStore.getState();
+      expect(state.generationMode).toBe('creative');
+    });
+
+    it('should have regular studio fit by default', () => {
+      const state = useGenerationSettingsStore.getState();
+      expect(state.studioFit).toBe('regular');
+    });
+
     it('should have zero generation count by default', () => {
       const state = useGenerationSettingsStore.getState();
       expect(state.generationCount).toBe(0);
@@ -329,6 +339,165 @@ describe('GenerationSettingsStore', () => {
       expect(result.current.backgroundRemovalEnabled).toBe(true);
       expect(result.current.upscaleEnabled).toBe(true);
       expect(result.current.faceDetailEnabled).toBe(true);
+    });
+  });
+
+  describe('Studio Mode', () => {
+    describe('setGenerationMode', () => {
+      it('should update generation mode to studio', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        act(() => {
+          result.current.setGenerationMode('studio');
+        });
+
+        expect(result.current.generationMode).toBe('studio');
+      });
+
+      it('should update generation mode back to creative', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        act(() => {
+          result.current.setGenerationMode('studio');
+        });
+
+        expect(result.current.generationMode).toBe('studio');
+
+        act(() => {
+          result.current.setGenerationMode('creative');
+        });
+
+        expect(result.current.generationMode).toBe('creative');
+      });
+    });
+
+    describe('setStudioFit', () => {
+      it('should update studio fit to slim', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        act(() => {
+          result.current.setStudioFit('slim');
+        });
+
+        expect(result.current.studioFit).toBe('slim');
+      });
+
+      it('should update studio fit to relaxed', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        act(() => {
+          result.current.setStudioFit('relaxed');
+        });
+
+        expect(result.current.studioFit).toBe('relaxed');
+      });
+
+      it('should update studio fit back to regular', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        act(() => {
+          result.current.setStudioFit('slim');
+        });
+
+        act(() => {
+          result.current.setStudioFit('regular');
+        });
+
+        expect(result.current.studioFit).toBe('regular');
+      });
+    });
+
+    describe('loadFromHistory with Studio Mode', () => {
+      it('should load studio mode and fit from history', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        const historyAttributes: ModelAttributes = {
+          gender: 'female',
+          bodyShapeAndSize: 'default',
+          ageRange: 'default',
+          ethnicity: 'default',
+          poseStyle: 'default',
+          background: 'outdoor_nature_elements',
+          fashionStyle: 'default_style',
+          hairStyle: 'default',
+          modelExpression: 'default',
+          lightingType: 'default',
+          lightQuality: 'default',
+          modelAngle: 'default',
+          lensEffect: 'default',
+          depthOfField: 'default',
+          timeOfDay: 'default',
+          overallMood: 'default',
+        };
+
+        act(() => {
+          result.current.loadFromHistory(
+            historyAttributes,
+            undefined,
+            'basic',
+            'studio',
+            'slim'
+          );
+        });
+
+        expect(result.current.generationMode).toBe('studio');
+        expect(result.current.studioFit).toBe('slim');
+      });
+
+      it('should preserve creative mode when loading history without generation mode', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        const historyAttributes: ModelAttributes = {
+          gender: 'male',
+          bodyShapeAndSize: 'default',
+          ageRange: 'default',
+          ethnicity: 'default',
+          poseStyle: 'default',
+          background: 'outdoor_nature_elements',
+          fashionStyle: 'default_style',
+          hairStyle: 'default',
+          modelExpression: 'default',
+          lightingType: 'default',
+          lightQuality: 'default',
+          modelAngle: 'default',
+          lensEffect: 'default',
+          depthOfField: 'default',
+          timeOfDay: 'default',
+          overallMood: 'default',
+        };
+
+        act(() => {
+          result.current.loadFromHistory(historyAttributes);
+        });
+
+        // Should remain creative mode when not specified
+        expect(result.current.generationMode).toBe('creative');
+        expect(result.current.studioFit).toBe('regular');
+      });
+    });
+
+    describe('reset with Studio Mode', () => {
+      it('should reset studio mode settings to defaults', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        // Modify studio mode settings
+        act(() => {
+          result.current.setGenerationMode('studio');
+          result.current.setStudioFit('slim');
+        });
+
+        expect(result.current.generationMode).toBe('studio');
+        expect(result.current.studioFit).toBe('slim');
+
+        // Reset
+        act(() => {
+          result.current.reset();
+        });
+
+        // Should be back to initial state
+        expect(result.current.generationMode).toBe('creative');
+        expect(result.current.studioFit).toBe('regular');
+      });
     });
   });
 });
