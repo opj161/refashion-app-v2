@@ -3,33 +3,18 @@
 import { motion, useReducedMotion } from 'motion/react';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useRef } from 'react';
-import { useImageStore } from '@/stores/imageStore';
 import { MOTION_VARIANTS, MOTION_TRANSITIONS } from '@/lib/motion-constants';
 
 const PageTransitionWrapper = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
   const previousPathnameRef = useRef<string | null>(null);
-  const { reset } = useImageStore();
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
-    const previousPath = previousPathnameRef.current;
-
-    if (previousPath) {
-      const wasInEditingWorkflow =
-        previousPath === '/' || previousPath.includes('/history');
-      const isInEditingWorkflow =
-        pathname === '/' || pathname.includes('/history');
-
-      // --- FIX: Decoupled state reset logic ---
-      // If we were in the editing workflow and are now navigating out of it, reset the store.
-      if (wasInEditingWorkflow && !isInEditingWorkflow) {
-        reset();
-      }
-    }
-
+    // Note: Image preparation state reset is now handled by the local context providers
+    // in each tab, so no global reset is needed here
     previousPathnameRef.current = pathname;
-  }, [pathname, reset]);
+  }, [pathname]);
 
   return (
     <motion.div

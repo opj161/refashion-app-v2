@@ -1,7 +1,7 @@
 // src/components/creation-hub.tsx
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { motion, AnimatePresence } from "motion/react";
@@ -9,9 +9,10 @@ import ImagePreparationContainer from "./ImagePreparationContainer";
 import { ImageGenerationWorkspace } from "./ImageGenerationWorkspace";
 import VideoParameters from "./video-parameters";
 import { useToast } from "@/hooks/use-toast";
-import { useImageStore } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { useShallow } from 'zustand/react/shallow';
+import type { HistoryItem } from '@/lib/types';
+import { ImagePreparationProvider } from '@/contexts/ImagePreparationContext';
 
 export default function CreationHub({
   children
@@ -19,13 +20,13 @@ export default function CreationHub({
   children: React.ReactElement;
 }) {
   const { toast } = useToast();
-  const { reset, currentTab, setCurrentTab } = useImageStore(
-    useShallow((state) => ({
-      reset: state.reset,
-      currentTab: state.currentTab,
-      setCurrentTab: state.setCurrentTab,
-    }))
-  );
+  
+  // Manage currentTab as local state instead of global store
+  const [currentTab, setCurrentTab] = useState<string>('image');
+  
+  // State for initialization from history
+  const [initHistoryItem, setInitHistoryItem] = useState<HistoryItem | null>(null);
+  const [initImageUrl, setInitImageUrl] = useState<string | null>(null);
 
   // Get generationMode state and action from the store
   const { generationMode, setGenerationMode } = useGenerationSettingsStore(
@@ -35,14 +36,50 @@ export default function CreationHub({
     }))
   );
 
-  // Pure client-side reset - no URL manipulation
+  // Handler to load from history - will be passed to HistoryCard components
+  const handleLoadFromHistory = useCallback((item: HistoryItem) => {
+    setInitHistoryItem(item);
+    const targetTab = item.videoGenerationParams ? 'video' : 'image';
+    setCurrentTab(targetTab);
+  }, []);
+
+  // Handler to load from image URL - will be passed to components that need it
+  const handleLoadFromImageUrl = useCallback((imageUrl: string) => {
+    setInitImageUrl(imageUrl);
+    setGenerationMode('creative');
+    setCurrentTab('image');
+  }, [setGenerationMode]);
+
+  // Reset initialization state after it's consumed
+  const handleInitializationComplete = useCallback(() => {
+    setInitHistoryItem(null);
+    setInitImageUrl(null);
+  }, []);
+
+  // Ref tracking for reset handlers from each container
+  const imageContainerResetRef = React.useRef<(() => void) | null>(null);
+  const videoContainerResetRef = React.useRef<(() => void) | null>(null);
+
+  // Pure client-side reset - calls the active container's reset
   const handleReset = useCallback(() => {
-    reset(); // Reset the store state
+    if (currentTab === 'image' && imageContainerResetRef.current) {
+      imageContainerResetRef.current();
+    } else if (currentTab === 'video' && videoContainerResetRef.current) {
+      videoContainerResetRef.current();
+    }
     toast({
       title: "Image Cleared",
       description: "You can now upload a new image to start over.",
     });
-  }, [reset, toast]);
+  }, [currentTab, toast]);
+  
+  // Clone children to pass initialization handlers
+  const enhancedChildren = React.cloneElement(children, {
+    onLoadFromHistory: handleLoadFromHistory,
+    onLoadFromImageUrl: handleLoadFromImageUrl,
+    currentTab,
+    setCurrentTab,
+  } as any);
   
   return (
     <div className="space-y-8">
@@ -78,25 +115,42 @@ export default function CreationHub({
         </AnimatePresence>
 
         <TabsContent value="image" className="space-y-6 mt-5" forceMount>
-          <ImagePreparationContainer
-            preparationMode="image"
-            onReset={handleReset}
-          />
-          
-          {/* Unified workspace with both modes and results display */}
-          <ImageGenerationWorkspace />
+          <ImagePreparationProvider
+            initialHistoryItem={currentTab === 'image' ? initHistoryItem : null}
+            initialImageUrl={currentTab === 'image' ? initImageUrl : null}
+            onInitializationComplete={handleInitializationComplete}
+          >
+            <ImagePreparationContainer
+              preparationMode="image"
+              onReset={handleReset}
+              resetRef={imageContainerResetRef}
+            />
+            
+            {/* Unified workspace with both modes and results display */}
+            <ImageGenerationWorkspace 
+              setCurrentTab={setCurrentTab}
+              onLoadImageUrl={handleLoadFromImageUrl}
+            />
+          </ImagePreparationProvider>
         </TabsContent>
 
         <TabsContent value="video" className="space-y-6 mt-5" forceMount>
-          <ImagePreparationContainer
-            preparationMode="video"
-            onReset={handleReset}
-          />
-          <VideoParameters />
+          <ImagePreparationProvider
+            initialHistoryItem={currentTab === 'video' ? initHistoryItem : null}
+            initialImageUrl={null}
+            onInitializationComplete={handleInitializationComplete}
+          >
+            <ImagePreparationContainer
+              preparationMode="video"
+              onReset={handleReset}
+              resetRef={videoContainerResetRef}
+            />
+            <VideoParameters />
+          </ImagePreparationProvider>
         </TabsContent>
 
         <TabsContent value="history" className="space-y-6 mt-5" forceMount>
-          {children}
+          {enhancedChildren}
         </TabsContent>
       </Tabs>
     </div>

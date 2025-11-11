@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { isFalVideoGenerationAvailable, generateVideoAction, type VideoGenerationFormState } from '@/ai/actions/generate-video.action';
-import { useActivePreparationImage } from "@/stores/imageStore";
+import { useActivePreparationImage } from "@/contexts/ImagePreparationContext";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {

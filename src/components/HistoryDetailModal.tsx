@@ -11,20 +11,28 @@ import { getDisplayableImageUrl } from "@/lib/utils";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useImageStore } from "@/stores/imageStore";
 
 interface HistoryDetailModalProps {
   item: HistoryItem | null;
   isOpen: boolean;
   onClose: () => void;
-  onReloadConfig?: (item: HistoryItem) => void; // Made optional
+  onReloadConfig?: (item: HistoryItem) => void;
+  onLoadFromHistory?: (item: HistoryItem) => void;
+  currentTab?: string;
+  setCurrentTab?: (tab: string) => void;
 }
 
-export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: HistoryDetailModalProps) {
+export function HistoryDetailModal({ 
+  item, 
+  isOpen, 
+  onClose, 
+  onReloadConfig,
+  onLoadFromHistory,
+  currentTab,
+  setCurrentTab 
+}: HistoryDetailModalProps) {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const { toast } = useToast();
-  const initializeFromHistory = useImageStore(state => state.initializeFromHistory);
-  const setCurrentTab = useImageStore(state => state.setCurrentTab);
 
   const allImages = useMemo(() => {
     if (!item) return [];
@@ -54,15 +62,17 @@ export function HistoryDetailModal({ item, isOpen, onClose, onReloadConfig }: Hi
   const handleReloadConfig = async () => {
     if (!item) return;
     
+    if (!onLoadFromHistory) {
+      toast({ title: "Error", description: "Cannot load from history", variant: "destructive" });
+      return;
+    }
+    
     try {
-      await initializeFromHistory(item);
-      // Switch to the appropriate tab based on the item type
-      const targetTab = item.videoGenerationParams ? 'video' : 'image';
-      setCurrentTab(targetTab);
+      onLoadFromHistory(item);
       onClose(); // Close the modal after loading
     } catch (error) {
-      // Error handling is already done in the context action
       console.error('Failed to reload config from modal:', error);
+      toast({ title: "Error", description: "Could not load configuration", variant: "destructive" });
     }
   };
 

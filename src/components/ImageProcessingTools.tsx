@@ -1,13 +1,12 @@
 // src/components/ImageProcessingTools.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useImageStore, useActivePreparationImage } from "@/stores/imageStore";
-import { useShallow } from 'zustand/react/shallow';
+import { useImagePreparation, useActivePreparationImage } from "@/contexts/ImagePreparationContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   isBackgroundRemovalAvailable as checkBgAvailable,
@@ -65,8 +64,10 @@ interface ImageProcessingToolsProps {
 export default function ImageProcessingTools({ preparationMode, disabled = false }: ImageProcessingToolsProps) {
   const { toast } = useToast();
   
-  // Use Zustand selectors to subscribe only to needed state
+  // Use Context instead of Zustand
   const {
+    state,
+    dispatch,
     removeBackground,
     upscaleImage,
     faceDetailer,
@@ -74,32 +75,18 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
     rotateImageRight,
     flipHorizontal,
     flipVertical,
-    undo,
-    redo,
-    isProcessing,
-    processingStep,
-  } = useImageStore(
-    useShallow((state) => ({
-      removeBackground: state.removeBackground,
-      upscaleImage: state.upscaleImage,
-      faceDetailer: state.faceDetailer,
-      rotateImageLeft: state.rotateImageLeft,
-      rotateImageRight: state.rotateImageRight,
-      flipHorizontal: state.flipHorizontal,
-      flipVertical: state.flipVertical,
-      undo: state.undo,
-      redo: state.redo,
-      isProcessing: state.isProcessing,
-      processingStep: state.processingStep,
-    }))
-  );
-
-  // Get canUndo/canRedo directly for UI display (not for event listener)
-  const canUndo = useImageStore(state => state.canUndo);
-  const canRedo = useImageStore(state => state.canRedo);
+    canUndo,
+    canRedo,
+  } = useImagePreparation();
+  
+  const { isProcessing, processingStep } = state;
   
   const activeImage = useActivePreparationImage();
   const { user } = useAuth();
+
+  // Undo/Redo actions - wrapped in useCallback to prevent recreation
+  const undo = useCallback(() => dispatch({ type: 'UNDO' }), [dispatch]);
+  const redo = useCallback(() => dispatch({ type: 'REDO' }), [dispatch]);
 
   // Service availability state
   const [isBgRemovalAvailable, setIsBgRemovalAvailable] = useState(false);
@@ -117,9 +104,6 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   // Keyboard shortcuts for undo/redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Get the latest state directly within the handler
-      const { canUndo, canRedo } = useImageStore.getState();
-
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         if (canUndo) undo();
@@ -132,7 +116,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]); // Dependencies are now stable functions, so this runs only once.
+  }, [undo, redo, canUndo, canRedo]);
 
   // Don't render if no active image
   if (!activeImage) {
