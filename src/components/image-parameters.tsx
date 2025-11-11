@@ -1,8 +1,7 @@
 // src/components/image-parameters.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useActionState } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button"; 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,14 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Palette, PersonStanding, Settings2, Sparkles, FileText, Shuffle, Save, Trash2, BrainCircuit, Code, Camera, Wand2 } from 'lucide-react';
 import { isFaceDetailerAvailable, isUpscaleServiceAvailable } from "@/ai/actions/upscale-image.action";
 import { isBackgroundRemovalAvailable } from "@/ai/actions/remove-background.action";
-import type { ModelAttributes, HistoryItem } from "@/lib/types";
+import type { ModelAttributes } from "@/lib/types";
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
 import { useActivePreparationImage } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
-import { generateImageAction, type ImageGenerationFormState } from '@/actions/imageActions';
-import { ImageResultsDisplay } from './ImageResultsDisplay';
-import { GenerationProgressIndicator } from './GenerationProgressIndicator';
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
     BODY_SHAPE_AND_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
@@ -63,54 +59,13 @@ function SubmitButton({ preparedImageUrl }: { preparedImageUrl: string | null })
   );
 }
 
-// Component is now self-contained with its own form and state
-export default function ImageParameters() {
+interface ImageParametersProps {
+  isPending: boolean;
+}
+
+// Component only handles parameter selection and form UI
+export default function ImageParameters({ isPending }: ImageParametersProps) {
   const { toast } = useToast();
-  const generationMode = useGenerationSettingsStore(state => state.generationMode);
-  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
-  
-  // Form state management
-  const initialState: ImageGenerationFormState = { message: '' };
-  const [formState, formAction, isPending] = useActionState(generateImageAction, initialState);
-  
-  // Ref for auto-scroll to results
-  const resultsRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll to results when generation starts
-  useEffect(() => {
-    if (isPending && resultsRef.current) {
-      const timer = setTimeout(() => {
-        resultsRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isPending]);
-
-  // Effect to handle form submission results
-  useEffect(() => {
-    if (formState.message && formState.editedImageUrls) {
-      const successCount = formState.editedImageUrls.filter(url => url !== null).length;
-
-      if (successCount > 0) {
-        incrementGenerationCount();
-        toast({
-          title: 'Generation Complete!',
-          description: formState.message,
-        });
-      } else if (formState.errors) {
-        toast({
-          title: 'All Generations Failed',
-          description: 'Please check the errors or try again.',
-          variant: 'destructive',
-        });
-      }
-    } else if (formState.message && formState.errors) {
-      toast({ title: 'Generation Failed', description: formState.message, variant: 'destructive' });
-    }
-  }, [formState, toast, incrementGenerationCount]);
   
   // Get the active image from store
   const activeImage = useActivePreparationImage();
@@ -319,10 +274,35 @@ export default function ImageParameters() {
   };
 
   return (
-    <div className="space-y-6">
-      <form action={formAction}>
-        {/* --- RESTRUCTURED CARD --- */}
-        <Card variant="glass">
+    <>
+      {/* Hidden inputs for all generation parameters */}
+      <input type="hidden" name="imageDataUriOrUrl" value={preparedImageUrl || ''} />
+      <input type="hidden" name="gender" value={imageSettings.gender} />
+      <input type="hidden" name="bodyShapeAndSize" value={imageSettings.bodyShapeAndSize} />
+      <input type="hidden" name="ageRange" value={imageSettings.ageRange} />
+      <input type="hidden" name="ethnicity" value={imageSettings.ethnicity} />
+      <input type="hidden" name="poseStyle" value={imageSettings.poseStyle} />
+      <input type="hidden" name="background" value={imageSettings.background} />
+      <input type="hidden" name="fashionStyle" value={imageSettings.fashionStyle} />
+      <input type="hidden" name="hairStyle" value={imageSettings.hairStyle} />
+      <input type="hidden" name="modelExpression" value={imageSettings.modelExpression} />
+      <input type="hidden" name="lightingType" value={imageSettings.lightingType} />
+      <input type="hidden" name="lightQuality" value={imageSettings.lightQuality} />
+      <input type="hidden" name="modelAngle" value={imageSettings.modelAngle} />
+      <input type="hidden" name="lensEffect" value={imageSettings.lensEffect} />
+      <input type="hidden" name="depthOfField" value={imageSettings.depthOfField} />
+      <input type="hidden" name="timeOfDay" value={imageSettings.timeOfDay} />
+      <input type="hidden" name="overallMood" value={imageSettings.overallMood} />
+      <input type="hidden" name="settingsMode" value={settingsMode} />
+      <input type="hidden" name="useAIPrompt" value={String(useAIPrompt)} />
+      <input type="hidden" name="useRandomization" value={String(useRandomization)} />
+      <input type="hidden" name="removeBackground" value={String(backgroundRemovalEnabled)} />
+      <input type="hidden" name="upscale" value={String(upscaleEnabled)} />
+      <input type="hidden" name="enhanceFace" value={String(faceDetailEnabled)} />
+      {isPromptManuallyEdited && <input type="hidden" name="manualPrompt" value={currentPrompt} />}
+      
+      {/* --- RESTRUCTURED CARD --- */}
+      <Card variant="glass">
           <CardHeader>
             <div>
               <CardTitle className="text-xl flex items-center gap-2">
@@ -333,32 +313,6 @@ export default function ImageParameters() {
             </div>
           </CardHeader>
           <CardContent>
-            {/* Hidden inputs for all generation parameters */}
-            <input type="hidden" name="imageDataUriOrUrl" value={preparedImageUrl || ''} />
-            <input type="hidden" name="gender" value={imageSettings.gender} />
-            <input type="hidden" name="bodyShapeAndSize" value={imageSettings.bodyShapeAndSize} />
-            <input type="hidden" name="ageRange" value={imageSettings.ageRange} />
-            <input type="hidden" name="ethnicity" value={imageSettings.ethnicity} />
-            <input type="hidden" name="poseStyle" value={imageSettings.poseStyle} />
-            <input type="hidden" name="background" value={imageSettings.background} />
-            <input type="hidden" name="fashionStyle" value={imageSettings.fashionStyle} />
-            <input type="hidden" name="hairStyle" value={imageSettings.hairStyle} />
-            <input type="hidden" name="modelExpression" value={imageSettings.modelExpression} />
-            <input type="hidden" name="lightingType" value={imageSettings.lightingType} />
-            <input type="hidden" name="lightQuality" value={imageSettings.lightQuality} />
-            <input type="hidden" name="modelAngle" value={imageSettings.modelAngle} />
-            <input type="hidden" name="lensEffect" value={imageSettings.lensEffect} />
-            <input type="hidden" name="depthOfField" value={imageSettings.depthOfField} />
-            <input type="hidden" name="timeOfDay" value={imageSettings.timeOfDay} />
-            <input type="hidden" name="overallMood" value={imageSettings.overallMood} />
-            <input type="hidden" name="settingsMode" value={settingsMode} />
-            <input type="hidden" name="useAIPrompt" value={String(useAIPrompt)} />
-            <input type="hidden" name="useRandomization" value={String(useRandomization)} />
-            <input type="hidden" name="removeBackground" value={String(backgroundRemovalEnabled)} />
-            <input type="hidden" name="upscale" value={String(upscaleEnabled)} />
-            <input type="hidden" name="enhanceFace" value={String(faceDetailEnabled)} />
-            {isPromptManuallyEdited && <input type="hidden" name="manualPrompt" value={currentPrompt} />}
-            
             <SubmitButton preparedImageUrl={preparedImageUrl} />
           
           {/* Image Processing Options - Non-Destructive Pipeline */}
@@ -616,22 +570,6 @@ export default function ImageParameters() {
           </Accordion>
         </CardFooter>
       </Card>
-      </form>
-
-      {/* Progress Indicator - Shows during generation */}
-      {isPending && (
-        <GenerationProgressIndicator
-          isGenerating={isPending}
-          stage="processing"
-          progress={0}
-          imageCount={NUM_IMAGES_TO_GENERATE}
-        />
-      )}
-
-      {/* Results Display */}
-      <div ref={resultsRef} key={generationMode}>
-        <ImageResultsDisplay formState={formState} isPending={isPending} />
-      </div>
-    </div>
+    </>
   );
 }

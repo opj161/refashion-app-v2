@@ -89,57 +89,32 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
   
   // Handle feedback from useActionState forms
   useEffect(() => {
-    if (createUserState?.success) {
+    if (createUserState?.success && createUserState.user) {
       toast({ title: 'Success', description: createUserState.message });
-      // Manually add user to local state to avoid full page reload
-      const formElement = document.querySelector('form[name="createUser"]') as HTMLFormElement;
-      if (formElement) {
-        const formData = new FormData(formElement);
-        setUsers([
-          ...users,
-          {
-            username: formData.get('username') as string,
-            role: formData.get('role') as 'admin' | 'user',
-            gemini_api_key_1_mode: 'global' as 'global',
-            gemini_api_key_2_mode: 'global' as 'global',
-            gemini_api_key_3_mode: 'global' as 'global',
-            fal_api_key_mode: 'global' as 'global',
-            image_generation_model: 'google_gemini_2_0' as 'google_gemini_2_0',
-          },
-        ].sort((a, b) => a.username.localeCompare(b.username)));
-      }
+      // Use server response data instead of reading from DOM
+      setUsers(prevUsers => 
+        [...prevUsers, createUserState.user!].sort((a, b) => a.username.localeCompare(b.username))
+      );
       setIsCreateDialogOpen(false);
     } else if (createUserState?.error) {
       toast({ title: 'Error', description: createUserState.error, variant: 'destructive' });
     }
-  }, [createUserState, toast, users]);
+  }, [createUserState, toast]);
   
   useEffect(() => {
-    if (updateUserState?.success) {
+    if (updateUserState?.success && updateUserState.user) {
       toast({ title: 'Success', description: updateUserState.message });
-      // Update local state optimistically
-      const formElement = document.querySelector('form[name="updateUser"]') as HTMLFormElement;
-      if (formElement && userToEdit) {
-        const formData = new FormData(formElement);
-        setUsers(users.map(u => {
-          if (u.username === userToEdit.username) {
-            const updatedUser: User = { ...u };
-            if (formData.has('role')) updatedUser.role = formData.get('role') as 'admin' | 'user';
-            if (formData.has('gemini_api_key_1_mode')) updatedUser.gemini_api_key_1_mode = formData.get('gemini_api_key_1_mode') as 'global' | 'user_specific';
-            if (formData.has('gemini_api_key_2_mode')) updatedUser.gemini_api_key_2_mode = formData.get('gemini_api_key_2_mode') as 'global' | 'user_specific';
-            if (formData.has('gemini_api_key_3_mode')) updatedUser.gemini_api_key_3_mode = formData.get('gemini_api_key_3_mode') as 'global' | 'user_specific';
-            if (formData.has('fal_api_key_mode')) updatedUser.fal_api_key_mode = formData.get('fal_api_key_mode') as 'global' | 'user_specific';
-            if (formData.has('image_generation_model')) updatedUser.image_generation_model = formData.get('image_generation_model') as 'google_gemini_2_0' | 'fal_gemini_2_5';
-            return updatedUser;
-          }
-          return u;
-        }));
-      }
+      // Use server response data instead of reading from DOM
+      setUsers(prevUsers => 
+        prevUsers.map(u => 
+          u.username === updateUserState.user!.username ? updateUserState.user! : u
+        )
+      );
       setUserToEdit(null);
     } else if (updateUserState?.error) {
       toast({ title: 'Error', description: updateUserState.error, variant: 'destructive' });
     }
-  }, [updateUserState, toast, users, userToEdit]);
+  }, [updateUserState, toast]);
 
   // When the user to edit changes, we populate our local form state
   useEffect(() => {
