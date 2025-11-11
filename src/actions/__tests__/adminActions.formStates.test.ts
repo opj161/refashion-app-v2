@@ -1,7 +1,7 @@
 // Test file to verify form state types are correctly defined
 import type { 
   ApiKeysFormState, 
-  SystemPromptFormState, 
+  SystemPromptsFormState, 
   CacheCleanupFormState, 
   UserFormState 
 } from '../adminActions';
@@ -18,8 +18,8 @@ describe('Admin Form State Types', () => {
     expect(validState.success).toBe(true);
   });
 
-  it('should have correctly typed SystemPromptFormState', () => {
-    const validState: SystemPromptFormState = {
+  it('should have correctly typed SystemPromptsFormState', () => {
+    const validState: SystemPromptsFormState = {
       message: 'Prompt updated',
       success: true,
     };
@@ -53,7 +53,7 @@ describe('Admin Form State Types', () => {
 
   it('should support minimal form states', () => {
     const minimalApiKeys: ApiKeysFormState = { message: '' };
-    const minimalSystemPrompt: SystemPromptFormState = { message: '' };
+    const minimalSystemPrompt: SystemPromptsFormState = { message: '' };
     const minimalCache: CacheCleanupFormState = { message: '' };
     const minimalUser: UserFormState = { message: '' };
     
