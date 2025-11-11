@@ -21,6 +21,76 @@ const DB_PATH = path.join(DB_DIR, 'history.db');
 
 let db: Database.Database;
 
+// Migration orchestrator function
+function runMigrations(db: Database.Database) {
+  const LATEST_SCHEMA_VERSION = 1;
+  let currentVersion = 0;
+
+  try {
+    const row = db.prepare("PRAGMA user_version").get() as { user_version: number };
+    currentVersion = row.user_version;
+    console.log(`[DB Migration] Current database schema version: ${currentVersion}`);
+  } catch (error) {
+    console.error('[DB Migration] Could not read user_version pragma:', error);
+    // This likely means it's a very old or new DB, we assume version 0.
+    db.prepare(`PRAGMA user_version = 0`).run();
+  }
+
+  if (currentVersion >= LATEST_SCHEMA_VERSION) {
+    console.log('[DB Migration] Database schema is up to date.');
+    return;
+  }
+  
+  console.log(`[DB Migration] Migrating from version ${currentVersion} to ${LATEST_SCHEMA_VERSION}...`);
+
+  // --- Migration to Version 1 ---
+  if (currentVersion < 1) {
+    const migration_v1 = db.transaction(() => {
+      console.log('[DB Migration] Applying migration to version 1...');
+      
+      // Idempotency Check: See if the column already exists.
+      const columns = db.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+      const hasColumn = columns.some(col => col.name === 'generation_mode');
+
+      if (!hasColumn) {
+        console.log("[DB Migration] Adding 'generation_mode' column to 'history' table.");
+        db.exec(`
+          ALTER TABLE history 
+          ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'creative'
+        `);
+      } else {
+        console.log("[DB Migration] 'generation_mode' column already exists, skipping ALTER TABLE.");
+      }
+
+      // CRITICAL: Update the schema version inside the transaction.
+      db.prepare(`PRAGMA user_version = 1`).run();
+      console.log('[DB Migration] Successfully migrated to version 1.');
+    });
+
+    try {
+      migration_v1();
+    } catch (error) {
+      console.error('[DB Migration] FAILED to apply migration to version 1:', error);
+      // Since it's in a transaction, any failed part will roll back.
+      // We should stop the application here to prevent it from running with a mismatched schema.
+      throw new Error("Database migration failed. Application cannot start.");
+    }
+  }
+
+  // --- Placeholder for Future Migrations ---
+  /*
+  if (currentVersion < 2) {
+    const migration_v2 = db.transaction(() => {
+      console.log('[DB Migration] Applying migration to version 2...');
+      // ... your ALTER TABLE statements for v2 ...
+      db.prepare(`PRAGMA user_version = 2`).run();
+      console.log('[DB Migration] Successfully migrated to version 2.');
+    });
+    migration_v2();
+  }
+  */
+}
+
 // Singleton pattern to ensure only one DB connection
 export function getDb(): Database.Database {
   if (db) {
@@ -38,8 +108,11 @@ export function getDb(): Database.Database {
   db.pragma('synchronous = NORMAL');
   db.pragma('foreign_keys = ON');
 
-  // Initialize schema on first connect
+  // 1. Ensure base tables exist
   initSchema(db);
+
+  // 2. Run migrations to update the schema to the latest version
+  runMigrations(db);
 
   return db;
 }

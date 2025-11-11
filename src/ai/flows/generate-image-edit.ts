@@ -532,18 +532,24 @@ export async function generateImageEdit(
       throw new Error('Studio Mode requires a fit setting and a source image.');
     }
 
-    let studioInputImageUrl = input.imageDataUriOrUrl;
-
-    try {
-      // Mandatory Background Removal for Studio Mode
-      console.log('🎨 Studio Mode Step 1: Removing background...');
-      const bgResult = await removeBackgroundAction(studioInputImageUrl, undefined);
-      studioInputImageUrl = bgResult.savedPath;
-      console.log(`✅ Background removed. New path for generation: ${studioInputImageUrl}`);
-    } catch (bgError) {
-      console.error('❌ Studio Mode background removal failed:', bgError);
-      throw new Error(`Studio Mode failed at background removal: ${(bgError as Error).message}`);
-    }
+    // Background removal step has been removed to allow faster processing
+    // and preserve original image context. The Ironclad Prompt is designed
+    // to handle images with backgrounds effectively.
+    
+    // Note: Previously, a mandatory background removal step was performed here.
+    // This has been removed to reduce processing time and Fal.ai API costs.
+    // Trade-off: Slightly less consistent outputs if source images have complex backgrounds,
+    // but the strong Studio Mode prompt should still maintain quality.
+    
+    // try {
+    //   console.log('🎨 Studio Mode Step 1: Removing background...');
+    //   const bgResult = await removeBackgroundAction(input.imageDataUriOrUrl, undefined);
+    //   studioInputImageUrl = bgResult.savedPath;
+    //   console.log(`✅ Background removed. New path for generation: ${studioInputImageUrl}`);
+    // } catch (bgError) {
+    //   console.error('❌ Studio Mode background removal failed:', bgError);
+    //   throw new Error(`Studio Mode failed at background removal: ${(bgError as Error).message}`);
+    // }
     
     // Build the Ironclad Prompt
     const studioPrompt = buildStudioModePrompt(input.studioFit);
@@ -553,7 +559,7 @@ export async function generateImageEdit(
     const generationPromises = [1, 2, 3].map(i =>
       performSingleImageGeneration({
         ...input,
-        imageDataUriOrUrl: studioInputImageUrl,
+        imageDataUriOrUrl: input.imageDataUriOrUrl, // Use original image directly
         prompt: studioPrompt,
       }, user, `studio-flow${i}`, i as 1 | 2 | 3, { temperature: 0.3 })
     );
