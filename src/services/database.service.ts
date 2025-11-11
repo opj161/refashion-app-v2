@@ -113,7 +113,8 @@ function initSchema(db: Database.Database) {
       webhook_url TEXT,
       status TEXT DEFAULT 'completed', -- ADDED
       error TEXT, -- ADDED
-      image_generation_model TEXT -- ADD THIS
+      image_generation_model TEXT, -- ADD THIS
+      generation_mode TEXT NOT NULL DEFAULT 'creative' -- Studio Mode support
     );
 
     CREATE TABLE IF NOT EXISTS users (
@@ -216,8 +217,8 @@ function getPreparedStatements() {
     // Removed stray SQL code
   preparedStatements.insertHistory = db.prepare( `
       INSERT OR REPLACE INTO history 
-      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error, webhook_url, image_generation_model)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error, webhook_url, image_generation_model, generation_mode)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     preparedStatements.insertImage = db.prepare(`
@@ -337,6 +338,7 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
     error: row.error || undefined,
     webhookUrl: row.webhook_url || undefined,
     imageGenerationModel: row.image_generation_model || 'google_gemini_2_0', // ADD THIS
+    generation_mode: row.generation_mode as 'creative' | 'studio' || 'creative', // ADD THIS
   };
 }
 
@@ -358,7 +360,8 @@ export const insertHistoryItem = (item: HistoryItem): void => {
       item.status || 'completed',
       item.error || null,
       item.webhookUrl || null,
-      item.imageGenerationModel || 'google_gemini_2_0' // ADD THIS
+      item.imageGenerationModel || 'google_gemini_2_0', // ADD THIS
+      item.generation_mode || 'creative' // ADD THIS
     );
     
     // Insert edited images

@@ -435,6 +435,10 @@ export async function generateImageAction(
       };
     }
 
+    // Extract generation mode and studio fit
+    const generationMode = (formData.get('generationMode') as 'creative' | 'studio') || 'creative';
+    const studioFit = (formData.get('studioFit') as 'slim' | 'regular' | 'relaxed') || 'regular';
+
     // Extract all ModelAttributes parameters
     const parameters = {
       gender: formData.get('gender') as string,
@@ -467,6 +471,8 @@ export async function generateImageAction(
     // Build the generation input
     const generationInput: GenerateImageEditInput = {
       imageDataUriOrUrl,
+      generationMode,
+      studioFit,
       parameters,
       settingsMode,
       useAIPrompt,

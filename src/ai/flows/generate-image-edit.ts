@@ -146,6 +146,38 @@ function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAt
 }
 
 /**
+ * Studio Mode: Get fit description based on the selected fit type
+ */
+function getStudioModeFitDescription(fit: 'slim' | 'regular' | 'relaxed'): string {
+  switch (fit) {
+    case 'slim': return "slim fit, tailored closely to the model's body.";
+    case 'relaxed': return "relaxed fit, draping loosely and away from the model's body.";
+    case 'regular':
+    default: return "regular fit, with a standard, comfortable drape.";
+  }
+}
+
+/**
+ * Studio Mode: Build the ironclad prompt template for consistent product photography
+ */
+function buildStudioModePrompt(fit: 'slim' | 'regular' | 'relaxed'): string {
+  const fitDescription = getStudioModeFitDescription(fit);
+  return `Your primary task is to generate a photorealistic e-commerce product photograph. The highest priority is the accurate and faithful representation of the provided clothing item. DO NOT alter the garment's design, length, color, texture, or core structure.
+
+Model: The model is a 170cm tall, 60kg female with a slim, neutral body shape. She has light brown hair tied back in a simple ponytail and a neutral, professional facial expression.
+
+Pose: The model is standing in a standard A-pose, facing directly forward toward the camera.
+
+Garment Fit: The provided garment must be rendered with a ${fitDescription}
+
+Scene: The setting is a professional photography studio. The background is a seamless cyclorama with a subtle, even gradient from light grey (#e5e5e5) at the top to a slightly darker grey (#cccccc) at the bottom.
+
+Lighting: The lighting is diffuse and even, originating from a large softbox positioned in front of the model. This lighting must eliminate harsh shadows and prevent blown-out highlights.
+
+Technical Shot Details: This is a full-body shot. Aspect ratio must be exactly 9:16. Photographed with a standard 85mm portrait lens (f/5.6) for natural perspective and no distortion. The entire image, especially the garment, must be sharp and in focus.`;
+}
+
+/**
  * Make a direct API call to Gemini API with explicit proxy support using axios
  * This provides better proxy control than node-fetch's automatic detection
  */
@@ -202,6 +234,8 @@ const GenerateImageEditInputSchema = z.object({
   removeBackground: z.boolean().optional().default(false).describe('Whether to remove background before generation.'),
   upscale: z.boolean().optional().default(false).describe('Whether to upscale the image before generation.'),
   enhanceFace: z.boolean().optional().default(false).describe('Whether to enhance face details before generation.'),
+  generationMode: z.enum(['creative', 'studio']).optional().describe('The generation mode: creative or studio.'),
+  studioFit: z.enum(['slim', 'regular', 'relaxed']).optional().describe('The fit setting for Studio Mode.'),
 });
 export type GenerateImageEditInput = z.infer<typeof GenerateImageEditInputSchema>;
 
@@ -216,7 +250,8 @@ async function performSingleImageGeneration(
   input: GenerateImageEditInput,
   user: FullUser, // <-- Accept the full user object as a parameter
   flowIdentifier: string,
-  keyIndex: 1 | 2 | 3
+  keyIndex: 1 | 2 | 3,
+  generationConfigOverride?: Partial<GeminiGenerationConfig>
 ): Promise<SingleImageOutput> {
   const username = user.username; // Get username from the passed object
   
@@ -363,7 +398,8 @@ async function performSingleImageGeneration(
       topP: 0.95,
       topK: 40,
       maxOutputTokens: 8192,
-      responseModalities: ["image", "text"]
+      responseModalities: ["image", "text"],
+      ...generationConfigOverride, // Apply temperature override for Studio Mode
     },
     safetySettings: [
       {
@@ -485,6 +521,95 @@ export async function generateImageEdit(
   if (!user) {
     throw new Error(`User ${username} not found.`);
   }
+
+  // ===================================
+  // STUDIO MODE WORKFLOW
+  // ===================================
+  if (input.generationMode === 'studio') {
+    console.log(`🚀 Routing to Studio Mode for user ${username}`);
+    
+    if (!input.studioFit || !input.imageDataUriOrUrl) {
+      throw new Error('Studio Mode requires a fit setting and a source image.');
+    }
+
+    let studioInputImageUrl = input.imageDataUriOrUrl;
+
+    try {
+      // Mandatory Background Removal for Studio Mode
+      console.log('🎨 Studio Mode Step 1: Removing background...');
+      const bgResult = await removeBackgroundAction(studioInputImageUrl, undefined);
+      studioInputImageUrl = bgResult.savedPath;
+      console.log(`✅ Background removed. New path for generation: ${studioInputImageUrl}`);
+    } catch (bgError) {
+      console.error('❌ Studio Mode background removal failed:', bgError);
+      throw new Error(`Studio Mode failed at background removal: ${(bgError as Error).message}`);
+    }
+    
+    // Build the Ironclad Prompt
+    const studioPrompt = buildStudioModePrompt(input.studioFit);
+    console.log('📝 Studio Mode Prompt constructed.');
+
+    // Parallel Generation with Tuned Parameters (low temperature for consistency)
+    const generationPromises = [1, 2, 3].map(i =>
+      performSingleImageGeneration({
+        ...input,
+        imageDataUriOrUrl: studioInputImageUrl,
+        prompt: studioPrompt,
+      }, user, `studio-flow${i}`, i as 1 | 2 | 3, { temperature: 0.3 })
+    );
+
+    const settledResults = await Promise.allSettled(generationPromises);
+
+    // Handle Results
+    const editedImageUrlsResult: (string | null)[] = Array(3).fill(null);
+    const errorsResult: (string | null)[] = Array(3).fill(null);
+
+    settledResults.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        editedImageUrlsResult[index] = result.value.editedImageUrl;
+      } else {
+        console.error(`Studio Mode generation ${index + 1} failed:`, result.reason);
+        errorsResult[index] = result.reason?.message || 'Unknown error';
+      }
+    });
+
+    // Save to history with Studio Mode context
+    const successCount = editedImageUrlsResult.filter(url => url !== null).length;
+    let newHistoryId: string | undefined;
+    
+    if (successCount > 0 && input.imageDataUriOrUrl) {
+      try {
+        newHistoryId = await addHistoryItem(
+          { studioFit: input.studioFit } as any, // Store fit in attributes
+          studioPrompt,
+          input.imageDataUriOrUrl,
+          editedImageUrlsResult,
+          'basic', // Studio mode is always 'basic'
+          user.image_generation_model,
+          'completed',
+          undefined,
+          username,
+          undefined,
+          'studio' // Set generation_mode
+        );
+        console.log(`✅ Studio Mode: History saved with ID ${newHistoryId}`);
+      } catch (err) {
+        console.error('Failed to save Studio Mode history:', err);
+      }
+    }
+    
+    return {
+      editedImageUrls: editedImageUrlsResult,
+      constructedPrompt: studioPrompt,
+      errors: errorsResult,
+      newHistoryId,
+    };
+  }
+
+  // ======================================
+  // CREATIVE MODE WORKFLOW (Existing Logic)
+  // ======================================
+  console.log(`🎨 Routing to Creative Mode for user ${username}`);
 
   // === NON-DESTRUCTIVE PIPELINE: Apply image processing if requested ===
   let processedImageUrl = input.imageDataUriOrUrl;
@@ -637,7 +762,11 @@ export async function generateImageEdit(
             editedImageUrlsResult,
             processedInput.settingsMode || 'basic',
             modelUsed,
-            'completed'
+            'completed',
+            undefined, // error
+            undefined, // username
+            undefined, // webhookUrl
+            'creative' // generation_mode
           );
           // Return the created history id to caller so the client can set activeHistoryItemId.
           return {
