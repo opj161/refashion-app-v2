@@ -30,7 +30,8 @@ interface HistoryCardProps {
   setCurrentTab?: (tab: string) => void;
 }
 
-export default function HistoryCard({ 
+// Memoize HistoryCard to prevent unnecessary re-renders when gallery updates
+const HistoryCard = React.memo(function HistoryCard({ 
   item, 
   onViewDetails, 
   onDeleteItem, 
@@ -354,4 +355,6 @@ export default function HistoryCard({
       </Card>
     </motion.div>
   );
-}
+});
+
+export default HistoryCard;

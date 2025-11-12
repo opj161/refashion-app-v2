@@ -345,7 +345,7 @@ export default function VideoParameters() {
                    <div className="pt-2">
                      <div className="flex justify-between items-center">
                        <Label htmlFor="fullVideoPrompt" className="text-sm">Full Prompt</Label>
-                       {isManualPromptOutOfSync() && (
+                       {isManualPromptOutOfSync && (
                          <Button variant="link" size="sm" onClick={resetPromptToAuto} className="text-xs text-amber-600 hover:text-amber-700 p-0 h-auto">
                            <AlertTriangle className="h-3 w-3 mr-1" /> Settings changed. Reset prompt?
                          </Button>

@@ -371,29 +371,24 @@ function getPreparedStatements() {
   return preparedStatements;
 }
 
+// Helper function to safely parse JSON with minimal overhead
+function safeJsonParse<T>(jsonString: string | null | undefined, fallback: T): T {
+  if (!jsonString) return fallback;
+  try {
+    return JSON.parse(jsonString);
+  } catch {
+    return fallback;
+  }
+}
+
 export function rowToHistoryItem(row: any): HistoryItem { // Export for use in actions
   // Do NOT filter(Boolean) -- preserve nulls for correct slot mapping
-  let editedImageUrls: any[] = [];
-  let originalImageUrls: any[] | undefined = undefined;
-  let generatedVideoUrls: any[] | undefined = undefined;
-  let attributes: ModelAttributes = {} as ModelAttributes;
-  let videoGenerationParams: any = undefined;
-
-  try {
-    editedImageUrls = row.edited_images ? JSON.parse(row.edited_images) : [];
-  } catch (e) { editedImageUrls = []; }
-  try {
-    originalImageUrls = row.original_images ? JSON.parse(row.original_images) : undefined;
-  } catch (e) { originalImageUrls = undefined; }
-  try {
-    generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls) : undefined;
-  } catch (e) { generatedVideoUrls = undefined; }
-  try {
-    attributes = row.attributes ? JSON.parse(row.attributes) : {} as ModelAttributes;
-  } catch (e) { attributes = {} as ModelAttributes; }
-  try {
-    videoGenerationParams = row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined;
-  } catch (e) { videoGenerationParams = undefined; }
+  // Optimized: Use single helper function instead of multiple try-catch blocks
+  const editedImageUrls = safeJsonParse<any[]>(row.edited_images, []);
+  const originalImageUrls = safeJsonParse<any[] | undefined>(row.original_images, undefined);
+  const generatedVideoUrls = safeJsonParse<any[] | undefined>(row.video_urls, undefined);
+  const attributes = safeJsonParse<ModelAttributes>(row.attributes, {} as ModelAttributes);
+  const videoGenerationParams = safeJsonParse<any>(row.videoGenerationParams, undefined);
 
   // removed malformed object literal
   return {
@@ -629,11 +624,10 @@ export const getHistoryItemStatus = cache((id: string, username: string): VideoS
     return { status: 'unknown' };
   }
 
-  let params: any = {};
-  try {
-    params = JSON.parse(row.videoGenerationParams);
-  } catch (e) {
-    console.error('Failed to parse videoGenerationParams JSON for history item', id, e);
+  // Optimized: Use helper function for JSON parsing
+  const params = safeJsonParse<any>(row.videoGenerationParams, null);
+  if (!params) {
+    console.error('Failed to parse videoGenerationParams JSON for history item', id);
     return { status: 'unknown' };
   }
 
