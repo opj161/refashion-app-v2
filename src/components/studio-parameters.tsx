@@ -17,8 +17,12 @@ const NUM_IMAGES_TO_GENERATE = 3;
 // Submit button component specific to this form
 function SubmitButton({ isImageReady }: { isImageReady: boolean }) {
   const { pending } = useFormStatus();
+  const { isAnyVersionProcessing } = useImagePreparation();
+  
+  const isDisabled = pending || !isImageReady || isAnyVersionProcessing;
+  
   return (
-    <Button type="submit" disabled={pending || !isImageReady} className="w-full text-lg h-14">
+    <Button type="submit" disabled={isDisabled} className="w-full text-lg h-14">
       {pending ? (
         <>
           <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating...

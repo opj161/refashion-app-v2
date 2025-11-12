@@ -67,6 +67,7 @@ interface ImagePreparationContextType {
   activeImage: ImageVersion | null;
   canUndo: boolean;
   canRedo: boolean;
+  isAnyVersionProcessing: boolean;
   // Async actions
   uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
   applyCrop: () => Promise<void>;
@@ -255,6 +256,9 @@ export function ImagePreparationProvider({
   const activeImage = optimisticState.activeVersionId ? optimisticState.versions[optimisticState.activeVersionId] : null;
   const canUndo = optimisticState.historyIndex > 0;
   const canRedo = optimisticState.historyIndex < optimisticState.versionHistory.length - 1;
+  
+  // DERIVED STATE: Check if any version is currently in an optimistic 'processing' state.
+  const isAnyVersionProcessing = Object.values(optimisticState.versions).some(v => v.status === 'processing');
 
   // --- ASYNC ACTIONS ---
   // These wrap server actions and dispatch state updates
@@ -542,6 +546,7 @@ export function ImagePreparationProvider({
     activeImage, // Derived from optimisticState
     canUndo, // Derived from optimisticState
     canRedo, // Derived from optimisticState
+    isAnyVersionProcessing, // Exposed for disabling generate buttons
     uploadOriginalImage, applyCrop, removeBackground, upscaleImage, faceDetailer,
     rotateImageLeft, rotateImageRight, flipHorizontal, flipVertical, reset
   };
