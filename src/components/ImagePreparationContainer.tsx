@@ -39,11 +39,12 @@ export default function ImagePreparationContainer({
     dispatch,
     applyCrop,
     reset,
+    isAnyVersionProcessing,
   } = useImagePreparation();
 
   const activeImage = useActivePreparationImage();
   
-  const { versions, activeVersionId, isProcessing, crop, aspect, imageDimensions } = state;
+  const { versions, activeVersionId, crop, aspect, imageDimensions } = state;
 
   // Expose reset to parent via ref
   React.useEffect(() => {
@@ -109,7 +110,7 @@ export default function ImagePreparationContainer({
     <EditingHubSidebar
       preparationMode={preparationMode}
       isCropping={isCropping}
-      isProcessing={isProcessing}
+      isProcessing={isAnyVersionProcessing}
       aspect={aspect}
       onAspectChange={handleAspectChange} // *** BUG FIX ***: Wire to correct handler
       onConfirmCrop={handleApplyCrop}
@@ -133,7 +134,7 @@ export default function ImagePreparationContainer({
                         Upload, crop, and process your clothing image before generation.
                     </CardDescription>
                 </div>
-                <Button variant="destructive" size="sm" onClick={onReset} disabled={isProcessing}>
+                <Button variant="destructive" size="sm" onClick={onReset} disabled={isAnyVersionProcessing}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     Remove Image
                 </Button>
@@ -151,7 +152,7 @@ export default function ImagePreparationContainer({
                   onCropChange={handleCropChange} // *** BUG FIX ***: Use new handler
                   onCropComplete={() => {}}
                   onImageLoad={onImageLoad}
-                  disabled={isProcessing}
+                  disabled={isAnyVersionProcessing}
                   ruleOfThirds={true}
                 />
               </div>
@@ -168,7 +169,7 @@ export default function ImagePreparationContainer({
                   onCropChange={handleCropChange} // *** BUG FIX ***: Use new handler
                   onCropComplete={() => {}}
                   onImageLoad={onImageLoad}
-                  disabled={isProcessing}
+                  disabled={isAnyVersionProcessing}
                   ruleOfThirds={true}
                 />
               </div>

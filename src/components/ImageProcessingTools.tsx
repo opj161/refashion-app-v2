@@ -78,8 +78,6 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
     canRedo,
   } = useImagePreparation();
   
-  const { isProcessing, processingStep } = state;
-  
   const activeImage = useActivePreparationImage();
 
   // Undo/Redo actions - wrapped in useCallback to prevent recreation
@@ -160,8 +158,8 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   // Check if ANY version is currently in an optimistic 'processing' state.
   const isAnyVersionProcessing = Object.values(state.versions).some(v => v.status === 'processing');
   
-  // The master disable flag now also checks for any optimistic versions
-  const isToolDisabled = disabled || state.isProcessing || isAnyVersionProcessing;
+  // The master disable flag
+  const isToolDisabled = disabled || isAnyVersionProcessing;
 
   return (
     <div className="space-y-4">
@@ -236,7 +234,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
               label="Remove Background"
               onApply={handleApplyBackgroundRemoval}
               isApplied={isBgRemoved}
-              isProcessing={isProcessing && processingStep === 'bg'}
+              isProcessing={false}
               isDisabled={isToolDisabled || isUpscaled} // Can't remove BG after upscaling
             />
           )}
@@ -248,7 +246,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
               label="Upscale Image"
               onApply={handleUpscaleImage}
               isApplied={isUpscaled}
-              isProcessing={isProcessing && processingStep === 'upscale'}
+              isProcessing={false}
               isDisabled={isToolDisabled}
             />
           )}
@@ -260,7 +258,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
               label="Face Detailer"
               onApply={handleFaceDetailer}
               isApplied={isFaceDetailed}
-              isProcessing={isProcessing && processingStep === 'face'}
+              isProcessing={false}
               isDisabled={isToolDisabled}
             />
           )}

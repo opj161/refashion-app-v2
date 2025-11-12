@@ -36,8 +36,6 @@ interface ImagePreparationState {
   completedCrop?: PixelCrop;
   aspect?: number;
   imageDimensions?: { originalWidth: number; originalHeight: number; };
-  isProcessing: boolean;
-  processingStep: 'upload' | 'crop' | 'bg' | 'upscale' | 'face' | 'rotate' | 'flip' | 'confirm' | null;
   comparison: {
     left: string;
     right: string;
@@ -51,7 +49,6 @@ type Action =
   | { type: 'SET_ACTIVE_VERSION'; payload: { versionId: string } }
   | { type: 'UNDO' }
   | { type: 'REDO' }
-  | { type: 'SET_PROCESSING'; payload: { isProcessing: boolean; step: ImagePreparationState['processingStep'] } }
   | { type: 'SET_CROP'; payload: { crop?: Crop } }
   | { type: 'SET_COMPLETED_CROP'; payload: { crop?: PixelCrop } }
   | { type: 'SET_ASPECT'; payload: { aspect?: number } }
@@ -93,8 +90,6 @@ const initialState: ImagePreparationState = {
   completedCrop: undefined,
   aspect: undefined,
   imageDimensions: undefined,
-  isProcessing: false,
-  processingStep: null,
   comparison: null,
 };
 
@@ -171,7 +166,6 @@ function imagePreparationReducer(state: ImagePreparationState, action: Action): 
         comparison: null,
       };
     }
-    case 'SET_PROCESSING': return { ...state, ...action.payload };
     case 'SET_CROP': return { ...state, crop: action.payload.crop };
     case 'SET_COMPLETED_CROP': return { ...state, completedCrop: action.payload.crop };
     case 'SET_ASPECT': {
@@ -263,20 +257,6 @@ export function ImagePreparationProvider({
   // --- ASYNC ACTIONS ---
   // These wrap server actions and dispatch state updates
 
-  const withProcessing = useCallback(async (step: ImagePreparationState['processingStep'], fn: () => Promise<void>) => {
-    dispatch({ type: 'SET_PROCESSING', payload: { isProcessing: true, step } });
-    try {
-      await fn();
-    } catch (error) {
-      console.error(`Error during processing step '${step}':`, error);
-      toast({ title: `Error: ${step}`, description: (error as Error).message, variant: 'destructive' });
-      // Re-throw to allow component-level handling if needed
-      throw error;
-    } finally {
-      dispatch({ type: 'SET_PROCESSING', payload: { isProcessing: false, step: null } });
-    }
-  }, []);
-
   const addVersion = useCallback((version: Omit<ImageVersion, 'id' | 'createdAt'>) => {
     const id = `${version.label.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
     dispatch({ type: 'ADD_VERSION', payload: { version: { ...version, id, createdAt: Date.now() } } });
@@ -363,18 +343,14 @@ export function ImagePreparationProvider({
   }, [state, addOptimisticAction]);
 
   const uploadOriginalImage = useCallback(async (file: File) => {
-    let resultData = { resized: false, originalWidth: 0, originalHeight: 0 };
-    await withProcessing('upload', async () => {
-      const formData = new FormData();
-      formData.append('file', file);
-      const result = await prepareInitialImage(formData);
-      if (!result.success) throw new Error(result.error);
-      
-      dispatch({ type: 'SET_ORIGINAL', payload: { file, imageUrl: result.imageUrl, hash: result.hash, width: result.originalWidth, height: result.originalHeight } });
-      resultData = { resized: result.resized, originalWidth: result.originalWidth, originalHeight: result.originalHeight };
-    });
-    return resultData;
-  }, [withProcessing]);
+    const formData = new FormData();
+    formData.append('file', file);
+    const result = await prepareInitialImage(formData);
+    if (!result.success) throw new Error(result.error);
+    
+    dispatch({ type: 'SET_ORIGINAL', payload: { file, imageUrl: result.imageUrl, hash: result.hash, width: result.originalWidth, height: result.originalHeight } });
+    return { resized: result.resized, originalWidth: result.originalWidth, originalHeight: result.originalHeight };
+  }, []);
 
   // Special handling for applyCrop as it uses local state (crop region)
   const applyCrop = useCallback(async () => {
@@ -482,7 +458,6 @@ export function ImagePreparationProvider({
     if (!initialHistoryItem && !initialImageUrl) return;
 
     const initialize = async () => {
-      dispatch({ type: 'SET_PROCESSING', payload: { isProcessing: true, step: 'upload' } });
       try {
         let result;
         if (initialHistoryItem) {
@@ -532,7 +507,6 @@ export function ImagePreparationProvider({
           variant: "destructive"
         });
       } finally {
-        dispatch({ type: 'SET_PROCESSING', payload: { isProcessing: false, step: null } });
         onInitializationComplete?.();
       }
     };
