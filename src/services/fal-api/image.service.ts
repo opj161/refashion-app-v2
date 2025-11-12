@@ -71,30 +71,6 @@ export async function generateWithGemini25Flash(
 }
 
 /**
- * Legacy function - generates an image using generic workflow (kept for other FAL.AI models)
- * @deprecated Use generateWithGemini25Flash for Gemini 2.5 Flash specifically
- */
-export async function generateWithGemini25FlashLegacy(
-  prompt: string,
-  imageUrl: string,
-  username: string
-): Promise<string> {
-  const input = {
-    prompt: prompt,
-    image_urls: [imageUrl],
-    num_images: 1,
-    output_format: "png" as const,
-  };
-
-  return await runFalImageWorkflow(
-    "fal-ai/gemini-25-flash-image/edit",
-    input,
-    'Gemini 2.5 Image Generation',
-    username
-  );
-}
-
-/**
  * @fileOverview Fal.ai API service for image processing operations
  * 
  * This service handles low-level communication with Fal.ai APIs for image-related tasks:
