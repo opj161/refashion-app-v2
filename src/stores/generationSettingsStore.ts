@@ -114,7 +114,7 @@ const initialState: GenerationSettingsState = {
   imageSettings: defaultImageSettings,
   videoSettings: defaultVideoSettings,
   settingsMode: 'basic',
-  generationMode: 'creative',
+  generationMode: 'studio',
   studioFit: 'regular',
   generationCount: 0,
   backgroundRemovalEnabled: false,

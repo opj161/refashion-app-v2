@@ -4,7 +4,7 @@
 import React, { useCallback, useState, useEffect, Suspense } from "react";
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/SegmentedControl";
 import { motion, AnimatePresence } from "motion/react";
 import ImagePreparationContainer from "./ImagePreparationContainer";
 import { ImageGenerationWorkspace } from "./ImageGenerationWorkspace";
@@ -14,6 +14,7 @@ import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { useShallow } from 'zustand/react/shallow';
 import type { HistoryItem } from '@/lib/types';
 import { ImagePreparationProvider } from '@/contexts/ImagePreparationContext';
+import { Sparkles, Camera } from 'lucide-react';
 
 // Wrap the component content that uses useSearchParams
 function CreationHubContent({
@@ -56,7 +57,7 @@ function CreationHubContent({
     } else if (imageUrl) {
       setInitImageUrl(imageUrl);
       setCurrentTab('image');
-      setGenerationMode('creative');
+      setGenerationMode('studio');
       if (typeof window !== 'undefined') {
         window.history.replaceState(null, '', '/');
       }
@@ -73,7 +74,7 @@ function CreationHubContent({
   // Handler to load from image URL - will be passed to components that need it
   const handleLoadFromImageUrl = useCallback((imageUrl: string) => {
     setInitImageUrl(imageUrl);
-    setGenerationMode('creative');
+    setGenerationMode('studio');
     setCurrentTab('image');
   }, [setGenerationMode]);
 
@@ -111,35 +112,44 @@ function CreationHubContent({
   return (
     <div className="space-y-8">
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="image">🖼️ Image</TabsTrigger>
-          <TabsTrigger value="video">🎥 Video</TabsTrigger>
-          <TabsTrigger value="history">📃 History</TabsTrigger>
-        </TabsList>
+        {/* === START: INTEGRATED LAYOUT === */}
+        <div className="bg-muted/30 p-1 rounded-lg flex flex-col items-center gap-2">
+          {/* Main Tabs */}
+          <TabsList className="grid w-full grid-cols-3 bg-transparent p-0">
+            <TabsTrigger value="image">🖼️ Image</TabsTrigger>
+            <TabsTrigger value="video">🎥 Video</TabsTrigger>
+            <TabsTrigger value="history">📃 History</TabsTrigger>
+          </TabsList>
 
-        {/* Mode Switcher UI - only visible on Image tab */}
-        <AnimatePresence>
-          {currentTab === 'image' && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="flex justify-center mt-4"
-            >
-              <ToggleGroup
-                type="single"
-                value={generationMode}
-                onValueChange={(mode) => {
-                  if (mode) setGenerationMode(mode as 'creative' | 'studio');
-                }}
-                className="bg-muted/30 p-1 rounded-lg"
+          {/* Mode Switcher - Conditionally rendered with animation */}
+          <AnimatePresence>
+            {currentTab === 'image' && (
+              <motion.div 
+                key="mode-selector"
+                initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginTop: '0.5rem' }}
+                exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="overflow-hidden"
               >
-                <ToggleGroupItem value="creative">Creative Mode</ToggleGroupItem>
-                <ToggleGroupItem value="studio">Studio Mode</ToggleGroupItem>
-              </ToggleGroup>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <SegmentedControl
+                  value={generationMode}
+                  onValueChange={(mode) => {
+                    if (mode) setGenerationMode(mode as 'creative' | 'studio');
+                  }}
+                >
+                  <SegmentedControlItem value="studio">
+                    <Camera className="h-4 w-4" /> Studio Mode
+                  </SegmentedControlItem>
+                  <SegmentedControlItem value="creative">
+                    <Sparkles className="h-4 w-4" /> Creative Mode
+                  </SegmentedControlItem>
+                </SegmentedControl>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        {/* === END: INTEGRATED LAYOUT === */}
 
         <TabsContent value="image" className="space-y-6 mt-5" forceMount>
           <ImagePreparationProvider
