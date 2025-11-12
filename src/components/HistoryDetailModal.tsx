@@ -92,17 +92,21 @@ export function HistoryDetailModal({
       footerRight={
         <>
           <Button variant="outline" onClick={onClose}>
-            <X className="w-4 h-4 mr-2" /> Close
+            <X className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Close</span>
           </Button>
            <Button variant="outline" onClick={handleCopyPrompt}>
-            <Copy className="w-4 h-4 mr-2" /> Copy Prompt
+            <Copy className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Copy Prompt</span>
            </Button>
            <Button variant="outline" onClick={handleReloadConfig}>
-             <RefreshCw className="w-4 h-4 mr-2" /> Reload Config
+             <RefreshCw className="w-4 h-4 sm:mr-2" />
+             <span className="hidden sm:inline">Reload Config</span>
            </Button>
            <a href={downloadUrl || '#'} download={downloadFilename}>
             <Button disabled={!downloadUrl}>
-              <Download className="h-4 w-4 sm:mr-2" /> Download
+              <Download className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Download</span>
             </Button>
            </a>
         </>
@@ -122,7 +126,7 @@ export function HistoryDetailModal({
       </MediaSlot>
       <SidebarSlot>
         <div>
-          <h4 className="font-semibold text-sm mb-3 text-foreground/90">Generated Images</h4>
+          <h4 className="font-semibold text-sm mb-2 text-foreground/90">Generated Images</h4>
           <div 
             className="grid gap-2"
             style={{

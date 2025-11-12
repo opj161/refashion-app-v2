@@ -18,7 +18,6 @@ import {
 import {
   Wand2, Sparkles, UserCheck, CheckCircle, Loader2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Undo2, Redo2
 } from "lucide-react";
-import { useAuth } from '@/contexts/AuthContext';
 import { spacing } from "@/lib/design-tokens";
 
 // --- Reusable Row Component for a consistent look ---
@@ -79,10 +78,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
     canRedo,
   } = useImagePreparation();
   
-  const { isProcessing, processingStep } = state;
-  
   const activeImage = useActivePreparationImage();
-  const { user } = useAuth();
 
   // Undo/Redo actions - wrapped in useCallback to prevent recreation
   const undo = useCallback(() => dispatch({ type: 'UNDO' }), [dispatch]);
@@ -130,48 +126,40 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
 
   // --- Event Handlers ---
   const handleApplyBackgroundRemoval = async () => {
-    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     try {
-      await removeBackground(user.username);
-      toast({ title: 'Background Removed', description: 'A new version has been created.' });
+      await removeBackground();
+      // Toast is now handled by the optimistic action wrapper
     } catch (error) {
-      toast({
-        title: 'Background Removal Failed',
-        description: (error as Error).message,
-        variant: 'destructive'
-      });
+      // Error toast is also handled by the optimistic action wrapper
+      console.error('Background removal error:', error);
     }
   };
 
   const handleUpscaleImage = async () => {
-    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     try {
-      await upscaleImage(user.username);
-      toast({ title: 'Image Upscaled', description: 'Your image has been upscaled successfully.' });
+      await upscaleImage();
+      // Toast is now handled by the optimistic action wrapper
     } catch (error) {
-      toast({ 
-        title: 'Upscaling Failed', 
-        description: (error as Error).message, 
-        variant: 'destructive' 
-      });
+      // Error toast is also handled by the optimistic action wrapper
+      console.error('Upscale error:', error);
     }
   };
 
   const handleFaceDetailer = async () => {
-    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     try {
-      await faceDetailer(user.username);
-      toast({ title: 'Face Details Enhanced', description: 'Face details have been enhanced successfully.' });
+      await faceDetailer();
+      // Toast is now handled by the optimistic action wrapper
     } catch (error) {
-      toast({ 
-        title: 'Face Enhancement Failed', 
-        description: (error as Error).message, 
-        variant: 'destructive' 
-      });
+      // Error toast is also handled by the optimistic action wrapper
+      console.error('Face detailer error:', error);
     }
   };
 
-  const isToolDisabled = disabled || isProcessing;
+  // Check if ANY version is currently in an optimistic 'processing' state.
+  const isAnyVersionProcessing = Object.values(state.versions).some(v => v.status === 'processing');
+  
+  // The master disable flag
+  const isToolDisabled = disabled || isAnyVersionProcessing;
 
   return (
     <div className="space-y-4">
@@ -246,7 +234,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
               label="Remove Background"
               onApply={handleApplyBackgroundRemoval}
               isApplied={isBgRemoved}
-              isProcessing={isProcessing && processingStep === 'bg'}
+              isProcessing={false}
               isDisabled={isToolDisabled || isUpscaled} // Can't remove BG after upscaling
             />
           )}
@@ -258,7 +246,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
               label="Upscale Image"
               onApply={handleUpscaleImage}
               isApplied={isUpscaled}
-              isProcessing={isProcessing && processingStep === 'upscale'}
+              isProcessing={false}
               isDisabled={isToolDisabled}
             />
           )}
@@ -270,7 +258,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
               label="Face Detailer"
               onApply={handleFaceDetailer}
               isApplied={isFaceDetailed}
-              isProcessing={isProcessing && processingStep === 'face'}
+              isProcessing={false}
               isDisabled={isToolDisabled}
             />
           )}

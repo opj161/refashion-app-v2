@@ -23,7 +23,7 @@ export const MediaSlot = ({ children, className }: { children: React.ReactNode, 
 
 export const SidebarSlot = ({ children, className }: { children: React.ReactNode, className?: string }) => (
   <div className={cn(
-      "overflow-y-auto",
+      "overflow-y-auto p-1", // Added p-1 for scrollbar clearance
       // On desktop, this slot is placed in the second row, second column
       "lg:row-start-2 lg:col-start-2",
       className
@@ -63,7 +63,7 @@ export function UnifiedMediaModal({ isOpen, onClose, title, description, footerL
           <div>
             {footerLeft}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {footerRight}
           </div>
         </div>

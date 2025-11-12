@@ -262,12 +262,24 @@ export async function getSystemPromptsForAdmin() {
     
     // Fetch the new studio prompt directly from settings service
     const studioPrompt = settingsService.getSetting('ai_studio_mode_prompt_template');
+    
+    // Define the fallback template that matches the one used in generate-image-edit.ts
+    const studioFallbackTemplate = `Create a PHOTOREALISTIC image of a female fashion model, of Indigenous descent, wearing this clothing item in the image with a {fitDescription}.
+
+Setting: a modern studio setting with a seamless cyclorama with a subtle, even gradient as background
+
+Style: The model should look authentic and relatable, with a natural expression and subtle smile
+
+Technical details: Full-body shot. Superior clarity, well-exposed, and masterful composition.`;
+
+    // Use the database template if available; otherwise, use the fallback
+    const studioPromptToShow = studioPrompt && studioPrompt.trim() ? studioPrompt : studioFallbackTemplate;
 
     return { 
       success: true, 
       prompts: {
         engineer: engineerPrompt,
-        studio: studioPrompt
+        studio: studioPromptToShow
       },
       sources: {
         engineer: engineerSource,

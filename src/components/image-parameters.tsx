@@ -16,7 +16,7 @@ import { isBackgroundRemovalAvailable } from "@/ai/actions/remove-background.act
 import type { ModelAttributes } from "@/lib/types";
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
-import { useActivePreparationImage } from "@/contexts/ImagePreparationContext";
+import { useActivePreparationImage, useImagePreparation } from "@/contexts/ImagePreparationContext";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
@@ -39,10 +39,13 @@ const NUM_IMAGES_TO_GENERATE = 3;
 // SubmitButton component using useFormStatus for pending state
 function SubmitButton({ preparedImageUrl }: { preparedImageUrl: string | null }) {
   const { pending } = useFormStatus();
+  const { isAnyVersionProcessing } = useImagePreparation();
+  
+  const isDisabled = pending || !preparedImageUrl || isAnyVersionProcessing;
   
   return (
     <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-      <Button type="submit" disabled={pending || !preparedImageUrl} className="w-full text-lg h-14">
+      <Button type="submit" disabled={isDisabled} className="w-full text-lg h-14">
         <AnimatePresence mode="wait" initial={false}>
           {pending ? (
             <motion.span key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">

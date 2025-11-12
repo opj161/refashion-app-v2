@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Camera, Crop as CropIcon, Wand2, Sparkles, UserCheck, Clock } from "lucide-react";
+import { Camera, Crop as CropIcon, Wand2, Sparkles, UserCheck, Clock, Loader2 } from "lucide-react";
 import { useImagePreparation } from "@/contexts/ImagePreparationContext";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ interface ImageVersion {
   label: string;
   sourceVersionId: string;
   createdAt: number;
+  status?: 'processing' | 'complete';
 }
 
 interface ImageVersionStackProps {
@@ -81,6 +82,7 @@ export default function ImageVersionStack({
       <CardContent className="space-y-2">
         {sortedVersions.map((version, index) => {
           const isActive = version.id === activeVersionId;
+          const isProcessingOptimistic = version.status === 'processing';
           const sourceVersion = version.sourceVersionId ? versions[version.sourceVersionId] : null;
 
           return (
@@ -88,12 +90,16 @@ export default function ImageVersionStack({
               key={version.id}
               className={cn(
                 "flex items-center justify-between rounded-lg border p-3 transition-all",
-                isActive
-                  ? "border-primary bg-primary/10 ring-2 ring-primary/20"
-                  : "border-muted-foreground/20 bg-muted/30 hover:bg-muted/50",
-                isProcessing ? "opacity-50" : "cursor-pointer"
+                // Different style for an active, processing item
+                isActive && isProcessingOptimistic && "border-primary/50 bg-primary/5 ring-1 ring-primary/10",
+                // Style for a completed active item
+                isActive && !isProcessingOptimistic && "border-primary bg-primary/10 ring-2 ring-primary/20",
+                // Default styles
+                !isActive && "border-muted-foreground/20 bg-muted/30 hover:bg-muted/50",
+                // Disable pointer events on all processing versions
+                isProcessing || isProcessingOptimistic ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
               )}
-              onClick={() => !isProcessing && setActiveVersion(version.id)}
+              onClick={() => !(isProcessing || isProcessingOptimistic) && setActiveVersion(version.id)}
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <div
@@ -104,7 +110,11 @@ export default function ImageVersionStack({
                       : "bg-muted text-muted-foreground"
                   )}
                 >
-                  {getVersionIcon(version.label)}
+                  {isProcessingOptimistic ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    getVersionIcon(version.label)
+                  )}
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -112,7 +122,7 @@ export default function ImageVersionStack({
                     <span className={cn("truncate font-medium", isActive && "text-primary")}>
                       {version.label}
                     </span>
-                    {isActive && (
+                    {isActive && !isProcessingOptimistic && (
                       <Badge variant="secondary" className="text-xs">
                         Active
                       </Badge>

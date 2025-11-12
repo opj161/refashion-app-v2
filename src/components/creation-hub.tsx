@@ -1,7 +1,8 @@
 // src/components/creation-hub.tsx
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect, Suspense } from "react";
+import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { motion, AnimatePresence } from "motion/react";
@@ -14,12 +15,14 @@ import { useShallow } from 'zustand/react/shallow';
 import type { HistoryItem } from '@/lib/types';
 import { ImagePreparationProvider } from '@/contexts/ImagePreparationContext';
 
-export default function CreationHub({
+// Wrap the component content that uses useSearchParams
+function CreationHubContent({
   children
 }: {
   children: React.ReactElement;
 }) {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   
   // Manage currentTab as local state instead of global store
   const [currentTab, setCurrentTab] = useState<string>('image');
@@ -35,6 +38,30 @@ export default function CreationHub({
       setGenerationMode: state.setGenerationMode,
     }))
   );
+
+  // Effect to read query params on initial load
+  useEffect(() => {
+    const historyId = searchParams.get('init_history_id');
+    const imageUrl = searchParams.get('init_image_url');
+    const tab = searchParams.get('target_tab');
+
+    if (historyId) {
+      // We pass a "fake" history item with just the ID to the context
+      setInitHistoryItem({ id: historyId } as HistoryItem);
+      if (tab) setCurrentTab(tab);
+      // Clear the URL to avoid re-triggering on refresh
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', '/');
+      }
+    } else if (imageUrl) {
+      setInitImageUrl(imageUrl);
+      setCurrentTab('image');
+      setGenerationMode('creative');
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', '/');
+      }
+    }
+  }, [searchParams, setGenerationMode]);
 
   // Handler to load from history - will be passed to HistoryCard components
   const handleLoadFromHistory = useCallback((item: HistoryItem) => {
@@ -154,5 +181,14 @@ export default function CreationHub({
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// The main export now wraps the content in Suspense
+export default function CreationHub(props: { children: React.ReactElement }) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CreationHubContent {...props} />
+    </Suspense>
   );
 }
