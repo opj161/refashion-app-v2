@@ -1,7 +1,7 @@
 // src/components/history-gallery.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useOptimistic, startTransition } from "react";
+import React, { useState, useEffect, useCallback, useRef, useOptimistic, startTransition, lazy, Suspense } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -14,9 +14,11 @@ import { HistoryGallerySkeleton } from "./HistoryCardSkeleton"; // Import skelet
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { HistoryDetailModal } from './HistoryDetailModal'; // Import the new image modal
-import { VideoPlaybackModal } from './VideoPlaybackModal'; // Import the video modal
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
+
+// Lazy load modals for better initial page load performance
+const HistoryDetailModal = lazy(() => import('./HistoryDetailModal').then(m => ({ default: m.HistoryDetailModal })));
+const VideoPlaybackModal = lazy(() => import('./VideoPlaybackModal').then(m => ({ default: m.VideoPlaybackModal })));
 
 type FilterType = 'all' | 'image' | 'video';
 
@@ -285,19 +287,23 @@ export default function HistoryGallery({
           )}
           <AnimatePresence>
             {detailItem && itemIsVideo(detailItem) && (
-              <VideoPlaybackModal
-                item={detailItem}
-                onClose={() => setDetailItem(null)}
-              />
+              <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+                <VideoPlaybackModal
+                  item={detailItem}
+                  onClose={() => setDetailItem(null)}
+                />
+              </Suspense>
             )}
           </AnimatePresence>
           <AnimatePresence>
             {detailItem && !itemIsVideo(detailItem) && (
-              <HistoryDetailModal
-                isOpen={!!detailItem}
-                onClose={() => setDetailItem(null)}
-                item={detailItem}
-              />
+              <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+                <HistoryDetailModal
+                  isOpen={!!detailItem}
+                  onClose={() => setDetailItem(null)}
+                  item={detailItem}
+                />
+              </Suspense>
             )}
           </AnimatePresence>
         </>
