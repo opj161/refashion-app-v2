@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { type PixelCrop, type Crop } from 'react-image-crop';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useImagePreparation, useActivePreparationImage } from "@/contexts/ImagePreparationContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -102,10 +102,6 @@ export default function ImagePreparationContainer({
   };
 
   // Render logic remains similar, but is now driven by the global store state.
-  if (!activeImage) {
-    return <ImageUploader />;
-  }
-
   const hubContent = (
     <EditingHubSidebar
       preparationMode={preparationMode}
@@ -120,72 +116,104 @@ export default function ImagePreparationContainer({
     />
   );
 
+  // Define animation variants for the container switch
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.98 },
+    visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: 'easeOut' as const } },
+    exit: { opacity: 0, y: -20, scale: 0.98, transition: { duration: 0.2, ease: 'easeIn' as const } },
+  };
+
   return (
-    <motion.div layout transition={{ duration: 0.5, type: 'spring', bounce: 0.2 }} data-testid="image-preparation-container">
-      <Card variant="glass">
-        <CardHeader>
-            <div className="flex justify-between items-start gap-4">
+    <AnimatePresence mode="wait">
+      {!activeImage ? (
+        // --- UPLOADER STATE ---
+        <motion.div
+          key="uploader"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+        >
+          <ImageUploader />
+        </motion.div>
+      ) : (
+        // --- EDITOR STATE ---
+        <motion.div
+          key="editor"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          layout // Keep the layout prop for internal resizing animations
+          transition={{ duration: 0.5, type: 'spring', bounce: 0.2 }}
+          data-testid="image-preparation-container"
+        >
+          <Card variant="glass">
+            <CardHeader>
+              <div className="flex justify-between items-start gap-4">
                 <div>
-                    <CardTitle className="text-xl flex items-center gap-2">
-                        <UploadCloud className="h-6 w-6 text-primary" />
-                        Prepare Your Image
-                    </CardTitle>
-                    <CardDescription>
-                        Upload, crop, and process your clothing image before generation.
-                    </CardDescription>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <UploadCloud className="h-6 w-6 text-primary" />
+                    Prepare Your Image
+                  </CardTitle>
+                  <CardDescription>
+                    Crop, and process your clothing image before generation.
+                  </CardDescription>
                 </div>
                 <Button variant="destructive" size="sm" onClick={onReset} disabled={isAnyVersionProcessing}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Remove Image
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Remove Image
                 </Button>
-            </div>
-        </CardHeader>
-        <CardContent className="space-y-6 pt-6">
-          {isMobile === false ? ( // DESKTOP VIEW
-            <div className="grid grid-cols-1 lg:grid-cols-[2fr,1fr] gap-6">
-              <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg min-h-[70vh] shadow-lg shadow-black/10">
-                <ImageEditorCanvas
-                  key={activeImage.id}
-                  image={activeImage}
-                  crop={crop}
-                  aspect={aspect}
-                  onCropChange={handleCropChange} // *** BUG FIX ***: Use new handler
-                  onCropComplete={() => {}}
-                  onImageLoad={onImageLoad}
-                  disabled={isAnyVersionProcessing}
-                  ruleOfThirds={true}
-                />
               </div>
-              {hubContent}
-            </div>
-          ) : ( // MOBILE VIEW
-            <div className="flex flex-col gap-4">
-              <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg min-h-[60vh] shadow-lg shadow-black/10">
-                <ImageEditorCanvas
-                  key={activeImage.id}
-                  image={activeImage}
-                  crop={crop}
-                  aspect={aspect}
-                  onCropChange={handleCropChange} // *** BUG FIX ***: Use new handler
-                  onCropComplete={() => {}}
-                  onImageLoad={onImageLoad}
-                  disabled={isAnyVersionProcessing}
-                  ruleOfThirds={true}
-                />
-              </div>
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button className="w-full"><Brush className="mr-2 h-4 w-4" /> Edit & Manage Versions</Button>
-                </SheetTrigger>
-                <SheetContent side="bottom" className="h-[85vh] p-4 flex flex-col">
+            </CardHeader>
+            <CardContent className="space-y-6 pt-6">
+              {isMobile === false ? ( // DESKTOP VIEW
+                <div className="grid grid-cols-1 lg:grid-cols-[2fr,1fr] gap-6">
+                  <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg min-h-[70vh] shadow-lg shadow-black/10">
+                    <ImageEditorCanvas
+                      key={activeImage.id}
+                      image={activeImage}
+                      crop={crop}
+                      aspect={aspect}
+                      onCropChange={handleCropChange} // *** BUG FIX ***: Use new handler
+                      onCropComplete={() => {}}
+                      onImageLoad={onImageLoad}
+                      disabled={isAnyVersionProcessing}
+                      ruleOfThirds={true}
+                    />
+                  </div>
                   {hubContent}
-                </SheetContent>
-              </Sheet>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </motion.div>
+                </div>
+              ) : ( // MOBILE VIEW
+                <div className="flex flex-col gap-4">
+                  <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg min-h-[60vh] shadow-lg shadow-black/10">
+                    <ImageEditorCanvas
+                      key={activeImage.id}
+                      image={activeImage}
+                      crop={crop}
+                      aspect={aspect}
+                      onCropChange={handleCropChange} // *** BUG FIX ***: Use new handler
+                      onCropComplete={() => {}}
+                      onImageLoad={onImageLoad}
+                      disabled={isAnyVersionProcessing}
+                      ruleOfThirds={true}
+                    />
+                  </div>
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button className="w-full"><Brush className="mr-2 h-4 w-4" /> Edit & Manage Versions</Button>
+                    </SheetTrigger>
+                    <SheetContent side="bottom" className="h-[85vh] p-4 flex flex-col">
+                      {hubContent}
+                    </SheetContent>
+                  </Sheet>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

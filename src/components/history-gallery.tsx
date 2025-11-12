@@ -199,86 +199,103 @@ export default function HistoryGallery({
   // Helper to check if item is a video
   const itemIsVideo = (item: HistoryItem) => !!(item.videoGenerationParams || (item.generatedVideoUrls && item.generatedVideoUrls.some(url => !!url)));
 
+  // Define a simple fade variant for this component's transitions
+  const fadeVariant = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.3 } },
+    exit: { opacity: 0, transition: { duration: 0.2 } },
+  };
+
   return (
     <>
-      {historyItems.length === 0 && !isLoadingMore && (
-        <Card variant="glass" className="mt-8">
-          <CardContent className="py-16 flex flex-col items-center justify-center text-center">
-            <ImageIcon className="h-16 w-16 text-muted-foreground/50 mb-4" />
-            <h3 className="text-xl font-semibold">No History Found</h3>
-            <p className="text-muted-foreground mt-1">Creations for this filter will appear here once you&apos;ve made some.</p>
-          </CardContent>
-        </Card>
-      )}
+      <div className="relative min-h-[400px]">
+        <AnimatePresence mode="wait">
+          {/* STATE 1: Initial Loading Skeleton */}
+          {isLoadingMore && historyItems.length === 0 && (
+            <motion.div key="skeleton" variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
+              <HistoryGallerySkeleton count={9} />
+            </motion.div>
+          )}
 
-      <LayoutGroup>
-        <div className="relative">
-          {/* Loading overlay - doesn't unmount the grid */}
-          <AnimatePresence>
-            {isLoadingMore && historyItems.length === 0 && (
-              <motion.div
-                className="absolute inset-0 z-10"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                <HistoryGallerySkeleton count={9} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* STATE 2: Empty State Card */}
+          {!isLoadingMore && optimisticHistory.length === 0 && (
+            <motion.div key="empty" variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
+              <Card variant="glass" className="mt-8">
+                <CardContent className="py-16 flex flex-col items-center justify-center text-center">
+                  <ImageIcon className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                  <h3 className="text-xl font-semibold">No History Found</h3>
+                  <p className="text-muted-foreground mt-1">Creations for this filter will appear here.</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
-          {/* Grid is always rendered - preventing unmount/remount issues */}
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
-            layout
-            variants={COMMON_VARIANTS.staggeredListContainer}
-            initial="hidden"
-            animate="visible"
-          >
-            <AnimatePresence>
-              {optimisticHistory.map((item) => (
-                <motion.div 
-                  key={item.id} 
-                  variants={COMMON_VARIANTS.staggeredListItem}
-                  // initial and animate are inherited from parent
-                  exit="exit"
-                  layout
-                >
-                  <HistoryCard
-                    item={item}
-                    onViewDetails={handleViewDetails}
-                    onDeleteItem={handleDeleteRequest}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          {/* STATE 3: Content Grid */}
+          {optimisticHistory.length > 0 && (
+            <motion.div
+              key="content"
+              variants={fadeVariant}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <LayoutGroup>
+                <div className="relative">
+                  <motion.div
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
+                    layout
+                    variants={COMMON_VARIANTS.staggeredListContainer}
+                    initial="hidden"
+                    animate="visible"
+                  >
+                    <AnimatePresence>
+                      {optimisticHistory.map((item) => (
+                        <motion.div 
+                          key={item.id} 
+                          variants={COMMON_VARIANTS.staggeredListItem}
+                          exit="exit"
+                          layout
+                        >
+                          <HistoryCard
+                            item={item}
+                            onViewDetails={handleViewDetails}
+                            onDeleteItem={handleDeleteRequest}
+                          />
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </motion.div>
 
-          {/* Modals outside the grid but inside LayoutGroup */}
-          <AnimatePresence>
-            {detailItem && itemIsVideo(detailItem) && (
-              <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
-                <VideoPlaybackModal
-                  item={detailItem}
-                  onClose={() => setDetailItem(null)}
-                />
-              </Suspense>
-            )}
-          </AnimatePresence>
-          <AnimatePresence>
-            {detailItem && !itemIsVideo(detailItem) && (
-              <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
-                <HistoryDetailModal
-                  isOpen={!!detailItem}
-                  onClose={() => setDetailItem(null)}
-                  item={detailItem}
-                />
-              </Suspense>
-            )}
-          </AnimatePresence>
-        </div>
-      </LayoutGroup>
+                  {/* Modals are kept here to benefit from LayoutGroup */}
+                  <AnimatePresence>
+                    {detailItem && itemIsVideo(detailItem) && (
+                      <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+                        <VideoPlaybackModal
+                          item={detailItem}
+                          onClose={() => setDetailItem(null)}
+                        />
+                      </Suspense>
+                    )}
+                  </AnimatePresence>
+                  <AnimatePresence>
+                    {detailItem && !itemIsVideo(detailItem) && (
+                      <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+                        <HistoryDetailModal
+                          isOpen={!!detailItem}
+                          onClose={() => setDetailItem(null)}
+                          item={detailItem}
+                        />
+                      </Suspense>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </LayoutGroup>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
+      {/* "Load More" button and Delete Dialog remain outside the animation container */}
       {hasMore && (
         <div className="mt-8 text-center">
           <Button onClick={handleLoadMore} disabled={isLoadingMore}>
@@ -287,7 +304,6 @@ export default function HistoryGallery({
           </Button>
         </div>
       )}
-
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!itemToDelete} onOpenChange={(isOpen) => !isOpen && setItemToDelete(null)}>

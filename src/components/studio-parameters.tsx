@@ -11,6 +11,8 @@ import { useImagePreparation, useActivePreparationImage } from '@/contexts/Image
 import { useGenerationSettingsStore } from '@/stores/generationSettingsStore';
 import { Sparkles, Loader2, Info } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
+import { motion, AnimatePresence } from 'motion/react';
+import { COMMON_VARIANTS } from '@/lib/motion-constants';
 
 const NUM_IMAGES_TO_GENERATE = 3;
 
@@ -71,15 +73,25 @@ export default function StudioParameters({ isPending }: StudioParametersProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!isImageReady && (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>Image Required</AlertTitle>
-              <AlertDescription>
-                Please prepare an image in the section above before generating.
-              </AlertDescription>
-            </Alert>
-          )}
+          <AnimatePresence>
+            {!isImageReady && (
+              <motion.div
+                key="image-required-alert"
+                variants={COMMON_VARIANTS.slideDownAndFade}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Image Required</AlertTitle>
+                  <AlertDescription>
+                    Please prepare an image in the section above before generating.
+                  </AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className={!isImageReady || isPending ? 'opacity-50' : ''}>
             <div className="space-y-2">

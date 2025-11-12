@@ -28,6 +28,7 @@ import { usePromptManager } from "@/hooks/usePromptManager";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { calculateVideoCost, formatPrice, VideoModel, VideoResolution, VideoDuration } from "@/lib/pricing";
 import { motion, AnimatePresence } from 'motion/react';
+import { COMMON_VARIANTS } from '@/lib/motion-constants';
 
 
 // Type for video generation parameters
@@ -278,15 +279,25 @@ export default function VideoParameters() {
           <input type="hidden" name="aestheticVibe" value={videoSettings.aestheticVibe} />
           
         <CardContent className="space-y-6">
-          {!preparedImageUrl && (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>Start with an Image</AlertTitle>
-              <AlertDescription>
-                First, upload and prepare an image to bring it to life with video.
-              </AlertDescription>
-            </Alert>
-          )}
+          <AnimatePresence>
+            {!preparedImageUrl && (
+              <motion.div
+                key="image-required-alert"
+                variants={COMMON_VARIANTS.slideDownAndFade}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Start with an Image</AlertTitle>
+                  <AlertDescription>
+                    First, upload and prepare an image to bring it to life with video.
+                  </AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className={commonFormDisabled ? 'opacity-50 pointer-events-none' : ''}>
             <div>
