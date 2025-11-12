@@ -196,7 +196,7 @@ export default function HistoryCard({
     } finally {
       setIsLoadingAction(null);
     }
-  }, [item, onLoadFromImageUrl, setGenerationMode, setCurrentTab, router, toast]);
+  }, [item, onLoadFromImageUrl, setGenerationMode, router, toast]);
 
   const triggerDownload = (url: string, filename: string) => {
     const link = document.createElement('a');

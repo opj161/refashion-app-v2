@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { LogIn } from 'lucide-react';
-import { loginUser } from '@/actions/authActions';
+import { loginUser, type LoginFormState } from '@/actions/authActions';
 
 // SubmitButton component using useFormStatus for pending state
 function SubmitButton() {
@@ -21,7 +21,8 @@ function SubmitButton() {
 
 export default function LoginPage() {
   // useActionState manages the error state based on the action's return value
-  const [error, formAction] = useActionState(loginUser, null);
+  const initialState: LoginFormState = { error: null };
+  const [state, formAction] = useActionState(loginUser, initialState);
 
   return (
     <div className="flex justify-center items-center min-h-[calc(100vh-var(--content-offset,80px))] p-4 bg-gradient-to-br from-background-accent to-background">
@@ -43,7 +44,7 @@ export default function LoginPage() {
               <Label htmlFor="password">Password</Label>
               <Input id="password" name="password" type="password" required />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           </CardContent>
           <CardFooter>
             <SubmitButton />
