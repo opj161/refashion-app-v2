@@ -32,7 +32,7 @@ interface ProcessingToolRowProps {
 
 const ProcessingToolRow = ({
   icon: Icon, label, onApply, isApplied, isProcessing, isDisabled
-}: ProcessingToolRowProps): JSX.Element => (
+}: ProcessingToolRowProps) => (
   <div 
     className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 transition-colors"
     style={{ gap: spacing[2] }}
