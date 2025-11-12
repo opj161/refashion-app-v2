@@ -15,6 +15,7 @@ import { useShallow } from 'zustand/react/shallow';
 import type { HistoryItem } from '@/lib/types';
 import { ImagePreparationProvider } from '@/contexts/ImagePreparationContext';
 import { Sparkles, Camera, Grid3x3, Image, Video } from 'lucide-react';
+import { COMMON_VARIANTS } from "@/lib/motion-constants";
 
 // Wrap the component content that uses useSearchParams
 function CreationHubContent({
@@ -129,10 +130,10 @@ function CreationHubContent({
               {currentTab === 'image' && (
                 <motion.div 
                   key="mode-selector"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  variants={COMMON_VARIANTS.slideDownAndFade}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
                   className="absolute inset-0 flex items-center justify-center"
                 >
                   <SegmentedControl
@@ -153,10 +154,10 @@ function CreationHubContent({
               {currentTab === 'history' && (
                 <motion.div 
                   key="history-filter"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  variants={COMMON_VARIANTS.slideDownAndFade}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
                   className="absolute inset-0 flex items-center justify-center"
                 >
                   <SegmentedControl
