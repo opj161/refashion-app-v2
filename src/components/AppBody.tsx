@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { LazyMotion, domAnimation } from 'motion/react';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -26,7 +27,7 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
   }, []);
 
   return (
-    <>
+    <LazyMotion features={domAnimation}>
       <div className="aurora-bg"></div>
       {/* Splash screen overlay: controlled by client-side hydration state */}
       <div className={cn("splash-screen", isHydrated && "hidden")}> 
@@ -45,6 +46,6 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
           </ErrorBoundary>
         </ThemeProvider>
       </AuthProvider>
-    </>
+    </LazyMotion>
   );
 }

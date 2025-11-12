@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
+import { COMMON_VARIANTS } from "@/lib/motion-constants";
 
 // Lazy load modals for better initial page load performance
 const HistoryDetailModal = lazy(() => import('./HistoryDetailModal').then(m => ({ default: m.HistoryDetailModal })));
@@ -80,40 +81,6 @@ export default function HistoryGallery({
       refreshHistory();
     }
   }, [generationCount, router, refreshHistory]);
-
-  // Animation variants for the gallery with enhanced stagger
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.08,
-        delayChildren: 0.1,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0, scale: 0.95 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      scale: 1,
-      transition: {
-        type: 'spring' as const,
-        stiffness: 260,
-        damping: 20,
-        mass: 0.8,
-      },
-    },
-    exit: { 
-      y: -20, 
-      opacity: 0, 
-      scale: 0.95,
-      transition: { duration: 0.2, ease: 'easeOut' as const },
-    },
-  };
-
 
   const isInitialRender = useRef(true);
 
@@ -264,14 +231,16 @@ export default function HistoryGallery({
           <motion.div
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
             layout
+            variants={COMMON_VARIANTS.staggeredListContainer}
+            initial="hidden"
+            animate="visible"
           >
             <AnimatePresence>
               {optimisticHistory.map((item) => (
                 <motion.div 
                   key={item.id} 
-                  variants={itemVariants}
-                  initial="hidden"
-                  animate="visible"
+                  variants={COMMON_VARIANTS.staggeredListItem}
+                  // initial and animate are inherited from parent
                   exit="exit"
                   layout
                 >
