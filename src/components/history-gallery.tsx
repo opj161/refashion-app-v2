@@ -1,10 +1,9 @@
 // src/components/history-gallery.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useOptimistic, startTransition } from "react";
+import React, { useState, useEffect, useCallback, useRef, useOptimistic, startTransition, lazy, Suspense } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { getHistoryPaginated, deleteHistoryItem } from "@/actions/historyActions";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -14,9 +13,11 @@ import { HistoryGallerySkeleton } from "./HistoryCardSkeleton"; // Import skelet
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { HistoryDetailModal } from './HistoryDetailModal'; // Import the new image modal
-import { VideoPlaybackModal } from './VideoPlaybackModal'; // Import the video modal
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
+
+// Lazy load modals for better initial page load performance
+const HistoryDetailModal = lazy(() => import('./HistoryDetailModal').then(m => ({ default: m.HistoryDetailModal })));
+const VideoPlaybackModal = lazy(() => import('./VideoPlaybackModal').then(m => ({ default: m.VideoPlaybackModal })));
 
 type FilterType = 'all' | 'image' | 'video';
 
@@ -28,13 +29,16 @@ interface PaginatedResult {
 }
 
 export default function HistoryGallery({
-  initialHistory
+  initialHistory,
 }: {
   initialHistory: PaginatedResult;
 }) {
   const { toast } = useToast();
   const router = useRouter();
-  const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
+  
+  // Read history filter directly from Zustand store
+  const historyFilter = useGenerationSettingsStore(state => state.historyFilter);
+  
   const [detailItem, setDetailItem] = useState<HistoryItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<HistoryItem | null>(null);
 
@@ -58,14 +62,14 @@ export default function HistoryGallery({
   // Function to refresh the history (can be called internally)
   const refreshHistory = useCallback(async () => {
     try {
-      const result = await getHistoryPaginated(1, 9, currentFilter);
+      const result = await getHistoryPaginated(1, 9, historyFilter);
       setHistoryItems(result.items);
       setCurrentPage(result.currentPage + 1);
       setHasMore(result.hasMore);
     } catch (err) {
       console.error('Failed to refresh history:', err);
     }
-  }, [currentFilter]);
+  }, [historyFilter]);
 
   // Listen for generation count changes and refresh history
   useEffect(() => {
@@ -113,12 +117,12 @@ export default function HistoryGallery({
 
   const isInitialRender = useRef(true);
 
-  // Data fetching is now handled by this function, called on filter change or load more.
+  // Data fetching is now handled by this function, called on filter change
   useEffect(() => {
     const loadFilteredHistory = async () => {
-      setIsLoadingMore(true); // Use loadingMore state for subsequent loads
+      setIsLoadingMore(true);
       try {
-        const result = await getHistoryPaginated(1, 9, currentFilter);
+        const result = await getHistoryPaginated(1, 9, historyFilter);
         setHistoryItems(result.items);
         setCurrentPage(result.currentPage + 1);
         setHasMore(result.hasMore);
@@ -132,20 +136,23 @@ export default function HistoryGallery({
         setIsLoadingMore(false);
       }
     };
-    // Don't run on initial render, only when filter changes
+    
+    // Skip on initial render (we already have initialHistory prop)
+    // But run whenever historyFilter changes after that
     if (isInitialRender.current) {
       isInitialRender.current = false;
-    } else {
-      loadFilteredHistory();
+      return;
     }
-  }, [currentFilter, toast]);
+    
+    loadFilteredHistory();
+  }, [historyFilter, toast]);
 
   const handleLoadMore = useCallback(async () => {
     if (!hasMore || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
       // Use a server action for pagination
-      const result = await getHistoryPaginated(currentPage, 9, currentFilter);
+      const result = await getHistoryPaginated(currentPage, 9, historyFilter);
       setHistoryItems(prevItems => [...prevItems, ...result.items]);
       setCurrentPage(prev => prev + 1);
       setHasMore(result.hasMore);
@@ -158,16 +165,14 @@ export default function HistoryGallery({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [hasMore, isLoadingMore, currentPage, currentFilter, toast]);
+  }, [hasMore, isLoadingMore, currentPage, historyFilter, toast]);
 
 
+  // handleFilterChange is no longer needed - filtering is controlled by the store
+  // This function is now dead code and can be removed
   const handleFilterChange = (newFilter: string | null) => {
-    // ToggleGroup can return null/empty string if deselected. Default to 'all'.
-    if (newFilter) {
-      setCurrentFilter(newFilter as FilterType);
-    } else {
-      setCurrentFilter('all');
-    }
+    // This was used when the filter UI was in this component
+    // Now the SegmentedControl in creation-hub.tsx writes directly to the store
   };
 
   const handleViewDetails = (item: HistoryItem) => {
@@ -229,22 +234,6 @@ export default function HistoryGallery({
 
   return (
     <>
-      {/* --- REPLACEMENT FOR TABS --- */}
-      <div className="flex justify-start mb-6">
-        <ToggleGroup
-          type="single"
-          defaultValue="all"
-          value={currentFilter}
-          onValueChange={handleFilterChange}
-          className="bg-muted/30 p-1 rounded-lg"
-          aria-label="Filter history items"
-        >
-          <ToggleGroupItem value="all" aria-label="Show all items">All</ToggleGroupItem>
-          <ToggleGroupItem value="image" aria-label="Show only images">Images</ToggleGroupItem>
-          <ToggleGroupItem value="video" aria-label="Show only videos">Videos</ToggleGroupItem>
-        </ToggleGroup>
-      </div>
-
       {historyItems.length === 0 && !isLoadingMore && (
         <Card variant="glass" className="mt-8">
           <CardContent className="py-16 flex flex-col items-center justify-center text-center">
@@ -255,52 +244,70 @@ export default function HistoryGallery({
         </Card>
       )}
 
-      {/* Show skeleton loaders while loading */}
-      {isLoadingMore && historyItems.length === 0 && (
-        <HistoryGallerySkeleton count={9} />
-      )}
-
       <LayoutGroup>
-        <>
-          {historyItems.length > 0 && (
-            <motion.div
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-              layout
-            >
-              <AnimatePresence>
-                {optimisticHistory.map((item) => (
-                  <motion.div key={item.id} variants={itemVariants} layout>
-                    <HistoryCard
-                      item={item}
-                      onViewDetails={handleViewDetails}
-                      onDeleteItem={handleDeleteRequest}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </motion.div>
-          )}
+        <div className="relative">
+          {/* Loading overlay - doesn't unmount the grid */}
+          <AnimatePresence>
+            {isLoadingMore && historyItems.length === 0 && (
+              <motion.div
+                className="absolute inset-0 z-10"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <HistoryGallerySkeleton count={9} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Grid is always rendered - preventing unmount/remount issues */}
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
+            layout
+          >
+            <AnimatePresence>
+              {optimisticHistory.map((item) => (
+                <motion.div 
+                  key={item.id} 
+                  variants={itemVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  layout
+                >
+                  <HistoryCard
+                    item={item}
+                    onViewDetails={handleViewDetails}
+                    onDeleteItem={handleDeleteRequest}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* Modals outside the grid but inside LayoutGroup */}
           <AnimatePresence>
             {detailItem && itemIsVideo(detailItem) && (
-              <VideoPlaybackModal
-                item={detailItem}
-                onClose={() => setDetailItem(null)}
-              />
+              <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+                <VideoPlaybackModal
+                  item={detailItem}
+                  onClose={() => setDetailItem(null)}
+                />
+              </Suspense>
             )}
           </AnimatePresence>
           <AnimatePresence>
             {detailItem && !itemIsVideo(detailItem) && (
-              <HistoryDetailModal
-                isOpen={!!detailItem}
-                onClose={() => setDetailItem(null)}
-                item={detailItem}
-              />
+              <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+                <HistoryDetailModal
+                  isOpen={!!detailItem}
+                  onClose={() => setDetailItem(null)}
+                  item={detailItem}
+                />
+              </Suspense>
             )}
           </AnimatePresence>
-        </>
+        </div>
       </LayoutGroup>
 
       {hasMore && (

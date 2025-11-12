@@ -37,7 +37,8 @@ interface ImageGenerationParams extends ModelAttributes {
 const NUM_IMAGES_TO_GENERATE = 3;
 
 // SubmitButton component using useFormStatus for pending state
-function SubmitButton({ preparedImageUrl }: { preparedImageUrl: string | null }) {
+// Memoized to prevent unnecessary re-renders when parent state changes
+const SubmitButton = React.memo(function SubmitButton({ preparedImageUrl }: { preparedImageUrl: string | null }) {
   const { pending } = useFormStatus();
   const { isAnyVersionProcessing } = useImagePreparation();
   
@@ -60,7 +61,7 @@ function SubmitButton({ preparedImageUrl }: { preparedImageUrl: string | null })
       </Button>
     </motion.div>
   );
-}
+});
 
 interface ImageParametersProps {
   isPending: boolean;
