@@ -36,6 +36,9 @@ export interface GenerationSettingsState {
   // Generation counter for triggering history refresh
   generationCount: number;
   
+  // History filter state
+  historyFilter: 'all' | 'image' | 'video';
+  
   // Image preparation options (for non-destructive pipeline)
   backgroundRemovalEnabled: boolean;
   upscaleEnabled: boolean;
@@ -57,6 +60,9 @@ export interface GenerationSettingsActions {
   
   // Update studio fit
   setStudioFit: (fit: 'slim' | 'regular' | 'relaxed') => void;
+  
+  // Update history filter
+  setHistoryFilter: (filter: 'all' | 'image' | 'video') => void;
   
   // Increment generation counter to trigger history refresh
   incrementGenerationCount: () => void;
@@ -117,6 +123,7 @@ const initialState: GenerationSettingsState = {
   generationMode: 'studio',
   studioFit: 'regular',
   generationCount: 0,
+  historyFilter: 'all',
   backgroundRemovalEnabled: false,
   upscaleEnabled: false,
   faceDetailEnabled: false,
@@ -146,6 +153,9 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
       
       setStudioFit: (fit) =>
         set({ studioFit: fit }, false, 'setStudioFit'),
+      
+      setHistoryFilter: (filter) =>
+        set({ historyFilter: filter }, false, 'setHistoryFilter'),
       
       incrementGenerationCount: () =>
         set((state) => ({ generationCount: state.generationCount + 1 }), false, 'incrementGenerationCount'),

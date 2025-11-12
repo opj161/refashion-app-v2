@@ -14,7 +14,7 @@ import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { useShallow } from 'zustand/react/shallow';
 import type { HistoryItem } from '@/lib/types';
 import { ImagePreparationProvider } from '@/contexts/ImagePreparationContext';
-import { Sparkles, Camera } from 'lucide-react';
+import { Sparkles, Camera, Grid3x3, Image, Video } from 'lucide-react';
 
 // Wrap the component content that uses useSearchParams
 function CreationHubContent({
@@ -32,11 +32,13 @@ function CreationHubContent({
   const [initHistoryItem, setInitHistoryItem] = useState<HistoryItem | null>(null);
   const [initImageUrl, setInitImageUrl] = useState<string | null>(null);
 
-  // Get generationMode state and action from the store
-  const { generationMode, setGenerationMode } = useGenerationSettingsStore(
+  // Get generationMode and historyFilter state and actions from the store
+  const { generationMode, setGenerationMode, historyFilter, setHistoryFilter } = useGenerationSettingsStore(
     useShallow((state) => ({
       generationMode: state.generationMode,
       setGenerationMode: state.setGenerationMode,
+      historyFilter: state.historyFilter,
+      setHistoryFilter: state.setHistoryFilter,
     }))
   );
 
@@ -113,7 +115,7 @@ function CreationHubContent({
     <div className="space-y-8">
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
         {/* === START: INTEGRATED LAYOUT === */}
-        <div className="bg-muted/30 p-1 rounded-lg flex flex-col items-center gap-2">
+        <div className="bg-muted/30 p-1 rounded-lg flex flex-col items-center">
           {/* Main Tabs */}
           <TabsList className="grid w-full grid-cols-3 bg-transparent p-0">
             <TabsTrigger value="image">🖼️ Image</TabsTrigger>
@@ -121,37 +123,63 @@ function CreationHubContent({
             <TabsTrigger value="history">📃 History</TabsTrigger>
           </TabsList>
 
-          {/* Mode Switcher - Conditionally rendered with animation */}
-          <AnimatePresence>
-            {currentTab === 'image' && (
-              <motion.div 
-                key="mode-selector"
-                initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                animate={{ opacity: 1, height: 'auto', marginTop: '0.5rem' }}
-                exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="overflow-hidden"
-              >
-                <SegmentedControl
-                  value={generationMode}
-                  onValueChange={(mode) => {
-                    if (mode) setGenerationMode(mode as 'creative' | 'studio');
-                  }}
+          {/* Mode Switcher Container - Fixed height to prevent layout shift */}
+          <div className="relative w-full h-[2.5rem] mt-2">
+            <AnimatePresence mode="wait">
+              {currentTab === 'image' && (
+                <motion.div 
+                  key="mode-selector"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="absolute inset-0 flex items-center justify-center"
                 >
-                  <SegmentedControlItem value="studio">
-                    <Camera className="h-4 w-4" /> Studio Mode
-                  </SegmentedControlItem>
-                  <SegmentedControlItem value="creative">
-                    <Sparkles className="h-4 w-4" /> Creative Mode
-                  </SegmentedControlItem>
-                </SegmentedControl>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  <SegmentedControl
+                    value={generationMode}
+                    onValueChange={(mode) => {
+                      if (mode) setGenerationMode(mode as 'creative' | 'studio');
+                    }}
+                  >
+                    <SegmentedControlItem value="studio">
+                      <Camera className="h-4 w-4" /> Studio Mode
+                    </SegmentedControlItem>
+                    <SegmentedControlItem value="creative">
+                      <Sparkles className="h-4 w-4" /> Creative Mode
+                    </SegmentedControlItem>
+                  </SegmentedControl>
+                </motion.div>
+              )}
+              {currentTab === 'history' && (
+                <motion.div 
+                  key="history-filter"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="absolute inset-0 flex items-center justify-center"
+                >
+                  <SegmentedControl
+                    value={historyFilter}
+                    onValueChange={(value) => setHistoryFilter((value || 'all') as 'all' | 'image' | 'video')}
+                    aria-label="Filter history items"
+                  >
+                    <SegmentedControlItem value="all">
+                      <Grid3x3 className="h-4 w-4" /> All
+                    </SegmentedControlItem>
+                    <SegmentedControlItem value="image">
+                      <Image className="h-4 w-4" /> Images
+                    </SegmentedControlItem>
+                    <SegmentedControlItem value="video">
+                      <Video className="h-4 w-4" /> Videos
+                    </SegmentedControlItem>
+                  </SegmentedControl>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
-        {/* === END: INTEGRATED LAYOUT === */}
-
-        <TabsContent value="image" className="space-y-6 mt-5" forceMount>
+        {/* === END: INTEGRATED LAYOUT === */}        <TabsContent value="image" className="space-y-6 mt-5" forceMount>
           <ImagePreparationProvider
             initialHistoryItem={currentTab === 'image' ? initHistoryItem : null}
             initialImageUrl={currentTab === 'image' ? initImageUrl : null}
