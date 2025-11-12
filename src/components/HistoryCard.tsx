@@ -133,23 +133,21 @@ export default function HistoryCard({
   const handleReload = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    if (!onLoadFromHistory) {
-      toast({ title: "Error", description: "Cannot load from history", variant: "destructive" });
-      return;
-    }
-    
     setIsLoadingAction('reload');
     try {
-      // 1. Initialize image from history
-      onLoadFromHistory(item);
+      // Navigate to the main page with a query param
+      const targetTab = item.videoGenerationParams ? 'video' : 'image';
+      router.push(`/?init_history_id=${item.id}&target_tab=${targetTab}`);
       
-      // 2. Load generation settings into Zustand store
-      loadFromHistory(item);
-      
-      toast({
-        title: "Configuration Loaded",
-        description: "Image and settings restored from history.",
-      });
+      // If onLoadFromHistory is available (on main page), use it for immediate feedback
+      if (onLoadFromHistory) {
+        onLoadFromHistory(item);
+        loadFromHistory(item);
+        toast({
+          title: "Configuration Loaded",
+          description: "Image and settings restored from history.",
+        });
+      }
     } catch (error) {
       console.error('Failed to reload config:', error);
       toast({
@@ -160,7 +158,7 @@ export default function HistoryCard({
     } finally {
       setIsLoadingAction(null);
     }
-  }, [onLoadFromHistory, loadFromHistory, item, toast]);
+  }, [item, router, onLoadFromHistory, loadFromHistory, toast]);
 
   const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -182,21 +180,16 @@ export default function HistoryCard({
       return;
     }
 
-    if (!onLoadFromImageUrl || !setCurrentTab) {
-      toast({ title: "Error", description: "Cannot load image", variant: "destructive" });
-      return;
-    }
-
     setIsLoadingAction('send');
     try {
-      // 1. Load the generated image into the preparation workflow
-      onLoadFromImageUrl(imageUrlToSend);
+      // Navigate with a different query param
+      router.push(`/?init_image_url=${encodeURIComponent(imageUrlToSend)}`);
       
-      // 2. Switch the UI state to Creative Mode
-      setGenerationMode('creative');
-
-      // 3. Navigate to the main page to ensure CreationHub is visible
-      router.push('/');
+      // If onLoadFromImageUrl is available (on main page), use it for immediate feedback
+      if (onLoadFromImageUrl) {
+        onLoadFromImageUrl(imageUrlToSend);
+        setGenerationMode('creative');
+      }
     } catch (error) {
       console.error("Failed to send image to Creative Studio:", error);
       toast({ title: "Error", description: "Failed to load image", variant: "destructive" });
