@@ -535,59 +535,6 @@ export const updateHistoryItem = (id: string, updates: Partial<HistoryItem>): vo
   updateTransaction();
 };
 
-/**
- * @deprecated Use the new atomic `updateHistoryItem` function instead. This function is not safe from race conditions.
- */
-export function _dangerouslyUpdateHistoryItem(
-  id: string,
-  updates: Partial<Pick<HistoryItem, 'editedImageUrls' | 'originalImageUrls' | 'constructedPrompt' | 'generatedVideoUrls' | 'videoGenerationParams'>>
-): void {
-  // NOTE: updateHistoryItem is subject to race conditions if called concurrently for the same id.
-  // For robust webhook handling, consider using an atomic SQL UPDATE with JSON patch/merge logic.
-  const db = getDb();
-  const statements = getPreparedStatements();
-  
-  const updateTransaction = db.transaction(() => {
-    // Update main record
-    statements.updateHistory?.run(
-      updates.constructedPrompt || null,
-      updates.videoGenerationParams ? JSON.stringify(updates.videoGenerationParams) : null,
-      id
-    );
-    
-    // If updating images/videos, delete existing and re-insert
-    if (updates.editedImageUrls || updates.originalImageUrls || updates.generatedVideoUrls) {
-      statements.deleteImagesByHistoryId?.run(id);
-      
-      if (updates.editedImageUrls) {
-        updates.editedImageUrls.forEach((url, index) => {
-          if (url) {
-            statements.insertImage?.run(id, url, 'edited', index);
-          }
-        });
-      }
-      
-      if (updates.originalImageUrls) {
-        updates.originalImageUrls.forEach((url, index) => {
-          if (url) {
-            statements.insertImage?.run(id, url, 'original_for_comparison', index);
-          }
-        });
-      }
-      
-      if (updates.generatedVideoUrls) {
-        updates.generatedVideoUrls.forEach((url, index) => {
-          if (url) {
-            statements.insertImage?.run(id, url, 'generated_video', index);
-          }
-        });
-      }
-    }
-  });
-  
-  updateTransaction();
-}
-
 export const findHistoryByUsername = cache((username: string): HistoryItem[] => {
   const statements = getPreparedStatements();
   const rows = statements.findHistoryByUsername?.all(username) as any[];
