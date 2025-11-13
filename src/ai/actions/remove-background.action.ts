@@ -15,6 +15,7 @@ import { getCachedImage, setCachedImage } from './cache-manager';
 import { getCurrentUser } from '@/actions/authActions';
 import mime from 'mime-types';
 import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
+import { createApiLogger } from '@/lib/api-logger';
 
 /**
  * Remove background from a user-uploaded image
@@ -35,29 +36,42 @@ export async function removeBackgroundAction(
     throw new Error('Authentication required for background removal.');
   }
 
+  const logger = createApiLogger('FAL_IMAGE', 'Background Removal', {
+    username: user.username,
+    endpoint: 'fal-ai/rembg',
+  });
+
   // Check cache first if hash is provided
   if (imageHash) {
     const cachedEntry = await getCachedImage(imageHash, 'bgRemoved');
     if (cachedEntry) {
-      console.log(`[Cache] HIT: Found background-removed image for hash ${imageHash} at path ${cachedEntry.path}`);
+      logger.warning('Using cached result', {
+        hash: imageHash,
+        path: cachedEntry.path,
+      });
       return { savedPath: cachedEntry.path, outputHash: cachedEntry.hash };
     }
-    console.log(`[Cache] MISS: No cached background-removed image for hash ${imageHash}`);
   }
   
-  try {
-    console.log('Starting background removal process with Fal.ai...');
+  logger.start({
+    imageUrl: imageUrl.substring(0, 100),
+    hasCache: !!imageHash,
+  });
 
+  try {
+    logger.progress('Reading local file and converting to data URI');
+    
     // Read the local file and convert it to a data URI
-    // This ensures Fal.ai receives the image data directly, avoiding localhost access issues.
     const buffer = await getBufferFromLocalPath(imageUrl);
     const mimeType = mime.lookup(imageUrl) || 'image/png';
     const imageDataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
+    logger.progress('Calling Fal.ai API');
+    
     // Remove background using Fal.ai service
     const outputImageUrl = await falImageService.removeBackground(imageDataUri, user.username);
     
-    console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
+    logger.progress('Saving processed image locally');
 
     // Save the processed image locally using the storage service
     const { relativeUrl, hash: outputHash } = await saveFileFromUrl(
@@ -70,14 +84,18 @@ export async function removeBackgroundAction(
     // Cache the result if hash is provided
     if (imageHash) {
       await setCachedImage(imageHash, 'bgRemoved', relativeUrl, outputHash);
-      console.log(`[Cache] SET: Stored background-removed image for hash ${imageHash}`);
+      logger.progress('Result cached');
     }
     
-    console.log('Background removal completed successfully using Fal.ai.');
+    logger.success({
+      savedPath: relativeUrl,
+      outputHash,
+    });
+    
     return { savedPath: relativeUrl, outputHash };
     
   } catch (error) {
-    console.error('Error in background removal action (Fal.ai):', error);
+    logger.error(error);
     throw new Error(`Background removal with Fal.ai failed: ${(error as Error).message}`);
   }
 }

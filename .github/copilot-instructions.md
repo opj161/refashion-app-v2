@@ -1,184 +1,244 @@
 # Refashion AI - Copilot Instructions
 
 ## Project Overview
-Next.js 15 AI-powered fashion image/video generation platform using Google Gemini 2.0 for image editing and Fal.ai for video generation. Users upload clothing images, specify model attributes, and generate photorealistic fashion photography.
+Next.js 15 AI-powered fashion image/video generation platform. Users upload clothing images, customize model attributes through a multi-parameter UI, and generate photorealistic fashion photography using Google Gemini 2.0 Flash or Fal.ai's Gemini 2.5 model. Videos generated via Fal.ai with webhook-based async processing.
 
-## Architecture Patterns
+## Core Architecture
 
-### State Management Philosophy
-- **Context for workflows**: `ImagePreparationContext` manages the multi-step image preparation pipeline (upload → crop → background removal → upscale → face detail). All processing state and version history lives here.
-- **Zustand for global state**: `useImageStore` (formerly more complex) now dramatically simplified - only for truly cross-component global functionality.
-- **Server Actions for mutations**: ALL data mutations go through server actions in `src/actions/`. Client components call these directly (no API routes for internal operations).
+### Data Flow: Server Actions → Services Pattern
+**ALL mutations** go through server actions—no direct database/API calls from components:
+```typescript
+// Client Component
+import { generateImageEdit } from '@/actions/imageActions';
+const result = await generateImageEdit(params); // ❌ Never fetch('/api/...') for internal ops
 
-### Data Flow Architecture
-1. **Client → Server Actions**: React Server Actions (`'use server'`) in `src/actions/{imageActions,historyActions,authActions,apiActions,adminActions,themeActions}.ts`
-2. **Server Actions → Services**: Actions call `src/services/{database,storage,apiKey,encryption,systemPrompt,webhook}.service.ts`
-3. **AI Workflows**: `src/ai/flows/generate-image-edit.ts` orchestrates multi-key Gemini API calls with retry logic
-4. **External API Routes**: `src/app/api/v1/` for programmatic access with API key authentication
+// Server Action (src/actions/*.ts)
+'use server';
+export async function generateImageEdit() {
+  const user = await getCurrentUser(); // Session check
+  const result = await generateImageEditFlow(params); // Call service/flow
+  return result;
+}
+```
+File structure: `src/actions/{imageActions,historyActions,authActions,apiActions,adminActions,themeActions}.ts` → `src/services/*.service.ts` → `src/ai/flows/*.ts`
 
-### Database & Storage
-- **SQLite with better-sqlite3**: Single `user_data/history/history.db` file for users, history, settings, API keys
-- **React cache() for reads**: Database read operations use React's `cache()` for request-level memoization (see `database.service.ts` lines 383+)
-- **File storage**: `uploads/` with subfolders: `user_uploaded_clothing/`, `generated_images/`, `generated_videos/`, `processed_images/`
-- **Image serving**: Local images proxied through `/api/images/*` route (see `getDisplayableImageUrl()` in `utils.ts`)
+### State Management: Context for Workflows, Zustand for Global
+- **`ImagePreparationContext`** (src/contexts/): Manages ENTIRE image preparation pipeline state:
+  - Multi-step workflow: upload → crop → background removal → upscale → face detail
+  - Version history with undo/redo (array-based with `historyIndex`)
+  - Hash-based deduplication prevents duplicate processing
+  - Each step creates new `ImageVersion` record in state
+- **`generationSettingsStore`** (Zustand): Cross-component generation parameters (image/video settings, generation mode: creative/studio, history filter)
+- Anti-pattern: Don't duplicate workflow state—use context's `useActivePreparationImage()` derived hook
 
-### Authentication System
-- **iron-session**: Encrypted session cookies with 7-day TTL
-- **bcrypt**: Password hashing (migrated from env-based config)
-- **Dual auth modes**: 
-  - Web UI: Session-based via `src/lib/session.ts`
-  - API v1: Bearer token via `src/lib/api-auth.ts` and `apiKey.service.ts`
+### Database: SQLite with React cache()
+- Single `user_data/history/history.db` file (better-sqlite3 synchronous API)
+- **Critical**: All read functions wrapped with React's `cache()` for request-level memoization (see `database.service.ts` line 383+)
+- Schema migrations via `PRAGMA user_version` in `runMigrations()` function
+- Example: `findUserByUsername()`, `findHistoryItemById()`, `getHistoryForUser()` all use `cache()`
+
+### File Storage & Image Serving
+Local files NEVER served directly—always proxied:
+```typescript
+// ❌ WRONG: <img src="/uploads/generated_images/image.png" />
+// ✅ CORRECT: Use helper function
+import { getDisplayableImageUrl } from '@/lib/utils';
+const displayUrl = getDisplayableImageUrl('/uploads/generated_images/image.png');
+// Returns: '/api/images/generated_images/image.png' (proxied route)
+```
+Folders: `uploads/{user_uploaded_clothing,generated_images,generated_videos,processed_images}/`
+
+## Authentication & API Access
+
+### Dual Authentication System
+1. **Web UI**: iron-session with encrypted cookies (7-day TTL)
+   - `getCurrentUser()` in server actions/components checks session
+   - Cookie options: `secure` only if `FORCE_HTTPS=true` or HTTPS URL detected
+2. **Programmatic API** (`/api/v1/*`): Bearer token authentication
+   - `Authorization: Bearer <encrypted_user_api_key>` header
+   - Keys managed in `apiKey.service.ts` with encryption
+   - User-specific OR global fallback key support
+
+### API Key Rotation System
+Multi-key system for rate limit management (`apiKey.service.ts`):
+```typescript
+// 3 Gemini keys rotate per user (env: GEMINI_API_KEY_1/2/3)
+const geminiKey = await getApiKeyForUser(username, 'gemini', 1); // index: 1-3
+// 1 Fal key (env: FAL_KEY)
+const falKey = await getApiKeyForUser(username, 'fal');
+```
+Admin UI at `/admin` allows per-user key overrides with encryption.
 
 ## Critical Development Workflows
 
-### Running the Application
+### Running & Building
 ```bash
-npm run dev              # Development mode with Turbopack on port 9002
-npm run build           # Production build (creates standalone output)
-npm start               # Production server
+npm run dev              # Turbopack dev server on port 9002
+npm run build            # Next.js build + compile migration scripts (tsconfig.scripts.json)
+npm start                # Production server (standalone mode)
 
-# Docker deployment
-docker compose up --build  # Uses Dockerfile with multi-stage build
-# Production uses PM2 via ecosystem.config.js pointing to .next/standalone
+# Docker (production deployment)
+docker compose up --build  # Multi-stage build with node:24-alpine
+# Uses PM2 via ecosystem.config.js → .next/standalone/server.js
+# Volumes: ./uploads, ./user_data (MUST set PUID/PGID for permissions)
 ```
 
 ### Testing
 ```bash
-npm test                # Run Jest tests
+npm test                # Jest with ts-jest + jsdom
 npm run test:watch      # Watch mode
 npm run test:coverage   # Coverage report
 ```
-Test config: `jest.config.js` uses ts-jest with jsdom environment. Path alias `@/*` maps to `src/*`.
+**Testing philosophy**: Test service logic, NOT server actions directly (see `src/lib/*.test.ts` for examples).
 
 ### Database Migrations
 ```bash
-npm run migrate:json-to-sqlite        # History data migration
-npm run migrate:users-to-sqlite       # User migration from env
-npm run migrate:granular-api-keys     # API key schema update
-npm run migrate:add-image-model       # Image model choice column
+npm run migrate:json-to-sqlite        # Legacy JSON → SQLite
+npm run migrate:granular-api-keys     # Add per-key user overrides
+npm run migrate:add-image-model       # Add model choice column
 ```
-Migrations compile TypeScript in `scripts/` directory first via `tsconfig.scripts.json`.
+Migrations in `dist/scripts/` (compiled from TypeScript). Schema version tracked via `PRAGMA user_version`.
 
-### Code Quality
-- **Custom ESLint rule**: `enforce-fetch-caching` in `eslint-local-rules.js` - EVERY fetch() must have explicit cache control (`{ cache: 'force-cache' | 'no-store' }` or `{ next: { revalidate: N } }`)
-- **TypeScript strict mode**: Enabled in `tsconfig.json`
-- **Path aliases**: Use `@/` prefix for imports (maps to `src/`)
+### Custom ESLint Rule: Enforce Fetch Caching
+**Every** `fetch()` MUST have explicit cache control (enforced by `eslint-local-rules.js`):
+```typescript
+// ❌ FAILS LINT
+const res = await fetch('https://api.example.com/data');
 
-## Project-Specific Conventions
+// ✅ PASSES LINT
+const res1 = await fetch(url, { cache: 'no-store' }); // Force fresh
+const res2 = await fetch(url, { cache: 'force-cache' }); // Cache indefinitely  
+const res3 = await fetch(url, { next: { revalidate: 3600 } }); // Revalidate every hour
+```
+Rule: `enforce-fetch-caching` in `.eslintrc.json` → `eslint-plugin-local-rules`
 
-### File Naming & Organization
-- **Server Actions**: Must have `'use server'` at top of file
-- **Client Components**: Must have `'use client'` if using hooks/state
-- **Services**: Always suffixed with `.service.ts`
-- **AI workflows**: Separated into `actions/` (callable) and `flows/` (orchestration)
+## AI Integration Patterns
 
-### Image Processing Pipeline
-All image operations use Sharp (auto-orient with EXIF, max 2048px dimension):
-1. `prepareInitialImage()`: Upload → auto-orient → resize → PNG conversion
-2. `cropImage()`: Apply user crop with scaling calculations
-3. `removeBackgroundAction()`: Fal.ai RMBG API
-4. `upscaleImageAction()`: Fal.ai clarity upscaler
-5. `faceDetailerAction()`: Fal.ai face enhancement
+### Image Generation Flow
+`src/ai/flows/generate-image-edit.ts` orchestrates multi-key generation:
+1. Constructs prompt via `buildAIPrompt()` from `prompt-builder.ts`
+2. Converts image to base64 data URI (or accepts HTTPS URL)
+3. Calls Gemini 2.0 Flash API directly (NO SDK—uses axios + HttpsProxyAgent for proxy support)
+4. **Parallel generation**: 3 variations using different API keys
+5. Retry logic via `withGeminiRetry()`: exponential backoff for 429/500-503 errors (max 3 retries, 2s base delay)
+6. Downloads results → saves locally → returns file paths
 
-Each step creates a new version in `ImagePreparationContext` with hash-based deduplication.
+### Video Generation (Webhook-Based)
+Fal.ai video generation is **async** with webhook completion:
+```typescript
+// 1. Start generation (returns immediately with task ID)
+const taskId = await videoService.startVideoGenerationWithWebhook(input, webhookUrl, username);
+
+// 2. Webhook receives completion (src/app/api/video/webhook/route.ts)
+// - Verifies signature via verifyWebhookSignature()
+// - Downloads video from Fal.ai URL
+// - Saves locally via saveFileFromUrl()
+// - Updates history item status to 'completed'
+```
+History item `status` field: `'processing'` → `'completed'` | `'failed'`
 
 ### Prompt Building System
-`src/lib/prompt-builder.ts` provides:
-- **Option constants**: `GENDER_OPTIONS`, `FASHION_STYLE_OPTIONS`, etc. with `{ value, displayLabel, promptSegment }` structure
-- **buildAIPrompt()**: Constructs prompts for image/video generation based on selected attributes
-- **Random parameter generation**: Tiered probability system (Background 100%, Ethnicity/Pose 50%, Hair 25%, Expression 15%)
+`src/lib/prompt-builder.ts` provides structured attribute system:
+- Constants like `GENDER_OPTIONS`, `BACKGROUND_OPTIONS` with `{ value, displayLabel, promptSegment }` structure
+- `buildAIPrompt({ type: 'image' | 'video', params })` constructs final prompts
+- Random parameter generation with tiered probabilities (Background 100%, Ethnicity/Pose 50%, Hair 25%)
 
-### API Key Management
-Multi-key rotation system in `apiKey.service.ts`:
-- `getApiKeyForUser()`: Returns next key from 3 Gemini keys + 1 Fal key (encrypted in DB)
-- Keys initialized from env vars (`GEMINI_API_KEY_{1,2,3}`, `FAL_KEY`) on first run
-- Admin UI for key management at `/admin`
+## Component & File Conventions
 
-### Retry Logic
-`src/lib/api-retry.ts` provides `withGeminiRetry()`:
-- Exponential backoff for rate limits (429) and server errors (500-503)
-- Max 3 retries with 2s base delay
-- Used in all Gemini API calls
+### File Organization Rules
+- **Server Actions**: MUST start with `'use server'` directive (all files in `src/actions/`)
+- **Client Components**: MUST start with `'use client'` if using hooks/state
+- **Services**: Always suffix with `.service.ts` (all files in `src/services/`)
+- **AI workflows**: `actions/` for callable functions, `flows/` for orchestration logic
+- **Path aliases**: Use `@/` prefix (maps to `src/`)—configured in `tsconfig.json` and `jest.config.js`
 
-## Component Patterns
-
-### Image Preparation Workflow
-Central to the app - see `ImagePreparationContext`:
+### Image Processing Pipeline
+Multi-step Sharp-based workflow in `ImagePreparationContext`:
 ```typescript
-// Access state and actions
-const { versions, activeVersionId, setActiveVersion, applyCrop, removeBackground } = useImagePreparation();
+// 1. Upload & normalize
+prepareInitialImage(file) → { auto-orient via EXIF, max 2048px, convert to PNG }
 
-// Get active image data
-const activeImage = useActivePreparationImage(); // Custom hook for derived state
+// 2. User crop
+cropImage(crop) → applies PixelCrop with scaling calculations
+
+// 3. Background removal (optional)
+removeBackgroundAction() → Fal.ai RMBG-1.4 API
+
+// 4. Upscaling (optional)  
+upscaleImageAction() → Fal.ai clarity upscaler
+
+// 5. Face detailing (optional)
+faceDetailerAction() → Fal.ai face enhancement
+```
+Each step creates new `ImageVersion` with hash—duplicate hashes skip reprocessing.
+
+## Type System Essentials
+
+### HistoryItem Structure
+Core data model (see `src/lib/types.ts`):
+```typescript
+interface HistoryItem {
+  id: string;
+  timestamp: number;
+  originalClothingUrl: string;        // Initial upload
+  editedImageUrls: (string | null)[]; // Generated variations (3 per run)
+  originalImageUrls?: (string | null)[]; // Pre-face-detail for comparison
+  attributes: ModelAttributes;        // All generation parameters
+  constructedPrompt: string;          // Final prompt sent to AI
+  status?: 'processing' | 'completed' | 'failed';
+  generation_mode?: 'creative' | 'studio';
+  imageGenerationModel?: 'google_gemini_2_0' | 'fal_gemini_2_5';
+  videoGenerationParams?: {           // Video-specific fields
+    modelMovement, fabricMotion, cameraAction, aestheticVibe,
+    cameraFixed, resolution, videoModel, duration, seed,
+    sourceImageUrl, localVideoUrl
+  };
+  generatedVideoUrls?: (string | null)[];
+  webhookUrl?: string;
+}
 ```
 
-### History Items
-`HistoryItem` type (see `src/lib/types.ts`) includes:
-- `originalClothingUrl`: Initial upload
-- `editedImageUrls`: Array of generated variations (3 per generation)
-- `originalImageUrls`: Pre-face-detail versions for comparison
-- `videoGenerationParams`: Structured video parameters
-- `status`: 'processing' | 'completed' | 'failed'
-- `imageGenerationModel`: 'google_gemini_2_0' | 'fal_gemini_2_5'
+### ModelAttributes
+Image generation parameters (17 fields):
+`gender`, `bodyShapeAndSize`, `ageRange`, `ethnicity`, `poseStyle`, `background`, `fashionStyle`, `hairStyle`, `modelExpression`, `lightingType`, `lightQuality`, `modelAngle`, `lensEffect`, `depthOfField`, `timeOfDay`, `overallMood`
 
-### Theme System
-Dark mode by default with localStorage + server-side cookie sync:
-- `ThemeContext` provides theme state
-- Init script in `layout.tsx` prevents FOUC
-- CSS variables in `globals.css` (HSL format via `hsl(var(--primary))`)
+## Deployment & Environment
 
-## External Integrations
-
-### Google Gemini 2.0 Flash
-- Direct API calls in `generate-image-edit.ts` (not SDK)
-- Image input via base64 data URI
-- Custom proxy support via `HttpsProxyAgent`
-- Safety settings: Block only HIGH severity
-
-### Fal.ai Services
-- Background removal: `fal-api/image.service.ts`
-- Upscaling/face detail: `src/ai/actions/upscale-image.action.ts`
-- Video generation: `src/ai/actions/generate-video.action.ts`
-- Webhook handling for async video completion
-
-### MEGAcmd Backup
-Optional backup service (`megaBackup.service.ts`) - triggered after file operations if configured.
-
-## Deployment Considerations
-
-### Docker Setup
-- Multi-stage build with `node:24-alpine`
-- vips-dev for Sharp image processing
-- MEGAcmd for backups
-- User/group ID args (`PUID`, `PGID`) for volume permissions
-- Volume mounts: `./uploads`, `./user_data`
-- `restart: unless-stopped` for persistence
-
-### Environment Variables (Critical)
+### Critical Environment Variables
 ```bash
-SESSION_SECRET="min-32-chars"           # Required for iron-session
-GEMINI_API_KEY_1/2/3="gkey..."         # Google AI API keys (3 for rotation)
-FAL_KEY="fal-key..."                   # Fal.ai API key
-NEXT_PUBLIC_APP_URL="https://..."      # Used for CORS/webhooks
-FORCE_HTTPS="true"                     # Enables secure cookies
+SESSION_SECRET="min-32-chars-strong-password"  # iron-session encryption
+GEMINI_API_KEY_1/2/3="gkey_..."               # Google AI keys (3 for rotation)
+FAL_KEY="fal-api-key"                         # Fal.ai API key
+NEXT_PUBLIC_APP_URL="https://domain.com"      # CORS/webhooks/public URLs
+FORCE_HTTPS="true"                            # Secure cookies (if behind proxy)
 ```
 
-### Performance Optimization
-- Standalone output mode in `next.config.ts` for smaller Docker images
-- Server actions with 50MB body limit for image uploads
-- Turbopack in development (`--turbopack` flag)
-- Next.js Image Optimizer configured for remote patterns (Fal.ai, local proxied images)
+### Docker Production Setup
+- Multi-stage build: `deps` → `prod-deps` → `builder` → `runner`
+- Alpine base with vips-dev (Sharp), MEGAcmd (backups)
+- **User permissions critical**: `PUID`/`PGID` args MUST match host for volume writes
+- Standalone output mode reduces image size (~300MB vs ~1.2GB)
+- PM2 process manager with fork mode (not cluster—Next.js handles concurrency)
+
+### Performance Optimizations
+- Turbopack in dev mode (40-70% faster HMR)
+- Server actions: 50MB body size limit for image uploads
+- Package import optimization for Radix UI/Lucide (see `next.config.ts`)
+- Next.js Image Optimizer: Remote patterns for Fal.ai + local proxy
 
 ## Common Pitfalls
 
-1. **Forgot `'use server'`**: Server actions won't work without directive
-2. **Direct file access**: Always use `getDisplayableImageUrl()` for client-side image URLs
-3. **Cache invalidation**: Database writes don't auto-invalidate React `cache()` - may need manual revalidation
-4. **SVG imports**: Use `@svgr/webpack` for React components (configured in `next.config.ts`)
-5. **Fetch caching**: ESLint will error if you forget explicit cache option
-6. **File permissions**: Docker must run with correct PUID/PGID to write to volumes
+1. **Missing `'use server'` directive**: Server actions silently fail without it
+2. **Direct file URLs**: ALWAYS use `getDisplayableImageUrl()` for client-side rendering
+3. **Cache invalidation**: Database writes don't auto-invalidate React `cache()`—may need manual `revalidatePath()`
+4. **Fetch without cache option**: ESLint will error (custom rule)
+5. **SVG imports**: Configured via `@svgr/webpack`—import as React components
+6. **Docker volume permissions**: Container must run with host's PUID/PGID to write files
+7. **Webhook verification**: `verifyWebhookSignature()` is CRITICAL—never skip for Fal.ai webhooks
 
-## Testing Strategy
-- Unit tests for utilities: `src/lib/*.test.ts`
-- Mock external APIs in tests (see `server-fs.utils.test.ts`)
-- Avoid testing server actions directly - test the underlying service logic instead
+## Theme System
+Dark mode default with zero-flicker initialization:
+- Init script in `layout.tsx` runs **before hydration** (sets `data-theme` attribute)
+- Cookie sync: `ThemeContext` writes to cookie via server action
+- CSS variables: `hsl(var(--primary))` pattern in `globals.css`
+- System preference detection only on first visit
