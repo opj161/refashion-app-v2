@@ -228,7 +228,7 @@ async function generateClothingDescription(
 ): Promise<string> {
   const logger = createApiLogger('GEMINI_TEXT', 'Clothing Classification', {
     username,
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-flash-lite-latest',
     keyIndex: 1,
   });
 
@@ -251,7 +251,7 @@ async function generateClothingDescription(
       parts: [imagePart, { text: classificationPrompt }]
     }];
 
-    const model = 'gemini-2.0-flash-exp';
+    const model = 'gemini-flash-lite-latest';
     
     logger.progress('Sending request to Gemini API');
 

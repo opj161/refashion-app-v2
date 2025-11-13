@@ -39,7 +39,7 @@ describe('ApiLogger', () => {
     it('should log start with all context', () => {
       const logger = createApiLogger('GEMINI_TEXT', 'Test Operation', {
         username: 'testuser',
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-flash-lite-latest',
         keyIndex: 1,
       });
 
@@ -50,7 +50,7 @@ describe('ApiLogger', () => {
       expect(allLogs).toContain('GEMINI_TEXT START');
       expect(allLogs).toContain('Operation: Test Operation');
       expect(allLogs).toContain('User: testuser');
-      expect(allLogs).toContain('Model: gemini-2.0-flash-exp');
+      expect(allLogs).toContain('Model: gemini-flash-lite-latest');
       expect(allLogs).toContain('Key Index: 1');
     });
 

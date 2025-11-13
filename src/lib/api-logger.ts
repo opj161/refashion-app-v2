@@ -286,7 +286,7 @@ export function createApiLogger(
  * const result = await logApiCall('GEMINI_TEXT', 'Classification', async (logger) => {
  *   logger.progress('Processing...');
  *   return await apiCall();
- * }, { username: 'john', model: 'gemini-2.0-flash-exp' });
+ * }, { username: 'john', model: 'gemini-flash-lite-latest' });
  */
 export async function logApiCall<T>(
   category: ApiCategory,
