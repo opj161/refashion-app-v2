@@ -29,6 +29,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { calculateVideoCost, formatPrice, VideoModel, VideoResolution, VideoDuration } from "@/lib/pricing";
 import { motion, AnimatePresence } from 'motion/react';
 import { COMMON_VARIANTS } from '@/lib/motion-constants';
+import { VideoResultsDisplay } from './VideoResultsDisplay';
 
 
 // Type for video generation parameters
@@ -449,8 +450,9 @@ export default function VideoParameters() {
         </Card>
       )}
 
-      {/* REMOVED: Error, processing, and result display sections
-          Video generation is webhook-based - results appear in History tab */}
+      <div ref={resultsRef}>
+         <VideoResultsDisplay formState={formState} isPending={isPending} />
+      </div>
     </div>
   );
 }
