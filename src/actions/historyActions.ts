@@ -73,7 +73,7 @@ export async function addHistoryItem(
   originalClothingUrl: string,
   editedImageUrls: (string | null)[],
   settingsMode: 'basic' | 'advanced',
-  imageGenerationModel: 'google_gemini_2_0' | 'fal_gemini_2_5',
+  imageGenerationModel: 'fal_nano_banana_pro' | 'fal_gemini_2_5',
   status: 'processing' | 'completed' | 'failed' = 'completed',
   error?: string,
   username?: string, // NEW optional username parameter for API context
