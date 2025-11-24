@@ -40,89 +40,39 @@ export async function generateWithFalEditModel(
   try {
     logger.progress('Submitting to Fal.ai queue');
 
-    // Use direct fetch to bypass the global client and ensure user-specific key usage
-    // This also avoids any interference with the client-side proxy configuration
     const keyToUse = apiKey || process.env.FAL_KEY;
     
     if (!keyToUse) {
       throw new Error("No Fal API key available (neither user-specific nor global).");
     }
 
-    const response = await fetch(`https://queue.fal.run/${modelId}`, {
-      method: 'POST',
+    // Use the official client's subscribe method which handles polling robustly
+    const result: any = await fal.subscribe(modelId, {
+      input,
+      logs: true,
+      onQueueUpdate: (update: any) => {
+        if (update.status === 'IN_PROGRESS' && update.logs) {
+          update.logs.forEach((log: any) => logger.progress(`Queue: ${log.message}`));
+        }
+      },
+      // Pass the API key in headers to override any global config (and avoid proxy on server)
       headers: {
         'Authorization': `Key ${keyToUse}`,
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(input),
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Fal API Error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    const initialResult = await response.json();
-    const requestId = initialResult.request_id;
-    
-    // Poll for result
-    let result: any = null;
-    let attempts = 0;
-    const maxAttempts = 300; // 5 minutes timeout
-
-    while (!result && attempts < maxAttempts) {
-      attempts++;
-      const statusResponse = await fetch(`https://queue.fal.run/${modelId}/requests/${requestId}/status`, {
-        headers: {
-          'Authorization': `Key ${keyToUse}`,
-          'Content-Type': 'application/json',
-        },
-        cache: 'no-store',
-      });
-
-      if (!statusResponse.ok) {
-         // If status check fails, wait and retry
-         await new Promise(resolve => setTimeout(resolve, 1000));
-         continue;
-      }
-
-      const statusResult = await statusResponse.json();
-      
-      if (statusResult.status === 'COMPLETED') {
-        // Fetch the final result
-        const resultResponse = await fetch(`https://queue.fal.run/${modelId}/requests/${requestId}`, {
-            headers: {
-              'Authorization': `Key ${keyToUse}`,
-              'Content-Type': 'application/json',
-            },
-            cache: 'no-store',
-        });
-        result = await resultResponse.json();
-      } else if (statusResult.status === 'IN_QUEUE' || statusResult.status === 'IN_PROGRESS') {
-        if (statusResult.logs && statusResult.logs.length > 0) {
-           const lastLog = statusResult.logs[statusResult.logs.length - 1];
-           logger.progress(`Queue: ${lastLog.message}`);
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } else {
-        throw new Error(`Fal API Request Failed with status: ${statusResult.status}`);
-      }
-    }
-
-    if (!result) {
-        throw new Error("Fal API Timed Out");
-    }
+    } as any);
 
     // Parse response
-    // Expected format: { images: [{ url: "..." }], description: "..." }
-    if (!result?.images?.[0]?.url) {
-      console.error("Unexpected Fal Response:", JSON.stringify(result, null, 2));
+    // Expected format from Fal: { images: [{ url: "..." }], description: "..." }
+    // The result object from subscribe contains the data in `data` property
+    const data = result.data;
+
+    if (!data?.images?.[0]?.url) {
+      console.error("Unexpected Fal Response:", JSON.stringify(data, null, 2));
       throw new Error('Unexpected response format. Expected: { images: [{ url: "..." }] }');
     }
 
-    const imageUrl_result = result.images[0].url;
-    const description = result.description || undefined;
+    const imageUrl_result = data.images[0].url;
+    const description = data.description || undefined;
 
     logger.success({
       imageUrl: imageUrl_result,
