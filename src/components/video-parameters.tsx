@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { isFalVideoGenerationAvailable, generateVideoAction, type VideoGenerationFormState } from '@/ai/actions/generate-video.action';
-import { useActivePreparationImage } from "@/contexts/ImagePreparationContext";
+import { useImageStore } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
@@ -89,8 +89,9 @@ export default function VideoParameters() {
   const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
   // REMOVED: useAuth - authentication handled by server action
   
-  // Get the active image from the context
-  const activeImage = useActivePreparationImage();
+  // Get the active image from the store
+  const { versions, activeVersionId } = useImageStore();
+  const activeImage = activeVersionId ? versions[activeVersionId] : null;
   const preparedImageUrl = activeImage?.imageUrl || null;
 
   // Get video settings from Zustand store - read and write directly

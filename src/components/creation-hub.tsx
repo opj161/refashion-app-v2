@@ -13,8 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { useShallow } from 'zustand/react/shallow';
 import type { HistoryItem } from '@/lib/types';
-import { ImagePreparationProvider } from '@/contexts/ImagePreparationContext';
-import { Sparkles, Camera, Grid3x3, Image, Video } from 'lucide-react';
+import { useImageStore } from '@/stores/imageStore';
+import { Sparkles, Camera, Grid3x3, Image as ImageIcon, Video } from 'lucide-react';
 import { COMMON_VARIANTS } from "@/lib/motion-constants";
 
 // Wrap the component content that uses useSearchParams
@@ -87,22 +87,32 @@ function CreationHubContent({
     setInitImageUrl(null);
   }, []);
 
-  // Ref tracking for reset handlers from each container
-  const imageContainerResetRef = React.useRef<(() => void) | null>(null);
-  const videoContainerResetRef = React.useRef<(() => void) | null>(null);
+  // Get actions from store
+  const { initializeFromHistory, initializeFromUrl, reset } = useImageStore();
 
-  // Pure client-side reset - calls the active container's reset
-  const handleReset = useCallback(() => {
-    if (currentTab === 'image' && imageContainerResetRef.current) {
-      imageContainerResetRef.current();
-    } else if (currentTab === 'video' && videoContainerResetRef.current) {
-      videoContainerResetRef.current();
+  // Effect to handle initialization
+  useEffect(() => {
+    if (initHistoryItem) {
+      // Only initialize if we have a valid item and it's for the current tab (or we just switched)
+      // Actually, since the store is global, we just initialize.
+      // But we should check if we are already initialized to avoid loops?
+      // The store actions are async but we don't await them here.
+      initializeFromHistory(initHistoryItem);
+      handleInitializationComplete();
+    } else if (initImageUrl) {
+      initializeFromUrl(initImageUrl);
+      handleInitializationComplete();
     }
+  }, [initHistoryItem, initImageUrl, initializeFromHistory, initializeFromUrl, handleInitializationComplete]);
+
+  // Pure client-side reset - calls the store reset
+  const handleReset = useCallback(() => {
+    reset();
     toast({
       title: "Image Cleared",
       description: "You can now upload a new image to start over.",
     });
-  }, [currentTab, toast]);
+  }, [reset, toast]);
   
   // Clone children to pass initialization handlers
   const enhancedChildren = React.cloneElement(children, {
@@ -169,7 +179,7 @@ function CreationHubContent({
                       <Grid3x3 className="h-4 w-4" /> All
                     </SegmentedControlItem>
                     <SegmentedControlItem value="image">
-                      <Image className="h-4 w-4" /> Images
+                      <ImageIcon className="h-4 w-4" /> Images
                     </SegmentedControlItem>
                     <SegmentedControlItem value="video">
                       <Video className="h-4 w-4" /> Videos
@@ -181,15 +191,9 @@ function CreationHubContent({
           </div>
         </div>
         {/* === END: INTEGRATED LAYOUT === */}        <TabsContent value="image" className="space-y-6 mt-5" forceMount>
-          <ImagePreparationProvider
-            initialHistoryItem={currentTab === 'image' ? initHistoryItem : null}
-            initialImageUrl={currentTab === 'image' ? initImageUrl : null}
-            onInitializationComplete={handleInitializationComplete}
-          >
             <ImagePreparationContainer
               preparationMode="image"
               onReset={handleReset}
-              resetRef={imageContainerResetRef}
             />
             
             {/* Unified workspace with both modes and results display */}
@@ -197,22 +201,14 @@ function CreationHubContent({
               setCurrentTab={setCurrentTab}
               onLoadImageUrl={handleLoadFromImageUrl}
             />
-          </ImagePreparationProvider>
         </TabsContent>
 
         <TabsContent value="video" className="space-y-6 mt-5" forceMount>
-          <ImagePreparationProvider
-            initialHistoryItem={currentTab === 'video' ? initHistoryItem : null}
-            initialImageUrl={null}
-            onInitializationComplete={handleInitializationComplete}
-          >
             <ImagePreparationContainer
               preparationMode="video"
               onReset={handleReset}
-              resetRef={videoContainerResetRef}
             />
             <VideoParameters />
-          </ImagePreparationProvider>
         </TabsContent>
 
         <TabsContent value="history" className="space-y-6 mt-5" forceMount>

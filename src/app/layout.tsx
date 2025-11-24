@@ -1,9 +1,11 @@
+import { satoshi } from '@/lib/fonts';
 import type { Metadata } from 'next';
 import Script from 'next/script';
 import './globals.css';
 import { getCurrentUser } from '@/actions/authActions';
 import type { SessionUser } from '@/lib/types';
 import { cookies } from 'next/headers';
+import { connection } from 'next/server';
 import { AppBody } from '@/components/AppBody';
 
 // Removed force-dynamic from root - moved to per-page basis for better performance
@@ -19,9 +21,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Force dynamic rendering by accessing cookies
+  // Force dynamic rendering by accessing connection
   // This ensures the layout is never statically generated at build time
-  await cookies();
+  await connection();
 
   // Server-side theme detection from cookie
   const themeCookie = (await cookies()).get('theme')?.value;
@@ -35,7 +37,6 @@ export default async function RootLayout({
       <head>
         <meta name="theme-color" content="#020410" />
         <meta name="color-scheme" content="dark" />
-        <link href="https://api.fontshare.com/v2/css?f[]=satoshi@700,500,400&display=swap" rel="stylesheet" />
         <style dangerouslySetInnerHTML={{
           __html: `
             html, body { 
@@ -72,7 +73,7 @@ export default async function RootLayout({
         </Script>
       </head>
       <body
-        className={`antialiased bg-gradient-to-br from-background-accent to-background text-foreground flex flex-col min-h-screen ${initialTheme}`}
+        className={`antialiased bg-gradient-to-br from-background-accent to-background text-foreground flex flex-col min-h-screen ${initialTheme} ${satoshi.variable}`}
         style={{
           '--font-geist-sans': 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
           '--font-geist-mono': 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',

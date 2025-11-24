@@ -42,6 +42,7 @@ const nextConfig: NextConfig = {
   },
   output: 'standalone',
   experimental: {
+    reactCompiler: true,
     serverActions: {
       bodySizeLimit: '50mb', // Increase limit for image uploads
     },

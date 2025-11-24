@@ -140,6 +140,17 @@ export async function POST(request: NextRequest) {
       console.error('Failed to update history item with error status:', updateError);
     }
     
-    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
+    // Determine if retryable
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isRetryable = errorMessage.includes('SQLITE_BUSY') || errorMessage.includes('EACCES') || errorMessage.includes('ETIMEDOUT');
+
+    if (isRetryable) {
+       console.error('Retryable error in webhook:', error);
+       return NextResponse.json({ error: 'Internal Server Error - Will Retry' }, { status: 500 });
+    }
+
+    // Otherwise swallow error to stop retry loop
+    console.error('Non-retryable error in webhook:', error);
+    return NextResponse.json({ error: 'Processing Failed', handled: true }, { status: 200 });
   }
 }

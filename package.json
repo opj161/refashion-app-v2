@@ -18,6 +18,8 @@
     "migrate:users-to-sqlite": "node dist/scripts/migrate-users-to-sqlite.js",
     "migrate:granular-api-keys": "node dist/scripts/add-granular-api-key-columns.js",
     "migrate:add-image-model": "node dist/scripts/add-image-model-choice.js",
+    "migrate": "tsx scripts/migrate.ts",
+    "migrate:prod": "node dist/scripts/migrate.js",
     "script": "tsx"
   },
   "dependencies": {
@@ -81,6 +83,7 @@
     "tsconfig-paths": "^4.2.0",
     "uuid": "^11.1.0",
     "zod": "^4.0.10",
+    "zod-form-data": "^3.0.1",
     "zustand": "^5.0.6"
   },
   "devDependencies": {
@@ -101,6 +104,7 @@
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.21",
     "babel-jest": "^30.0.5",
+    "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9.32.0",
     "eslint-config-next": "^15.4.4",
     "eslint-plugin-local-rules": "^3.0.2",
@@ -113,6 +117,7 @@
     "tailwindcss": "^3.4.17",
     "ts-jest": "^29.4.5",
     "tsc-alias": "^1.8.16",
+    "tsx": "^4.20.6",
     "typescript": "5.9.3",
     "whatwg-fetch": "^3.6.20"
   },

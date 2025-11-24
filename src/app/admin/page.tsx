@@ -23,8 +23,11 @@ const ActivityChart = dynamic(
   () => import('./_components/dashboard/ActivityChart').then((mod) => mod.ActivityChart)
 );
 
+import { connection } from 'next/server';
+
 // Main Dashboard Data Fetching and Layout Component
 async function DashboardData() {
+  await connection();
   const result = await getDashboardAnalytics();
 
   if (!result.success || !result.data) {

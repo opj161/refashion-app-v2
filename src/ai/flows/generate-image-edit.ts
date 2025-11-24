@@ -2,6 +2,7 @@
 'use server';
 
 import 'server-only';
+import { after } from 'next/server';
 
 /**
  * @fileOverview AI agent for editing an image based on a text prompt,
@@ -668,283 +669,285 @@ export async function generateImageEdit(
     throw new Error(`User ${username} not found.`);
   }
 
-  // ===================================
-  // STUDIO MODE WORKFLOW
-  // ===================================
-  if (input.generationMode === 'studio') {
-    console.log(`🚀 Routing to Studio Mode for user ${username}`);
-    
-    if (!input.studioFit || !input.imageDataUriOrUrl) {
-      throw new Error('Studio Mode requires a fit setting and a source image.');
-    }
-
-    // Background removal step has been removed to allow faster processing
-    // and preserve original image context. The Ironclad Prompt is designed
-    // to handle images with backgrounds effectively.
-    
-    // Note: Previously, a mandatory background removal step was performed here.
-    // This has been removed to reduce processing time and Fal.ai API costs.
-    // Trade-off: Slightly less consistent outputs if source images have complex backgrounds,
-    // but the strong Studio Mode prompt should still maintain quality.
-    
-    // try {
-    //   console.log('🎨 Studio Mode Step 1: Removing background...');
-    //   const bgResult = await removeBackgroundAction(input.imageDataUriOrUrl, undefined);
-    //   studioInputImageUrl = bgResult.savedPath;
-    //   console.log(`✅ Background removed. New path for generation: ${studioInputImageUrl}`);
-    // } catch (bgError) {
-    //   console.error('❌ Studio Mode background removal failed:', bgError);
-    //   throw new Error(`Studio Mode failed at background removal: ${(bgError as Error).message}`);
-    // }
-    
-    // Step 1: Generate a dynamic clothing description using AI
-    const clothingDescription = await generateClothingDescription(
-      input.imageDataUriOrUrl,
-      username
-    );
-    console.log(`🏷️ Clothing identified as: "${clothingDescription}"`);
-    
-    // Step 2: Build the Studio Mode prompt and inject the clothing description
-    let studioPrompt = buildStudioModePrompt(input.studioFit);
-    studioPrompt = studioPrompt.replace("clothing item", clothingDescription);
-    console.log('📝 Studio Mode Prompt constructed with dynamic clothing description.');
-
-    // Parallel Generation with Tuned Parameters (low temperature for consistency)
-    const generationPromises = [1, 2, 3].map(i =>
-      performSingleImageGeneration({
-        ...input,
-        imageDataUriOrUrl: input.imageDataUriOrUrl, // Use original image directly
-        prompt: studioPrompt,
-      }, user, `studio-flow${i}`, i as 1 | 2 | 3, { temperature: 0.3 })
-    );
-
-    const settledResults = await Promise.allSettled(generationPromises);
-
-    // Handle Results
-    const editedImageUrlsResult: (string | null)[] = Array(3).fill(null);
-    const errorsResult: (string | null)[] = Array(3).fill(null);
-
-    settledResults.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        editedImageUrlsResult[index] = result.value.editedImageUrl;
-      } else {
-        console.error(`Studio Mode generation ${index + 1} failed:`, result.reason);
-        errorsResult[index] = result.reason?.message || 'Unknown error';
-      }
-    });
-
-    // Save to history with Studio Mode context
-    const successCount = editedImageUrlsResult.filter(url => url !== null).length;
-    let newHistoryId: string | undefined;
-    
-    if (successCount > 0 && input.imageDataUriOrUrl) {
-      try {
-        newHistoryId = await addHistoryItem(
-          { studioFit: input.studioFit } as any, // Store fit in attributes
-          studioPrompt,
-          input.imageDataUriOrUrl,
-          editedImageUrlsResult,
-          'basic', // Studio mode is always 'basic'
-          user.image_generation_model,
-          'completed',
-          undefined,
-          username,
-          undefined,
-          'studio' // Set generation_mode
-        );
-        console.log(`✅ Studio Mode: History saved with ID ${newHistoryId}`);
-      } catch (err) {
-        console.error('Failed to save Studio Mode history:', err);
-      }
-    }
-    
-    return {
-      editedImageUrls: editedImageUrlsResult,
-      constructedPrompt: studioPrompt,
-      errors: errorsResult,
-      newHistoryId,
-    };
-  }
-
-  // ======================================
-  // CREATIVE MODE WORKFLOW (Existing Logic)
-  // ======================================
-  console.log(`🎨 Routing to Creative Mode for user ${username}`);
-
-  // === NON-DESTRUCTIVE PIPELINE: Apply image processing if requested ===
-  let processedImageUrl = input.imageDataUriOrUrl;
+  // 1. Create initial history item EARLY (if not existing)
+  let historyId = existingHistoryId;
   
-  if (input.imageDataUriOrUrl && (input.removeBackground || input.upscale || input.enhanceFace)) {
-    console.log('🔧 Applying non-destructive image processing pipeline...');
-    
+  if (!historyId && input.imageDataUriOrUrl) {
     try {
-      // Step 1: Background Removal (if enabled)
-      if (input.removeBackground) {
-        console.log('🎨 Step 1: Removing background...');
-        const bgResult = await removeBackgroundAction(processedImageUrl!, undefined);
-        processedImageUrl = bgResult.savedPath;
-        console.log(`✅ Background removed. New path: ${processedImageUrl}`);
-      }
-      
-      // Step 2: Upscale (if enabled)
-      if (input.upscale) {
-        console.log('🔍 Step 2: Upscaling image...');
-        const upscaleResult = await upscaleImageAction(processedImageUrl!, undefined);
-        processedImageUrl = upscaleResult.savedPath;
-        console.log(`✅ Image upscaled. New path: ${processedImageUrl}`);
-      }
-      
-      // Step 3: Face Enhancement (if enabled)
-      if (input.enhanceFace) {
-        console.log('👤 Step 3: Enhancing face details...');
-        const faceResult = await faceDetailerAction(processedImageUrl!, undefined);
-        processedImageUrl = faceResult.savedPath;
-        console.log(`✅ Face details enhanced. New path: ${processedImageUrl}`);
-      }
-      
-      console.log('✨ Pipeline complete. Processed image ready for generation.');
-    } catch (pipelineError) {
-      console.error('❌ Pipeline processing error:', pipelineError);
-      throw new Error(`Image processing pipeline failed: ${(pipelineError as Error).message}`);
+      const isStudio = input.generationMode === 'studio';
+      const initialAttributes = isStudio 
+        ? { studioFit: input.studioFit } as any 
+        : input.parameters;
+        
+      historyId = await addHistoryItem(
+        initialAttributes || {},
+        "Processing...", // Placeholder prompt
+        input.imageDataUriOrUrl,
+        [null, null, null], // Empty images
+        input.settingsMode || 'basic',
+        user.image_generation_model,
+        'processing', // STATUS: PROCESSING
+        undefined,
+        username,
+        undefined,
+        input.generationMode || 'creative'
+      );
+      console.log(`✅ Created initial history item: ${historyId}`);
+    } catch (err) {
+      console.error('Failed to create initial history item:', err);
+      throw err;
     }
   }
-  
-  // Update the input with the processed image URL
-  const processedInput = { ...input, imageDataUriOrUrl: processedImageUrl };
 
-  // NEW LOGIC: PROMPT GENERATION
-  let prompts: (string | null)[];
-  let finalConstructedPromptForHistory: string;
+  // 2. Schedule background work using Next.js 15 after()
+  after(async () => {
+    try {
+      console.log(`🔄 Starting background generation for ${historyId}`);
 
-  const modelToUse = user.image_generation_model;
-
-  // --- START REFACTORED LOGIC ---
-
-  // High-priority override: If a manual prompt is provided, use it for all slots.
-  if (processedInput.prompt) {
-    console.log('Using manually provided prompt for all image slots.');
-    prompts = Array(3).fill(processedInput.prompt);
-    finalConstructedPromptForHistory = processedInput.prompt;
-  } else {
-    // STAGE 1: Determine the parameter sets for each slot (randomized or fixed).
-    let parameterSetsForSlots: ModelAttributes[];
-
-    // REMOVED: `&& modelToUse !== 'fal_gemini_2_5'` condition.
-    // This ensures randomization works consistently for all image generation models,
-    // honoring the user's explicit choice in the UI.
-    if (processedInput.useRandomization) {
-      console.log('🎲 Randomization enabled. Generating 3 different parameter sets.');
-      parameterSetsForSlots = Array.from({ length: 3 }, () => generateRandomBasicParameters(processedInput.parameters!));
-    } else {
-      console.log('⚙️ Using fixed parameters for all 3 slots.');
-      // The informational log about disabled randomization is no longer needed as the condition is removed.
-      parameterSetsForSlots = Array(3).fill(processedInput.parameters);
-    }
-
-    // STAGE 2: Build prompts from the determined parameter sets.
-    if (processedInput.useAIPrompt && processedInput.imageDataUriOrUrl) {
-      console.log('🧠 Using AI prompt enhancement...');
-      const promptPromises = parameterSetsForSlots.map((params, i) =>
-        generatePromptWithAI(params, processedInput.imageDataUriOrUrl!, username, (i + 1) as 1 | 2 | 3)
-          .catch(err => {
-            console.warn(`AI prompt generation for slot ${i + 1} failed. Falling back to local builder. Reason:`, err);
-            return buildAIPrompt({ type: 'image', params: { ...params, settingsMode: 'advanced' } });
-          })
-      );
-      prompts = await Promise.all(promptPromises);
-    } else {
-      console.log('📝 Using local prompt builder...');
-      prompts = parameterSetsForSlots.map(params =>
-        buildAIPrompt({ type: 'image', params: { ...params, settingsMode: processedInput.settingsMode || 'basic' } })
-      );
-    }
-
-    // The first prompt is considered the "main" one for history purposes.
-    finalConstructedPromptForHistory = prompts[0] || 'Prompt generation failed.';
-  }
-  // --- END REFACTORED LOGIC ---
-  
-  // Log all received optimized prompts together
-  console.log(`\n🚀 ALL AI-GENERATED PROMPTS SUMMARY:`);
-  console.log('='.repeat(100));
-  console.log(`Target Model for Generation: ${modelToUse}`);
-  prompts.forEach((prompt, index) => {
-    console.log(`\n📝 PROMPT ${index + 1}:`);
-    if (prompt) {
-      console.log(prompt);
-    } else {
-      console.log('❌ FAILED TO GENERATE');
-    }
-    console.log('-'.repeat(60));
-  });
-  console.log('='.repeat(100));
-  
-  console.log("Generated Prompts:", prompts);
-
-  const [prompt1, prompt2, prompt3] = prompts;
-
-  const generationPromises = [
-    performSingleImageGeneration({ ...processedInput, prompt: prompt1! }, user, `flow1`, 1),
-    performSingleImageGeneration({ ...processedInput, prompt: prompt2! }, user, `flow2`, 2),
-    performSingleImageGeneration({ ...processedInput, prompt: prompt3! }, user, `flow3`, 3),
-  ];
-
-  const settledResults = await Promise.allSettled(generationPromises);
-
-  const editedImageUrlsResult: (string | null)[] = Array(3).fill(null);
-  const errorsResult: (string | null)[] = Array(3).fill(null);
-
-  settledResults.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      editedImageUrlsResult[index] = result.value.editedImageUrl;
-    } else {
-      console.error(`Error from flow ${index + 1}:`, result.reason);
-      const reasonError = result.reason as Error;
-      errorsResult[index] = `Image ${index + 1} processing failed: ${reasonError?.message || 'Unknown error'}`;
-    }
-  });
-
-  // Add to history if at least one image succeeded
-  const successCount = editedImageUrlsResult.filter(url => url !== null).length;
-  if (successCount > 0) {
-    const modelUsed = user.image_generation_model;
-    if (username && processedInput.imageDataUriOrUrl) {
-      try {
-        if (existingHistoryId) {
-          // When caller provided a job id, do NOT create a new history record here.
-          // Caller (e.g. API worker) is expected to call updateHistoryItem(jobId, ...) afterwards.
-          // This avoids creating a duplicate row for API job flows.
-        } else {
-          const newHistoryId = await addHistoryItem(
-            processedInput.parameters,
-            finalConstructedPromptForHistory,
-            input.imageDataUriOrUrl!, // Use original image URL for history, not processed
-            editedImageUrlsResult,
-            processedInput.settingsMode || 'basic',
-            modelUsed,
-            'completed',
-            undefined, // error
-            undefined, // username
-            undefined, // webhookUrl
-            'creative' // generation_mode
-          );
-          // Return the created history id to caller so the client can set activeHistoryItemId.
-          return {
-            editedImageUrls: editedImageUrlsResult,
-            constructedPrompt: finalConstructedPromptForHistory,
-            errors: errorsResult.some(e => e !== null) ? errorsResult : undefined,
-            newHistoryId
-          };
+      // ===================================
+      // STUDIO MODE WORKFLOW
+      // ===================================
+      if (input.generationMode === 'studio') {
+        console.log(`🚀 Routing to Studio Mode for user ${username}`);
+        
+        if (!input.studioFit || !input.imageDataUriOrUrl) {
+          throw new Error('Studio Mode requires a fit setting and a source image.');
         }
-      } catch (err) {
-        console.error('Failed to add history item:', err);
+
+        // Step 1: Generate a dynamic clothing description using AI
+        const clothingDescription = await generateClothingDescription(
+          input.imageDataUriOrUrl,
+          username
+        );
+        console.log(`🏷️ Clothing identified as: "${clothingDescription}"`);
+        
+        // Step 2: Build the Studio Mode prompt and inject the clothing description
+        let studioPrompt = buildStudioModePrompt(input.studioFit);
+        studioPrompt = studioPrompt.replace("clothing item", clothingDescription);
+        console.log('📝 Studio Mode Prompt constructed with dynamic clothing description.');
+
+        // Parallel Generation with Tuned Parameters (low temperature for consistency)
+        // Parallel Generation with Tuned Parameters (low temperature for consistency)
+        const generationPromises = [1, 2, 3].map(async (i) => {
+          try {
+            const result = await performSingleImageGeneration({
+              ...input,
+              imageDataUriOrUrl: input.imageDataUriOrUrl, // Use original image directly
+              prompt: studioPrompt,
+            }, user, `studio-flow${i}`, i as 1 | 2 | 3, { temperature: 0.3 });
+
+            if (historyId && result.editedImageUrl) {
+              dbService.updateHistoryImageSlot(historyId, i - 1, result.editedImageUrl);
+              console.log(`✅ Studio Mode: Image ${i} saved to DB for ${historyId}`);
+            }
+            return result;
+          } catch (err) {
+            console.error(`Studio Mode flow ${i} error:`, err);
+            throw err;
+          }
+        });
+
+        const settledResults = await Promise.allSettled(generationPromises);
+
+        // Handle Results
+        const editedImageUrlsResult: (string | null)[] = Array(3).fill(null);
+        const errorsResult: (string | null)[] = Array(3).fill(null);
+
+        settledResults.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            editedImageUrlsResult[index] = result.value.editedImageUrl;
+          } else {
+            console.error(`Studio Mode generation ${index + 1} failed:`, result.reason);
+            errorsResult[index] = result.reason?.message || 'Unknown error';
+          }
+        });
+
+        // Update History
+        if (historyId) {
+          dbService.updateHistoryItem(historyId, {
+            constructedPrompt: studioPrompt,
+            editedImageUrls: editedImageUrlsResult,
+            status: errorsResult.every(e => e) ? 'failed' : 'completed',
+            error: errorsResult.find(e => e) || undefined
+          });
+          console.log(`✅ Studio Mode: History updated for ${historyId}`);
+        }
+        return;
+      }
+
+      // ======================================
+      // CREATIVE MODE WORKFLOW
+      // ======================================
+      console.log(`🎨 Routing to Creative Mode for user ${username}`);
+
+      // === NON-DESTRUCTIVE PIPELINE: Apply image processing if requested ===
+      let processedImageUrl = input.imageDataUriOrUrl;
+      
+      if (input.imageDataUriOrUrl && (input.removeBackground || input.upscale || input.enhanceFace)) {
+        console.log('🔧 Applying non-destructive image processing pipeline...');
+        
+        try {
+          // Step 1: Background Removal (if enabled)
+          if (input.removeBackground) {
+            console.log('🎨 Step 1: Removing background...');
+            const bgResult = await removeBackgroundAction(processedImageUrl!, undefined);
+            processedImageUrl = bgResult.savedPath;
+            console.log(`✅ Background removed. New path: ${processedImageUrl}`);
+          }
+          
+          // Step 2: Upscale (if enabled)
+          if (input.upscale) {
+            console.log('🔍 Step 2: Upscaling image...');
+            const upscaleResult = await upscaleImageAction(processedImageUrl!, undefined);
+            processedImageUrl = upscaleResult.savedPath;
+            console.log(`✅ Image upscaled. New path: ${processedImageUrl}`);
+          }
+          
+          // Step 3: Face Enhancement (if enabled)
+          if (input.enhanceFace) {
+            console.log('👤 Step 3: Enhancing face details...');
+            const faceResult = await faceDetailerAction(processedImageUrl!, undefined);
+            processedImageUrl = faceResult.savedPath;
+            console.log(`✅ Face details enhanced. New path: ${processedImageUrl}`);
+          }
+          
+          console.log('✨ Pipeline complete. Processed image ready for generation.');
+        } catch (pipelineError) {
+          console.error('❌ Pipeline processing error:', pipelineError);
+          throw new Error(`Image processing pipeline failed: ${(pipelineError as Error).message}`);
+        }
+      }
+      
+      // Update the input with the processed image URL
+      const processedInput = { ...input, imageDataUriOrUrl: processedImageUrl };
+
+      // NEW LOGIC: PROMPT GENERATION
+      let prompts: (string | null)[];
+      let finalConstructedPromptForHistory: string;
+
+      const modelToUse = user.image_generation_model;
+
+      // High-priority override: If a manual prompt is provided, use it for all slots.
+      if (processedInput.prompt) {
+        console.log('Using manually provided prompt for all image slots.');
+        prompts = Array(3).fill(processedInput.prompt);
+        finalConstructedPromptForHistory = processedInput.prompt;
+      } else {
+        // STAGE 1: Determine the parameter sets for each slot (randomized or fixed).
+        let parameterSetsForSlots: ModelAttributes[];
+
+        if (processedInput.useRandomization) {
+          console.log('🎲 Randomization enabled. Generating 3 different parameter sets.');
+          parameterSetsForSlots = Array.from({ length: 3 }, () => generateRandomBasicParameters(processedInput.parameters!));
+        } else {
+          console.log('⚙️ Using fixed parameters for all 3 slots.');
+          parameterSetsForSlots = Array(3).fill(processedInput.parameters);
+        }
+
+        // STAGE 2: Build prompts from the determined parameter sets.
+        if (processedInput.useAIPrompt && processedInput.imageDataUriOrUrl) {
+          console.log('🧠 Using AI prompt enhancement...');
+          const promptPromises = parameterSetsForSlots.map((params, i) =>
+            generatePromptWithAI(params, processedInput.imageDataUriOrUrl!, username, (i + 1) as 1 | 2 | 3)
+              .catch(err => {
+                console.warn(`AI prompt generation for slot ${i + 1} failed. Falling back to local builder. Reason:`, err);
+                return buildAIPrompt({ type: 'image', params: { ...params, settingsMode: 'advanced' } });
+              })
+          );
+          prompts = await Promise.all(promptPromises);
+        } else {
+          console.log('📝 Using local prompt builder...');
+          prompts = parameterSetsForSlots.map(params =>
+            buildAIPrompt({ type: 'image', params: { ...params, settingsMode: processedInput.settingsMode || 'basic' } })
+          );
+        }
+
+        // The first prompt is considered the "main" one for history purposes.
+        finalConstructedPromptForHistory = prompts[0] || 'Prompt generation failed.';
+      }
+      
+      // Log all received optimized prompts together
+      console.log(`\n🚀 ALL AI-GENERATED PROMPTS SUMMARY:`);
+      console.log('='.repeat(100));
+      console.log(`Target Model for Generation: ${modelToUse}`);
+      prompts.forEach((prompt, index) => {
+        console.log(`\n📝 PROMPT ${index + 1}:`);
+        if (prompt) {
+          console.log(prompt);
+        } else {
+          console.log('❌ FAILED TO GENERATE');
+        }
+        console.log('-'.repeat(60));
+      });
+      console.log('='.repeat(100));
+      
+      console.log("Generated Prompts:", prompts);
+
+      const [prompt1, prompt2, prompt3] = prompts;
+
+      const generationPromises = prompts.map(async (prompt, index) => {
+        if (!prompt) throw new Error(`Prompt for slot ${index + 1} was missing`);
+        
+        try {
+          const result = await performSingleImageGeneration(
+            { ...processedInput, prompt }, 
+            user, 
+            `flow${index + 1}`, 
+            (index + 1) as 1 | 2 | 3
+          );
+
+          if (historyId && result.editedImageUrl) {
+            dbService.updateHistoryImageSlot(historyId, index, result.editedImageUrl);
+            console.log(`✅ Creative Mode: Image ${index + 1} saved to DB for ${historyId}`);
+          }
+          return result;
+        } catch (err) {
+          console.error(`Creative Mode flow ${index + 1} error:`, err);
+          throw err;
+        }
+      });
+
+      const settledResults = await Promise.allSettled(generationPromises);
+
+      const editedImageUrlsResult: (string | null)[] = Array(3).fill(null);
+      const errorsResult: (string | null)[] = Array(3).fill(null);
+
+      settledResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          editedImageUrlsResult[index] = result.value.editedImageUrl;
+        } else {
+          console.error(`Error from flow ${index + 1}:`, result.reason);
+          const reasonError = result.reason as Error;
+          errorsResult[index] = `Image ${index + 1} processing failed: ${reasonError?.message || 'Unknown error'}`;
+        }
+      });
+
+      // Update History
+      if (historyId) {
+        dbService.updateHistoryItem(historyId, {
+          constructedPrompt: finalConstructedPromptForHistory,
+          editedImageUrls: editedImageUrlsResult,
+          status: errorsResult.every(e => e) ? 'failed' : 'completed',
+          error: errorsResult.find(e => e) || undefined
+        });
+        console.log(`✅ Creative Mode: History updated for ${historyId}`);
+      }
+
+    } catch (error) {
+      console.error(`❌ Background generation failed for ${historyId}:`, error);
+      if (historyId) {
+        dbService.updateHistoryItem(historyId, {
+          status: 'failed',
+          error: (error as Error).message
+        });
       }
     }
-  }
+  });
 
+  // 3. Return immediate response
   return {
-    editedImageUrls: editedImageUrlsResult,
-    constructedPrompt: finalConstructedPromptForHistory,
-    errors: errorsResult.some(e => e !== null) ? errorsResult : undefined
+    editedImageUrls: [null, null, null],
+    constructedPrompt: 'Processing...',
+    newHistoryId: historyId,
   };
 }

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useImagePreparation, useActivePreparationImage } from "@/contexts/ImagePreparationContext";
+import { useImageStore } from "@/stores/imageStore";
 import { useToast } from "@/hooks/use-toast";
 import {
   isBackgroundRemovalAvailable as checkBgAvailable,
@@ -63,10 +63,12 @@ interface ImageProcessingToolsProps {
 export default function ImageProcessingTools({ preparationMode, disabled = false }: ImageProcessingToolsProps) {
   const { toast } = useToast();
   
-  // Use Context instead of Zustand
+  // Use Zustand Store
   const {
-    state,
-    dispatch,
+    versions,
+    activeVersionId,
+    versionHistory,
+    historyIndex,
     removeBackground,
     upscaleImage,
     faceDetailer,
@@ -74,15 +76,13 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
     rotateImageRight,
     flipHorizontal,
     flipVertical,
-    canUndo,
-    canRedo,
-  } = useImagePreparation();
+    undo,
+    redo,
+  } = useImageStore();
   
-  const activeImage = useActivePreparationImage();
-
-  // Undo/Redo actions - wrapped in useCallback to prevent recreation
-  const undo = useCallback(() => dispatch({ type: 'UNDO' }), [dispatch]);
-  const redo = useCallback(() => dispatch({ type: 'REDO' }), [dispatch]);
+  const activeImage = activeVersionId ? versions[activeVersionId] : null;
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < versionHistory.length - 1;
 
   // Service availability state
   const [isBgRemovalAvailable, setIsBgRemovalAvailable] = useState(false);
@@ -156,7 +156,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   };
 
   // Check if ANY version is currently in an optimistic 'processing' state.
-  const isAnyVersionProcessing = Object.values(state.versions).some(v => v.status === 'processing');
+  const isAnyVersionProcessing = Object.values(versions).some(v => v.status === 'processing');
   
   // The master disable flag
   const isToolDisabled = disabled || isAnyVersionProcessing;

@@ -4,7 +4,7 @@ import { cache } from 'react';
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { encrypt } from './encryption.service';
+
 import type { HistoryItem, ModelAttributes, SessionUser } from '@/lib/types';
 
 // Video status payload type for efficient polling
@@ -21,78 +21,16 @@ const DB_PATH = path.join(DB_DIR, 'history.db');
 
 let db: Database.Database;
 
-// Migration orchestrator function
-function runMigrations(db: Database.Database) {
-  const LATEST_SCHEMA_VERSION = 1;
-  let currentVersion = 0;
 
-  try {
-    const row = db.prepare("PRAGMA user_version").get() as { user_version: number };
-    currentVersion = row.user_version;
-    console.log(`[DB Migration] Current database schema version: ${currentVersion}`);
-  } catch (error) {
-    console.error('[DB Migration] Could not read user_version pragma:', error);
-    // This likely means it's a very old or new DB, we assume version 0.
-    db.prepare(`PRAGMA user_version = 0`).run();
-  }
-
-  if (currentVersion >= LATEST_SCHEMA_VERSION) {
-    console.log('[DB Migration] Database schema is up to date.');
-    return;
-  }
-  
-  console.log(`[DB Migration] Migrating from version ${currentVersion} to ${LATEST_SCHEMA_VERSION}...`);
-
-  // --- Migration to Version 1 ---
-  if (currentVersion < 1) {
-    const migration_v1 = db.transaction(() => {
-      console.log('[DB Migration] Applying migration to version 1...');
-      
-      // Idempotency Check: See if the column already exists.
-      const columns = db.prepare("PRAGMA table_info(history)").all() as { name: string }[];
-      const hasColumn = columns.some(col => col.name === 'generation_mode');
-
-      if (!hasColumn) {
-        console.log("[DB Migration] Adding 'generation_mode' column to 'history' table.");
-        db.exec(`
-          ALTER TABLE history 
-          ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'creative'
-        `);
-      } else {
-        console.log("[DB Migration] 'generation_mode' column already exists, skipping ALTER TABLE.");
-      }
-
-      // CRITICAL: Update the schema version inside the transaction.
-      db.prepare(`PRAGMA user_version = 1`).run();
-      console.log('[DB Migration] Successfully migrated to version 1.');
-    });
-
-    try {
-      migration_v1();
-    } catch (error) {
-      console.error('[DB Migration] FAILED to apply migration to version 1:', error);
-      // Since it's in a transaction, any failed part will roll back.
-      // We should stop the application here to prevent it from running with a mismatched schema.
-      throw new Error("Database migration failed. Application cannot start.");
-    }
-  }
-
-  // --- Placeholder for Future Migrations ---
-  /*
-  if (currentVersion < 2) {
-    const migration_v2 = db.transaction(() => {
-      console.log('[DB Migration] Applying migration to version 2...');
-      // ... your ALTER TABLE statements for v2 ...
-      db.prepare(`PRAGMA user_version = 2`).run();
-      console.log('[DB Migration] Successfully migrated to version 2.');
-    });
-    migration_v2();
-  }
-  */
-}
 
 // Singleton pattern to ensure only one DB connection
+const globalForDb = global as unknown as { db: Database.Database };
+
 export function getDb(): Database.Database {
+  if (globalForDb.db) {
+    return globalForDb.db;
+  }
+
   if (db) {
     return db;
   }
@@ -100,161 +38,26 @@ export function getDb(): Database.Database {
   // Ensure directory exists
   fs.mkdirSync(DB_DIR, { recursive: true });
 
-  db = new Database(DB_PATH, { verbose: process.env.NODE_ENV === 'development' ? console.log : undefined });
+  const newDb = new Database(DB_PATH, { verbose: process.env.NODE_ENV === 'development' ? console.log : undefined });
   console.log('SQLite database connected at', DB_PATH);
   
   // Enable Write-Ahead Logging for better concurrency
-  db.pragma('journal_mode = WAL');
-  db.pragma('synchronous = NORMAL');
-  db.pragma('foreign_keys = ON');
+  newDb.pragma('journal_mode = WAL');
+  newDb.pragma('synchronous = NORMAL');
+  newDb.pragma('foreign_keys = ON');
 
-  // 1. Ensure base tables exist
-  initSchema(db);
-
-  // 2. Run migrations to update the schema to the latest version
-  runMigrations(db);
-
-  return db;
-}
-
-// Load environment variables into database settings if they exist and database values are empty
-function initializeApiKeysFromEnv(db: Database.Database) {
-  const envKeys = [
-    { env: 'GEMINI_API_KEY_1', db: 'global_gemini_api_key_1' },
-    { env: 'GEMINI_API_KEY_2', db: 'global_gemini_api_key_2' }, 
-    { env: 'GEMINI_API_KEY_3', db: 'global_gemini_api_key_3' },
-    { env: 'FAL_KEY', db: 'global_fal_api_key' }
-  ];
-
-  for (const { env, db: dbKey } of envKeys) {
-    const envValue = process.env[env];
-    if (envValue) {
-      // Check if database value is empty
-      const stmt = db.prepare('SELECT value FROM settings WHERE key = ?');
-      const result = stmt.get(dbKey) as { value: string } | undefined;
-      
-      if (!result?.value) {
-        // Encrypt and store the environment variable value
-        const encryptedValue = encrypt(envValue);
-        const updateStmt = db.prepare('UPDATE settings SET value = ? WHERE key = ?');
-        updateStmt.run(encryptedValue, dbKey);
-        console.log(`Initialized ${dbKey} from environment variable ${env}`);
-      }
-    }
+  if (process.env.NODE_ENV !== 'production') {
+    globalForDb.db = newDb;
+  } else {
+    db = newDb;
   }
+
+  return newDb;
 }
 
-// Initialize system prompt from file if database is empty
-function initializeSystemPromptFromFile(db: Database.Database) {
-  try {
-    // Check if system prompt already exists and has content
-    const stmt = db.prepare('SELECT value FROM settings WHERE key = ?');
-    const result = stmt.get('ai_prompt_engineer_system') as { value: string } | undefined;
-    
-    if (!result?.value) {
-      // Try to read from file and populate database
-      const promptPath = path.join(process.cwd(), 'src/ai/prompts/prompt-engineer-system.txt');
-      try {
-        const fileContent = fs.readFileSync(promptPath, 'utf8');
-        if (fileContent.trim()) {
-          const updateStmt = db.prepare('UPDATE settings SET value = ? WHERE key = ?');
-          updateStmt.run(fileContent, 'ai_prompt_engineer_system');
-          console.log('Initialized system prompt from file');
-        }
-      } catch (fileError) {
-        // File doesn't exist or can't be read - this is fine
-        console.log('System prompt file not found - using empty default');
-      }
-    }
-  } catch (error) {
-    console.error('Error initializing system prompt:', error);
-  }
-}
 
-function initSchema(db: Database.Database) {
-  db.exec(`
 
-    CREATE TABLE IF NOT EXISTS history (
-      id TEXT PRIMARY KEY,
-      username TEXT NOT NULL,
-      timestamp INTEGER NOT NULL,
-      constructedPrompt TEXT,
-      originalClothingUrl TEXT,
-      settingsMode TEXT,
-      attributes TEXT,
-      videoGenerationParams TEXT,
-      webhook_url TEXT,
-      status TEXT DEFAULT 'completed', -- ADDED
-      error TEXT, -- ADDED
-      image_generation_model TEXT, -- ADD THIS
-      generation_mode TEXT NOT NULL DEFAULT 'creative' -- Studio Mode support
-    );
 
-    CREATE TABLE IF NOT EXISTS users (
-      username TEXT PRIMARY KEY,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin', 'user')),
-      gemini_api_key_1 TEXT,
-      gemini_api_key_1_mode TEXT NOT NULL DEFAULT 'global' CHECK (gemini_api_key_1_mode IN ('global', 'user_specific')),
-      gemini_api_key_2 TEXT,
-      gemini_api_key_2_mode TEXT NOT NULL DEFAULT 'global' CHECK (gemini_api_key_2_mode IN ('global', 'user_specific')),
-      gemini_api_key_3 TEXT,
-      gemini_api_key_3_mode TEXT NOT NULL DEFAULT 'global' CHECK (gemini_api_key_3_mode IN ('global', 'user_specific')),
-      fal_api_key TEXT,
-      fal_api_key_mode TEXT NOT NULL DEFAULT 'global' CHECK (fal_api_key_mode IN ('global', 'user_specific')),
-      image_generation_model TEXT NOT NULL DEFAULT 'google_gemini_2_0' CHECK (image_generation_model IN ('google_gemini_2_0', 'fal_gemini_2_5'))
-    );
-    
-    CREATE TABLE IF NOT EXISTS history_images (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      history_id TEXT NOT NULL,
-      url TEXT NOT NULL,
-      type TEXT NOT NULL CHECK (type IN ('edited', 'original_for_comparison', 'generated_video')),
-      slot_index INTEGER NOT NULL,
-      FOREIGN KEY (history_id) REFERENCES history (id) ON DELETE CASCADE
-    );
-    
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-
-    -- Composite index for efficient username + timestamp queries (pagination)
-    CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history (username, timestamp DESC);
-    -- Individual indexes for flexible query optimization
-    CREATE INDEX IF NOT EXISTS idx_history_username ON history (username);
-    CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history (timestamp DESC);
-    CREATE INDEX IF NOT EXISTS idx_history_status ON history (status);
-    -- Foreign key index for image lookups
-    CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images (history_id);
-    CREATE INDEX IF NOT EXISTS idx_history_images_type ON history_images (type);
-    -- User table indexes
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username);
-  `);
-
-  // Insert default values for feature flags if they don't exist
-  db.exec(`
-    INSERT OR IGNORE INTO settings (key, value) VALUES 
-      ('feature_video_generation', 'true'),
-      ('feature_background_removal', 'true'),
-      ('feature_image_upscaling', 'true'),
-      ('feature_face_detailer', 'true'),
-      ('global_gemini_api_key_1', ''),
-      ('global_gemini_api_key_2', ''),
-      ('global_gemini_api_key_3', ''),
-      ('global_fal_api_key', ''),
-      ('ai_prompt_engineer_system', ''),
-      ('ai_studio_mode_prompt_template', '')
-  `);
-
-  // Load environment variables into database settings if they exist and database values are empty
-  initializeApiKeysFromEnv(db);
-  
-  // Initialize system prompt from file if database is empty
-  initializeSystemPromptFromFile(db);
-  
-  console.log('Database schema initialized.');
-}
 
 interface PaginationOptions {
   username: string;
@@ -530,6 +333,20 @@ export const updateHistoryItem = (id: string, updates: Partial<HistoryItem>): vo
   updateTransaction();
 };
 
+/**
+ * Atomically updates a single image slot for a history item.
+ * Uses the normalized history_images table to avoid race conditions.
+ */
+export const updateHistoryImageSlot = (historyId: string, slotIndex: number, url: string): void => {
+  const db = getDb();
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO history_images (history_id, url, type, slot_index)
+    VALUES (?, ?, 'edited', ?)
+  `);
+  stmt.run(historyId, url, slotIndex);
+};
+
+
 export const findHistoryByUsername = cache((username: string): HistoryItem[] => {
   const statements = getPreparedStatements();
   const rows = statements.findHistoryByUsername?.all(username) as any[];
@@ -604,11 +421,22 @@ export const getAllUsersHistoryPaginated = cache((page: number = 1, limit: numbe
   };
 });
 
-export const getHistoryItemStatus = cache((id: string, username: string): VideoStatusPayload | null => {
+// Extended status payload for both video and image polling
+export interface HistoryStatusPayload {
+  status: 'processing' | 'completed' | 'failed' | 'unknown';
+  videoUrl?: string | null;
+  localVideoUrl?: string | null;
+  error?: string;
+  seed?: number;
+  editedImageUrls?: (string | null)[];
+}
+
+export const getHistoryItemStatus = cache((id: string, username: string): HistoryStatusPayload | null => {
   const db = getDb();
   const stmt = db.prepare(`
-    SELECT videoGenerationParams, 
-           (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' LIMIT 1) as video_url
+    SELECT h.status, h.error, h.videoGenerationParams,
+           (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' LIMIT 1) as video_url,
+           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images
     FROM history h
     WHERE h.id = ? AND h.username = ?
   `);
@@ -619,24 +447,29 @@ export const getHistoryItemStatus = cache((id: string, username: string): VideoS
     return null; // Item not found or does not belong to the user
   }
   
-  if (!row.videoGenerationParams) {
-    // This is an image-only item or something is wrong
-    return { status: 'unknown' };
+  // Parse edited images
+  const editedImageUrls = safeJsonParse<any[]>(row.edited_images, []);
+
+  // If video params exist, it's a video generation
+  if (row.videoGenerationParams) {
+    const params = safeJsonParse<any>(row.videoGenerationParams, null);
+    if (params) {
+        return {
+            status: params.status || row.status || 'processing',
+            videoUrl: row.video_url || null,
+            localVideoUrl: params.localVideoUrl || null,
+            error: params.error || row.error,
+            seed: params.seed,
+            editedImageUrls,
+        };
+    }
   }
 
-  // Optimized: Use helper function for JSON parsing
-  const params = safeJsonParse<any>(row.videoGenerationParams, null);
-  if (!params) {
-    console.error('Failed to parse videoGenerationParams JSON for history item', id);
-    return { status: 'unknown' };
-  }
-
+  // Default to main record status (for image generation)
   return {
-    status: params.status || 'processing', // Default to processing if status not set
-    videoUrl: row.video_url || null, // Remote Fal.ai URL
-    localVideoUrl: params.localVideoUrl || null, // Local URL for downloads
-    error: params.error,
-    seed: params.seed,
+    status: row.status as 'processing' | 'completed' | 'failed',
+    error: row.error,
+    editedImageUrls,
   };
 });
 

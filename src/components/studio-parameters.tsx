@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useImagePreparation, useActivePreparationImage } from '@/contexts/ImagePreparationContext';
+import { useImageStore } from '@/stores/imageStore';
 import { useGenerationSettingsStore } from '@/stores/generationSettingsStore';
 import { Sparkles, Loader2, Info } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
@@ -19,7 +19,8 @@ const NUM_IMAGES_TO_GENERATE = 3;
 // Submit button component specific to this form
 function SubmitButton({ isImageReady }: { isImageReady: boolean }) {
   const { pending } = useFormStatus();
-  const { isAnyVersionProcessing } = useImagePreparation();
+  const { versions } = useImageStore();
+  const isAnyVersionProcessing = Object.values(versions).some(v => v.status === 'processing');
   
   const isDisabled = pending || !isImageReady || isAnyVersionProcessing;
   
@@ -43,8 +44,9 @@ interface StudioParametersProps {
 }
 
 export default function StudioParameters({ isPending }: StudioParametersProps) {
-  // Get prepared image from context
-  const activeImage = useActivePreparationImage();
+  // Get prepared image from store
+  const { versions, activeVersionId } = useImageStore();
+  const activeImage = activeVersionId ? versions[activeVersionId] : null;
   const preparedImageUrl = activeImage?.imageUrl || '';
   const isImageReady = !!activeImage?.imageUrl;
 

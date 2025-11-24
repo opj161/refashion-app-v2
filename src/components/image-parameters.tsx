@@ -16,7 +16,7 @@ import { isBackgroundRemovalAvailable } from "@/ai/actions/remove-background.act
 import type { ModelAttributes } from "@/lib/types";
 import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
-import { useActivePreparationImage, useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { useImageStore } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import {
     FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
@@ -40,7 +40,8 @@ const NUM_IMAGES_TO_GENERATE = 3;
 // Memoized to prevent unnecessary re-renders when parent state changes
 const SubmitButton = React.memo(function SubmitButton({ preparedImageUrl }: { preparedImageUrl: string | null }) {
   const { pending } = useFormStatus();
-  const { isAnyVersionProcessing } = useImagePreparation();
+  const { versions } = useImageStore();
+  const isAnyVersionProcessing = Object.values(versions).some(v => v.status === 'processing');
   
   const isDisabled = pending || !preparedImageUrl || isAnyVersionProcessing;
   
@@ -72,7 +73,8 @@ export default function ImageParameters({ isPending }: ImageParametersProps) {
   const { toast } = useToast();
   
   // Get the active image from store
-  const activeImage = useActivePreparationImage();
+  const { versions, activeVersionId } = useImageStore();
+  const activeImage = activeVersionId ? versions[activeVersionId] : null;
   const preparedImageUrl = activeImage?.imageUrl || null;
 
   // Get settings from Zustand store - read and write directly to store

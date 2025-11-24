@@ -53,5 +53,8 @@ else
     echo "MEGA backup is disabled."
 fi
 
+echo "Running database migrations..."
+npm run migrate:prod
+
 echo "Starting application..."
 exec "$@"

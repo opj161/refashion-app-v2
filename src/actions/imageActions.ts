@@ -398,6 +398,40 @@ export type ImageGenerationFormState = {
   newHistoryId?: string;
 };
 
+import { z } from 'zod';
+import { zfd } from 'zod-form-data';
+
+// Define the schema for image generation
+const imageGenerationSchema = zfd.formData({
+  imageDataUriOrUrl: zfd.text(),
+  generationMode: zfd.text(z.enum(['creative', 'studio']).default('creative')),
+  studioFit: zfd.text(z.enum(['slim', 'regular', 'relaxed']).default('regular')),
+  settingsMode: zfd.text(z.enum(['basic', 'advanced']).default('basic')),
+  useAIPrompt: zfd.checkbox(),
+  useRandomization: zfd.checkbox(),
+  removeBackground: zfd.checkbox(),
+  upscale: zfd.checkbox(),
+  enhanceFace: zfd.checkbox(),
+  manualPrompt: zfd.text(z.string().optional()),
+  // Creative Mode Parameters
+  gender: zfd.text(z.string().optional()),
+  bodyShapeAndSize: zfd.text(z.string().optional()),
+  ageRange: zfd.text(z.string().optional()),
+  ethnicity: zfd.text(z.string().optional()),
+  poseStyle: zfd.text(z.string().optional()),
+  background: zfd.text(z.string().optional()),
+  fashionStyle: zfd.text(z.string().optional()),
+  hairStyle: zfd.text(z.string().optional()),
+  modelExpression: zfd.text(z.string().optional()),
+  lightingType: zfd.text(z.string().optional()),
+  lightQuality: zfd.text(z.string().optional()),
+  modelAngle: zfd.text(z.string().optional()),
+  lensEffect: zfd.text(z.string().optional()),
+  depthOfField: zfd.text(z.string().optional()),
+  timeOfDay: zfd.text(z.string().optional()),
+  overallMood: zfd.text(z.string().optional()),
+});
+
 /**
  * Server Action wrapper for image generation compatible with useActionState.
  * This action extracts parameters from FormData and calls the existing generateImageEdit flow.
@@ -426,83 +460,85 @@ export async function generateImageAction(
       };
     }
 
-    // Extract required parameters from FormData
-    const imageDataUriOrUrl = formData.get('imageDataUriOrUrl') as string;
-    if (!imageDataUriOrUrl) {
+    // Parse and validate form data using Zod
+    const result = imageGenerationSchema.safeParse(formData);
+
+    if (!result.success) {
+      const errorMessage = result.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(', ');
       return {
-        message: 'Image required',
-        errors: [null, null, null].map(() => 'No image provided'),
+        message: 'Validation failed',
+        errors: [null, null, null].map(() => errorMessage),
       };
     }
 
-    // Extract generation mode and studio fit
-    const generationMode = (formData.get('generationMode') as 'creative' | 'studio') || 'creative';
-    const studioFit = (formData.get('studioFit') as 'slim' | 'regular' | 'relaxed') || 'regular';
-
-    // Extract generation options
-    const settingsMode = (formData.get('settingsMode') as 'basic' | 'advanced') || 'basic';
-    const useAIPrompt = formData.get('useAIPrompt') === 'true';
-    const useRandomization = formData.get('useRandomization') === 'true';
-    const removeBackground = formData.get('removeBackground') === 'true';
-    const upscale = formData.get('upscale') === 'true';
-    const enhanceFace = formData.get('enhanceFace') === 'true';
-    const manualPrompt = formData.get('manualPrompt') as string | null;
+    const data = result.data;
 
     // Build the generation input
     const generationInput: GenerateImageEditInput = {
-      imageDataUriOrUrl,
-      generationMode,
-      studioFit,
+      imageDataUriOrUrl: data.imageDataUriOrUrl,
+      generationMode: data.generationMode,
+      studioFit: data.studioFit,
       // Only extract and pass parameters for Creative Mode
-      parameters: generationMode === 'creative' ? {
-        gender: formData.get('gender') as string,
-        bodyShapeAndSize: formData.get('bodyShapeAndSize') as string,
-        ageRange: formData.get('ageRange') as string,
-        ethnicity: formData.get('ethnicity') as string,
-        poseStyle: formData.get('poseStyle') as string,
-        background: formData.get('background') as string,
-        fashionStyle: formData.get('fashionStyle') as string,
-        hairStyle: formData.get('hairStyle') as string,
-        modelExpression: formData.get('modelExpression') as string,
-        lightingType: formData.get('lightingType') as string,
-        lightQuality: formData.get('lightQuality') as string,
-        modelAngle: formData.get('modelAngle') as string,
-        lensEffect: formData.get('lensEffect') as string,
-        depthOfField: formData.get('depthOfField') as string,
-        timeOfDay: formData.get('timeOfDay') as string,
-        overallMood: formData.get('overallMood') as string,
+      parameters: data.generationMode === 'creative' ? {
+        gender: data.gender,
+        bodyShapeAndSize: data.bodyShapeAndSize,
+        ageRange: data.ageRange,
+        ethnicity: data.ethnicity,
+        poseStyle: data.poseStyle,
+        background: data.background,
+        fashionStyle: data.fashionStyle,
+        hairStyle: data.hairStyle,
+        modelExpression: data.modelExpression,
+        lightingType: data.lightingType,
+        lightQuality: data.lightQuality,
+        modelAngle: data.modelAngle,
+        lensEffect: data.lensEffect,
+        depthOfField: data.depthOfField,
+        timeOfDay: data.timeOfDay,
+        overallMood: data.overallMood,
       } : undefined,
-      settingsMode,
-      useAIPrompt,
-      useRandomization,
-      removeBackground,
-      upscale,
-      enhanceFace,
-      ...(manualPrompt && { prompt: manualPrompt }),
+      settingsMode: data.settingsMode,
+      useAIPrompt: data.useAIPrompt,
+      useRandomization: data.useRandomization,
+      removeBackground: data.removeBackground,
+      upscale: data.upscale,
+      enhanceFace: data.enhanceFace,
+      ...(data.manualPrompt && { prompt: data.manualPrompt }),
     };
 
     // Call the existing generation flow
-    const result = await generateImageEdit(generationInput, user.username);
+    const genResult = await generateImageEdit(generationInput, user.username);
 
-    // Check for success
-    const successCount = result.editedImageUrls.filter(url => url !== null).length;
+    // Check for success (Processing started)
+    if (genResult.newHistoryId) {
+      return {
+        message: 'Processing started',
+        editedImageUrls: genResult.editedImageUrls,
+        constructedPrompt: genResult.constructedPrompt,
+        errors: genResult.errors,
+        newHistoryId: genResult.newHistoryId,
+      };
+    }
+
+    // Fallback if no history ID was returned (should not happen with new flow unless error)
+    const successCount = genResult.editedImageUrls.filter(url => url !== null).length;
     
     if (successCount === 0) {
       return {
         message: 'All generations failed',
-        editedImageUrls: result.editedImageUrls,
-        constructedPrompt: result.constructedPrompt,
-        errors: result.errors || [null, null, null].map(() => 'Generation failed'),
+        editedImageUrls: genResult.editedImageUrls,
+        constructedPrompt: genResult.constructedPrompt,
+        errors: genResult.errors || [null, null, null].map(() => 'Generation failed'),
       };
     }
 
-    // Return success state
+    // Return success state (legacy path)
     return {
       message: `${successCount} out of 3 images generated successfully`,
-      editedImageUrls: result.editedImageUrls,
-      constructedPrompt: result.constructedPrompt,
-      errors: result.errors,
-      newHistoryId: result.newHistoryId,
+      editedImageUrls: genResult.editedImageUrls,
+      constructedPrompt: genResult.constructedPrompt,
+      errors: genResult.errors,
+      newHistoryId: genResult.newHistoryId,
     };
 
   } catch (error) {

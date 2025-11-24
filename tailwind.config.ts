@@ -114,7 +114,7 @@ export default {
         'shimmer': 'shimmer 3s infinite linear',
   		},
       fontFamily: {
-        sans: ['Satoshi', 'sans-serif'],
+        sans: ['var(--font-satoshi)', 'sans-serif'],
       },
       // Add custom scale utilities for modern hover effects
       scale: {

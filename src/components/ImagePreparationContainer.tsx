@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { type PixelCrop, type Crop } from 'react-image-crop';
 import { motion, AnimatePresence } from 'motion/react';
-import { useImagePreparation, useActivePreparationImage } from "@/contexts/ImagePreparationContext";
+import { useImageStore } from "@/stores/imageStore";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 import ImageUploader from "./ImageUploader";
@@ -16,7 +16,6 @@ import EditingHubSidebar from "./EditingHubSidebar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 import { UploadCloud, Trash2, Brush } from "lucide-react";
-import type { HistoryItem } from '@/lib/types';
 
 interface ImagePreparationContainerProps {
   preparationMode: 'image' | 'video';
@@ -24,7 +23,7 @@ interface ImagePreparationContainerProps {
   resetRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-// Component that uses the context
+// Component that uses the Zustand store
 export default function ImagePreparationContainer({
   preparationMode,
   onReset,
@@ -33,18 +32,22 @@ export default function ImagePreparationContainer({
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  // Use Context instead of Zustand
+  // Use Zustand Store
   const {
-    state,
-    dispatch,
+    versions,
+    activeVersionId,
+    crop,
+    aspect,
+    imageDimensions,
     applyCrop,
     reset,
-    isAnyVersionProcessing,
-  } = useImagePreparation();
+    setAspect,
+    setDimensions,
+    setCrop,
+  } = useImageStore();
 
-  const activeImage = useActivePreparationImage();
-  
-  const { versions, activeVersionId, crop, aspect, imageDimensions } = state;
+  const activeImage = activeVersionId ? versions[activeVersionId] : null;
+  const isAnyVersionProcessing = Object.values(versions).some(v => v.status === 'processing');
 
   // Expose reset to parent via ref
   React.useEffect(() => {
@@ -68,12 +71,12 @@ export default function ImagePreparationContainer({
 
   const handleCancelCrop = () => {
     setIsCropping(false);
-    dispatch({ type: 'SET_ASPECT', payload: { aspect: undefined } });
+    setAspect(undefined);
     toast({ title: "Crop Canceled" });
   };
 
   const handleAspectChange = (newAspect?: number) => {
-    dispatch({ type: 'SET_ASPECT', payload: { aspect: newAspect } });
+    setAspect(newAspect);
     // An explicit aspect selection always means we are in a cropping state.
     setIsCropping(true);
   };
@@ -84,17 +87,17 @@ export default function ImagePreparationContainer({
     const { naturalWidth, naturalHeight } = e.currentTarget;
 
     // 1. Always store the new dimensions.
-    dispatch({ type: 'SET_DIMENSIONS', payload: { width: naturalWidth, height: naturalHeight } });
+    setDimensions(naturalWidth, naturalHeight);
 
     // 2. Check if there's a predefined aspect ratio we need to apply.
     if (aspect) {
       // 3. Calculate and set the centered crop - the reducer will handle this
-      dispatch({ type: 'SET_ASPECT', payload: { aspect } });
+      setAspect(aspect);
     }
-  }, [dispatch, aspect]);
+  }, [setDimensions, setAspect, aspect]);
   
   const handleCropChange = (pixelCrop: PixelCrop, percentCrop: Crop) => {
-    dispatch({ type: 'SET_CROP', payload: { crop: percentCrop } });
+    setCrop(percentCrop);
     // *** BUG FIX ***: Activate cropping UI on manual drag
     if (!isCropping && percentCrop.width > 0 && percentCrop.height > 0) {
       setIsCropping(true);

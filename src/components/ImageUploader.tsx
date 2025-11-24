@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { useImageStore } from "@/stores/imageStore";
 import { UploadCloud, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -20,9 +20,8 @@ export default function ImageUploader() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
   
-  // Context state
-  const { state, uploadOriginalImage } = useImagePreparation();
-  const { original } = state;
+  // Zustand state
+  const { uploadOriginalImage } = useImageStore();
   
   // Local UI state
   const [isUploading, setIsUploading] = useState(false);

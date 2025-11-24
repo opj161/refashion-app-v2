@@ -8,7 +8,10 @@ import { Button } from '@/components/ui/button';
 import { AdminNav } from './_components/AdminNav';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
+import { connection } from 'next/server';
+
 export default async function AdminLayout({ children }: { children: ReactNode }) {
+  await connection();
   const user = await getCurrentUser();
 
   if (!user || user.role !== 'admin') {
