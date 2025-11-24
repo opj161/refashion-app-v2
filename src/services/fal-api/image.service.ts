@@ -55,6 +55,7 @@ export async function generateWithFalEditModel(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(input),
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -68,7 +69,7 @@ export async function generateWithFalEditModel(
     // Poll for result
     let result: any = null;
     let attempts = 0;
-    const maxAttempts = 60; // 60 seconds timeout roughly
+    const maxAttempts = 300; // 5 minutes timeout
 
     while (!result && attempts < maxAttempts) {
       attempts++;
@@ -77,6 +78,7 @@ export async function generateWithFalEditModel(
           'Authorization': `Key ${keyToUse}`,
           'Content-Type': 'application/json',
         },
+        cache: 'no-store',
       });
 
       if (!statusResponse.ok) {
@@ -94,6 +96,7 @@ export async function generateWithFalEditModel(
               'Authorization': `Key ${keyToUse}`,
               'Content-Type': 'application/json',
             },
+            cache: 'no-store',
         });
         result = await resultResponse.json();
       } else if (statusResult.status === 'IN_QUEUE' || statusResult.status === 'IN_PROGRESS') {

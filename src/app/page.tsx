@@ -20,10 +20,12 @@ export default async function CreatePage() {
 
   if (sessionUser?.username) {
     const fullUser = findUserByUsername(sessionUser.username);
+    console.log(`[CreatePage] User: ${sessionUser.username}, Model: ${fullUser?.image_generation_model}`);
     if (fullUser?.image_generation_model === 'fal_nano_banana_pro') {
       maxImages = 1;
     }
   }
+  console.log(`[CreatePage] maxImages determined: ${maxImages}`);
 
   return (
     <div className="container mx-auto max-w-7xl px-4 pt-5 pb-10 space-y-8">

@@ -396,6 +396,8 @@ export async function generateImageEdit(
   // Nano Banana Pro = 1 image
   // Gemini 2.5 = 3 images
   const imagesToGenerateCount = user.image_generation_model === 'fal_nano_banana_pro' ? 1 : 3;
+  console.log(`[generateImageEdit] User: ${username}, Model: ${user.image_generation_model}, Count: ${imagesToGenerateCount}`);
+  const initialImageArray = Array(3).fill(null); // Always keep DB array size 3 for consistency in UI
 
   // 1. Create initial history item EARLY (if not existing)
   let historyId = existingHistoryId;
