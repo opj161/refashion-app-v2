@@ -390,7 +390,8 @@ export function ImageResultsDisplay({
     : resultItemVariant;
 
   // Don't render anything if there are no results and not currently generating
-  if (!outputImageUrls.some(uri => uri !== null) && !generationErrors.some(err => err !== null) && !isPending) {
+  // FIX: Added check for activeHistoryItemId. If we have an ID but no results yet, we are in the "background processing" phase.
+  if (!outputImageUrls.some(uri => uri !== null) && !generationErrors.some(err => err !== null) && !isPending && !activeHistoryItemId) {
     return null;
   }
 
@@ -437,8 +438,10 @@ export function ImageResultsDisplay({
                 );
               }
 
-              // Show skeleton loader when generating
-              if (uri === null && isPending) {
+              // Show skeleton loader when generating OR processing in background
+              // FIX: Expanded condition to include activeHistoryItemId.
+              // If we have an active history ID, no error, and no URI, we are still processing this slot.
+              if (uri === null && (isPending || !!activeHistoryItemId)) {
                 return (
                   <div
                     key={`loader-${index}`}
