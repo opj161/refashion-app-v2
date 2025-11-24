@@ -36,7 +36,7 @@ type User = {
   gemini_api_key_2_mode: 'global' | 'user_specific';
   gemini_api_key_3_mode: 'global' | 'user_specific';
   fal_api_key_mode: 'global' | 'user_specific';
-  image_generation_model: 'google_gemini_2_0' | 'fal_gemini_2_5';
+  image_generation_model: 'fal_nano_banana_pro' | 'fal_gemini_2_5';
 };
 
 interface UserManagementTableProps {
@@ -236,7 +236,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                   <TableCell className="capitalize">{user.role}</TableCell>
                   <TableCell>{getApiKeyModeSummary(user)}</TableCell>
                   <TableCell>
-                    {user.image_generation_model === 'fal_gemini_2_5' ? 'Fal Gemini 2.5' : 'Google Gemini 2.0'}
+                    {user.image_generation_model === 'fal_gemini_2_5' ? 'Fal Gemini 2.5' : 'Nano Banana Pro'}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => setUserToEdit(user)} disabled={isSubmitting} aria-label={`Edit ${user.username}`}>
@@ -262,7 +262,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                 <p className="font-medium">{user.username}</p>
                 <p className="text-sm text-muted-foreground capitalize">Role: {user.role}</p>
                 <p className="text-sm text-muted-foreground">Keys: {getApiKeyModeSummary(user)}</p>
-                <p className="text-sm text-muted-foreground">Model: {user.image_generation_model === 'fal_gemini_2_5' ? 'Fal 2.5' : 'Google 2.0'}</p>
+                <p className="text-sm text-muted-foreground">Model: {user.image_generation_model === 'fal_gemini_2_5' ? 'Fal 2.5' : 'Banana Pro'}</p>
               </div>
               <div className="flex items-center">
                  <Button variant="ghost" size="icon" onClick={() => setUserToEdit(user)} disabled={isSubmitting} aria-label={`Edit ${user.username}`}>
@@ -310,8 +310,8 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                     <SelectValue placeholder="Select a model" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="google_gemini_2_0">Google Gemini 2.0 (Free)</SelectItem>
-                    <SelectItem value="fal_gemini_2_5">Fal Gemini 2.5 (Paid)</SelectItem>
+                    <SelectItem value="fal_nano_banana_pro">Nano Banana Pro (1 Image)</SelectItem>
+                    <SelectItem value="fal_gemini_2_5">Fal Gemini 2.5 (3 Images)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

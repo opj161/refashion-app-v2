@@ -30,15 +30,14 @@ import type { ModelAttributes } from '@/lib/types';
 import type { FullUser } from '@/services/database.service'; // Import the user type
 import * as dbService from '@/services/database.service';
 import { addHistoryItem } from '@/actions/historyActions';
-import { generateWithGemini25Flash } from '@/services/fal-api/image.service';
+import { generateWithFalEditModel } from '@/services/fal-api/image.service';
 import { downloadAndSaveImageFromUrl } from '@/services/storage.service';
 import { removeBackgroundAction } from '@/ai/actions/remove-background.action';
 import { upscaleImageAction, faceDetailerAction } from '@/ai/actions/upscale-image.action';
 import { getSetting } from '@/services/settings.service'; // Add this import for Studio Mode prompt
 
 // Import Axios and HttpsProxyAgent for explicit proxy control
-import axios, { AxiosError } from 'axios';
-import { HttpsProxyAgent } from 'https-proxy-agent';
+// Axios and HttpsProxyAgent removed as they were only for Google API
 import { withGeminiRetry } from '@/lib/api-retry';
 
 // Import GoogleGenAI SDK for text-based classification tasks
@@ -48,62 +47,11 @@ import { GoogleGenAI } from '@google/genai';
 import { createApiLogger } from '@/lib/api-logger';
 
 // Direct API configuration matching Python implementation
-const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent";
+// BASE_URL removed
 
-// --- START Defined Types ---
-interface GeminiPart {
-  inlineData?: {
-    mimeType: string;
-    data: string;
-  };
-  text?: string;
-}
 
-interface GeminiContent {
-  role: string;
-  parts: GeminiPart[];
-}
+// Gemini Image API types removed
 
-interface GeminiGenerationConfig {
-  temperature: number;
-  topP: number;
-  topK: number;
-  maxOutputTokens: number;
-  responseModalities: string[];
-}
-
-interface GeminiSafetySetting {
-  category: string;
-  threshold: string;
-}
-
-interface GeminiApiRequestBody {
-  contents: GeminiContent[];
-  generationConfig: GeminiGenerationConfig;
-  safetySettings: GeminiSafetySetting[];
-}
-
-interface GeminiApiSuccessResponseCandidate {
-  finishReason?: string;
-  content?: {
-    parts?: Array<GeminiPart>;
-  };
-  // Other candidate properties if relevant
-}
-interface GeminiApiSuccessResponse {
-  candidates?: Array<GeminiApiSuccessResponseCandidate>;
-  // Other top-level response properties if relevant
-}
-
-interface GeminiErrorDetail {
-  message: string;
-  // other fields like code, status if they exist
-}
-
-interface GeminiErrorData { // Renamed from GeminiErrorResponse to avoid conflict with actual HTTP response
-  error?: GeminiErrorDetail | string;
-}
-// --- END Defined Types ---
 
 /**
  * Generate random parameters for stylistic settings with tiered probability system
@@ -284,62 +232,8 @@ async function generateClothingDescription(
  * Make a direct API call to Gemini API with explicit proxy support using axios
  * This provides better proxy control than node-fetch's automatic detection
  */
-async function makeGeminiApiCall(
-  apiKey: string, 
-  requestBody: GeminiApiRequestBody, 
-  keyIndex: number,
-  username: string
-): Promise<GeminiApiSuccessResponse> {
-  const logger = createApiLogger('GEMINI_IMAGE', 'Direct Image Generation', {
-    username,
-    model: 'gemini-2.0-flash-exp-image',
-    keyIndex,
-  });
+// makeGeminiApiCall removed
 
-  const url = `${BASE_URL}?key=${apiKey}`;
-  
-  logger.start({
-    promptLength: requestBody.contents[0].parts.find(p => 'text' in p)?.text?.length || 0,
-    hasImage: requestBody.contents[0].parts.some(p => 'inlineData' in p),
-    temperature: requestBody.generationConfig?.temperature,
-  });
-
-  let httpsAgent;
-  const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy;
-  if (proxyUrl) {
-    logger.progress(`Using proxy: ${proxyUrl.replace(/\/\/.*@/, '//***:***@')}`);
-    httpsAgent = new HttpsProxyAgent(proxyUrl);
-  } else {
-    logger.progress('Making direct API call (no proxy)');
-  }
-  
-  try {
-    const response = await axios.post<GeminiApiSuccessResponse>(url, requestBody, {
-      headers: { 'Content-Type': 'application/json' },
-      httpsAgent: httpsAgent,
-    });
-
-    logger.success({
-      status: response.status,
-      hasImageResponse: !!response.data.candidates?.[0]?.content?.parts?.[0]?.inlineData,
-    });
-    
-    return response.data;
-
-  } catch (error) {
-    if (axios.isAxiosError<GeminiErrorData>(error) && error.response) {
-      const errData = error.response.data.error;
-      const message = (typeof errData === 'string' ? errData : errData?.message) || JSON.stringify(error.response.data);
-      
-      logger.error(error, `Gemini API Error (${error.response.status}): ${message}`);
-      throw new Error(`Gemini API Error (${error.response.status}): ${message}`);
-    }
-    
-    logger.error(error);
-    const generalError = error as Error;
-    throw new Error(`Failed to call Gemini API: ${generalError.message}`);
-  }
-}
 
 const GenerateImageEditInputSchema = z.object({
   prompt: z.string().optional().describe('The prompt to use for generating or editing the image.'),
@@ -370,266 +264,94 @@ export type SingleImageOutput = z.infer<typeof SingleImageOutputSchema>;
 
 async function performSingleImageGeneration(
   input: GenerateImageEditInput,
-  user: FullUser, // <-- Accept the full user object as a parameter
+  user: FullUser,
   flowIdentifier: string,
   keyIndex: 1 | 2 | 3,
-  generationConfigOverride?: Partial<GeminiGenerationConfig>
+  generationConfigOverride?: any // kept for signature compatibility, unused for Fal models
 ): Promise<SingleImageOutput> {
-  const username = user.username; // Get username from the passed object
+  const username = user.username;
   
-  // 2. Route based on the user's setting
-  if (user.image_generation_model === 'fal_gemini_2_5') {
-    // --- FAL.AI GEMINI 2.5 PATH ---
-    const logger = createApiLogger('FAL_IMAGE', 'Fal.ai Image Generation (Gemini 2.5)', {
-      username,
-      endpoint: 'fal-ai/gemini-25-flash-image-edit',
-    });
-
-    if (!input.imageDataUriOrUrl) {
-      throw new Error(`FAL.AI Gemini 2.5 requires a source image for ${flowIdentifier}`);
-    }
-    
-    logger.start({
-      flowIdentifier,
-      promptLength: input.prompt?.length || 0,
-      sourceType: input.imageDataUriOrUrl.startsWith('data:') ? 'dataURI' : 
-                  input.imageDataUriOrUrl.startsWith('/') ? 'localFile' : 'publicURL',
-    });
-
-    // Convert to public URL for FAL.AI (FAL.AI requires publicly accessible URLs)
-    let publicImageUrl = input.imageDataUriOrUrl;
-    
-    if (input.imageDataUriOrUrl.startsWith('data:')) {
-      // Handle data URI: Convert to Blob and upload to FAL storage
-      logger.progress('Converting data URI to public URL via Fal Storage');
-      
-      const dataUriMatch = input.imageDataUriOrUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (!dataUriMatch) {
-        throw new Error(`Invalid data URI format for FAL.AI upload in ${flowIdentifier}`);
-      }
-      
-      const mimeType = dataUriMatch[1];
-      const base64Data = dataUriMatch[2];
-      const binaryData = Buffer.from(base64Data, 'base64');
-      const imageBlob = new Blob([binaryData], { type: mimeType });
-      
-      const { uploadToFalStorage } = await import('@/ai/actions/generate-video.action');
-      publicImageUrl = await uploadToFalStorage(imageBlob, username);
-      logger.progress(`Data URI converted to public URL: ${publicImageUrl.substring(0, 80)}`);
-    } else if (input.imageDataUriOrUrl.startsWith('/uploads/') || input.imageDataUriOrUrl.startsWith('uploads/')) {
-      // Handle local file path: Read from disk and upload to FAL storage
-      logger.progress('Converting local file to public URL via Fal Storage');
-      
-      // Use secure file reading utility (consistent with video generation)
-      const fileBuffer = await getBufferFromLocalPath(input.imageDataUriOrUrl);
-      const mimeType = mime.lookup(input.imageDataUriOrUrl) || 'image/png';
-      
-      // Use consistent blob creation pattern (matching video generation)
-      const imageBlob = new Blob([new Uint8Array(fileBuffer)], { type: mimeType });
-      
-      const { uploadToFalStorage } = await import('@/ai/actions/generate-video.action');
-      publicImageUrl = await uploadToFalStorage(imageBlob, username);
-      logger.progress(`Local file converted to public URL: ${publicImageUrl.substring(0, 80)}`);
-    } else if (!input.imageDataUriOrUrl.startsWith('http://') && !input.imageDataUriOrUrl.startsWith('https://')) {
-      throw new Error(`Invalid image URL format for FAL.AI: ${input.imageDataUriOrUrl}. Expected data URI, local file path, or public URL.`);
-    }
-    
-    try {
-      logger.progress('Calling Fal.ai Gemini 2.5 Flash API');
-      
-      const falResult = await generateWithGemini25Flash(
-        input.prompt || '',
-        publicImageUrl,
-        username
-      );
-      
-      logger.progress(`Downloading generated image (${falResult.imageUrl.substring(0, 60)}...)`);
-      
-      // Download the FAL.AI generated image and store it locally for consistency
-      // This ensures all generated images follow the same storage pattern
-      const { relativeUrl: localImageUrl } = await downloadAndSaveImageFromUrl(
-        falResult.imageUrl,
-        `RefashionAI_fal_generated_${flowIdentifier}`,
-        'generated_images'
-      );
-      
-      logger.success({
-        localImageUrl,
-        description: falResult.description || null,
-      });
-      
-      return { editedImageUrl: localImageUrl };
-    } catch (falError: unknown) {
-      const knownFalError = falError as Error;
-      logger.error(falError);
-      throw new Error(`FAL.AI generation failed for ${flowIdentifier}: ${knownFalError.message}`);
-    }
+  // Logic is now simplified: All valid models use the Fal.ai infrastructure
+  // We map the user's preference to the specific Fal endpoint
+  let modelEndpoint = '';
+  
+  if (user.image_generation_model === 'fal_nano_banana_pro') {
+    modelEndpoint = 'fal-ai/nano-banana-pro/edit';
+  } else {
+    // Default to Gemini 2.5 for 'fal_gemini_2_5' or fallback
+    modelEndpoint = 'fal-ai/gemini-25-flash-image/edit';
   }
 
-  // --- GOOGLE GEMINI 2.0 PATH (EXISTING LOGIC) ---
-  const geminiLogger = createApiLogger('GEMINI_IMAGE', 'Google Gemini 2.0 Image Generation', {
+  const logger = createApiLogger('FAL_IMAGE', `Image Gen (${user.image_generation_model})`, {
     username,
-    model: 'gemini-2.0-flash-exp-image',
-    keyIndex,
+    endpoint: modelEndpoint,
   });
 
-  geminiLogger.start({
+  if (!input.imageDataUriOrUrl) {
+    throw new Error(`Generation requires a source image for ${flowIdentifier}`);
+  }
+  
+  logger.start({
     flowIdentifier,
     promptLength: input.prompt?.length || 0,
-    hasSourceImage: !!input.imageDataUriOrUrl,
+    sourceType: input.imageDataUriOrUrl.startsWith('data:') ? 'dataURI' : 
+                input.imageDataUriOrUrl.startsWith('/') ? 'localFile' : 'publicURL',
   });
 
-  const apiKey = await getApiKeyForUser(username, 'gemini', keyIndex);
-
-  let sourceImageDataForModelProcessing: { mimeType: string; data: string; } | null = null;
-  if (input.imageDataUriOrUrl) {
-    let dataUriToProcess = input.imageDataUriOrUrl;
-    if (input.imageDataUriOrUrl.startsWith('http://') || input.imageDataUriOrUrl.startsWith('https://')) {
-      try {
-        // CACHE-STRATEGY: Policy: Static - The source image URL should be treated as a static asset.
-        // Caching prevents re-downloading if the same image is used in multiple generation slots.
-        geminiLogger.progress(`Fetching image from URL: ${input.imageDataUriOrUrl.substring(0, 60)}...`);
-        const response = await fetch(input.imageDataUriOrUrl, { cache: 'force-cache' } as any);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch image from URL (${input.imageDataUriOrUrl}): ${response.status} ${response.statusText}`);
-        }
-        const imageBuffer = await response.buffer();
-        const mimeType = response.headers.get('content-type') || 'image/png';
-        if (!mimeType.startsWith('image/')) {
-          throw new Error(`Fetched content from URL (${input.imageDataUriOrUrl}) is not an image: ${mimeType}`);
-        }
-        dataUriToProcess = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-        geminiLogger.progress(`Successfully converted URL to data URI (${mimeType})`);
-      } catch (fetchError: unknown) {
-        geminiLogger.error(fetchError, `Failed to fetch/convert image URL for ${flowIdentifier}`);
-        throw new Error(`Failed to process source image from URL for ${flowIdentifier}: ${(fetchError as Error).message}`);
-      }
-    } else if (input.imageDataUriOrUrl.startsWith('/')) {
-      try {
-        geminiLogger.progress(`Converting local file to data URI: ${input.imageDataUriOrUrl.substring(0, 60)}...`);
-        // Use secure file system utility for reading local files
-        const imageBuffer = await getBufferFromLocalPath(input.imageDataUriOrUrl);
-        const mimeType = mime.lookup(input.imageDataUriOrUrl) || 'image/png';
-        dataUriToProcess = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-        geminiLogger.progress(`Successfully converted local file to data URI (${mimeType})`);
-      } catch (localFileError: unknown) {
-        geminiLogger.error(localFileError, `Failed to read local image for ${flowIdentifier}`);
-        throw new Error(`Failed to process local source image for ${flowIdentifier}: ${(localFileError as Error).message}`);
-      }
-    }
-    const match = dataUriToProcess.match(/^data:(image\/\w+);base64,(.+)$/);
-    if (match) {
-      sourceImageDataForModelProcessing = { mimeType: match[1], data: match[2] };
-    } else if (input.imageDataUriOrUrl) {
-      geminiLogger.warning(`Could not parse data URI for ${flowIdentifier}. Original: ${input.imageDataUriOrUrl.substring(0, 60)}`);
-    }
-  }
-  const parts: GeminiPart[] = []; // Typed parts
+  // Convert to public URL for FAL.AI (FAL.AI requires publicly accessible URLs)
+  let publicImageUrl = input.imageDataUriOrUrl;
   
-  if (sourceImageDataForModelProcessing) {
-    parts.push({
-      inlineData: {
-        mimeType: sourceImageDataForModelProcessing.mimeType,
-        data: sourceImageDataForModelProcessing.data,
-      },
+  // Handle Data URI or Local Path by uploading to Fal Storage
+  if (input.imageDataUriOrUrl.startsWith('data:') || input.imageDataUriOrUrl.startsWith('/uploads/')) {
+    logger.progress('Converting source to public URL via Fal Storage');
+    
+    let imageBlob: Blob;
+
+    if (input.imageDataUriOrUrl.startsWith('data:')) {
+      const dataUriMatch = input.imageDataUriOrUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!dataUriMatch) throw new Error(`Invalid data URI format`);
+      const mimeType = dataUriMatch[1];
+      const binaryData = Buffer.from(dataUriMatch[2], 'base64');
+      imageBlob = new Blob([binaryData], { type: mimeType });
+    } else {
+      const fileBuffer = await getBufferFromLocalPath(input.imageDataUriOrUrl);
+      const mimeType = mime.lookup(input.imageDataUriOrUrl) || 'image/png';
+      imageBlob = new Blob([new Uint8Array(fileBuffer)], { type: mimeType });
+    }
+    
+    const { uploadToFalStorage } = await import('@/ai/actions/generate-video.action');
+    publicImageUrl = await uploadToFalStorage(imageBlob, username);
+    logger.progress(`Source ready: ${publicImageUrl.substring(0, 50)}...`);
+  }
+  
+  try {
+    logger.progress(`Calling ${modelEndpoint}`);
+    
+    const falResult = await generateWithFalEditModel(
+      input.prompt || '',
+      publicImageUrl,
+      username,
+      modelEndpoint as any // Cast to valid enum
+    );
+    
+    logger.progress(`Downloading generated image...`);
+    
+    const { relativeUrl: localImageUrl } = await downloadAndSaveImageFromUrl(
+      falResult.imageUrl,
+      `RefashionAI_${user.image_generation_model}_${flowIdentifier}`,
+      'generated_images'
+    );
+    
+    logger.success({
+      localImageUrl,
     });
+    
+    return { editedImageUrl: localImageUrl };
+  } catch (falError: unknown) {
+    const knownFalError = falError as Error;
+    logger.error(falError);
+    throw new Error(`Generation failed for ${flowIdentifier}: ${knownFalError.message}`);
   }
-  parts.push({ text: input.prompt });
-  const requestBody: GeminiApiRequestBody = { // Typed requestBody
-    contents: [
-      {
-        role: "user",
-        parts: parts
-      }
-    ],
-    generationConfig: {
-      temperature: 1,
-      topP: 0.95,
-      topK: 40,
-      maxOutputTokens: 8192,
-      responseModalities: ["image", "text"],
-      ...generationConfigOverride, // Apply temperature override for Studio Mode
-    },
-    safetySettings: [
-      {
-        "category": "HARM_CATEGORY_CIVIC_INTEGRITY",
-        "threshold": "BLOCK_NONE"
-      },
-      {
-        "category": "HARM_CATEGORY_HARASSMENT",
-        "threshold": "BLOCK_NONE"
-      },
-      {
-        "category": "HARM_CATEGORY_HATE_SPEECH",
-        "threshold": "BLOCK_NONE"
-      },
-      {
-        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-        "threshold": "BLOCK_NONE"
-      },
-      {
-        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "threshold": "BLOCK_NONE"
-      }
-    ]
-  };
-
-  geminiLogger.progress('Calling Gemini API with image generation model');
-  
-  // Use centralized retry logic for image generation
-  return withGeminiRetry(async () => {
-    const response = await makeGeminiApiCall(apiKey, requestBody, keyIndex, username);
-    
-    let generatedImageDataUri: string | null = null;
-    
-    if (response && response.candidates && response.candidates.length > 0) {
-      const candidate = response.candidates[0];
-      
-      if (candidate.finishReason === 'SAFETY') {
-        geminiLogger.warning(`Image generation blocked by safety settings for ${flowIdentifier}`);
-        throw new Error(`Image generation blocked by safety settings for ${flowIdentifier}.`);
-      }
-      
-      if (candidate.content && candidate.content.parts) {
-        for (const part of candidate.content.parts) {
-          if (part.inlineData) {
-            const mimeType = part.inlineData.mimeType;
-            const base64Data = part.inlineData.data;
-            generatedImageDataUri = `data:${mimeType};base64,${base64Data}`;
-            geminiLogger.progress(`Image received (${mimeType})`);
-            break;
-          } else if (part.text) {
-            geminiLogger.progress(`Text response received: ${part.text.substring(0, 100)}`);
-          }
-        }
-      }
-    }
-
-    if (!generatedImageDataUri) {
-      geminiLogger.error(new Error('No image data in response'), `AI for ${flowIdentifier} did not return image data`);
-      throw new Error(`AI for ${flowIdentifier} (REST) did not return image data.`);
-    }
-    
-    geminiLogger.progress('Saving generated image locally');
-    
-    try {
-      const { relativeUrl: imageUrl } = await saveDataUriLocally(
-        generatedImageDataUri,
-        `RefashionAI_generated_${flowIdentifier}`,
-        'generated_images'
-      );
-      
-      geminiLogger.success({
-        editedImageUrl: imageUrl,
-      });
-      
-      return { editedImageUrl: imageUrl };
-    } catch (uploadError: unknown) {
-      const knownUploadError = uploadError as Error;
-      geminiLogger.error(uploadError, `Failed to store image from ${flowIdentifier}`);
-      throw new Error(`Failed to store image from ${flowIdentifier} (axios): ${knownUploadError.message}`);
-    }
-  }, `Image generation for ${flowIdentifier}`);
 }
 
 async function generateImageFlow1(input: GenerateImageEditInput, user: FullUser): Promise<SingleImageOutput> {
@@ -668,6 +390,11 @@ export async function generateImageEdit(
   if (!user) {
     throw new Error(`User ${username} not found.`);
   }
+
+  // Determine how many images to generate based on the model
+  // Nano Banana Pro = 1 image
+  // Gemini 2.5 = 3 images
+  const imagesToGenerateCount = user.image_generation_model === 'fal_nano_banana_pro' ? 1 : 3;
 
   // 1. Create initial history item EARLY (if not existing)
   let historyId = existingHistoryId;
@@ -830,18 +557,18 @@ export async function generateImageEdit(
       // High-priority override: If a manual prompt is provided, use it for all slots.
       if (processedInput.prompt) {
         console.log('Using manually provided prompt for all image slots.');
-        prompts = Array(3).fill(processedInput.prompt);
+        prompts = Array(imagesToGenerateCount).fill(processedInput.prompt);
         finalConstructedPromptForHistory = processedInput.prompt;
       } else {
         // STAGE 1: Determine the parameter sets for each slot (randomized or fixed).
         let parameterSetsForSlots: ModelAttributes[];
 
         if (processedInput.useRandomization) {
-          console.log('🎲 Randomization enabled. Generating 3 different parameter sets.');
-          parameterSetsForSlots = Array.from({ length: 3 }, () => generateRandomBasicParameters(processedInput.parameters!));
+          console.log(`🎲 Randomization enabled. Generating ${imagesToGenerateCount} different parameter sets.`);
+          parameterSetsForSlots = Array.from({ length: imagesToGenerateCount }, () => generateRandomBasicParameters(processedInput.parameters!));
         } else {
-          console.log('⚙️ Using fixed parameters for all 3 slots.');
-          parameterSetsForSlots = Array(3).fill(processedInput.parameters);
+          console.log(`⚙️ Using fixed parameters for all ${imagesToGenerateCount} slots.`);
+          parameterSetsForSlots = Array(imagesToGenerateCount).fill(processedInput.parameters);
         }
 
         // STAGE 2: Build prompts from the determined parameter sets.

@@ -105,6 +105,7 @@ export function VideoResultsDisplay({ formState, isPending }: VideoResultsDispla
                       controls
                       autoPlay
                       loop
+                      muted
                       className="w-full h-full object-contain"
                    />
                 </div>

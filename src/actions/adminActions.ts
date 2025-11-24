@@ -481,7 +481,7 @@ export type UserFormState = {
     gemini_api_key_2_mode: 'global' | 'user_specific';
     gemini_api_key_3_mode: 'global' | 'user_specific';
     fal_api_key_mode: 'global' | 'user_specific';
-    image_generation_model: 'google_gemini_2_0' | 'fal_gemini_2_5';
+    image_generation_model: 'fal_nano_banana_pro' | 'fal_gemini_2_5';
   };
 };
 
@@ -680,7 +680,7 @@ export async function handleCreateUser(
         gemini_api_key_2_mode: (user.gemini_api_key_2_mode || 'global') as 'global' | 'user_specific',
         gemini_api_key_3_mode: (user.gemini_api_key_3_mode || 'global') as 'global' | 'user_specific',
         fal_api_key_mode: (user.fal_api_key_mode || 'global') as 'global' | 'user_specific',
-        image_generation_model: (user.image_generation_model || 'google_gemini_2_0') as 'google_gemini_2_0' | 'fal_gemini_2_5',
+        image_generation_model: (user.image_generation_model || 'fal_gemini_2_5') as 'fal_nano_banana_pro' | 'fal_gemini_2_5',
       } : undefined
     };
   } else {
@@ -717,7 +717,7 @@ export async function handleUpdateUserConfiguration(
         gemini_api_key_2_mode: (user.gemini_api_key_2_mode || 'global') as 'global' | 'user_specific',
         gemini_api_key_3_mode: (user.gemini_api_key_3_mode || 'global') as 'global' | 'user_specific',
         fal_api_key_mode: (user.fal_api_key_mode || 'global') as 'global' | 'user_specific',
-        image_generation_model: (user.image_generation_model || 'google_gemini_2_0') as 'google_gemini_2_0' | 'fal_gemini_2_5',
+        image_generation_model: (user.image_generation_model || 'fal_gemini_2_5') as 'fal_nano_banana_pro' | 'fal_gemini_2_5',
       } : undefined
     };
   } else {

@@ -193,7 +193,12 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
   const attributes = safeJsonParse<ModelAttributes>(row.attributes, {} as ModelAttributes);
   const videoGenerationParams = safeJsonParse<any>(row.videoGenerationParams, undefined);
 
-  // removed malformed object literal
+  // Helper to safely cast or fallback legacy models
+  let imageGenerationModel = row.image_generation_model;
+  if (imageGenerationModel === 'google_gemini_2_0') {
+    imageGenerationModel = 'fal_gemini_2_5'; // Fallback for legacy data reading
+  }
+
   return {
     id: row.id,
     username: row.username,
@@ -209,8 +214,8 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
     status: row.status as 'processing' | 'completed' | 'failed',
     error: row.error || undefined,
     webhookUrl: row.webhook_url || undefined,
-    imageGenerationModel: row.image_generation_model || 'google_gemini_2_0', // ADD THIS
-    generation_mode: row.generation_mode as 'creative' | 'studio' || 'creative', // ADD THIS
+    imageGenerationModel: (imageGenerationModel as 'fal_nano_banana_pro' | 'fal_gemini_2_5') || 'fal_gemini_2_5',
+    generation_mode: row.generation_mode as 'creative' | 'studio' || 'creative',
   };
 }
 
@@ -232,7 +237,7 @@ export const insertHistoryItem = (item: HistoryItem): void => {
       item.status || 'completed',
       item.error || null,
       item.webhookUrl || null,
-      item.imageGenerationModel || 'google_gemini_2_0', // ADD THIS
+      item.imageGenerationModel || 'fal_gemini_2_5',
       item.generation_mode || 'creative' // ADD THIS
     );
     
@@ -479,7 +484,7 @@ export type FullUser = SessionUser & {
   gemini_api_key_2?: string; gemini_api_key_2_mode: 'global' | 'user_specific';
   gemini_api_key_3?: string; gemini_api_key_3_mode: 'global' | 'user_specific';
   fal_api_key?: string; fal_api_key_mode: 'global' | 'user_specific';
-  image_generation_model: 'google_gemini_2_0' | 'fal_gemini_2_5';
+  image_generation_model: 'fal_nano_banana_pro' | 'fal_gemini_2_5';
 };
 
 export const findUserByUsername = cache((username: string): FullUser | null => {
@@ -503,7 +508,7 @@ export const findUserByUsername = cache((username: string): FullUser | null => {
     gemini_api_key_3_mode: row.gemini_api_key_3_mode,
     fal_api_key: row.fal_api_key,
     fal_api_key_mode: row.fal_api_key_mode,
-    image_generation_model: row.image_generation_model,
+    image_generation_model: row.image_generation_model === 'google_gemini_2_0' ? 'fal_gemini_2_5' : row.image_generation_model,
   };
 });
 
@@ -528,7 +533,7 @@ export const findUserByApiKey = cache((apiKey: string): FullUser | null => {
     gemini_api_key_3_mode: row.gemini_api_key_3_mode,
     fal_api_key: row.fal_api_key,
     fal_api_key_mode: row.fal_api_key_mode,
-    image_generation_model: row.image_generation_model,
+    image_generation_model: row.image_generation_model === 'google_gemini_2_0' ? 'fal_gemini_2_5' : row.image_generation_model,
   };
 });
 

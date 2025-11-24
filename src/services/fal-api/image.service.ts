@@ -12,14 +12,15 @@ import { createApiLogger } from '@/lib/api-logger';
  * @param username The user performing the action for authentication.
  * @returns Promise<{imageUrl: string, description?: string}> The result from FAL.AI
  */
-export async function generateWithGemini25Flash(
+export async function generateWithFalEditModel(
   prompt: string,
   imageUrl: string, // MUST be a public URL
-  username: string
+  username: string,
+  modelId: 'fal-ai/gemini-25-flash-image/edit' | 'fal-ai/nano-banana-pro/edit'
 ): Promise<{ imageUrl: string; description?: string }> {
-  const logger = createApiLogger('FAL_IMAGE', 'Gemini 2.5 Flash Generation', {
+  const logger = createApiLogger('FAL_IMAGE', `Generation (${modelId.split('/')[1]})`, {
     username,
-    model: 'fal-ai/gemini-25-flash-image/edit',
+    model: modelId,
   });
 
   const input = {
@@ -38,7 +39,7 @@ export async function generateWithGemini25Flash(
   try {
     logger.progress('Submitting to Fal.ai queue');
 
-    const result: any = await fal.subscribe("fal-ai/gemini-25-flash-image/edit", {
+    const result: any = await fal.subscribe(modelId, {
       input,
       logs: process.env.NODE_ENV === 'development',
       onQueueUpdate: (update: any) => {
@@ -50,7 +51,7 @@ export async function generateWithGemini25Flash(
       },
     });
 
-    // Parse response according to FAL.AI Gemini 2.5 Flash documentation:
+    // Parse response
     // Expected format: { images: [{ url: "..." }], description: "..." }
     if (!result?.data?.images?.[0]?.url) {
       throw new Error('Unexpected response format. Expected: { images: [{ url: "..." }] }');
@@ -71,7 +72,7 @@ export async function generateWithGemini25Flash(
 
   } catch (error) {
     logger.error(error);
-    throw new Error(`FAL.AI Gemini 2.5 generation failed: ${(error as Error).message}`);
+    throw new Error(`FAL.AI generation failed: ${(error as Error).message}`);
   }
 }
 
