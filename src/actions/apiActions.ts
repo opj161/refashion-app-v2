@@ -24,13 +24,20 @@ interface ApiJobPayload {
  */
 export async function createApiJob(payload: ApiJobPayload): Promise<string> {
   const { username, parameters, imageDataUri, settingsMode, webhookUrl } = payload;
+  
+  // Fetch the user to get their specific image generation model
+  const { findUserByUsername } = await import('@/services/database.service');
+  const user = await findUserByUsername(username);
+  
+  const imageGenerationModel = user?.image_generation_model || 'fal_gemini_2_5';
+
   const newHistoryId = await addHistoryItem(
     parameters,
     "Job created via API. Prompt to be generated.", // Placeholder prompt
     imageDataUri, // Using this as the original clothing URL
     [], // No edited images yet
     settingsMode,
-    'fal_gemini_2_5', // Default model for API calls
+    imageGenerationModel, // Use the user's actual model
     'processing', // Initial status
     undefined,    // No error
     username,     // Pass the authenticated username from API key

@@ -13,10 +13,12 @@ import { GenerationProgressIndicator } from './GenerationProgressIndicator';
 
 export function ImageGenerationWorkspace({ 
   setCurrentTab, 
-  onLoadImageUrl 
+  onLoadImageUrl,
+  maxImages = 3
 }: { 
   setCurrentTab?: (tab: string) => void;
   onLoadImageUrl?: (imageUrl: string) => void;
+  maxImages?: number;
 }) {
   const generationMode = useGenerationSettingsStore(state => state.generationMode);
   const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
@@ -72,9 +74,9 @@ export function ImageGenerationWorkspace({
             exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
           >
             {generationMode === 'creative' ? (
-              <ImageParameters isPending={isPending} />
+              <ImageParameters isPending={isPending} maxImages={maxImages} />
             ) : (
-              <StudioParameters isPending={isPending} />
+              <StudioParameters isPending={isPending} maxImages={maxImages} />
             )}
           </motion.div>
         </AnimatePresence>
@@ -94,6 +96,7 @@ export function ImageGenerationWorkspace({
           isPending={isPending} 
           setCurrentTab={setCurrentTab}
           onLoadImageUrl={onLoadImageUrl}
+          maxImages={maxImages}
         />
       </div>
     </div>

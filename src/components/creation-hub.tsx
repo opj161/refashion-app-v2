@@ -19,9 +19,11 @@ import { COMMON_VARIANTS } from "@/lib/motion-constants";
 
 // Wrap the component content that uses useSearchParams
 function CreationHubContent({
-  children
+  children,
+  maxImages = 3
 }: {
   children: React.ReactElement;
+  maxImages?: number;
 }) {
   const { toast } = useToast();
   const searchParams = useSearchParams();
@@ -200,6 +202,7 @@ function CreationHubContent({
             <ImageGenerationWorkspace 
               setCurrentTab={setCurrentTab}
               onLoadImageUrl={handleLoadFromImageUrl}
+              maxImages={maxImages}
             />
         </TabsContent>
 
@@ -220,7 +223,7 @@ function CreationHubContent({
 }
 
 // The main export now wraps the content in Suspense
-export default function CreationHub(props: { children: React.ReactElement }) {
+export default function CreationHub(props: { children: React.ReactElement; maxImages?: number }) {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <CreationHubContent {...props} />

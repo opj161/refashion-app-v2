@@ -331,7 +331,8 @@ async function performSingleImageGeneration(
       input.prompt || '',
       publicImageUrl,
       username,
-      modelEndpoint as any // Cast to valid enum
+      modelEndpoint as any, // Cast to valid enum
+      await getApiKeyForUser(username, 'fal') // Inject User API Key
     );
     
     logger.progress(`Downloading generated image...`);
@@ -367,8 +368,8 @@ async function generateImageFlow3(input: GenerateImageEditInput, user: FullUser)
 }
 
 const GenerateMultipleImagesOutputSchema = z.object({
-  editedImageUrls: z.array(z.string().nullable()).length(3)
-    .describe('An array of three generated or edited image URLs/paths (or null for failures).'),
+  editedImageUrls: z.array(z.string().nullable())
+    .describe('An array of generated or edited image URLs/paths (or null for failures).'),
   constructedPrompt: z.string().describe('The final prompt that was sent to the AI.'),
   errors: z.array(z.string().nullable()).optional()
     .describe('An array of error messages if any generation or storage failed.'),
@@ -455,7 +456,8 @@ export async function generateImageEdit(
 
         // Parallel Generation with Tuned Parameters (low temperature for consistency)
         // Parallel Generation with Tuned Parameters (low temperature for consistency)
-        const generationPromises = [1, 2, 3].map(async (i) => {
+        // Parallel Generation with Tuned Parameters (low temperature for consistency)
+        const generationPromises = Array.from({ length: imagesToGenerateCount }, (_, i) => i + 1).map(async (i) => {
           try {
             const result = await performSingleImageGeneration({
               ...input,
@@ -477,8 +479,8 @@ export async function generateImageEdit(
         const settledResults = await Promise.allSettled(generationPromises);
 
         // Handle Results
-        const editedImageUrlsResult: (string | null)[] = Array(3).fill(null);
-        const errorsResult: (string | null)[] = Array(3).fill(null);
+        const editedImageUrlsResult: (string | null)[] = Array(imagesToGenerateCount).fill(null);
+        const errorsResult: (string | null)[] = Array(imagesToGenerateCount).fill(null);
 
         settledResults.forEach((result, index) => {
           if (result.status === 'fulfilled') {
@@ -636,8 +638,8 @@ export async function generateImageEdit(
 
       const settledResults = await Promise.allSettled(generationPromises);
 
-      const editedImageUrlsResult: (string | null)[] = Array(3).fill(null);
-      const errorsResult: (string | null)[] = Array(3).fill(null);
+      const editedImageUrlsResult: (string | null)[] = Array(imagesToGenerateCount).fill(null);
+      const errorsResult: (string | null)[] = Array(imagesToGenerateCount).fill(null);
 
       settledResults.forEach((result, index) => {
         if (result.status === 'fulfilled') {

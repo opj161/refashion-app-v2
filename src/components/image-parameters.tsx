@@ -38,7 +38,7 @@ const NUM_IMAGES_TO_GENERATE = 3;
 
 // SubmitButton component using useFormStatus for pending state
 // Memoized to prevent unnecessary re-renders when parent state changes
-const SubmitButton = React.memo(function SubmitButton({ preparedImageUrl }: { preparedImageUrl: string | null }) {
+const SubmitButton = React.memo(function SubmitButton({ preparedImageUrl, maxImages }: { preparedImageUrl: string | null; maxImages: number }) {
   const { pending } = useFormStatus();
   const { versions } = useImageStore();
   const isAnyVersionProcessing = Object.values(versions).some(v => v.status === 'processing');
@@ -55,7 +55,7 @@ const SubmitButton = React.memo(function SubmitButton({ preparedImageUrl }: { pr
             </motion.span>
           ) : (
             <motion.span key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">
-              <Sparkles className="mr-2 h-5 w-5" /> Generate {NUM_IMAGES_TO_GENERATE} Images
+              <Sparkles className="mr-2 h-5 w-5" /> Generate {maxImages} Image{maxImages > 1 ? 's' : ''}
             </motion.span>
           )}
         </AnimatePresence>
@@ -66,10 +66,11 @@ const SubmitButton = React.memo(function SubmitButton({ preparedImageUrl }: { pr
 
 interface ImageParametersProps {
   isPending: boolean;
+  maxImages?: number;
 }
 
 // Component only handles parameter selection and form UI
-export default function ImageParameters({ isPending }: ImageParametersProps) {
+export default function ImageParameters({ isPending, maxImages = 3 }: ImageParametersProps) {
   const { toast } = useToast();
   
   // Get the active image from store
@@ -319,7 +320,7 @@ export default function ImageParameters({ isPending }: ImageParametersProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <SubmitButton preparedImageUrl={preparedImageUrl} />
+            <SubmitButton preparedImageUrl={preparedImageUrl} maxImages={maxImages} />
           
           {/* Image Processing Options - Non-Destructive Pipeline */}
           <div className="mt-6 p-4 rounded-lg bg-muted/30 border border-muted/30 space-y-3">

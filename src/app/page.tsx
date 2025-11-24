@@ -3,6 +3,8 @@ import CreationHub from '@/components/creation-hub';
 import HistoryGallery from '@/components/history-gallery';
 import { getHistoryPaginated } from '@/actions/historyActions';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getCurrentUser } from '@/actions/authActions';
+import { findUserByUsername } from '@/services/database.service';
 
 // Force dynamic rendering for user-specific content
 // export const dynamic = 'force-dynamic';
@@ -12,10 +14,21 @@ import { connection } from 'next/server';
 // Simplified Server Component - no more searchParams handling
 export default async function CreatePage() {
   await connection();
+  
+  const sessionUser = await getCurrentUser();
+  let maxImages = 3; // Default to 3
+
+  if (sessionUser?.username) {
+    const fullUser = findUserByUsername(sessionUser.username);
+    if (fullUser?.image_generation_model === 'fal_nano_banana_pro') {
+      maxImages = 1;
+    }
+  }
+
   return (
     <div className="container mx-auto max-w-7xl px-4 pt-5 pb-10 space-y-8">
       {/* CreationHub now manages state entirely on the client */}
-      <CreationHub>
+      <CreationHub maxImages={maxImages}>
         <Suspense fallback={<HistoryGallerySkeleton />}>
           <UserHistory />
         </Suspense>

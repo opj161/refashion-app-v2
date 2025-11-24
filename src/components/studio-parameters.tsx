@@ -17,7 +17,7 @@ import { COMMON_VARIANTS } from '@/lib/motion-constants';
 const NUM_IMAGES_TO_GENERATE = 3;
 
 // Submit button component specific to this form
-function SubmitButton({ isImageReady }: { isImageReady: boolean }) {
+function SubmitButton({ isImageReady, maxImages }: { isImageReady: boolean; maxImages: number }) {
   const { pending } = useFormStatus();
   const { versions } = useImageStore();
   const isAnyVersionProcessing = Object.values(versions).some(v => v.status === 'processing');
@@ -32,7 +32,7 @@ function SubmitButton({ isImageReady }: { isImageReady: boolean }) {
         </>
       ) : (
         <>
-          <Sparkles className="mr-2 h-5 w-5" /> Generate 3 Images
+          <Sparkles className="mr-2 h-5 w-5" /> Generate {maxImages} Image{maxImages > 1 ? 's' : ''}
         </>
       )}
     </Button>
@@ -41,9 +41,10 @@ function SubmitButton({ isImageReady }: { isImageReady: boolean }) {
 
 interface StudioParametersProps {
   isPending: boolean;
+  maxImages?: number;
 }
 
-export default function StudioParameters({ isPending }: StudioParametersProps) {
+export default function StudioParameters({ isPending, maxImages = 3 }: StudioParametersProps) {
   // Get prepared image from store
   const { versions, activeVersionId } = useImageStore();
   const activeImage = activeVersionId ? versions[activeVersionId] : null;
@@ -116,7 +117,7 @@ export default function StudioParameters({ isPending }: StudioParametersProps) {
           </div>
         </CardContent>
         <CardFooter>
-          <SubmitButton isImageReady={isImageReady} />
+          <SubmitButton isImageReady={isImageReady} maxImages={maxImages} />
         </CardFooter>
       </Card>
     </>
