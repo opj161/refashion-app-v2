@@ -48,32 +48,47 @@ export async function getStreamFromLocalPath(relativePath: string): Promise<Read
 
 /**
  * Securely gets a Web Stream and file size for a local file.
- * Uses manual stream wrapping for maximum compatibility.
+ * Supports partial content ranges for video streaming efficiency.
  */
-export async function getFileStream(relativePath: string): Promise<{ stream: ReadableStream; size: number }> {
-  if (!relativePath.startsWith('/uploads/')) {
+export async function getFileStream(
+  relativePath: string, 
+  options?: { start?: number; end?: number }
+): Promise<{ stream: ReadableStream; size: number; contentType: string }> {
+  
+  // 1. Path Normalization & Validation
+  // Support both raw paths and API paths for backward compatibility during transition
+  const cleanPath = relativePath.replace(/^\/api\/images/, '/uploads');
+  
+  if (!cleanPath.startsWith('/uploads/')) {
     throw new Error('Invalid path: Must be within /uploads/');
   }
   
-  if (relativePath.includes('\0')) {
+  if (cleanPath.includes('\0')) {
     throw new Error('Invalid path: Null byte detected');
   }
 
   const uploadsDir = path.join(process.cwd(), 'uploads');
-  const absoluteFilePath = path.join(uploadsDir, relativePath.slice('/uploads/'.length));
+  const absoluteFilePath = path.join(uploadsDir, cleanPath.slice('/uploads/'.length));
 
   if (!absoluteFilePath.startsWith(uploadsDir)) {
     throw new Error('Forbidden: Path traversal attempt detected.');
   }
 
-  // Get file size for Content-Length header
+  // 2. File Stats & MIME Type
+  // dynamic import for mime-types to ensure server-side compatibility
+  const mime = (await import('mime-types')).default;
   const stats = await fs.stat(absoluteFilePath);
+  const contentType = mime.lookup(absoluteFilePath) || 'application/octet-stream';
   
-  // Create Node.js native ReadStream
-  const nodeStream = createReadStream(absoluteFilePath);
+  // 3. Handle Byte Ranges
+  const start = options?.start ?? 0;
+  const end = options?.end ?? stats.size - 1;
   
-  // Convert to Web Stream manually using the global ReadableStream constructor.
-  // This avoids issues with 'stream.Readable.toWeb' being undefined in certain bundler contexts.
+  // Create Node.js native ReadStream for the specific range
+  // This prevents loading unnecessary bytes into memory
+  const nodeStream = createReadStream(absoluteFilePath, { start, end });
+  
+  // Convert to Web Standard ReadableStream
   const webStream = new ReadableStream({
     start(controller) {
       nodeStream.on('data', (chunk) => {
@@ -91,5 +106,5 @@ export async function getFileStream(relativePath: string): Promise<{ stream: Rea
     }
   });
 
-  return { stream: webStream, size: stats.size };
+  return { stream: webStream, size: stats.size, contentType };
 }

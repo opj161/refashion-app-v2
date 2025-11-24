@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
-import mime from 'mime-types';
 import { getFileStream } from '@/lib/server-fs.utils';
-
-// export const dynamic = 'force-dynamic'; // Removed in favor of connection() or implicit dynamic
 
 export async function GET(
   request: NextRequest,
@@ -17,27 +14,64 @@ export async function GET(
       return new NextResponse('File path is required', { status: 400 });
     }
 
+    // Reconstruct the path. The rewrite maps /uploads/a.png -> /api/images/a.png
     const requestedPath = path.join(...filePathParts);
     const uploadsPath = `/uploads/${requestedPath}`;
     
-    // USE STREAM INSTEAD OF BUFFER
-    const { stream, size } = await getFileStream(uploadsPath);
+    // --- RANGE REQUEST HANDLING ---
+    // Essential for video seeking and performance
+    const rangeHeader = request.headers.get('range');
+    let start: number | undefined;
+    let end: number | undefined;
+
+    if (rangeHeader) {
+      const parts = rangeHeader.replace(/bytes=/, '').split('-');
+      start = parseInt(parts[0], 10);
+      end = parts[1] ? parseInt(parts[1], 10) : undefined;
+    }
+
+    const { stream, size, contentType } = await getFileStream(uploadsPath, { start, end });
     
-    const mimeType = mime.lookup(uploadsPath) || 'application/octet-stream';
+    // --- RESPONSE HEADERS ---
+    const headers = new Headers();
+    headers.set('Content-Type', contentType);
+    // Immutable caching: Files are named with UUIDs, so they never change content.
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    // Tell the browser we support seeking
+    headers.set('Accept-Ranges', 'bytes');
+
+    // Case 1: Range Request (Video Streaming)
+    if (rangeHeader && start !== undefined) {
+      const calculatedEnd = end ?? (size - 1);
+      const chunksize = (calculatedEnd - start) + 1;
+
+      headers.set('Content-Range', `bytes ${start}-${calculatedEnd}/${size}`);
+      headers.set('Content-Length', chunksize.toString());
+
+      return new NextResponse(stream, {
+        status: 206, // Partial Content
+        headers,
+      });
+    }
+
+    // Case 2: Standard Request (Full File)
+    headers.set('Content-Length', size.toString());
 
     return new NextResponse(stream, {
       status: 200,
-      headers: {
-        'Content-Type': mimeType,
-        'Content-Length': size.toString(),
-        'Cache-Control': 'public, max-age=31536000, immutable',
-      },
+      headers,
     });
+
   } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      return new NextResponse('Image not found', { status: 404 });
+    // Handle expected filesystem errors gracefully
+    if (error.message && (error.message.includes('ENOENT') || error.code === 'ENOENT')) {
+      return new NextResponse('File not found', { status: 404 });
     }
-    console.error('Error serving image:', error);
+    if (error.message && error.message.includes('Forbidden')) {
+       return new NextResponse('Forbidden', { status: 403 });
+    }
+    
+    console.error('Error serving media:', error);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }

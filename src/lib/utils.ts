@@ -7,9 +7,10 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Returns a URL that the client can use to display an image.
- * This function now transparently proxies local file paths through a dedicated API route.
- * @param originalPath - The internal storage path, e.g., '/uploads/generated_images/image.png'
- * @returns A publicly accessible URL for the image.
+ * 
+ * REFACTOR: Now returns the direct /uploads/ path.
+ * The rewrite rule in next.config.ts handles mapping /uploads/* to /api/images/*.
+ * This decouples the frontend from the specific API implementation.
  */
 export function getDisplayableImageUrl(originalPath: string | null): string | null {
   if (!originalPath) return null;
@@ -18,10 +19,15 @@ export function getDisplayableImageUrl(originalPath: string | null): string | nu
     return originalPath;
   }
   
-  // For local files, point to the new dynamic image serving API route
-  if (originalPath.startsWith("/uploads/")) {
-    return `/api/images${originalPath.slice('/uploads'.length)}`;
+  // If it's a remote URL (e.g. Fal.ai result not yet downloaded), return as is
+  if (originalPath.startsWith("http")) {
+    return originalPath;
   }
 
-  return originalPath; // Return other paths (like external Fal URLs) as is.
+  // Return local paths as-is. Next.js rewrites will handle the routing.
+  if (originalPath.startsWith("/uploads/")) {
+    return originalPath;
+  }
+
+  return originalPath;
 }
