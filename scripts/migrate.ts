@@ -90,7 +90,7 @@ function runMigrations() {
       gemini_api_key_3_mode TEXT DEFAULT 'global',
       fal_api_key TEXT,
       fal_api_key_mode TEXT DEFAULT 'global',
-      image_generation_model TEXT DEFAULT 'google_gemini_2_0'
+      image_generation_model TEXT DEFAULT 'fal_nano_banana_pro'
     );
   `);
 
