@@ -544,5 +544,4 @@ process.on('exit', closeDb);
 process.on('SIGINT', closeDb);
 process.on('SIGTERM', closeDb);
 
-// TODO: For standalone video history items, ensure the source image is not placed in editedImageUrls.
-// Instead, store it in a dedicated field or originalImageUrls. See addStandaloneVideoHistoryItem in actions.
+

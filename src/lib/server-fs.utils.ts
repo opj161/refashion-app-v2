@@ -34,38 +34,22 @@ export async function getBufferFromLocalPath(relativePath: string): Promise<Buff
   return await fs.readFile(absoluteFilePath);
 }
 
+import { createReadStream } from 'fs';
+
 /**
  * Securely gets a readable stream for a file in the /uploads directory.
  * @param relativePath The server-relative path.
  * @returns A Promise resolving to a ReadableStream.
  */
 export async function getStreamFromLocalPath(relativePath: string): Promise<ReadableStream> {
-  if (!relativePath.startsWith('/uploads/')) {
-    throw new Error('Invalid path: Must be within /uploads/');
-  }
-
-  if (relativePath.includes('\0')) {
-    throw new Error('Invalid path: Must be within /uploads/');
-  }
-
-  const uploadsDir = path.join(process.cwd(), 'uploads');
-  const absoluteFilePath = path.join(uploadsDir, relativePath.slice('/uploads/'.length));
-
-  if (!absoluteFilePath.startsWith(uploadsDir)) {
-    throw new Error('Forbidden: Path traversal attempt detected.');
-  }
-
-  // Verify file exists first
-  await fs.access(absoluteFilePath);
-
-  const { createReadStream } = await import('fs');
-  const { Readable } = await import('stream');
-  
-  const nodeStream = createReadStream(absoluteFilePath);
-  // @ts-ignore - Types for toWeb might be missing in some envs but it exists in Node 18+
-  return Readable.toWeb(nodeStream) as ReadableStream;
+  const { stream } = await getFileStream(relativePath);
+  return stream;
 }
 
+/**
+ * Securely gets a Web Stream and file size for a local file.
+ * Uses manual stream wrapping for maximum compatibility.
+ */
 export async function getFileStream(relativePath: string): Promise<{ stream: ReadableStream; size: number }> {
   if (!relativePath.startsWith('/uploads/')) {
     throw new Error('Invalid path: Must be within /uploads/');
@@ -85,14 +69,27 @@ export async function getFileStream(relativePath: string): Promise<{ stream: Rea
   // Get file size for Content-Length header
   const stats = await fs.stat(absoluteFilePath);
   
-  const { createReadStream } = await import('fs');
-  const { Readable } = await import('stream');
-  
-  // Create Node.js stream
+  // Create Node.js native ReadStream
   const nodeStream = createReadStream(absoluteFilePath);
   
-  // Convert to Web Stream (Next.js Native Response expects this)
-  const webStream = Readable.toWeb(nodeStream) as ReadableStream;
+  // Convert to Web Stream manually using the global ReadableStream constructor.
+  // This avoids issues with 'stream.Readable.toWeb' being undefined in certain bundler contexts.
+  const webStream = new ReadableStream({
+    start(controller) {
+      nodeStream.on('data', (chunk) => {
+        controller.enqueue(chunk);
+      });
+      nodeStream.on('end', () => {
+        controller.close();
+      });
+      nodeStream.on('error', (err) => {
+        controller.error(err);
+      });
+    },
+    cancel() {
+      nodeStream.destroy();
+    }
+  });
 
   return { stream: webStream, size: stats.size };
 }
