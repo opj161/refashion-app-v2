@@ -55,9 +55,11 @@ function fixSchema() {
       console.log("Copying existing user data...");
       
       // 3. Copy data from old table to new table
+      // Note: 'created_at' is missing in the old table, so we let it default to unixepoch()
+      // Note: We ignore 'api_key_mode' and 'gemini_api_key' from the old table as they are legacy.
       db.exec(`
         INSERT INTO users_new (
-          username, password_hash, role, created_at, app_api_key,
+          username, password_hash, role, app_api_key,
           gemini_api_key_1, gemini_api_key_1_mode,
           gemini_api_key_2, gemini_api_key_2_mode,
           gemini_api_key_3, gemini_api_key_3_mode,
@@ -65,7 +67,7 @@ function fixSchema() {
           image_generation_model
         )
         SELECT 
-          username, password_hash, role, created_at, app_api_key,
+          username, password_hash, role, app_api_key,
           gemini_api_key_1, gemini_api_key_1_mode,
           gemini_api_key_2, gemini_api_key_2_mode,
           gemini_api_key_3, gemini_api_key_3_mode,
