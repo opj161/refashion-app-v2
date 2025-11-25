@@ -3,13 +3,7 @@ import 'server-only';
 
 import * as dbService from '@/services/database.service';
 
-const STUDIO_MODE_PROMPT_TEMPLATE = `Create a PHOTOREALISTIC image of a female fashion model, of Indigenous descent, wearing this clothing item in the image with a {fitDescription}.
-
-Setting: a modern studio setting with a seamless cyclorama with a subtle, even gradient as background
-
-Style: The model should look authentic and relatable, with a natural expression and subtle smile
-
-Technical details: Full-body shot. Superior clarity, well-exposed, and masterful composition.`;
+const STUDIO_MODE_PROMPT_TEMPLATE = `Generate a high-fidelity fashion photograph featuring a realistic female model wearing this {clothingItem} in the provided image with a {fitDescription}. The model should embody a modern, approachable aesthetic and stand in a relaxed, candid posture with soft, approachable facial features. Ensure the fabric weight, drape, and texture interact realistically with the model's body geometry and pose. The setting is a bright, daylight studio with a textured, neutral wall background that provides soft, complementary contrast. Use diffused natural lighting to highlight the material details of the clothing without harsh shadows. Frame the image as a full-body shot using a 50mm lens perspective for a natural, photorealistic result.`;
 
 const DEFAULTS = {
   'feature_video_generation': 'true',

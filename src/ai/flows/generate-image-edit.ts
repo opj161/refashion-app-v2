@@ -106,10 +106,10 @@ function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAt
  */
 function getStudioModeFitDescription(fit: 'slim' | 'regular' | 'relaxed'): string {
   switch (fit) {
-    case 'slim': return "slim fit, tailored closely to the model's body.";
-    case 'relaxed': return "relaxed fit, draping loosely and away from the model's body.";
+    case 'slim': return "slim fit";
+    case 'relaxed': return "relaxed fit";
     case 'regular':
-    default: return "regular fit, with a standard, comfortable drape.";
+    default: return "regular fit";
   }
 }
 
@@ -123,13 +123,7 @@ function buildStudioModePrompt(fit: 'slim' | 'regular' | 'relaxed'): string {
   const promptTemplate = getSetting('ai_studio_mode_prompt_template');
   
   // Define a hardcoded fallback for resilience in case the setting is empty.
-  const fallbackTemplate = `Create a PHOTOREALISTIC image of a female fashion model, of Indigenous descent, wearing this clothing item in the image with a {fitDescription}.
-
-Setting: a modern studio setting with a seamless cyclorama with a subtle, even gradient as background
-
-Style: The model should look authentic and relatable, with a natural expression and subtle smile
-
-Technical details: Full-body shot. Superior clarity, well-exposed, and masterful composition.`;
+  const fallbackTemplate = `Generate a high-fidelity fashion photograph featuring a realistic female model wearing this {clothingItem} in the provided image with a {fitDescription}. The model should embody a modern, approachable aesthetic and stand in a relaxed, candid posture with soft, approachable facial features. Ensure the fabric weight, drape, and texture interact realistically with the model's body geometry and pose. The setting is a bright, daylight studio with a textured, neutral wall background that provides soft, complementary contrast. Use diffused natural lighting to highlight the material details of the clothing without harsh shadows. Frame the image as a full-body shot using a 50mm lens perspective for a natural, photorealistic result.`;
 
   // Use the database template if available; otherwise, use the fallback.
   const templateToUse = promptTemplate && promptTemplate.trim() ? promptTemplate : fallbackTemplate;
@@ -453,7 +447,14 @@ export async function generateImageEdit(
         
         // Step 2: Build the Studio Mode prompt and inject the clothing description
         let studioPrompt = buildStudioModePrompt(input.studioFit);
-        studioPrompt = studioPrompt.replace("clothing item", clothingDescription);
+        
+        // Use explicit placeholder replacement first, fall back to string match for backwards compatibility
+        if (studioPrompt.includes('{clothingItem}')) {
+           studioPrompt = studioPrompt.replace('{clothingItem}', clothingDescription);
+        } else {
+           // Fallback for legacy templates in DB that might still use the literal string
+           studioPrompt = studioPrompt.replace("clothing item", clothingDescription);
+        }
         console.log('📝 Studio Mode Prompt constructed with dynamic clothing description.');
 
         // Parallel Generation with Tuned Parameters (low temperature for consistency)

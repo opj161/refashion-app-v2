@@ -275,7 +275,7 @@ export function SettingsForm({ initialSettings, maskedApiKeys, systemPromptData 
                   className="font-mono text-sm"
                 />
                 <div className="text-xs text-muted-foreground">
-                  This prompt is used for consistent product shots. You must include the <code className="bg-muted px-1 py-0.5 rounded">{'{fitDescription}'}</code> placeholder.
+                  This prompt is used for consistent product shots. Available placeholders: <code className="bg-muted px-1 py-0.5 rounded">{'{fitDescription}'}</code> (slim fit, etc) and <code className="bg-muted px-1 py-0.5 rounded">{'{clothingItem}'}</code> (AI detected description).
                 </div>
               </div>
 

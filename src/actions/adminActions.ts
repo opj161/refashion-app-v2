@@ -264,11 +264,7 @@ export async function getSystemPromptsForAdmin() {
     const studioPrompt = settingsService.getSetting('ai_studio_mode_prompt_template');
     
     // Define the fallback template that matches the one used in generate-image-edit.ts
-    const studioFallbackTemplate = `Create a natural, authentic photorealistic image of a female fashion model, standing in a natural, relaxed pose, with a natural expression and subtle smile, wearing this clothing item in the image with a {fitDescription} Ensure the clothing item's proportions are correct and aesthetic.
-
-Setting: A modern studio with a seamless cyclorama and a subtle, even gradient in a color slightly contrasting the clothing item.
-
-Technical details: Full-body shot. Superior clarity, well-exposed, and masterful composition.`;
+    const studioFallbackTemplate = `Generate a high-fidelity fashion photograph featuring a realistic female model wearing this {clothingItem} in the provided image with a {fitDescription}. The model should embody a modern, approachable aesthetic and stand in a relaxed, candid posture with soft, approachable facial features. Ensure the fabric weight, drape, and texture interact realistically with the model's body geometry and pose. The setting is a bright, daylight studio with a textured, neutral wall background that provides soft, complementary contrast. Use diffused natural lighting to highlight the material details of the clothing without harsh shadows. Frame the image as a full-body shot using a 50mm lens perspective for a natural, photorealistic result.`;
 
     // Use the database template if available; otherwise, use the fallback
     const studioPromptToShow = studioPrompt && studioPrompt.trim() ? studioPrompt : studioFallbackTemplate;
