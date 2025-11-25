@@ -314,3 +314,10 @@ export async function getHistoryItemById(historyItemId: string): Promise<{ succe
   }
   return { success: true, item };
 }
+
+export async function getRecentUploadsAction(): Promise<string[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  return dbService.getRecentUploadsForUser(user.username);
+}
+

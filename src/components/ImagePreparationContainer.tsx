@@ -21,6 +21,7 @@ interface ImagePreparationContainerProps {
   preparationMode: 'image' | 'video';
   onReset: () => void;
   resetRef?: React.MutableRefObject<(() => void) | null>;
+  recentUploads?: string[];
 }
 
 // Component that uses the Zustand store
@@ -28,6 +29,7 @@ export default function ImagePreparationContainer({
   preparationMode,
   onReset,
   resetRef,
+  recentUploads = [],
 }: ImagePreparationContainerProps) {
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -137,7 +139,7 @@ export default function ImagePreparationContainer({
           animate="visible"
           exit="exit"
         >
-          <ImageUploader />
+          <ImageUploader recentUploads={recentUploads} />
         </motion.div>
       ) : (
         // --- EDITOR STATE ---

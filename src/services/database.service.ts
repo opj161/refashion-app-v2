@@ -85,6 +85,7 @@ let preparedStatements: {
   findHistoryPaginated?: Database.Statement;
   findHistoryPaginatedWithVideoFilter?: Database.Statement;
   findHistoryPaginatedWithImageFilter?: Database.Statement;
+  findRecentUploads?: Database.Statement;
 } = {};
 
 function getPreparedStatements() {
@@ -168,6 +169,17 @@ function getPreparedStatements() {
       WHERE h.username = ? AND h.videoGenerationParams IS NULL
       ORDER BY h.timestamp DESC
       LIMIT ? OFFSET ?
+    `);
+
+    preparedStatements.findRecentUploads = db.prepare(`
+      SELECT originalClothingUrl
+      FROM history 
+      WHERE username = ? 
+        AND originalClothingUrl IS NOT NULL 
+        AND originalClothingUrl LIKE '/uploads/%'
+      GROUP BY originalClothingUrl
+      ORDER BY MAX(timestamp) DESC 
+      LIMIT 12
     `);
   }
   
@@ -548,5 +560,15 @@ export function closeDb(): void {
 process.on('exit', closeDb);
 process.on('SIGINT', closeDb);
 process.on('SIGTERM', closeDb);
+
+/**
+ * Retrieves the most recent unique source images uploaded by a specific user.
+ */
+export const getRecentUploadsForUser = cache((username: string): string[] => {
+  const statements = getPreparedStatements();
+  const rows = statements.findRecentUploads?.all(username) as { originalClothingUrl: string }[];
+  return rows.map(row => row.originalClothingUrl);
+});
+
 
 
