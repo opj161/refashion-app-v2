@@ -92,6 +92,16 @@ function runMigrations() {
       fal_api_key_mode TEXT DEFAULT 'global',
       image_generation_model TEXT DEFAULT 'fal_nano_banana_pro'
     );
+
+    CREATE TABLE IF NOT EXISTS user_uploads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL,
+      file_url TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      UNIQUE(username, file_url)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_uploads_timestamp ON user_uploads(username, timestamp DESC);
   `);
 
   // Initialize Admin User if not exists

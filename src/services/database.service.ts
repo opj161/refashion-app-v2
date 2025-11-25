@@ -86,6 +86,7 @@ let preparedStatements: {
   findHistoryPaginatedWithVideoFilter?: Database.Statement;
   findHistoryPaginatedWithImageFilter?: Database.Statement;
   findRecentUploads?: Database.Statement;
+  trackUpload?: Database.Statement;
 } = {};
 
 function getPreparedStatements() {
@@ -172,14 +173,17 @@ function getPreparedStatements() {
     `);
 
     preparedStatements.findRecentUploads = db.prepare(`
-      SELECT originalClothingUrl
-      FROM history 
+      SELECT file_url as originalClothingUrl
+      FROM user_uploads 
       WHERE username = ? 
-        AND originalClothingUrl IS NOT NULL 
-        AND originalClothingUrl LIKE '/uploads/%'
-      GROUP BY originalClothingUrl
-      ORDER BY MAX(timestamp) DESC 
+        AND file_url LIKE '/uploads/%'
+      ORDER BY timestamp DESC 
       LIMIT 12
+    `);
+
+    preparedStatements.trackUpload = db.prepare(`
+      INSERT OR REPLACE INTO user_uploads (username, file_url, timestamp)
+      VALUES (?, ?, ?)
     `);
   }
   
@@ -569,6 +573,11 @@ export const getRecentUploadsForUser = cache((username: string): string[] => {
   const rows = statements.findRecentUploads?.all(username) as { originalClothingUrl: string }[];
   return rows.map(row => row.originalClothingUrl);
 });
+
+export const trackUserUpload = (username: string, fileUrl: string) => {
+  const stmt = getPreparedStatements().trackUpload;
+  stmt?.run(username, fileUrl, Date.now());
+};
 
 
 

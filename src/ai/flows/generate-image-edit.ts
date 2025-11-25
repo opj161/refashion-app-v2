@@ -261,22 +261,14 @@ async function performSingleImageGeneration(
   user: FullUser,
   flowIdentifier: string,
   keyIndex: 1 | 2 | 3,
-  generationConfigOverride?: any // kept for signature compatibility, unused for Fal models
+  modelId: string // Changed from generationConfigOverride
 ): Promise<SingleImageOutput> {
   const username = user.username;
   
-  // Logic is now simplified: All valid models use the Fal.ai infrastructure
-  // We map the user's preference to the specific Fal endpoint
-  let modelEndpoint = '';
-  
-  if (user.image_generation_model === 'fal_nano_banana_pro') {
-    modelEndpoint = 'fal-ai/nano-banana-pro/edit';
-  } else {
-    // Default to Gemini 2.5 for 'fal_gemini_2_5' or fallback
-    modelEndpoint = 'fal-ai/gemini-25-flash-image/edit';
-  }
+  // Use the passed modelId directly
+  const modelEndpoint = modelId;
 
-  const logger = createApiLogger('FAL_IMAGE', `Image Gen (${user.image_generation_model})`, {
+  const logger = createApiLogger('FAL_IMAGE', `Image Gen (${modelEndpoint})`, {
     username,
     endpoint: modelEndpoint,
   });
@@ -349,17 +341,7 @@ async function performSingleImageGeneration(
   }
 }
 
-async function generateImageFlow1(input: GenerateImageEditInput, user: FullUser): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, user, 'flow1', 1);
-}
 
-async function generateImageFlow2(input: GenerateImageEditInput, user: FullUser): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, user, 'flow2', 2);
-}
-
-async function generateImageFlow3(input: GenerateImageEditInput, user: FullUser): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, user, 'flow3', 3);
-}
 
 const GenerateMultipleImagesOutputSchema = z.object({
   editedImageUrls: z.array(z.string().nullable())
@@ -390,6 +372,12 @@ export async function generateImageEdit(
   // Nano Banana Pro = 1 image
   // Gemini 2.5 = 3 images
   const imagesToGenerateCount = user.image_generation_model === 'fal_nano_banana_pro' ? 1 : 3;
+  
+  let modelEndpoint = 'fal-ai/gemini-25-flash-image/edit';
+  if (user.image_generation_model === 'fal_nano_banana_pro') {
+    modelEndpoint = 'fal-ai/nano-banana-pro/edit';
+  }
+
   console.log(`[generateImageEdit] User: ${username}, Model: ${user.image_generation_model}, Count: ${imagesToGenerateCount}`);
   const initialImageArray = Array(3).fill(null); // Always keep DB array size 3 for consistency in UI
 
@@ -466,7 +454,7 @@ export async function generateImageEdit(
               ...input,
               imageDataUriOrUrl: input.imageDataUriOrUrl, // Use original image directly
               prompt: studioPrompt,
-            }, user, `studio-flow${i}`, i as 1 | 2 | 3, { temperature: 0.3 });
+            }, user, `studio-flow${i}`, i as 1 | 2 | 3, modelEndpoint);
 
             if (historyId && result.editedImageUrl) {
               dbService.updateHistoryImageSlot(historyId, i - 1, result.editedImageUrl);
@@ -625,7 +613,8 @@ export async function generateImageEdit(
             { ...processedInput, prompt }, 
             user, 
             `flow${index + 1}`, 
-            (index + 1) as 1 | 2 | 3
+            (index + 1) as 1 | 2 | 3,
+            modelEndpoint
           );
 
           if (historyId && result.editedImageUrl) {

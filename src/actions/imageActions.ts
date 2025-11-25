@@ -10,6 +10,8 @@ import crypto from 'crypto';
 import mime from 'mime-types';
 import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 import { getHistoryItem } from './historyActions';
+import { trackUserUpload } from '@/services/database.service';
+import { getCurrentUser } from '@/actions/authActions';
 
 const MAX_DIMENSION = 2048;
 
@@ -75,6 +77,18 @@ export async function prepareInitialImage(formData: FormData): Promise<PrepareIm
       'user_uploaded_clothing',
       'png'
     );
+
+    // Track this upload
+    const user = await getCurrentUser();
+    if (user?.username) {
+      // Fire and forget - don't block response if tracking fails
+      try {
+        trackUserUpload(user.username, relativeUrl);
+      } catch (trackError) {
+        console.error('Failed to track user upload:', trackError);
+        // Continue execution - do not fail the upload just because tracking failed
+      }
+    }
 
     return {
       success: true,
