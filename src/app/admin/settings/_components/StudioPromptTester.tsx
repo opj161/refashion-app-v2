@@ -314,9 +314,9 @@ export function StudioPromptTester({ currentTemplate }: StudioPromptTesterProps)
                        <div className="flex items-start gap-3">
                          <ScanEye className="h-5 w-5 text-primary mt-0.5" />
                          <div>
-                           <span className="font-medium text-foreground">"clothing item"</span>
+                           <span className="font-medium text-foreground">&quot;clothing item&quot;</span>
                            <span className="text-muted-foreground mx-2">replaced with</span>
-                           <span className="font-bold text-primary">"{result.classification}"</span>
+                           <span className="font-bold text-primary">&quot;{result.classification}&quot;</span>
                          </div>
                        </div>
                     ) : (
