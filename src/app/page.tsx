@@ -18,10 +18,16 @@ export default async function CreatePage() {
   const sessionUser = await getCurrentUser();
   let maxImages = 3; // Default to 3
   let recentUploads: string[] = [];
+  let userModel = 'fal_gemini_2_5'; // NEW: Default
 
   if (sessionUser?.username) {
     const fullUser = findUserByUsername(sessionUser.username);
     console.log(`[CreatePage] User: ${sessionUser.username}, Model: ${fullUser?.image_generation_model}`);
+    
+    if (fullUser?.image_generation_model) { // NEW: Capture model
+      userModel = fullUser.image_generation_model;
+    }
+
     if (fullUser?.image_generation_model === 'fal_nano_banana_pro') {
       maxImages = 1;
     }
@@ -39,7 +45,7 @@ export default async function CreatePage() {
   return (
     <div className="container mx-auto max-w-7xl px-4 pt-5 pb-10 space-y-8">
       {/* CreationHub now manages state entirely on the client */}
-      <CreationHub maxImages={maxImages} recentUploads={recentUploads}>
+      <CreationHub maxImages={maxImages} recentUploads={recentUploads} userModel={userModel}>
         <Suspense fallback={<HistoryGallerySkeleton />}>
           <UserHistory />
         </Suspense>

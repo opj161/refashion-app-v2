@@ -32,6 +32,7 @@ export interface GenerationSettingsState {
   
   // Studio mode settings
   studioFit: 'slim' | 'regular' | 'relaxed';
+  studioAspectRatio: string; // NEW
   
   // Generation counter for triggering history refresh
   generationCount: number;
@@ -60,6 +61,7 @@ export interface GenerationSettingsActions {
   
   // Update studio fit
   setStudioFit: (fit: 'slim' | 'regular' | 'relaxed') => void;
+  setStudioAspectRatio: (ratio: string) => void; // NEW
   
   // Update history filter
   setHistoryFilter: (filter: 'all' | 'image' | 'video') => void;
@@ -122,6 +124,7 @@ const initialState: GenerationSettingsState = {
   settingsMode: 'basic',
   generationMode: 'studio',
   studioFit: 'regular',
+  studioAspectRatio: '9:16', // NEW: Default to vertical for fashion
   generationCount: 0,
   historyFilter: 'all',
   backgroundRemovalEnabled: false,
@@ -153,6 +156,9 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
       
       setStudioFit: (fit) =>
         set({ studioFit: fit }, false, 'setStudioFit'),
+
+      setStudioAspectRatio: (ratio) => // NEW
+        set({ studioAspectRatio: ratio }, false, 'setStudioAspectRatio'),
       
       setHistoryFilter: (filter) =>
         set({ historyFilter: filter }, false, 'setHistoryFilter'),
@@ -186,6 +192,11 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
           // Load studio fit from attributes if present and in Studio Mode
           if (item.generation_mode === 'studio' && (item.attributes as any).studioFit) {
             newState.studioFit = (item.attributes as any).studioFit;
+          }
+
+          // NEW: Load aspect ratio if present (checking attributes for loose coupling)
+          if (item.generation_mode === 'studio' && (item.attributes as any).studioAspectRatio) {
+            newState.studioAspectRatio = (item.attributes as any).studioAspectRatio;
           }
           
           // Load video parameters if present

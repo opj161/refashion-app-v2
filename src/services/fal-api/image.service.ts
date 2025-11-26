@@ -17,24 +17,32 @@ export async function generateWithFalEditModel(
   imageUrl: string, // MUST be a public URL
   username: string,
   modelId: 'fal-ai/gemini-25-flash-image/edit' | 'fal-ai/nano-banana-pro/edit',
-  apiKey?: string // Optional: If provided, uses this key. If not, falls back to env var (but we should always provide it).
+  apiKey?: string,
+  options?: { aspectRatio?: string } // NEW: Options argument
 ): Promise<{ imageUrl: string; description?: string }> {
   const logger = createApiLogger('FAL_IMAGE', `Generation (${modelId.split('/')[1]})`, {
     username,
     model: modelId,
   });
 
-  const input = {
+  // Construct input with optional aspect ratio
+  const input: any = {
     prompt: prompt,
     image_urls: [imageUrl],
     num_images: 1,
-    output_format: "png" as const,
+    output_format: "png",
   };
+
+  // Only add aspect_ratio if explicitly provided AND model supports it (Nano Banana)
+  if (options?.aspectRatio && modelId.includes('nano-banana-pro')) {
+    input.aspect_ratio = options.aspectRatio;
+  }
 
   logger.start({
     promptLength: prompt.length,
     imageUrl: imageUrl.substring(0, 100),
     outputFormat: 'png',
+    aspectRatio: input.aspect_ratio, // Log it
   });
 
   try {

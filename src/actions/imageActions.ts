@@ -420,6 +420,7 @@ const imageGenerationSchema = zfd.formData({
   imageDataUriOrUrl: zfd.text(),
   generationMode: zfd.text(z.enum(['creative', 'studio']).default('creative')),
   studioFit: zfd.text(z.enum(['slim', 'regular', 'relaxed']).default('regular')),
+  aspectRatio: zfd.text(z.string().optional()), // NEW field
   settingsMode: zfd.text(z.enum(['basic', 'advanced']).default('basic')),
   useAIPrompt: zfd.checkbox(),
   useRandomization: zfd.checkbox(),
@@ -492,6 +493,7 @@ export async function generateImageAction(
       imageDataUriOrUrl: data.imageDataUriOrUrl,
       generationMode: data.generationMode,
       studioFit: data.studioFit,
+      aspectRatio: data.aspectRatio, // NEW property passed to flow
       // Only extract and pass parameters for Creative Mode
       parameters: data.generationMode === 'creative' ? {
         gender: data.gender,

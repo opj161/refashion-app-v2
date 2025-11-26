@@ -59,6 +59,9 @@ export interface ModelAttributes {
   depthOfField: string;
   timeOfDay: string;
   overallMood: string;
+  // Studio Mode Attributes
+  studioFit?: string;
+  aspectRatio?: string;
 }
 
 export interface PixelCrop {

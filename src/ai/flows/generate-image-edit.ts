@@ -125,6 +125,7 @@ const GenerateImageEditInputSchema = z.object({
   enhanceFace: z.boolean().optional().default(false).describe('Whether to enhance face details before generation.'),
   generationMode: z.enum(['creative', 'studio']).optional().describe('The generation mode: creative or studio.'),
   studioFit: z.enum(['slim', 'regular', 'relaxed']).optional().describe('The fit setting for Studio Mode.'),
+  aspectRatio: z.string().optional().describe('The aspect ratio for Nano Banana Pro (e.g., "9:16", "auto").'), // NEW
 });
 export type GenerateImageEditInput = z.infer<typeof GenerateImageEditInputSchema>;
 
@@ -197,7 +198,8 @@ async function performSingleImageGeneration(
       publicImageUrl,
       username,
       modelEndpoint as any, // Cast to valid enum
-      await getApiKeyForUser(username, 'fal') // Inject User API Key
+      await getApiKeyForUser(username, 'fal'), // Inject User API Key
+      { aspectRatio: input.aspectRatio } // NEW: Pass options object
     );
     
     logger.progress(`Downloading generated image...`);
@@ -265,24 +267,28 @@ export async function generateImageEdit(
   
   if (!historyId && input.imageDataUriOrUrl) {
     try {
-      const isStudio = input.generationMode === 'studio';
-      const initialAttributes = isStudio 
-        ? { studioFit: input.studioFit } as any 
-        : input.parameters;
-        
-      historyId = await addHistoryItem(
-        initialAttributes || {},
+      // Construct attributes for history
+      const historyAttributes = {
+        ...(input.parameters || {}),
+        ...(input.studioFit && { studioFit: input.studioFit }),
+        ...(input.aspectRatio && { aspectRatio: input.aspectRatio }),
+      };
+
+      // 4. Create History Item (Processing State)
+      const historyItemId = await addHistoryItem(
+        historyAttributes,
         "Processing...", // Placeholder prompt
         input.imageDataUriOrUrl,
-        [null, null, null], // Empty images
+        [null, null, null, null], // placeholders
         input.settingsMode || 'basic',
-        user.image_generation_model,
-        'processing', // STATUS: PROCESSING
+        user.image_generation_model, // Use user's model directly
+        'processing',
         undefined,
         username,
-        undefined,
-        input.generationMode || 'creative'
+        undefined, // webhookUrl
+        input.generationMode // Pass generation mode
       );
+      historyId = historyItemId; // Assign to historyId for subsequent use
       console.log(`✅ Created initial history item: ${historyId}`);
     } catch (err) {
       console.error('Failed to create initial history item:', err);
