@@ -1,51 +1,68 @@
 // src/components/ImagePreparationContainer.tsx
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useImageStore, useActiveImage } from "@/stores/imageStore";
 import { useToast } from "@/hooks/use-toast";
-import { type PixelCrop, type Crop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import { type PixelCrop, type Crop } from 'react-image-crop';
 import { motion, AnimatePresence } from 'motion/react';
+import { useImageStore } from "@/stores/imageStore";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import ImageUploader from "./ImageUploader";
 import ImageEditorCanvas from "./ImageEditorCanvas";
-import ImageProcessingTools from "./ImageProcessingTools";
-import AspectRatioSelector from "./AspectRatioSelector";
-import ImageVersionStack from "./ImageVersionStack";
+import EditingHubSidebar from "./EditingHubSidebar";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-import { UploadCloud, Trash2, X, Check } from "lucide-react";
+import { UploadCloud, Trash2, Brush } from "lucide-react";
 
 interface ImagePreparationContainerProps {
   preparationMode: 'image' | 'video';
   onReset: () => void;
+  resetRef?: React.MutableRefObject<(() => void) | null>;
+  recentUploads?: string[];
 }
 
+// Component that uses the Zustand store
 export default function ImagePreparationContainer({
   preparationMode,
   onReset,
+  resetRef,
+  recentUploads = [],
 }: ImagePreparationContainerProps) {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
-  // --- Read ALL state directly from the Zustand store ---
+  // Use Zustand Store
   const {
     versions,
     activeVersionId,
-    isProcessing,
     crop,
     aspect,
-    imageDimensions, // Read dimensions from store
-    setCrop,
-    setCompletedCrop,
-    setAspect,
-    setImageDimensions,
+    imageDimensions,
     applyCrop,
+    reset,
+    setAspect,
+    setDimensions,
+    setCrop,
   } = useImageStore();
-  
-  const activeImage = useActiveImage();
-  
+
+  const activeImage = activeVersionId ? versions[activeVersionId] : null;
+  const isAnyVersionProcessing = Object.values(versions).some(v => v.status === 'processing');
+
+  // Expose reset to parent via ref
+  React.useEffect(() => {
+    if (resetRef) {
+      resetRef.current = reset;
+    }
+  }, [reset, resetRef]);
+
+  // Local UI state for managing the cropping flow
+  const [isCropping, setIsCropping] = useState<boolean>(false);
+
   const handleApplyCrop = async () => {
+    setIsCropping(false);
     try {
       await applyCrop();
       toast({ title: "Crop Applied", description: "A new cropped version has been created." });
@@ -55,119 +72,153 @@ export default function ImagePreparationContainer({
   };
 
   const handleCancelCrop = () => {
-    setAspect(undefined); // This store action now resets the crop state
+    setIsCropping(false);
+    setAspect(undefined);
     toast({ title: "Crop Canceled" });
   };
-  
+
+  const handleAspectChange = (newAspect?: number) => {
+    setAspect(newAspect);
+    // An explicit aspect selection always means we are in a cropping state.
+    setIsCropping(true);
+  };
+
   // --- THE CORE FIX: A robust onImageLoad handler ---
   // This is the single source of truth for what happens when an image is loaded or re-loaded.
   const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const { naturalWidth: width, naturalHeight: height } = e.currentTarget;
+    const { naturalWidth, naturalHeight } = e.currentTarget;
 
     // 1. Always store the new dimensions.
-    setImageDimensions({ width, height });
+    setDimensions(naturalWidth, naturalHeight);
 
     // 2. Check if there's a predefined aspect ratio we need to apply.
-    const currentAspect = useImageStore.getState().aspect; // Get latest aspect from store
-    if (currentAspect) {
-      // 3. Calculate and set the centered crop.
-      const newCrop = centerCrop(
-        makeAspectCrop({ unit: '%', width: 90 }, currentAspect, width, height),
-        width,
-        height
-      );
-      setCrop(newCrop);
+    if (aspect) {
+      // 3. Calculate and set the centered crop - the reducer will handle this
+      setAspect(aspect);
     }
-  }, [setImageDimensions, setCrop]);
+  }, [setDimensions, setAspect, aspect]);
   
-  // The complex useEffect is GONE! The logic is now correctly placed in the store's `setAspect` action.
+  const handleCropChange = (pixelCrop: PixelCrop, percentCrop: Crop) => {
+    setCrop(percentCrop);
+    // *** BUG FIX ***: Activate cropping UI on manual drag
+    if (!isCropping && percentCrop.width > 0 && percentCrop.height > 0) {
+      setIsCropping(true);
+    }
+  };
 
   // Render logic remains similar, but is now driven by the global store state.
-  if (!activeImage) {
-    return (
-      <AnimatePresence mode="wait">
-        <motion.div key="uploader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <ImageUploader />
-        </motion.div>
-      </AnimatePresence>
-    );
-  }
+  const hubContent = (
+    <EditingHubSidebar
+      preparationMode={preparationMode}
+      isCropping={isCropping}
+      isProcessing={isAnyVersionProcessing}
+      aspect={aspect}
+      onAspectChange={handleAspectChange} // *** BUG FIX ***: Wire to correct handler
+      onConfirmCrop={handleApplyCrop}
+      onCancelCrop={handleCancelCrop}
+      versions={versions}
+      activeVersionId={activeVersionId}
+    />
+  );
+
+  // Define animation variants for the container switch
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.98 },
+    visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: 'easeOut' as const } },
+    exit: { opacity: 0, y: -20, scale: 0.98, transition: { duration: 0.2, ease: 'easeIn' as const } },
+  };
 
   return (
-    <motion.div layout transition={{ duration: 0.5, type: 'spring', bounce: 0.2 }}>
-      <Card variant="glass">
-        <CardHeader>
-            <div className="flex justify-between items-start gap-4">
+    <AnimatePresence mode="wait">
+      {!activeImage ? (
+        // --- UPLOADER STATE ---
+        <motion.div
+          key="uploader"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+        >
+          <ImageUploader recentUploads={recentUploads} />
+        </motion.div>
+      ) : (
+        // --- EDITOR STATE ---
+        <motion.div
+          key="editor"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          layout // Keep the layout prop for internal resizing animations
+          transition={{ duration: 0.5, type: 'spring', bounce: 0.2 }}
+          data-testid="image-preparation-container"
+        >
+          <Card variant="glass">
+            <CardHeader>
+              <div className="flex justify-between items-start gap-4">
                 <div>
-                    <CardTitle className="text-xl flex items-center gap-2">
-                        <UploadCloud className="h-6 w-6 text-primary" />
-                        Prepare Your Image
-                    </CardTitle>
-                    <CardDescription>
-                        Upload, crop, and process your clothing image before generation.
-                    </CardDescription>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <UploadCloud className="h-6 w-6 text-primary" />
+                    Prepare Your Image
+                  </CardTitle>
+                  <CardDescription>
+                    Crop, and process your clothing image before generation.
+                  </CardDescription>
                 </div>
-                <Button variant="destructive" size="sm" onClick={onReset} disabled={isProcessing}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Remove Image
+                <Button variant="destructive" size="sm" onClick={onReset} disabled={isAnyVersionProcessing}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Remove Image
                 </Button>
-            </div>
-        </CardHeader>
-        <CardContent className="space-y-6 pt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3 relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg min-h-[70vh] shadow-2xl shadow-primary/10 transition-shadow duration-300 hover:shadow-primary/20">
-              <ImageEditorCanvas
-                key={activeImage.id} // Re-mounts when active image changes, triggering onLoad
-                image={activeImage}
-                crop={crop}
-                aspect={aspect}
-                onCropChange={(pixelCrop, percentCrop) => setCrop(percentCrop)} // Best practice: use percentCrop
-                onCropComplete={setCompletedCrop}
-                onImageLoad={onImageLoad}
-                disabled={isProcessing}
-                ruleOfThirds={true} // Enhancement: Enable rule of thirds
-                imageDimensions={imageDimensions} // PASS THE DIMENSIONS DOWN
-              />
-            </div>
-            <div className="lg:col-span-1 flex flex-col space-y-6">
-              <AspectRatioSelector
-                preparationMode={preparationMode}
-                aspect={aspect}
-                onAspectChange={setAspect} // Directly calls the store action
-                disabled={isProcessing}
-              />
-              <ImageProcessingTools
-                preparationMode={preparationMode}
-                disabled={isProcessing || aspect !== undefined}
-              />
-                <AnimatePresence>
-                  {aspect !== undefined && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="flex gap-2"
-                    >
-                      <Button variant="outline" size="sm" className="flex-1" onClick={handleCancelCrop} disabled={isProcessing}>
-                        <X className="mr-2 h-4 w-4" /> Cancel
-                      </Button>
-                      <Button size="sm" className="flex-1" onClick={handleApplyCrop} disabled={isProcessing}>
-                        <Check className="mr-2 h-4 w-4" /> Apply Crop
-                      </Button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-            </div>
-          </div>
-          {Object.keys(versions).length > 1 && (
-            <ImageVersionStack
-              versions={versions}
-              activeVersionId={activeVersionId}
-              isProcessing={isProcessing}
-            />
-          )}
-        </CardContent>
-      </Card>
-    </motion.div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-6">
+              {isMobile === false ? ( // DESKTOP VIEW
+                <div className="grid grid-cols-1 lg:grid-cols-[2fr,1fr] gap-6">
+                  <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg min-h-[70vh] shadow-lg shadow-black/10">
+                    <ImageEditorCanvas
+                      key={activeImage.id}
+                      image={activeImage}
+                      crop={crop}
+                      aspect={aspect}
+                      onCropChange={handleCropChange} // *** BUG FIX ***: Use new handler
+                      onCropComplete={() => {}}
+                      onImageLoad={onImageLoad}
+                      disabled={isAnyVersionProcessing}
+                      ruleOfThirds={true}
+                    />
+                  </div>
+                  {hubContent}
+                </div>
+              ) : ( // MOBILE VIEW
+                <div className="flex flex-col h-[calc(100dvh-220px)] gap-4">
+                  <div className="relative flex-1 flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg shadow-lg shadow-black/10 overflow-hidden min-h-0">
+                    <ImageEditorCanvas
+                      key={activeImage.id}
+                      image={activeImage}
+                      crop={crop}
+                      aspect={aspect}
+                      onCropChange={handleCropChange} // *** BUG FIX ***: Use new handler
+                      onCropComplete={() => {}}
+                      onImageLoad={onImageLoad}
+                      disabled={isAnyVersionProcessing}
+                      ruleOfThirds={true}
+                    />
+                  </div>
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button className="w-full h-12 text-base shadow-xl"><Brush className="mr-2 h-5 w-5" /> Edit & Manage Versions</Button>
+                    </SheetTrigger>
+                    <SheetContent side="bottom" className="h-[85vh] p-4 flex flex-col">
+                      {hubContent}
+                    </SheetContent>
+                  </Sheet>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
+

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { createApiJob, processApiGenerationJob } from '@/actions/apiActions';
+import { findHistoryItemById } from '@/services/database.service';
 import { z } from 'zod';
 
 const ModelAttributesSchema = z.object({
@@ -16,17 +17,17 @@ const ModelAttributesSchema = z.object({
   modelExpression: z.string(),
   lightingType: z.string(),
   lightQuality: z.string(),
-  cameraAngle: z.string(),
+  modelAngle: z.string(),
   lensEffect: z.string(),
   depthOfField: z.string(),
   timeOfDay: z.string(),
   overallMood: z.string(),
-  fabricRendering: z.string(),
 });
 
 const GenerateRequestSchema = z.object({
   imageDataUri: z.string().optional(),
   imageUrl: z.string().url().optional(),
+  sourceHistoryItemId: z.string().optional(),
   parameters: ModelAttributesSchema,
   settingsMode: z.enum(['basic', 'advanced']).default('basic'),
   webhookUrl: z.string().url().optional(),
@@ -44,11 +45,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = GenerateRequestSchema.parse(body);
 
-    // Use imageUrl if provided, otherwise imageDataUri
-    const imageDataSource = validatedData.imageUrl || validatedData.imageDataUri;
+    let imageDataSource = validatedData.imageUrl || validatedData.imageDataUri;
+
+    // PHASE 3 ENHANCEMENT: Prioritize sourceHistoryItemId if provided.
+    if (validatedData.sourceHistoryItemId) {
+      const historyItem = findHistoryItemById(validatedData.sourceHistoryItemId);
+      // Security check: ensure the item belongs to the authenticated user.
+      if (historyItem && historyItem.username === user.username) {
+        // Prioritize the first generated image, fall back to original clothing URL.
+        imageDataSource = historyItem.editedImageUrls?.[0] || historyItem.originalClothingUrl;
+      } else {
+        return NextResponse.json({ error: 'sourceHistoryItemId not found or unauthorized' }, { status: 404 });
+      }
+    }
+
     if (!imageDataSource) {
       return NextResponse.json({
-        error: 'Either imageDataUri or imageUrl is required.'
+        error: 'Either imageDataUri, imageUrl, or a valid sourceHistoryItemId is required.'
       }, { status: 400 });
     }
 

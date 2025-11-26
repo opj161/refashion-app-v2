@@ -3,42 +3,34 @@
 import { motion, useReducedMotion } from 'motion/react';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useRef } from 'react';
-import { useImageStore } from '@/stores/imageStore';
-import { MOTION_VARIANTS, MOTION_TRANSITIONS } from '@/lib/motion-constants';
+import { COMMON_VARIANTS, MOTION_TRANSITIONS } from '@/lib/motion-constants';
+
+// Define a simplified variant for reduced motion
+const reducedMotionVariant = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+  exit: { opacity: 0 },
+};
 
 const PageTransitionWrapper = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
   const previousPathnameRef = useRef<string | null>(null);
-  const { reset } = useImageStore();
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
-    const previousPath = previousPathnameRef.current;
-
-    if (previousPath) {
-      const wasInEditingWorkflow =
-        previousPath === '/' || previousPath.includes('/history');
-      const isInEditingWorkflow =
-        pathname === '/' || pathname.includes('/history');
-
-      // --- FIX: Decoupled state reset logic ---
-      // If we were in the editing workflow and are now navigating out of it, reset the store.
-      if (wasInEditingWorkflow && !isInEditingWorkflow) {
-        reset();
-      }
-    }
-
+    // Note: Image preparation state reset is now handled by the local context providers
+    // in each tab, so no global reset is needed here
     previousPathnameRef.current = pathname;
-  }, [pathname, reset]);
+  }, [pathname]);
 
   return (
     <motion.div
-      // --- FIX: Removed key={pathname} to prevent full page remounts ---
-      // This preserves component state and allows for a true SPA-like navigation.
-      // A simple animation provides visual feedback without breaking Next.js architecture.
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.3, ease: 'easeInOut' }}
+      key={pathname} // Add key for AnimatePresence to work on route changes
+      variants={shouldReduceMotion ? reducedMotionVariant : COMMON_VARIANTS.pageTransition}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      transition={shouldReduceMotion ? { duration: 0 } : MOTION_TRANSITIONS.tween.standard}
       className="flex-1 flex flex-col"
     >
       {children}

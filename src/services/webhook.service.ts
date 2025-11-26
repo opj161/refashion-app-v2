@@ -1,4 +1,6 @@
 // src/services/webhook.service.ts
+import 'server-only';
+
 interface WebhookPayload {
   status: 'completed' | 'failed';
   generatedImageUrls?: (string | null)[];
@@ -22,6 +24,7 @@ export async function sendWebhook(url: string, payload: WebhookPayload): Promise
     console.log(`[Webhook] Attempt ${attempt}: Sending webhook to: ${url}`);
     try {
       const secret = getWebhookSecret(); // Get the secret just-in-time
+      // CACHE-STRATEGY: Policy: Dynamic - This POST request sends a notification and must never be cached.
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -30,6 +33,7 @@ export async function sendWebhook(url: string, payload: WebhookPayload): Promise
         },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(15000),
+        cache: 'no-store',
       });
 
       if (!response.ok) {

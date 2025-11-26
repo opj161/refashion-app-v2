@@ -1,37 +1,51 @@
 import { Suspense } from 'react';
 import CreationHub from '@/components/creation-hub';
-import { PageHeader } from "@/components/ui/page-header";
-import { Palette } from "lucide-react";
 import HistoryGallery from '@/components/history-gallery';
-import { getHistoryPaginated, getHistoryItemById } from '@/actions/historyActions';
+import { getHistoryPaginated } from '@/actions/historyActions';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { HistoryItem } from '@/lib/types';
+import { getCurrentUser } from '@/actions/authActions';
+import { findUserByUsername } from '@/services/database.service';
 
-// This is now an async Server Component that accepts searchParams
-export default async function CreatePage({ searchParams }: { searchParams?: Promise<{ historyItemId?: string }> }) {
-  let historyItemToLoad: HistoryItem | null = null;
+// Force dynamic rendering for user-specific content
+// export const dynamic = 'force-dynamic';
+
+import { connection } from 'next/server';
+
+// Simplified Server Component - no more searchParams handling
+export default async function CreatePage() {
+  await connection();
   
-  const resolvedSearchParams = await searchParams;
-  const historyItemId = resolvedSearchParams?.historyItemId;
+  const sessionUser = await getCurrentUser();
+  let maxImages = 3; // Default to 3
+  let recentUploads: string[] = [];
+  let userModel = 'fal_gemini_2_5'; // NEW: Default
 
-  if (historyItemId) {
-    // Fetch the history item on the server if an ID is present in the URL
-    const result = await getHistoryItemById(historyItemId);
-    if (result.success && result.item) {
-      historyItemToLoad = result.item;
-    } else {
-      console.warn(`Could not load history item ${historyItemId}: ${result.error}`);
+  if (sessionUser?.username) {
+    const fullUser = findUserByUsername(sessionUser.username);
+    console.log(`[CreatePage] User: ${sessionUser.username}, Model: ${fullUser?.image_generation_model}`);
+    
+    if (fullUser?.image_generation_model) { // NEW: Capture model
+      userModel = fullUser.image_generation_model;
+    }
+
+    if (fullUser?.image_generation_model === 'fal_nano_banana_pro') {
+      maxImages = 1;
+    }
+
+    // Fetch recent uploads
+    try {
+      const { getRecentUploadsAction } = await import('@/actions/historyActions');
+      recentUploads = await getRecentUploadsAction();
+    } catch (e) {
+      console.error("Failed to fetch recent uploads:", e);
     }
   }
+  console.log(`[CreatePage] maxImages determined: ${maxImages}`);
+
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-10 space-y-8">
-      <PageHeader
-        icon={Palette}
-        title="Creative Studio"
-        description="Bring your clothing to life with new images and videos "
-      />
-      {/* Pass the loaded history item down to the client component */}
-      <CreationHub historyItemToLoad={historyItemToLoad}>
+    <div className="container mx-auto max-w-7xl px-4 pt-5 pb-10 space-y-8">
+      {/* CreationHub now manages state entirely on the client */}
+      <CreationHub maxImages={maxImages} recentUploads={recentUploads} userModel={userModel}>
         <Suspense fallback={<HistoryGallerySkeleton />}>
           <UserHistory />
         </Suspense>

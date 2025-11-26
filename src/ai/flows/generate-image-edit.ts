@@ -1,6 +1,9 @@
 // This is a server-side file.
 'use server';
 
+import 'server-only';
+import { after } from 'next/server';
+
 /**
  * @fileOverview AI agent for editing an image based on a text prompt,
  * or generating an image purely from text if no source image is provided.
@@ -16,52 +19,94 @@ import fetch from 'node-fetch'; // For fetching image from URL
 import fs from 'fs';
 import path from 'path';
 import { saveDataUriLocally } from '@/services/storage.service';
+import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
+import mime from 'mime-types';
 import { getApiKeyForUser } from '@/services/apiKey.service';
-import { buildAIPrompt, GENDER_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS } from '@/lib/prompt-builder';
+import { MODEL_ANGLE_OPTIONS,
+  buildAIPrompt, GENDER_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS
+} from '@/lib/prompt-builder'; // <-- No change here, but POSE_STYLE_OPTIONS is now used below
 import { generatePromptWithAI } from '@/ai/actions/generate-prompt.action';
 import type { ModelAttributes } from '@/lib/types';
-
-// UPDATED: Import the official Google GenAI SDK instead of manual HTTP clients
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
+import type { FullUser } from '@/services/database.service'; // Import the user type
+import * as dbService from '@/services/database.service';
+import { addHistoryItem } from '@/actions/historyActions';
+import { generateWithFalEditModel } from '@/services/fal-api/image.service';
+import { downloadAndSaveImageFromUrl } from '@/services/storage.service';
+import { removeBackgroundAction } from '@/ai/actions/remove-background.action';
+import { upscaleImageAction, faceDetailerAction } from '@/ai/actions/upscale-image.action';
+// Import Axios and HttpsProxyAgent for explicit proxy control
+// Axios and HttpsProxyAgent removed as they were only for Google API
 import { withGeminiRetry } from '@/lib/api-retry';
 
-// The SDK handles all types internally, so we no longer need manual type definitions
+// Import API logger for standardized logging
+import { createApiLogger } from '@/lib/api-logger';
+
+// Import Studio Prompt domain service
+import { constructStudioPrompt } from '@/ai/domain/studio-prompt';
+
+// Direct API configuration matching Python implementation
+// BASE_URL removed
+
+
+// Gemini Image API types removed
+
 
 /**
- * Generate random parameters for stylistic settings only
+ * Generate random parameters for stylistic settings with tiered probability system
  * Excludes core model attributes (gender, bodyType, bodySize, ageRange) which should remain as user selected
- * Always randomizes background, and randomly selects 2 of the other 4 parameters to randomize
+ * Uses graduated probability: Background (100%), Ethnicity/Pose (50%), Hair (25%), Expression (15%)
  */
 function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAttributes {
-  const pickRandom = (options: any[]) => options[Math.floor(Math.random() * options.length)].value;
-  
-  // Always randomize background
-  const result = {
-    ...baseParameters, // Keep all existing parameters
-    background: pickRandom(BACKGROUND_OPTIONS),
+  // Helper that picks a random value from all available options, including "default".
+  // This allows randomization to include "no specific setting" as a valid choice.
+  const pickRandom = (options: any[]) => {
+    return options[Math.floor(Math.random() * options.length)].value;
   };
-  
-  // Define the 4 optional parameters to choose from
-  const optionalParams = [
-    { key: 'ethnicity', options: ETHNICITY_OPTIONS },
-    { key: 'hairStyle', options: HAIR_STYLE_OPTIONS },
-    { key: 'modelExpression', options: MODEL_EXPRESSION_OPTIONS },
-    { key: 'poseStyle', options: POSE_STYLE_OPTIONS },
-  ];
-  
-  // Randomly shuffle and select 2 of the 4 optional parameters
-  const shuffled = optionalParams.sort(() => Math.random() - 0.5);
-  const selectedParams = shuffled.slice(0, 2);
-  
-  // Randomize only the 2 selected parameters
-  selectedParams.forEach(param => {
-    (result as any)[param.key] = pickRandom(param.options);
-  });
-  
+
+  const result = {
+    ...baseParameters, // Keep all existing parameters as base
+    background: pickRandom(BACKGROUND_OPTIONS), // Always randomize background (100%)
+  };
+
+  // Tier 1: High frequency randomization (50% chance)
+  // 50% chance to randomize ethnicity, otherwise keep user's original choice
+  if (Math.random() < 0.5) {
+    result.ethnicity = pickRandom(ETHNICITY_OPTIONS);
+  }
+
+  // 50% chance to randomize pose style, otherwise keep user's original choice  
+  if (Math.random() < 0.5) {
+    result.poseStyle = pickRandom(POSE_STYLE_OPTIONS);
+  }
+
+  // New: 30% chance to randomize model angle
+  if (Math.random() < 0.3) {
+    result.modelAngle = pickRandom(MODEL_ANGLE_OPTIONS);
+  }
+
+  // Tier 2: Medium frequency randomization (25% chance)
+  // 25% chance to randomize hair style, otherwise keep user's original choice
+  if (Math.random() < 0.25) {
+    result.hairStyle = pickRandom(HAIR_STYLE_OPTIONS);
+  }
+
+  // Tier 3: Low frequency randomization (15% chance) 
+  // 15% chance to randomize model expression, otherwise keep user's original choice
+  if (Math.random() < 0.15) {
+    result.modelExpression = pickRandom(MODEL_EXPRESSION_OPTIONS);
+  }
+
   return result;
 }
 
-// The makeGeminiApiCall function is replaced by the SDK's built-in methods
+
+
+/**
+ * Make a direct API call to Gemini API with explicit proxy support using axios
+ * This provides better proxy control than node-fetch's automatic detection
+ */
+// makeGeminiApiCall removed
+
 
 const GenerateImageEditInputSchema = z.object({
   prompt: z.string().optional().describe('The prompt to use for generating or editing the image.'),
@@ -74,7 +119,13 @@ const GenerateImageEditInputSchema = z.object({
       "Optional: The image to edit, as a data URI (e.g., 'data:image/png;base64,...') or a publicly accessible HTTPS URL."
     ),
   useAIPrompt: z.boolean().optional().default(false).describe('Whether to use AI to generate the prompt itself.'),
-  useRandomizedAIPrompts: z.boolean().optional().default(false).describe('Whether to use different random parameters for each of the 3 AI prompts.'),
+  useRandomization: z.boolean().optional().default(false).describe('Whether to use different random parameters for each of the 3 generation slots.'),
+  removeBackground: z.boolean().optional().default(false).describe('Whether to remove background before generation.'),
+  upscale: z.boolean().optional().default(false).describe('Whether to upscale the image before generation.'),
+  enhanceFace: z.boolean().optional().default(false).describe('Whether to enhance face details before generation.'),
+  generationMode: z.enum(['creative', 'studio']).optional().describe('The generation mode: creative or studio.'),
+  studioFit: z.enum(['slim', 'regular', 'relaxed']).optional().describe('The fit setting for Studio Mode.'),
+  aspectRatio: z.string().optional().describe('The aspect ratio for Nano Banana Pro (e.g., "9:16", "auto").'), // NEW
 });
 export type GenerateImageEditInput = z.infer<typeof GenerateImageEditInputSchema>;
 
@@ -87,166 +138,95 @@ export type SingleImageOutput = z.infer<typeof SingleImageOutputSchema>;
 
 async function performSingleImageGeneration(
   input: GenerateImageEditInput,
+  user: FullUser,
   flowIdentifier: string,
-  username: string,
-  keyIndex: 1 | 2 | 3
+  keyIndex: 1 | 2 | 3,
+  modelId: string // Changed from generationConfigOverride
 ): Promise<SingleImageOutput> {
-  const apiKey = await getApiKeyForUser(username, 'gemini', keyIndex);
+  const username = user.username;
   
-  // Initialize the SDK
-  const ai = new GoogleGenAI({ apiKey });
+  // Use the passed modelId directly
+  const modelEndpoint = modelId;
 
-  let sourceImageDataForModelProcessing: { mimeType: string; data: string; } | null = null;
-  if (input.imageDataUriOrUrl) {
-    let dataUriToProcess = input.imageDataUriOrUrl;
-    if (input.imageDataUriOrUrl.startsWith('http://') || input.imageDataUriOrUrl.startsWith('https://')) {
-      try {
-        console.log(`Fetching image from URL for ${flowIdentifier}: ${input.imageDataUriOrUrl}`);
-        const response = await fetch(input.imageDataUriOrUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch image from URL (${input.imageDataUriOrUrl}): ${response.status} ${response.statusText}`);
-        }
-        const imageBuffer = await response.buffer();
-        const mimeType = response.headers.get('content-type') || 'image/png';
-        if (!mimeType.startsWith('image/')) {
-          throw new Error(`Fetched content from URL (${input.imageDataUriOrUrl}) is not an image: ${mimeType}`);
-        }
-        dataUriToProcess = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-        console.log(`Successfully converted URL to data URI for ${flowIdentifier}. MimeType: ${mimeType}`);
-      } catch (fetchError: unknown) { // Changed to unknown
-        console.error(`Error fetching or converting image URL for ${flowIdentifier}:`, fetchError);
-        throw new Error(`Failed to process source image from URL for ${flowIdentifier}: ${(fetchError as Error).message}`);
-      }
-    } else if (input.imageDataUriOrUrl.startsWith('/')) {
-      try {
-        // FIX: The 'uploads' directory is now at the root, not inside 'public'.
-        // We construct the path relative to the project root.
-        const absolutePath = path.join(process.cwd(), input.imageDataUriOrUrl);
-        if (fs.existsSync(absolutePath)) { // Note: existsSync is not async, consider fs.promises.access for full async pattern
-          const imageBuffer = fs.readFileSync(absolutePath);
-          let mimeType = 'image/png';
-          if (input.imageDataUriOrUrl.endsWith('.jpg') || input.imageDataUriOrUrl.endsWith('.jpeg')) mimeType = 'image/jpeg';
-          else if (input.imageDataUriOrUrl.endsWith('.webp')) mimeType = 'image/webp';
-          else if (input.imageDataUriOrUrl.endsWith('.gif')) mimeType = 'image/gif';
-          dataUriToProcess = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-          console.log(`Successfully converted local path ${input.imageDataUriOrUrl} to data URI for ${flowIdentifier}.`);
-        } else {
-          throw new Error(`Local image file not found at ${absolutePath}`);
-        }
-      } catch (localFileError: unknown) { // Changed to unknown
-        console.error(`Error reading local image file for ${flowIdentifier}:`, localFileError);
-        throw new Error(`Failed to process local source image for ${flowIdentifier}: ${(localFileError as Error).message}`);
-      }
-    }
-    const match = dataUriToProcess.match(/^data:(image\/\w+);base64,(.+)$/);
-    if (match) {
-      sourceImageDataForModelProcessing = { mimeType: match[1], data: match[2] };
-    } else if (input.imageDataUriOrUrl) {
-        console.warn(`Could not parse processed image data URI for ${flowIdentifier}. Original input: ${input.imageDataUriOrUrl}`);
-    }
-  }
-  const parts: any[] = [];
-  
-  if (sourceImageDataForModelProcessing) {
-    parts.push({
-      inlineData: {
-        mimeType: sourceImageDataForModelProcessing.mimeType,
-        data: sourceImageDataForModelProcessing.data,
-      },
-    });
-  }
-  parts.push({ text: input.prompt });
-  console.log(`Calling Gemini API via SDK for ${flowIdentifier} with model gemini-2.0-flash-exp`);
-  console.log(`With API Key: ${apiKey ? 'SET' : 'NOT SET'}`);
-  if (sourceImageDataForModelProcessing) {
-    console.log(`WITH IMAGE: ${sourceImageDataForModelProcessing.mimeType}`);
-  } else {
-    console.log(`Performing text-to-image generation for ${flowIdentifier} as no source image was provided or processed.`);
+  const logger = createApiLogger('FAL_IMAGE', `Image Gen (${modelEndpoint})`, {
+    username,
+    endpoint: modelEndpoint,
+  });
+
+  if (!input.imageDataUriOrUrl) {
+    throw new Error(`Generation requires a source image for ${flowIdentifier}`);
   }
   
-  // Use centralized retry logic for image generation
-  return withGeminiRetry(async () => {
-    console.log(`🔍 Generating image for ${flowIdentifier} using SDK`);
+  logger.start({
+    flowIdentifier,
+    promptLength: input.prompt?.length || 0,
+    sourceType: input.imageDataUriOrUrl.startsWith('data:') ? 'dataURI' : 
+                input.imageDataUriOrUrl.startsWith('/') ? 'localFile' : 'publicURL',
+  });
+
+  // Convert to public URL for FAL.AI (FAL.AI requires publicly accessible URLs)
+  let publicImageUrl = input.imageDataUriOrUrl;
+  
+  // Handle Data URI or Local Path by uploading to Fal Storage
+  if (input.imageDataUriOrUrl.startsWith('data:') || input.imageDataUriOrUrl.startsWith('/uploads/')) {
+    logger.progress('Converting source to public URL via Fal Storage');
     
-    const config = {
-      temperature: 1,
-      topP: 0.95,
-      topK: 40,
-      maxOutputTokens: 8192,
-      responseModalities: ["IMAGE", "TEXT"],
-      safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.BLOCK_NONE }
-      ],
-    };
+    let imageBlob: Blob;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-exp",
-      config,
-      contents: [{ role: 'user', parts }],
+    if (input.imageDataUriOrUrl.startsWith('data:')) {
+      const dataUriMatch = input.imageDataUriOrUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (!dataUriMatch) throw new Error(`Invalid data URI format`);
+      const mimeType = dataUriMatch[1];
+      const binaryData = Buffer.from(dataUriMatch[2], 'base64');
+      imageBlob = new Blob([binaryData], { type: mimeType });
+    } else {
+      const fileBuffer = await getBufferFromLocalPath(input.imageDataUriOrUrl);
+      const mimeType = mime.lookup(input.imageDataUriOrUrl) || 'image/png';
+      imageBlob = new Blob([new Uint8Array(fileBuffer)], { type: mimeType });
+    }
+    
+    const { uploadToFalStorage } = await import('@/ai/actions/generate-video.action');
+    publicImageUrl = await uploadToFalStorage(imageBlob, username);
+    logger.progress(`Source ready: ${publicImageUrl.substring(0, 50)}...`);
+  }
+  
+  try {
+    logger.progress(`Calling ${modelEndpoint}`);
+    
+    const falResult = await generateWithFalEditModel(
+      input.prompt || '',
+      publicImageUrl,
+      username,
+      modelEndpoint as any, // Cast to valid enum
+      await getApiKeyForUser(username, 'fal'), // Inject User API Key
+      { aspectRatio: input.aspectRatio } // NEW: Pass options object
+    );
+    
+    logger.progress(`Downloading generated image...`);
+    
+    const { relativeUrl: localImageUrl } = await downloadAndSaveImageFromUrl(
+      falResult.imageUrl,
+      `RefashionAI_${user.image_generation_model}_${flowIdentifier}`,
+      'generated_images'
+    );
+    
+    logger.success({
+      localImageUrl,
     });
     
-    let generatedImageDataUri: string | null = null;
-    
-    if (response && response.candidates && response.candidates.length > 0) {
-      const candidate = response.candidates[0];
-      
-      if (candidate.finishReason === 'SAFETY') {
-        console.warn(`Image generation blocked by safety settings for ${flowIdentifier}. Candidate:`, JSON.stringify(candidate, null, 2));
-        throw new Error(`Image generation blocked by safety settings for ${flowIdentifier}.`);
-      }
-      
-      if (candidate.content && candidate.content.parts) {
-        for (const part of candidate.content.parts) {
-          if (part.inlineData) {
-            const mimeType = part.inlineData.mimeType;
-            const base64Data = part.inlineData.data;
-            generatedImageDataUri = `data:${mimeType};base64,${base64Data}`;
-            console.log(`🔍 Image received from ${flowIdentifier} via SDK. MimeType: ${mimeType}`);
-            break;
-          } else if (part.text) {
-            console.log(`🔍 Text response from ${flowIdentifier}: ${part.text}`);
-          }
-        }
-      }
-    }
-
-    if (!generatedImageDataUri) {
-      console.error(`🔍 AI for ${flowIdentifier} (SDK) did not return an image. Full API Response:`, JSON.stringify(response, null, 2));
-      throw new Error(`AI for ${flowIdentifier} (SDK) did not return image data.`);
-    }
-    
-    console.log(`🔍 Successfully generated image for ${flowIdentifier}`);
-    
-    try {
-      const { relativeUrl: imageUrl } = await saveDataUriLocally(
-        generatedImageDataUri,
-        `RefashionAI_generated_${flowIdentifier}`,
-        'generated_images'
-      );
-      return { editedImageUrl: imageUrl };
-    } catch (uploadError: unknown) {
-      const knownUploadError = uploadError as Error;
-      console.error(`Error storing image from ${flowIdentifier} (SDK):`, knownUploadError);
-      throw new Error(`Failed to store image from ${flowIdentifier} (SDK): ${knownUploadError.message}`);
-    }
-  }, `Image generation for ${flowIdentifier}`);
+    return { editedImageUrl: localImageUrl };
+  } catch (falError: unknown) {
+    const knownFalError = falError as Error;
+    logger.error(falError);
+    throw new Error(`Generation failed for ${flowIdentifier}: ${knownFalError.message}`);
+  }
 }
 
-async function generateImageFlow1(input: GenerateImageEditInput, username: string): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, 'flow1', username, 1);
-}
 
-async function generateImageFlow2(input: GenerateImageEditInput, username: string): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, 'flow2', username, 2);
-}
-
-async function generateImageFlow3(input: GenerateImageEditInput, username: string): Promise<SingleImageOutput> {
-  return performSingleImageGeneration(input, 'flow3', username, 3);
-}
 
 const GenerateMultipleImagesOutputSchema = z.object({
-  editedImageUrls: z.array(z.string().nullable()).length(3)
-    .describe('An array of three generated or edited image URLs/paths (or null for failures).'),
+  editedImageUrls: z.array(z.string().nullable())
+    .describe('An array of generated or edited image URLs/paths (or null for failures).'),
   constructedPrompt: z.string().describe('The final prompt that was sent to the AI.'),
   errors: z.array(z.string().nullable()).optional()
     .describe('An array of error messages if any generation or storage failed.'),
@@ -254,259 +234,317 @@ const GenerateMultipleImagesOutputSchema = z.object({
 export type GenerateMultipleImagesOutput = z.infer<typeof GenerateMultipleImagesOutputSchema>;
 
 
-export async function generateImageEdit(input: GenerateImageEditInput, username: string): Promise<GenerateMultipleImagesOutput> {
+export async function generateImageEdit(
+  input: GenerateImageEditInput,
+  username: string,
+  existingHistoryId?: string
+): Promise<GenerateMultipleImagesOutput & { newHistoryId?: string }> {
   if (!username) {
     throw new Error('Username is required to generate images.');
   }
 
-  // NEW LOGIC: PROMPT GENERATION
-  let prompts: (string | null)[];
-  let finalConstructedPromptForHistory: string;
+  // FETCH ONCE: Fetch the user object ONCE at the top level of the main function.
+  const user = dbService.findUserByUsername(username);
+  if (!user) {
+    throw new Error(`User ${username} not found.`);
+  }
 
-  if (input.useAIPrompt && input.parameters && input.imageDataUriOrUrl) {
-    console.log("Using AI to generate prompts...");
-    
-    let parametersForPrompts: ModelAttributes[];
-    if (input.useRandomizedAIPrompts) {
-      console.log("🎲 RANDOMIZATION ENABLED: Generating 3 different random parameter sets for AI prompts");
-      // Generate 3 different random parameter sets
-      parametersForPrompts = [
-        generateRandomBasicParameters(input.parameters),
-        generateRandomBasicParameters(input.parameters),
-        generateRandomBasicParameters(input.parameters)
-      ];
-      
-      // Log the randomized parameters for each prompt
-      parametersForPrompts.forEach((params, index) => {
-        console.log(`\n🎲 RANDOM PARAMETERS SET ${index + 1}:`);
-        console.log(`Ethnicity: ${params.ethnicity}, Hair: ${params.hairStyle}`);
-        console.log(`Expression: ${params.modelExpression}, Pose: ${params.poseStyle}`);
-        console.log(`Background: ${params.background}`);
-        console.log(`[Keeping user's: Gender: ${params.gender}, Body: ${params.bodyShapeAndSize}, Age: ${params.ageRange}]`);
-      });
-    } else {
-      // Use the same parameters for all 3 prompts
-      parametersForPrompts = [input.parameters, input.parameters, input.parameters];
+  // Determine how many images to generate based on the model
+  // Nano Banana Pro = 1 image
+  // Gemini 2.5 = 3 images
+  const imagesToGenerateCount = user.image_generation_model === 'fal_nano_banana_pro' ? 1 : 3;
+  
+  let modelEndpoint = 'fal-ai/gemini-25-flash-image/edit';
+  if (user.image_generation_model === 'fal_nano_banana_pro') {
+    modelEndpoint = 'fal-ai/nano-banana-pro/edit';
+  }
+
+  console.log(`[generateImageEdit] User: ${username}, Model: ${user.image_generation_model}, Count: ${imagesToGenerateCount}`);
+  const initialImageArray = Array(3).fill(null); // Always keep DB array size 3 for consistency in UI
+
+  // 1. Create initial history item EARLY (if not existing)
+  let historyId = existingHistoryId;
+  
+  if (!historyId && input.imageDataUriOrUrl) {
+    try {
+      // Construct attributes for history
+      const historyAttributes = {
+        ...(input.parameters || {}),
+        ...(input.studioFit && { studioFit: input.studioFit }),
+        ...(input.aspectRatio && { aspectRatio: input.aspectRatio }),
+      };
+
+      // 4. Create History Item (Processing State)
+      const historyItemId = await addHistoryItem(
+        historyAttributes,
+        "Processing...", // Placeholder prompt
+        input.imageDataUriOrUrl,
+        [null, null, null, null], // placeholders
+        input.settingsMode || 'basic',
+        user.image_generation_model, // Use user's model directly
+        'processing',
+        undefined,
+        username,
+        undefined, // webhookUrl
+        input.generationMode // Pass generation mode
+      );
+      historyId = historyItemId; // Assign to historyId for subsequent use
+      console.log(`✅ Created initial history item: ${historyId}`);
+    } catch (err) {
+      console.error('Failed to create initial history item:', err);
+      throw err;
     }
-    
-    const promptPromises = [
-      generatePromptWithAI(parametersForPrompts[0], input.imageDataUriOrUrl, username, 1),
-      generatePromptWithAI(parametersForPrompts[1], input.imageDataUriOrUrl, username, 2),
-      generatePromptWithAI(parametersForPrompts[2], input.imageDataUriOrUrl, username, 3),
-    ];
-    const promptResults = await Promise.allSettled(promptPromises);
-    prompts = promptResults.map((res, index) => {
-      if (res.status === 'fulfilled') {
-        return res.value;
-      } else {
-        console.warn(`AI prompt generation failed for slot ${index + 1}. Using high-quality fallback prompt. Reason:`, res.reason);
-        
-        // Fallback to a high-quality, locally-built prompt
-        const fallbackParams: Omit<ModelAttributes, 'settingsMode'> = {
-          ...parametersForPrompts[index],
-          // Ensure some safe, high-quality defaults are set if not present
-          poseStyle: parametersForPrompts[index].poseStyle === 'default' ? 'standing_relaxed' : parametersForPrompts[index].poseStyle,
-          modelExpression: parametersForPrompts[index].modelExpression === 'default' ? 'neutral_subtle_smile' : parametersForPrompts[index].modelExpression,
-          background: parametersForPrompts[index].background === 'default' ? 'studio_neutral_gray' : parametersForPrompts[index].background,
-          lightingType: 'studio_lighting',
-          lightQuality: 'soft_even_light',
-          cameraAngle: 'eye_level',
-        };
+  }
 
-        return buildAIPrompt({
-          type: 'image',
-          params: fallbackParams
+  // 2. Schedule background work using Next.js 15 after()
+  after(async () => {
+    try {
+      console.log(`🔄 Starting background generation for ${historyId}`);
+
+      // ===================================
+      // STUDIO MODE WORKFLOW
+      // ===================================
+      if (input.generationMode === 'studio') {
+        console.log(`🚀 Routing to Studio Mode for user ${username}`);
+        
+        if (!input.studioFit || !input.imageDataUriOrUrl) {
+          throw new Error('Studio Mode requires a fit setting and a source image.');
+        }
+
+        // Use the domain service to construct the prompt
+        const { classification, finalPrompt: studioPrompt } = await constructStudioPrompt(
+          input.imageDataUriOrUrl,
+          input.studioFit,
+          username
+        );
+        
+        console.log(`🏷️ Clothing identified as: "${classification}"`);
+        console.log('📝 Studio Mode Prompt constructed with dynamic clothing description.');
+
+        // Parallel Generation with Tuned Parameters (low temperature for consistency)
+        // Parallel Generation with Tuned Parameters (low temperature for consistency)
+        // Parallel Generation with Tuned Parameters (low temperature for consistency)
+        const generationPromises = Array.from({ length: imagesToGenerateCount }, (_, i) => i + 1).map(async (i) => {
+          try {
+            const result = await performSingleImageGeneration({
+              ...input,
+              imageDataUriOrUrl: input.imageDataUriOrUrl, // Use original image directly
+              prompt: studioPrompt,
+            }, user, `studio-flow${i}`, i as 1 | 2 | 3, modelEndpoint);
+
+            if (historyId && result.editedImageUrl) {
+              dbService.updateHistoryImageSlot(historyId, i - 1, result.editedImageUrl);
+              console.log(`✅ Studio Mode: Image ${i} saved to DB for ${historyId}`);
+            }
+            return result;
+          } catch (err) {
+            console.error(`Studio Mode flow ${i} error:`, err);
+            throw err;
+          }
+        });
+
+        const settledResults = await Promise.allSettled(generationPromises);
+
+        // Handle Results
+        const editedImageUrlsResult: (string | null)[] = Array(imagesToGenerateCount).fill(null);
+        const errorsResult: (string | null)[] = Array(imagesToGenerateCount).fill(null);
+
+        settledResults.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            editedImageUrlsResult[index] = result.value.editedImageUrl;
+          } else {
+            console.error(`Studio Mode generation ${index + 1} failed:`, result.reason);
+            errorsResult[index] = result.reason?.message || 'Unknown error';
+          }
+        });
+
+        // Update History
+        if (historyId) {
+          dbService.updateHistoryItem(historyId, {
+            constructedPrompt: studioPrompt,
+            editedImageUrls: editedImageUrlsResult,
+            status: errorsResult.every(e => e) ? 'failed' : 'completed',
+            error: errorsResult.find(e => e) || undefined
+          });
+          console.log(`✅ Studio Mode: History updated for ${historyId}`);
+        }
+        return;
+      }
+
+      // ======================================
+      // CREATIVE MODE WORKFLOW
+      // ======================================
+      console.log(`🎨 Routing to Creative Mode for user ${username}`);
+
+      // === NON-DESTRUCTIVE PIPELINE: Apply image processing if requested ===
+      let processedImageUrl = input.imageDataUriOrUrl;
+      
+      if (input.imageDataUriOrUrl && (input.removeBackground || input.upscale || input.enhanceFace)) {
+        console.log('🔧 Applying non-destructive image processing pipeline...');
+        
+        try {
+          // Step 1: Background Removal (if enabled)
+          if (input.removeBackground) {
+            console.log('🎨 Step 1: Removing background...');
+            const bgResult = await removeBackgroundAction(processedImageUrl!, undefined);
+            processedImageUrl = bgResult.savedPath;
+            console.log(`✅ Background removed. New path: ${processedImageUrl}`);
+          }
+          
+          // Step 2: Upscale (if enabled)
+          if (input.upscale) {
+            console.log('🔍 Step 2: Upscaling image...');
+            const upscaleResult = await upscaleImageAction(processedImageUrl!, undefined);
+            processedImageUrl = upscaleResult.savedPath;
+            console.log(`✅ Image upscaled. New path: ${processedImageUrl}`);
+          }
+          
+          // Step 3: Face Enhancement (if enabled)
+          if (input.enhanceFace) {
+            console.log('👤 Step 3: Enhancing face details...');
+            const faceResult = await faceDetailerAction(processedImageUrl!, undefined);
+            processedImageUrl = faceResult.savedPath;
+            console.log(`✅ Face details enhanced. New path: ${processedImageUrl}`);
+          }
+          
+          console.log('✨ Pipeline complete. Processed image ready for generation.');
+        } catch (pipelineError) {
+          console.error('❌ Pipeline processing error:', pipelineError);
+          throw new Error(`Image processing pipeline failed: ${(pipelineError as Error).message}`);
+        }
+      }
+      
+      // Update the input with the processed image URL
+      const processedInput = { ...input, imageDataUriOrUrl: processedImageUrl };
+
+      // NEW LOGIC: PROMPT GENERATION
+      let prompts: (string | null)[];
+      let finalConstructedPromptForHistory: string;
+
+      const modelToUse = user.image_generation_model;
+
+      // High-priority override: If a manual prompt is provided, use it for all slots.
+      if (processedInput.prompt) {
+        console.log('Using manually provided prompt for all image slots.');
+        prompts = Array(imagesToGenerateCount).fill(processedInput.prompt);
+        finalConstructedPromptForHistory = processedInput.prompt;
+      } else {
+        // STAGE 1: Determine the parameter sets for each slot (randomized or fixed).
+        let parameterSetsForSlots: ModelAttributes[];
+
+        if (processedInput.useRandomization) {
+          console.log(`🎲 Randomization enabled. Generating ${imagesToGenerateCount} different parameter sets.`);
+          parameterSetsForSlots = Array.from({ length: imagesToGenerateCount }, () => generateRandomBasicParameters(processedInput.parameters!));
+        } else {
+          console.log(`⚙️ Using fixed parameters for all ${imagesToGenerateCount} slots.`);
+          parameterSetsForSlots = Array(imagesToGenerateCount).fill(processedInput.parameters);
+        }
+
+        // STAGE 2: Build prompts from the determined parameter sets.
+        if (processedInput.useAIPrompt && processedInput.imageDataUriOrUrl) {
+          console.log('🧠 Using AI prompt enhancement...');
+          const promptPromises = parameterSetsForSlots.map((params, i) =>
+            generatePromptWithAI(params, processedInput.imageDataUriOrUrl!, username, (i + 1) as 1 | 2 | 3)
+              .catch(err => {
+                console.warn(`AI prompt generation for slot ${i + 1} failed. Falling back to local builder. Reason:`, err);
+                return buildAIPrompt({ type: 'image', params: { ...params, settingsMode: 'advanced' } });
+              })
+          );
+          prompts = await Promise.all(promptPromises);
+        } else {
+          console.log('📝 Using local prompt builder...');
+          prompts = parameterSetsForSlots.map(params =>
+            buildAIPrompt({ type: 'image', params: { ...params, settingsMode: processedInput.settingsMode || 'basic' } })
+          );
+        }
+
+        // The first prompt is considered the "main" one for history purposes.
+        finalConstructedPromptForHistory = prompts[0] || 'Prompt generation failed.';
+      }
+      
+      // Log all received optimized prompts together
+      console.log(`\n🚀 ALL AI-GENERATED PROMPTS SUMMARY:`);
+      console.log('='.repeat(100));
+      console.log(`Target Model for Generation: ${modelToUse}`);
+      prompts.forEach((prompt, index) => {
+        console.log(`\n📝 PROMPT ${index + 1}:`);
+        if (prompt) {
+          console.log(prompt);
+        } else {
+          console.log('❌ FAILED TO GENERATE');
+        }
+        console.log('-'.repeat(60));
+      });
+      console.log('='.repeat(100));
+      
+      console.log("Generated Prompts:", prompts);
+
+      const [prompt1, prompt2, prompt3] = prompts;
+
+      const generationPromises = prompts.map(async (prompt, index) => {
+        if (!prompt) throw new Error(`Prompt for slot ${index + 1} was missing`);
+        
+        try {
+          const result = await performSingleImageGeneration(
+            { ...processedInput, prompt }, 
+            user, 
+            `flow${index + 1}`, 
+            (index + 1) as 1 | 2 | 3,
+            modelEndpoint
+          );
+
+          if (historyId && result.editedImageUrl) {
+            dbService.updateHistoryImageSlot(historyId, index, result.editedImageUrl);
+            console.log(`✅ Creative Mode: Image ${index + 1} saved to DB for ${historyId}`);
+          }
+          return result;
+        } catch (err) {
+          console.error(`Creative Mode flow ${index + 1} error:`, err);
+          throw err;
+        }
+      });
+
+      const settledResults = await Promise.allSettled(generationPromises);
+
+      const editedImageUrlsResult: (string | null)[] = Array(imagesToGenerateCount).fill(null);
+      const errorsResult: (string | null)[] = Array(imagesToGenerateCount).fill(null);
+
+      settledResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          editedImageUrlsResult[index] = result.value.editedImageUrl;
+        } else {
+          console.error(`Error from flow ${index + 1}:`, result.reason);
+          const reasonError = result.reason as Error;
+          errorsResult[index] = `Image ${index + 1} processing failed: ${reasonError?.message || 'Unknown error'}`;
+        }
+      });
+
+      // Update History
+      if (historyId) {
+        dbService.updateHistoryItem(historyId, {
+          constructedPrompt: finalConstructedPromptForHistory,
+          editedImageUrls: editedImageUrlsResult,
+          status: errorsResult.every(e => e) ? 'failed' : 'completed',
+          error: errorsResult.find(e => e) || undefined
+        });
+        console.log(`✅ Creative Mode: History updated for ${historyId}`);
+      }
+
+    } catch (error) {
+      console.error(`❌ Background generation failed for ${historyId}:`, error);
+      if (historyId) {
+        dbService.updateHistoryItem(historyId, {
+          status: 'failed',
+          error: (error as Error).message
         });
       }
-    });
-    
-    // Log all received optimized prompts together
-    console.log(`\n🚀 ALL AI-GENERATED PROMPTS SUMMARY:`);
-    console.log('='.repeat(100));
-    prompts.forEach((prompt, index) => {
-      console.log(`\n📝 PROMPT ${index + 1}:`);
-      if (prompt) {
-        console.log(prompt);
-      } else {
-        console.log('❌ FAILED TO GENERATE');
-      }
-      console.log('-'.repeat(60));
-    });
-    console.log('='.repeat(100));
-    
-    // For history, we'll save the first successfully generated prompt.
-    finalConstructedPromptForHistory = prompts.find(p => p !== null) ?? "AI prompt generation failed.";
-  } else {
-    console.log("Using local prompt builder...");
-    let constructedPrompt: string;
-    if (input.parameters) {
-      constructedPrompt = buildAIPrompt({
-        type: 'image',
-        params: {
-          ...input.parameters,
-          settingsMode: input.settingsMode || 'basic'
-        }
-      });
-    } else if (input.prompt) {
-      constructedPrompt = input.prompt;
-    } else {
-      throw new Error('Either parameters or prompt must be provided');
-    }
-    prompts = Array(3).fill(constructedPrompt);
-    finalConstructedPromptForHistory = constructedPrompt;
-  }
-  
-  console.log("Generated Prompts:", prompts);
-
-  // MODIFIED LOGIC: IMAGE GENERATION
-  const imageGenerationPromises = prompts.map((prompt, index) => {
-    if (prompt) {
-      // Create a specific input object for each generation with its unique prompt
-      const inputForGeneration: GenerateImageEditInput = {
-        ...input,
-        prompt: prompt,
-      };
-      // Call the appropriate generation function
-      switch (index) {
-        case 0:
-          return generateImageFlow1(inputForGeneration, username);
-        case 1:
-          return generateImageFlow2(inputForGeneration, username);
-        case 2:
-          return generateImageFlow3(inputForGeneration, username);
-        default:
-          throw new Error(`Invalid flow index: ${index}`);
-      }
-    }
-    // If prompt generation failed for this slot, return a rejected promise
-    return Promise.reject(new Error('Prompt was not generated for this slot.'));
-  });
-
-  const results = await Promise.allSettled(imageGenerationPromises);
-
-  const editedImageUrlsResult: (string | null)[] = [null, null, null];
-  const errorsResult: (string | null)[] = [null, null, null];
-
-  results.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      editedImageUrlsResult[index] = result.value.editedImageUrl;
-    } else {
-      console.error(`Error from flow ${index + 1}:`, result.reason);
-      // Ensure result.reason is an Error before accessing .message
-      const reasonError = result.reason as Error;
-      errorsResult[index] = `Image ${index + 1} processing failed: ${reasonError?.message || 'Unknown error'}`;
     }
   });
 
+  // 3. Return immediate response
   return {
-    editedImageUrls: editedImageUrlsResult,
-    constructedPrompt: finalConstructedPromptForHistory,
-    errors: errorsResult.some(e => e !== null) ? errorsResult : undefined
+    editedImageUrls: [null, null, null],
+    constructedPrompt: 'Processing...',
+    newHistoryId: historyId,
   };
-}
-
-export async function generateSingleImageSlot(
-  input: GenerateImageEditInput, 
-  slotIndex: 0 | 1 | 2, 
-  username: string
-): Promise<{ slotIndex: number; result: SingleImageOutput; constructedPrompt: string }> {
-  if (!username) {
-    throw new Error('Username is required to generate images.');
-  }
-
-  // Generate prompt for this specific slot
-  let promptForSlot: string;
-  let finalConstructedPromptForHistory: string;
-
-  if (input.useAIPrompt && input.parameters && input.imageDataUriOrUrl) {
-    console.log(`🎨 Generating AI prompt for slot ${slotIndex + 1}...`);
-    
-    let parametersForPrompt: ModelAttributes;
-    if (input.useRandomizedAIPrompts) {
-      console.log(`🎲 Using randomized parameters for slot ${slotIndex + 1}`);
-      parametersForPrompt = generateRandomBasicParameters(input.parameters);
-      
-      // Log the randomized parameters for this slot
-      console.log(`\n🎲 RANDOM PARAMETERS FOR SLOT ${slotIndex + 1}:`);
-      console.log(`Ethnicity: ${parametersForPrompt.ethnicity}, Hair: ${parametersForPrompt.hairStyle}`);
-      console.log(`Expression: ${parametersForPrompt.modelExpression}, Pose: ${parametersForPrompt.poseStyle}`);
-      console.log(`Background: ${parametersForPrompt.background}`);
-      console.log(`[Keeping user's: Gender: ${parametersForPrompt.gender}, Body: ${parametersForPrompt.bodyShapeAndSize}, Age: ${parametersForPrompt.ageRange}]`);
-    } else {
-      parametersForPrompt = input.parameters;
-    }
-    
-    try {
-      promptForSlot = await generatePromptWithAI(parametersForPrompt, input.imageDataUriOrUrl, username, (slotIndex + 1) as 1 | 2 | 3);
-      finalConstructedPromptForHistory = promptForSlot;
-      
-      console.log(`\n🚀 AI-GENERATED PROMPT FOR SLOT ${slotIndex + 1}:`);
-      console.log('='.repeat(60));
-      console.log(promptForSlot);
-      console.log('='.repeat(60));
-    } catch (error) {
-      console.error(`Failed to generate AI prompt for slot ${slotIndex + 1}:`, error);
-      throw new Error(`AI prompt generation failed for slot ${slotIndex + 1}: ${(error as Error).message}`);
-    }
-  } else {
-    console.log(`Using local prompt builder for slot ${slotIndex + 1}...`);
-    if (input.parameters) {
-      promptForSlot = buildAIPrompt({
-        type: 'image',
-        params: {
-          ...input.parameters,
-          settingsMode: input.settingsMode || 'basic'
-        }
-      });
-    } else if (input.prompt) {
-      promptForSlot = input.prompt;
-    } else {
-      throw new Error('Either parameters or prompt must be provided');
-    }
-    finalConstructedPromptForHistory = promptForSlot;
-  }
-
-  // Generate the image for this slot
-  const inputForGeneration: GenerateImageEditInput = {
-    ...input,
-    prompt: promptForSlot,
-  };
-
-  let result: SingleImageOutput;
-  switch (slotIndex) {
-    case 0:
-      result = await generateImageFlow1(inputForGeneration, username);
-      break;
-    case 1:
-      result = await generateImageFlow2(inputForGeneration, username);
-      break;
-    case 2:
-      result = await generateImageFlow3(inputForGeneration, username);
-      break;
-    default:
-      throw new Error(`Invalid slot index: ${slotIndex}`);
-  }
-
-  return {
-    slotIndex,
-    result,
-    constructedPrompt: finalConstructedPromptForHistory
-  };
-}
-
-export async function regenerateSingleImage(input: GenerateImageEditInput, flowIndex: number, username: string): Promise<SingleImageOutput> {
-  if (!username) {
-    throw new Error('Username is required to re-roll an image.');
-  }
-  console.log(`Attempting to re-roll image for flow index: ${flowIndex}`);
-  switch (flowIndex) {
-    case 0:
-      return performSingleImageGeneration(input, 'flow1-reroll', username, 1);
-    case 1:
-      return performSingleImageGeneration(input, 'flow2-reroll', username, 2);
-    case 2:
-      return performSingleImageGeneration(input, 'flow3-reroll', username, 3);
-    default:
-      throw new Error(`Invalid flow index: ${flowIndex}. Must be 0, 1, or 2.`);
-  }
 }

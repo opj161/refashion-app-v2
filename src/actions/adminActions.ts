@@ -1,6 +1,8 @@
 // src/actions/adminActions.ts
 'use server';
 
+import 'server-only';
+
 import { revalidatePath } from 'next/cache';
 import * as dbService from '@/services/database.service';
 import { getCurrentUser } from './authActions';
@@ -8,7 +10,8 @@ import bcrypt from 'bcrypt';
 import fs from 'fs/promises';
 import path from 'path';
 import * as settingsService from '@/services/settings.service';
-import { encrypt } from '@/services/encryption.service';
+import { encrypt, decrypt } from '@/services/encryption.service';
+import * as systemPromptService from '@/services/systemPrompt.service';
 import crypto from 'crypto';
 import archiver from 'archiver';
 import os from 'os';
@@ -19,6 +22,7 @@ import type {
   TopParameterUsageData,
   UserActivityData,
 } from '@/services/analytics.service';
+import { constructStudioPrompt, compareClothingDescriptions } from '@/ai/domain/studio-prompt';
 
 const SALT_ROUNDS = 12;
 
@@ -43,7 +47,7 @@ export interface DashboardAnalyticsData {
 export async function getAllUsers() {
   await verifyAdmin();
   const db = dbService.getDb();
-  const stmt = db.prepare('SELECT username, role, gemini_api_key_1_mode, gemini_api_key_2_mode, gemini_api_key_3_mode, fal_api_key_mode FROM users ORDER BY username');
+  const stmt = db.prepare('SELECT username, role, gemini_api_key_1_mode, gemini_api_key_2_mode, gemini_api_key_3_mode, fal_api_key_mode, image_generation_model FROM users ORDER BY username');
   return stmt.all() as any[]; // Simplified for brevity, define a proper type
 }
 
@@ -184,12 +188,29 @@ export async function updateUserConfiguration(formData: FormData) {
   if (gemini3Mode) { setClauses.push('gemini_api_key_3_mode = ?'); params.push(gemini3Mode); }
   const falMode = formData.get('fal_api_key_mode');
   if (falMode) { setClauses.push('fal_api_key_mode = ?'); params.push(falMode); }
+  const imageModel = formData.get('image_generation_model');
+  if (imageModel) { setClauses.push('image_generation_model = ?'); params.push(imageModel); }
 
-  // Handle optional API keys. Update if the field was submitted (even if empty, to allow clearing)
-  if (formData.has('gemini_api_key_1')) { setClauses.push('gemini_api_key_1 = ?'); params.push(encrypt(formData.get('gemini_api_key_1') as string)); }
-  if (formData.has('gemini_api_key_2')) { setClauses.push('gemini_api_key_2 = ?'); params.push(encrypt(formData.get('gemini_api_key_2') as string)); }
-  if (formData.has('gemini_api_key_3')) { setClauses.push('gemini_api_key_3 = ?'); params.push(encrypt(formData.get('gemini_api_key_3') as string)); }
-  if (formData.has('fal_api_key')) { setClauses.push('fal_api_key = ?'); params.push(encrypt(formData.get('fal_api_key') as string)); }
+  // --- START OF FIX ---
+  // Helper function to handle key updates.
+  // This will only update the key if a NEW, NON-EMPTY value is provided.
+  // It also handles clearing the key if an empty string is explicitly submitted.
+  const handleKeyUpdate = (keyName: string) => {
+    const key_value = formData.get(keyName);
+    
+    // The key exists in the form data, meaning the input was enabled.
+    if (key_value !== null) {
+      setClauses.push(`${keyName} = ?`);
+      params.push(encrypt(key_value as string));
+    }
+  };
+
+  // Replace the old logic with the new helper
+  handleKeyUpdate('gemini_api_key_1');
+  handleKeyUpdate('gemini_api_key_2');
+  handleKeyUpdate('gemini_api_key_3');
+  handleKeyUpdate('fal_api_key');
+  // --- END OF FIX ---
 
   if (setClauses.length === 0) {
     return { success: true, message: 'No changes submitted.' };
@@ -232,6 +253,49 @@ export async function getGlobalApiKeysForDisplay() {
     gemini3: mask(decrypt(settings.global_gemini_api_key_3)),
     fal: mask(decrypt(settings.global_fal_api_key)),
   };
+}
+
+export async function getSystemPromptsForAdmin() {
+  await verifyAdmin();
+  try {
+    const engineerPrompt = await systemPromptService.getSystemPrompt();
+    const engineerSource = await systemPromptService.getSystemPromptSource();
+    
+    // Fetch the new studio prompt directly from settings service
+    const studioPrompt = settingsService.getSetting('ai_studio_mode_prompt_template');
+    
+    // Define the fallback template that matches the one used in generate-image-edit.ts
+    const studioFallbackTemplate = `Create a high-quality, full-body fashion photograph of a realistic female model wearing the {clothingItem} from the provided image. The model should wear the item with a {fitDescription}, posing in a relaxed, candid manner with a natural expression and subtle smile. The setting should be simple and well-suited to the clothing. To perfectly replicate the reference garment, ensure high fidelity to the original fabric texture, color, pattern, and specific design details.`;
+
+    // Use the database template if available; otherwise, use the fallback
+    const studioPromptToShow = studioPrompt && studioPrompt.trim() ? studioPrompt : studioFallbackTemplate;
+
+    return { 
+      success: true, 
+      prompts: {
+        engineer: engineerPrompt,
+        studio: studioPromptToShow
+      },
+      sources: {
+        engineer: engineerSource,
+      } 
+    };
+  } catch (error) {
+    console.error('Error getting system prompts:', error);
+    return { success: false, error: 'Failed to get system prompts.' };
+  }
+}
+
+export async function updateSystemPrompt(prompt: string) {
+  await verifyAdmin();
+  try {
+    systemPromptService.updateSystemPrompt(prompt);
+    revalidatePath('/admin/settings');
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating system prompt:', error);
+    return { success: false, error: 'Failed to update system prompt.' };
+  }
 }
 
 export async function generateApiKeyForUser(username: string): Promise<{ success: boolean; apiKey?: string; error?: string }> {
@@ -378,6 +442,355 @@ export async function getGenerationActivityAction(
   } catch (error) {
     console.error(`Error fetching activity for ${days} days:`, error);
     return { success: false, error: 'Failed to fetch activity data.' };
+  }
+}
+
+// --- Studio Prompt Testing Action ---
+
+// ... (existing code)
+
+export async function testStudioPrompt(formData: FormData): Promise<{
+  success: boolean;
+  classification?: string;
+  prompt?: string;
+  comparisons?: Record<string, string>;
+  error?: string;
+}> {
+  // 1. Security Check
+  const admin = await verifyAdmin();
+
+  // 2. Extract Data
+  const file = formData.get('image') as File | null;
+  const fit = formData.get('fit') as string;
+  const model = formData.get('model') as string;
+  const template = formData.get('template') as string;
+  const compareAll = formData.get('compareAll') === 'true';
+
+  if (!file || file.size === 0) {
+    return { success: false, error: "No test image provided." };
+  }
+
+  if (!fit || !['slim', 'regular', 'relaxed'].includes(fit)) {
+    return { success: false, error: "Invalid fit parameter." };
+  }
+
+  try {
+    // 3. Convert File to Data URI
+    // The domain service expects a Data URI for direct API transmission
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const mimeType = file.type || 'image/png';
+    const dataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
+
+    // 4. Execute Domain Logic
+    if (compareAll) {
+      const comparisons = await compareClothingDescriptions(dataUri, admin.username);
+      return {
+        success: true,
+        comparisons
+      };
+    } else {
+      // We pass the template explicitly to override the database setting
+      const result = await constructStudioPrompt(
+        dataUri,
+        fit as 'slim' | 'regular' | 'relaxed',
+        admin.username,
+        template, // <--- The override from the UI
+        model // <--- The selected model
+      );
+
+      return {
+        success: true,
+        classification: result.classification,
+        prompt: result.finalPrompt,
+      };
+    }
+
+  } catch (error) {
+    console.error("Studio Prompt Dry Run Failed:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error occurred during test." 
+    };
+  }
+}
+
+// --- Form State Types for useActionState ---
+
+export type ApiKeysFormState = {
+  message: string;
+  success?: boolean;
+  error?: string;
+};
+
+export type SystemPromptsFormState = {
+  message: string;
+  success?: boolean;
+  error?: string;
+};
+
+export type CacheCleanupFormState = {
+  message: string;
+  success?: boolean;
+  error?: string;
+};
+
+export type UserFormState = {
+  message: string;
+  success?: boolean;
+  error?: string;
+  user?: {
+    username: string;
+    role: 'admin' | 'user';
+    gemini_api_key_1_mode: 'global' | 'user_specific';
+    gemini_api_key_2_mode: 'global' | 'user_specific';
+    gemini_api_key_3_mode: 'global' | 'user_specific';
+    fal_api_key_mode: 'global' | 'user_specific';
+    image_generation_model: 'fal_nano_banana_pro' | 'fal_gemini_2_5';
+  };
+};
+
+// --- useActionState-compatible Server Actions ---
+
+/**
+ * Server Action for updating API keys, compatible with useActionState.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing API key values
+ * @returns A FormState object with success/error status
+ */
+export async function handleApiKeysUpdate(
+  previousState: ApiKeysFormState | null,
+  formData: FormData
+): Promise<ApiKeysFormState> {
+  await verifyAdmin();
+  
+  try {
+    // Create an array of update promises
+    const updatePromises = [];
+    
+    // Only add an update promise if the user has entered a new value
+    const gemini1 = formData.get('gemini1') as string;
+    const gemini2 = formData.get('gemini2') as string;
+    const gemini3 = formData.get('gemini3') as string;
+    const fal = formData.get('fal') as string;
+    
+    if (gemini1) {
+      updatePromises.push(updateEncryptedSetting('global_gemini_api_key_1', gemini1));
+    }
+    if (gemini2) {
+      updatePromises.push(updateEncryptedSetting('global_gemini_api_key_2', gemini2));
+    }
+    if (gemini3) {
+      updatePromises.push(updateEncryptedSetting('global_gemini_api_key_3', gemini3));
+    }
+    if (fal) {
+      updatePromises.push(updateEncryptedSetting('global_fal_api_key', fal));
+    }
+
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
+      return { 
+        success: true, 
+        message: 'Global API keys have been saved.' 
+      };
+    } else {
+      return { 
+        success: false, 
+        message: 'No new API keys were entered.' 
+      };
+    }
+
+  } catch (error) {
+    console.error('Error updating API keys:', error);
+    return { 
+      success: false,
+      error: 'Failed to update API keys.',
+      message: 'An error occurred while updating the API keys.'
+    };
+  }
+}
+
+/**
+ * Server Action for updating system prompts, compatible with useActionState.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing the system prompts
+ * @returns A FormState object with success/error status
+ */
+export async function handleSystemPromptUpdate(
+  previousState: SystemPromptsFormState | null,
+  formData: FormData
+): Promise<SystemPromptsFormState> {
+  await verifyAdmin();
+  
+  const engineerPrompt = formData.get('systemPrompt') as string;
+  const studioPrompt = formData.get('studioPromptTemplate') as string;
+  
+  try {
+    const updatedFields: string[] = [];
+
+    if (engineerPrompt && engineerPrompt.trim() !== '') {
+      systemPromptService.updateSystemPrompt(engineerPrompt);
+      updatedFields.push('Prompt Engineer instruction');
+    }
+
+    if (studioPrompt && studioPrompt.trim() !== '') {
+      settingsService.setSetting('ai_studio_mode_prompt_template', studioPrompt);
+      updatedFields.push('Studio Mode template');
+    }
+
+    if (updatedFields.length === 0) {
+        return { message: "No changes submitted.", success: true };
+    }
+
+    revalidatePath('/admin/settings');
+    return { 
+      success: true, 
+      message: `${updatedFields.join(' and ')} saved successfully.` 
+    };
+  } catch (error) {
+    console.error('Error updating system prompts:', error);
+    return { 
+      success: false,
+      error: 'Failed to update system prompts.',
+      message: 'An error occurred while updating the system prompts.'
+    };
+  }
+}
+
+/**
+ * Server Action for cache cleanup, compatible with useActionState.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data (empty for this action)
+ * @returns A FormState object with success/error status
+ */
+export async function handleCacheCleanup(
+  previousState: CacheCleanupFormState | null,
+  formData: FormData
+): Promise<CacheCleanupFormState> {
+  await verifyAdmin();
+  
+  try {
+    const cacheFilePath = path.join(process.cwd(), '.cache', 'image-processing-cache.json');
+    const maxAgeMs = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+    let cache: Record<string, any> = {};
+    try {
+      const data = await fs.readFile(cacheFilePath, 'utf-8');
+      cache = JSON.parse(data);
+    } catch (error: any) {
+      if (error.code === 'ENOENT') {
+        return { 
+          success: true, 
+          message: 'Cache file does not exist. Nothing to clean up.' 
+        };
+      }
+      throw error;
+    }
+
+    const now = Date.now();
+    let removedCount = 0;
+    const initialCount = Object.keys(cache).length;
+
+    for (const [hash, entry] of Object.entries(cache)) {
+      if (entry.timestamp && (now - entry.timestamp) > maxAgeMs) {
+        delete cache[hash];
+        removedCount++;
+      }
+    }
+
+    if (removedCount > 0) {
+      await fs.writeFile(cacheFilePath, JSON.stringify(cache, null, 2));
+      return { 
+        success: true, 
+        message: `Cache cleanup complete. Removed ${removedCount} of ${initialCount} entries.` 
+      };
+    } else {
+      return { 
+        success: true, 
+        message: `Cache is clean. No entries were old enough to remove (${initialCount} entries remain).` 
+      };
+    }
+  } catch (error) {
+    console.error('Error during cache cleanup from admin panel:', error);
+    return { 
+      success: false,
+      error: 'Cache cleanup failed.',
+      message: 'An error occurred during cache cleanup.'
+    };
+  }
+}
+
+/**
+ * Server Action for creating a user, compatible with useActionState.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing user details
+ * @returns A FormState object with success/error status
+ */
+export async function handleCreateUser(
+  previousState: UserFormState | null,
+  formData: FormData
+): Promise<UserFormState> {
+  const result = await createUser(formData);
+  
+  if (result.success) {
+    const username = formData.get('username') as string;
+    const user = dbService.findUserByUsername(username);
+    return {
+      success: true,
+      message: `User '${username}' has been successfully created.`,
+      user: user ? {
+        username: user.username,
+        role: user.role as 'admin' | 'user',
+        gemini_api_key_1_mode: (user.gemini_api_key_1_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_2_mode: (user.gemini_api_key_2_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_3_mode: (user.gemini_api_key_3_mode || 'global') as 'global' | 'user_specific',
+        fal_api_key_mode: (user.fal_api_key_mode || 'global') as 'global' | 'user_specific',
+        image_generation_model: (user.image_generation_model || 'fal_gemini_2_5') as 'fal_nano_banana_pro' | 'fal_gemini_2_5',
+      } : undefined
+    };
+  } else {
+    return {
+      success: false,
+      error: result.error || 'Failed to create user.',
+      message: result.error || 'An error occurred while creating the user.'
+    };
+  }
+}
+
+/**
+ * Server Action for updating user configuration, compatible with useActionState.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing user configuration
+ * @returns A FormState object with success/error status
+ */
+export async function handleUpdateUserConfiguration(
+  previousState: UserFormState | null,
+  formData: FormData
+): Promise<UserFormState> {
+  const result = await updateUserConfiguration(formData);
+  
+  if (result.success) {
+    const username = formData.get('username') as string;
+    const user = dbService.findUserByUsername(username);
+    return {
+      success: true,
+      message: `User '${username}' has been updated.`,
+      user: user ? {
+        username: user.username,
+        role: user.role as 'admin' | 'user',
+        gemini_api_key_1_mode: (user.gemini_api_key_1_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_2_mode: (user.gemini_api_key_2_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_3_mode: (user.gemini_api_key_3_mode || 'global') as 'global' | 'user_specific',
+        fal_api_key_mode: (user.fal_api_key_mode || 'global') as 'global' | 'user_specific',
+        image_generation_model: (user.image_generation_model || 'fal_gemini_2_5') as 'fal_nano_banana_pro' | 'fal_gemini_2_5',
+      } : undefined
+    };
+  } else {
+    return {
+      success: false,
+      error: result.error || 'Failed to update user.',
+      message: result.error || 'An error occurred while updating the user.'
+    };
   }
 }
 

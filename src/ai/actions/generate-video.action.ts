@@ -1,13 +1,14 @@
 'use server';
 
-import { fal, createFalClient } from '@fal-ai/client';
+import 'server-only';
+
+import { fal } from '@/lib/fal-client';
 import { getCurrentUser } from '@/actions/authActions';
 import { addStandaloneVideoHistoryItem, updateVideoHistoryItem } from '@/actions/historyActions';
 import * as videoService from '@/services/fal-api/video.service'; // Use the service layer
-import { getApiKeyForUser } from '@/services/apiKey.service';
-import fs from 'fs/promises';
-import path from 'path';
 import { getDisplayableImageUrl } from '@/lib/utils';
+import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
+import { createApiLogger } from '@/lib/api-logger';
 
 // Ensure FAL_KEY is available, otherwise Fal.ai calls will fail
 if (!process.env.FAL_KEY) {
@@ -40,6 +41,14 @@ export interface GenerateVideoOutput {
   error?: string | null;
 }
 
+// Form state type for useActionState
+export type VideoGenerationFormState = {
+  message: string;
+  taskId?: string;
+  historyItemId?: string;
+  error?: string;
+};
+
 /**
  * Checks if the Fal.ai video generation service is configured and available.
  * Returns an object for clarity and future expansion.
@@ -53,15 +62,29 @@ export async function isFalVideoGenerationAvailable(): Promise<{ available: bool
  * Utility to upload a file (from Blob or File object) to Fal Storage.
  */
 export async function uploadToFalStorage(file: File | Blob, username: string): Promise<string> {
+  const logger = createApiLogger('STORAGE', 'Fal Storage Upload', {
+    username,
+    endpoint: 'fal.storage.upload',
+  });
+
+  logger.start({
+    fileSize: file.size,
+    fileType: file.type,
+  });
+
   try {
-    const falKey = await getApiKeyForUser(username, 'fal');
-    // Use a per-user Fal client instance with the correct credentials
-    const scopedFal = createFalClient({ credentials: falKey });
-    const url = await scopedFal.storage.upload(file);
-    console.log(`File uploaded to Fal Storage: ${url}`);
+    logger.progress('Uploading to Fal Storage');
+    
+    const url = await fal.storage.upload(file);
+    
+    logger.success({
+      url: url.substring(0, 100),
+      fullUrl: url,
+    });
+    
     return url;
   } catch (error: any) {
-    console.error('Error uploading file to Fal Storage:', error);
+    logger.error(error);
     throw new Error(`Failed to upload to Fal Storage: ${error.message}`);
   }
 }
@@ -109,11 +132,10 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
       falPublicUrl = input.image_url;
       console.log(`Using existing Fal.ai URL: ${falPublicUrl}`);
     } else if (input.image_url.startsWith('/uploads/')) {
-      // Local path - read file and upload to Fal.ai
+      // Local path - read file and upload to Fal.ai using secure utility
       console.log(`Uploading local image for video generation: ${input.image_url}`);
-      const localFilePath = path.join(process.cwd(), 'public', input.image_url);
-      const fileBuffer = await fs.readFile(localFilePath);
-      const imageBlob = new Blob([fileBuffer]);
+      const fileBuffer = await getBufferFromLocalPath(input.image_url);
+      const imageBlob = new Blob([new Uint8Array(fileBuffer)]);
       
       falPublicUrl = await uploadToFalStorage(imageBlob, user.username);
       console.log(`Image uploaded to Fal Storage. Public URL: ${falPublicUrl}`);
@@ -162,5 +184,97 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
       videoModel: input.videoModel || 'lite',
     });
     return { error: 'Failed to submit video generation job.' };
+  }
+}
+
+/**
+ * Server Action wrapper for video generation compatible with useActionState.
+ * This action extracts parameters from FormData and calls the existing startVideoGenerationAndCreateHistory flow.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing all generation parameters
+ * @returns A FormState object with generation results or errors
+ */
+export async function generateVideoAction(
+  previousState: VideoGenerationFormState | null,
+  formData: FormData
+): Promise<VideoGenerationFormState> {
+  try {
+    // Extract all parameters from FormData
+    const prompt = formData.get('prompt') as string;
+    const imageUrl = formData.get('imageUrl') as string;
+    const localImagePath = formData.get('localImagePath') as string | null;
+    const videoModel = (formData.get('videoModel') as 'lite' | 'pro') || 'lite';
+    const resolution = (formData.get('resolution') as '480p' | '720p' | '1080p') || '480p';
+    const duration = formData.get('duration') as string || '5';
+    const seedStr = formData.get('seed') as string;
+    const seed = seedStr === '-1' ? -1 : parseInt(seedStr, 10);
+    const cameraFixed = formData.get('cameraFixed') === 'true';
+    
+    // Structured parameters
+    const selectedPredefinedPrompt = formData.get('selectedPredefinedPrompt') as string || 'custom';
+    const modelMovement = formData.get('modelMovement') as string || '';
+    const fabricMotion = formData.get('fabricMotion') as string || '';
+    const cameraAction = formData.get('cameraAction') as string || '';
+    const aestheticVibe = formData.get('aestheticVibe') as string || '';
+
+    // Validate required fields
+    if (!imageUrl) {
+      return {
+        message: 'Image required',
+        error: 'No image provided',
+      };
+    }
+
+    if (!prompt || !prompt.trim()) {
+      return {
+        message: 'Prompt required',
+        error: 'Prompt is empty',
+      };
+    }
+
+    // Build the generation input
+    const videoInput: GenerateVideoInput = {
+      prompt,
+      image_url: imageUrl,
+      local_image_path: localImagePath || imageUrl,
+      videoModel,
+      resolution,
+      duration: duration as any,
+      seed,
+      camera_fixed: cameraFixed,
+      selectedPredefinedPrompt,
+      modelMovement,
+      fabricMotion,
+      cameraAction,
+      aestheticVibe,
+    };
+
+    // Call the existing generation flow
+    const result = await startVideoGenerationAndCreateHistory(videoInput);
+
+    // Check for errors
+    if (result.error) {
+      return {
+        message: 'Video generation failed to start',
+        error: result.error,
+      };
+    }
+
+    // Return success state
+    return {
+      message: 'Video generation started successfully. Check the History tab for the result.',
+      taskId: result.taskId,
+      historyItemId: result.historyItemId,
+    };
+
+  } catch (error) {
+    console.error('Error in generateVideoAction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
+    // Return error state (never throw)
+    return {
+      message: 'Failed to start video generation',
+      error: errorMessage,
+    };
   }
 }

@@ -32,10 +32,19 @@ export default function ImageComparator({
     // This div makes the component fill its parent container.
     <div className="w-full h-full image-comparator-wrapper">
       {/*
-        The react-compare-image library applies an inline style of `object-fit: cover`, which crops the image.
-        To override this, we must use a <style> tag with `!important`. This is the only
-        way to win the CSS specificity battle against inline styles. The parent `.image-comparator-wrapper`
-        scopes this override to only this component.
+        EXPLANATION: Global Style Override for react-compare-image Library
+        
+        The react-compare-image library applies an inline style of `object-fit: cover`
+        to its images, which causes unwanted cropping behavior. To preserve the full
+        image without cropping, we need to override this with `object-fit: contain`.
+        
+        Because inline styles have the highest CSS specificity, the only way to override
+        them is by using `!important` in our CSS rule. This is one of the rare cases where
+        `!important` is justified and necessary.
+        
+        The `.image-comparator-wrapper` class scopes this override to only affect images
+        within this specific component, preventing any unintended side effects elsewhere
+        in the application.
       */}
       <style jsx global>{`
         .image-comparator-wrapper .ReactCompareImage_img {

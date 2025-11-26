@@ -1,6 +1,8 @@
 // src/actions/apiActions.ts
 'use server';
 
+import 'server-only';
+
 
 import { sendWebhook } from '@/services/webhook.service';
 import { getDisplayableImageUrl } from '@/lib/utils';
@@ -22,12 +24,20 @@ interface ApiJobPayload {
  */
 export async function createApiJob(payload: ApiJobPayload): Promise<string> {
   const { username, parameters, imageDataUri, settingsMode, webhookUrl } = payload;
+  
+  // Fetch the user to get their specific image generation model
+  const { findUserByUsername } = await import('@/services/database.service');
+  const user = await findUserByUsername(username);
+  
+  const imageGenerationModel = user?.image_generation_model || 'fal_gemini_2_5';
+
   const newHistoryId = await addHistoryItem(
     parameters,
     "Job created via API. Prompt to be generated.", // Placeholder prompt
     imageDataUri, // Using this as the original clothing URL
     [], // No edited images yet
     settingsMode,
+    imageGenerationModel, // Use the user's actual model
     'processing', // Initial status
     undefined,    // No error
     username,     // Pass the authenticated username from API key
@@ -43,13 +53,16 @@ export async function createApiJob(payload: ApiJobPayload): Promise<string> {
 export async function processApiGenerationJob(jobId: string, payload: Omit<ApiJobPayload, 'username'>, username: string): Promise<void> {
   const { webhookUrl } = payload;
   try {
-    const result = await generateImageEdit({ 
+  const result = await generateImageEdit({ 
       parameters: payload.parameters,
       settingsMode: payload.settingsMode,
       imageDataUriOrUrl: payload.imageDataUri,
       useAIPrompt: false, // Default to false for API calls
-      useRandomizedAIPrompts: false // Default to false for API calls
-    }, username);
+      useRandomization: false, // Default to false for API calls
+      removeBackground: false, // Default to false for API calls
+      upscale: false, // Default to false for API calls
+      enhanceFace: false, // Default to false for API calls
+  }, username, jobId); // Pass the existing jobId so generateImageEdit does NOT create a second history row
 
     // Update history item with results AND the constructed prompt
     await updateHistoryItem(jobId, {

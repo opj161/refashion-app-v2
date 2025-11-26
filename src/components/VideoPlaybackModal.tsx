@@ -39,9 +39,10 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
       footerRight={
         <>
           <Button variant="outline" onClick={onClose}>
-            <X className="mr-2 h-4 w-4" /> Close
+            <X className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Close</span>
           </Button>
-          <a href={downloadUrl || '#'} download={`RefashionAI_video_${item.id.substring(0,8)}.mp4`}>
+          <a href={downloadUrl || '#'} download={`RefashionAI_video_${item.id.slice(0, 8)}.mp4`}>
             <Button disabled={!downloadUrl}>
               <Download className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Download</span>
@@ -59,7 +60,7 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
             loop
             muted
             playsInline
-            className="w-full max-w-full max-h-full object-contain"
+            className="w-full max-w-full max-h-full object-contain rounded-md"
             onLoadStart={() => console.log('Video loading started')}
           >
             Your browser does not support the video tag.
@@ -107,7 +108,7 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
         <ParameterSection title="Metadata">
           <ParameterRow label="Created" value={new Date(item.timestamp).toLocaleString()} />
           <ParameterRow label="User" value={item.username} />
-          <ParameterRow label="ID" value={item.id.substring(0, 8)} />
+          <ParameterRow label="ID" value={item.id.slice(0, 8)} />
         </ParameterSection>
       </SidebarSlot>
     </UnifiedMediaModal>

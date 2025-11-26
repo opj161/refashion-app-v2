@@ -1,405 +1,386 @@
-// src/stores/imageStore.ts
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
 import { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import { toast } from '@/hooks/use-toast';
+import type { HistoryItem, PixelCrop as ScaledPixelCrop } from '@/lib/types';
+import {
+  prepareInitialImage, cropImage, rotateImage, flipImage,
+  recreateStateFromHistoryAction, recreateStateFromImageUrl
+} from '@/actions/imageActions';
+import { removeBackgroundAction } from '@/ai/actions/remove-background.action';
+import { upscaleImageAction, faceDetailerAction } from '@/ai/actions/upscale-image.action';
 
-// Server Actions
-import { removeBackgroundAction } from "@/ai/actions/remove-background.action";
-import { upscaleImageAction, faceDetailerAction } from "@/ai/actions/upscale-image.action";
-import { prepareInitialImage, cropImage, fetchImageAndConvertToDataUri } from "@/actions/imageActions"; // Updated/new Server Actions
+// --- TYPES ---
 
-// --- Types ---
 export interface ImageVersion {
   id: string;
-  imageUrl: string; // Changed from dataUri
+  imageUrl: string;
   label: string;
   sourceVersionId: string;
   createdAt: number;
   hash: string;
+  status?: 'processing' | 'complete';
 }
 
-export interface ImageState {
-  original: {
-    file: File;
-    imageUrl: string; // Changed from dataUri
-    hash: string;
-  } | null;
+interface ImagePreparationState {
+  original: { file: File; imageUrl: string; hash: string; } | null;
   versions: Record<string, ImageVersion>;
   activeVersionId: string | null;
+  versionHistory: string[];
+  historyIndex: number;
+  crop?: Crop;
+  completedCrop?: PixelCrop;
+  aspect?: number;
+  imageDimensions?: { originalWidth: number; originalHeight: number; };
   comparison: {
     left: string;
     right: string;
   } | null;
-  isProcessing: boolean;
-  processingStep: 'upload' | 'crop' | 'bg' | 'upscale' | 'face' | 'confirm' | null;
-  // Crop-related state
-  crop?: Crop;
-  completedCrop?: PixelCrop;
-  aspect?: number;
-  imageDimensions?: { width: number; height: number };
 }
 
-export interface ImageActions {
-  // Synchronous actions
-  setOriginalImage: (file: File, imageUrl: string, hash: string) => void;
-  addVersion: (version: Omit<ImageVersion, 'id' | 'createdAt'>) => string;
+interface ImagePreparationActions {
+  // Sync Actions
+  setOriginal: (payload: { file: File; imageUrl: string; hash: string; width: number; height: number; }) => void;
+  addVersion: (version: ImageVersion) => void;
   setActiveVersion: (versionId: string) => void;
-  setComparison: (comparison: { left: string; right: string } | null) => void;
-  setProcessing: (isProcessing: boolean, step: ImageState['processingStep']) => void;
-  reset: () => void;
-  
-  // Crop-related actions
+  undo: () => void;
+  redo: () => void;
   setCrop: (crop?: Crop) => void;
   setCompletedCrop: (crop?: PixelCrop) => void;
   setAspect: (aspect?: number) => void;
-  setImageDimensions: (dimensions: { width: number; height: number }) => void;
+  setDimensions: (width: number, height: number) => void;
+  setComparison: (comparison: { left: string; right: string } | null) => void;
+  reset: () => void;
   
-  // Async actions
-  removeBackground: (username: string) => Promise<void>;
-  upscaleImage: (username: string) => Promise<void>;
-  faceDetailer: (username: string) => Promise<void>;
+  // Async Actions
   uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
-  applyCrop: () => Promise<void>; // Updated to not require crop parameter
-  loadImageFromUrl: (imageUrl: string) => Promise<void>;
+  applyCrop: () => Promise<void>;
+  removeBackground: () => Promise<void>;
+  upscaleImage: () => Promise<void>;
+  faceDetailer: () => Promise<void>;
+  rotateImageLeft: () => Promise<void>;
+  rotateImageRight: () => Promise<void>;
+  flipHorizontal: () => Promise<void>;
+  flipVertical: () => Promise<void>;
+  initializeFromHistory: (item: HistoryItem) => Promise<void>;
+  initializeFromUrl: (url: string) => Promise<void>;
 }
 
-export type ImageStore = ImageState & ImageActions;
-
-// Helper function to convert data URI to Blob
-function dataUriToBlob(dataURI: string): Blob {
-  const [header, data] = dataURI.split(',');
-  const mimeMatch = header.match(/:(.*?);/);
-  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-  const byteString = atob(data);
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mime });
-}
-
-// --- Initial State ---
-const initialState: ImageState = {
+const initialState: ImagePreparationState = {
   original: null,
   versions: {},
   activeVersionId: null,
-  comparison: null,
-  isProcessing: false,
-  processingStep: null,
+  versionHistory: [],
+  historyIndex: -1,
   crop: undefined,
   completedCrop: undefined,
   aspect: undefined,
   imageDimensions: undefined,
+  comparison: null,
 };
 
-// --- Store Implementation ---
-export const useImageStore = create<ImageStore>()(
-  devtools(
-    (set, get) => ({
+export const useImageStore = create<ImagePreparationState & ImagePreparationActions>((set, get) => ({
+  ...initialState,
+
+  // --- SYNC ACTIONS ---
+
+  setOriginal: ({ file, imageUrl, hash, width, height }) => {
+    const originalVersion: ImageVersion = {
+      id: 'original', imageUrl, label: 'Original', sourceVersionId: '', createdAt: Date.now(), hash, status: 'complete'
+    };
+    set({
       ...initialState,
+      original: { file, imageUrl, hash },
+      versions: { original: originalVersion },
+      activeVersionId: 'original',
+      versionHistory: ['original'],
+      historyIndex: 0,
+      imageDimensions: { originalWidth: width, originalHeight: height },
+    });
+  },
 
-      // --- Synchronous Actions ---
-      setOriginalImage: (file: File, imageUrl: string, hash: string) => {
-        const originalVersion: ImageVersion = {
-          id: 'original',
-          imageUrl,
-          label: 'Original',
-          sourceVersionId: '',
-          createdAt: Date.now(),
-          hash,
-        };
+  addVersion: (version) => {
+    const finalVersion = { ...version, status: 'complete' as const };
+    set((state) => {
+      const newHistory = state.historyIndex < state.versionHistory.length - 1
+        ? [...state.versionHistory.slice(0, state.historyIndex + 1), finalVersion.id]
+        : [...state.versionHistory, finalVersion.id];
+      return {
+        versions: { ...state.versions, [finalVersion.id]: finalVersion },
+        activeVersionId: finalVersion.id,
+        versionHistory: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    });
+  },
 
-        set({
-          original: { file, imageUrl, hash },
-          versions: { original: originalVersion },
-          activeVersionId: 'original',
-          comparison: null,
-          isProcessing: false,
-          processingStep: null,
-        }, false, 'setOriginalImage');
-      },
+  setActiveVersion: (versionId) => set({
+    activeVersionId: versionId,
+    crop: undefined,
+    completedCrop: undefined,
+    aspect: undefined,
+    imageDimensions: undefined,
+    comparison: null,
+  }),
 
-      addVersion: (version: Omit<ImageVersion, 'id' | 'createdAt'>) => {
-        const id = `${version.label.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
-        const newVersion: ImageVersion = {
-          ...version,
-          id,
-          createdAt: Date.now(),
-        };
+  undo: () => set((state) => {
+    if (state.historyIndex <= 0) return state;
+    const newIndex = state.historyIndex - 1;
+    return {
+      historyIndex: newIndex,
+      activeVersionId: state.versionHistory[newIndex],
+      crop: undefined,
+      completedCrop: undefined,
+      aspect: undefined,
+      imageDimensions: undefined,
+      comparison: null,
+    };
+  }),
 
-        set((state) => ({
-          versions: {
-            ...state.versions,
-            [id]: newVersion,
-          },
-          activeVersionId: id,
-        }), false, 'addVersion');
+  redo: () => set((state) => {
+    if (state.historyIndex >= state.versionHistory.length - 1) return state;
+    const newIndex = state.historyIndex + 1;
+    return {
+      historyIndex: newIndex,
+      activeVersionId: state.versionHistory[newIndex],
+      crop: undefined,
+      completedCrop: undefined,
+      aspect: undefined,
+      imageDimensions: undefined,
+      comparison: null,
+    };
+  }),
 
-        return id;
-      },
-
-      setActiveVersion: (versionId: string) => {
-        set({
-          activeVersionId: versionId,
-          comparison: null,
-          // IMPORTANT: Reset dimensions and crop when switching images.
-          imageDimensions: undefined,
-          crop: undefined,
-          completedCrop: undefined,
-          // The currently selected aspect ratio is preserved as an "intent".
-        }, false, 'setActiveVersion');
-      },
-
-      setComparison: (comparison: { left: string; right: string } | null) => {
-        set({ comparison }, false, 'setComparison');
-      },
-
-      setProcessing: (isProcessing: boolean, step: ImageState['processingStep']) => {
-        set({ isProcessing, processingStep: step }, false, 'setProcessing');
-      },
-
-      reset: () => {
-        set(initialState, false, 'reset');
-      },
-
-      // --- Crop Actions ---
-      setCrop: (crop) => set({ crop }, false, 'setCrop'),
-      setCompletedCrop: (completedCrop) => set({ completedCrop }, false, 'setCompletedCrop'),
-      setImageDimensions: (dimensions) => set({ imageDimensions: dimensions }, false, 'setImageDimensions'),
-
-      setAspect: (aspect) => {
-        const { imageDimensions } = get();
-        
-        // If dimensions are already available (e.g., image is loaded and user changes aspect),
-        // calculate the crop immediately.
-        if (imageDimensions) {
-          const { width, height } = imageDimensions;
-          const newCrop = aspect
-            ? centerCrop(
-                makeAspectCrop({ unit: '%', width: 90 }, aspect, width, height),
-                width,
-                height
-              )
-            : undefined; // Reset to undefined for free crop
-          set({ aspect, crop: newCrop, completedCrop: undefined }, false, 'setAspect');
-        } else {
-          // If dimensions aren't ready, just set the desired aspect.
-          // The onImageLoad handler in the component will take care of the initial crop calculation.
-          set({ aspect, crop: undefined, completedCrop: undefined }, false, 'setAspect');
-        }
-      },
-
-      // --- Async Actions ---
-      removeBackground: async (username: string) => {
-        const { activeVersionId, versions } = get();
-        if (!activeVersionId || !versions[activeVersionId]) {
-          console.warn('No active version for background removal');
-          return;
-        }
-        const currentVersion = versions[activeVersionId];
-        set({ isProcessing: true, processingStep: 'bg' }, false, 'removeBackground:start');
-
-        try {
-          const { savedPath, outputHash } = await removeBackgroundAction(currentVersion.imageUrl, currentVersion.hash);
-          get().addVersion({
-            imageUrl: savedPath,
-            label: 'Background Removed',
-            sourceVersionId: activeVersionId,
-            hash: outputHash,
-          });
-        } catch (error) {
-          console.error('Error removing background:', error);
-          throw error;
-        } finally {
-          set({ isProcessing: false, processingStep: null }, false, 'removeBackground:end');
-        }
-      },
-      upscaleImage: async (username: string) => {
-        const { activeVersionId, versions, original } = get();
-        if (!activeVersionId || !versions[activeVersionId]) {
-          console.warn('No active version for upscaling');
-          return;
-        }
-        const currentVersion = versions[activeVersionId];
-        set({ isProcessing: true, processingStep: 'upscale' }, false, 'upscaleImage:start');
-
-        try {
-          const { savedPath, outputHash } = await upscaleImageAction(currentVersion.imageUrl, currentVersion.hash);
-          get().addVersion({
-            imageUrl: savedPath,
-            label: 'Upscaled',
-            sourceVersionId: activeVersionId,
-            hash: outputHash,
-          });
-        } catch (error) {
-          console.error('Error upscaling image:', error);
-          throw error;
-        } finally {
-          set({ isProcessing: false, processingStep: null }, false, 'upscaleImage:end');
-        }
-      },
-      faceDetailer: async (username: string) => {
-        const { activeVersionId, versions, original } = get();
-        if (!activeVersionId || !versions[activeVersionId]) {
-          console.warn('No active version for face detailer');
-          return;
-        }
-        const currentVersion = versions[activeVersionId];
-        set({ isProcessing: true, processingStep: 'face' }, false, 'faceDetailer:start');
-
-        try {
-          const { savedPath, outputHash } = await faceDetailerAction(currentVersion.imageUrl, currentVersion.hash);
-          get().addVersion({
-            imageUrl: savedPath,
-            label: 'Face Enhanced',
-            sourceVersionId: activeVersionId,
-            hash: outputHash,
-          });
-        } catch (error) {
-          console.error('Error enhancing face details:', error);
-          throw error;
-        } finally {
-          set({ isProcessing: false, processingStep: null }, false, 'faceDetailer:end');
-        }
-      },
-
-      uploadOriginalImage: async (file: File) => {
-        set({ isProcessing: true, processingStep: 'upload' }, false, 'uploadOriginalImage:start');
-        try {
-          const formData = new FormData();
-          formData.append('file', file);
-
-          const result = await prepareInitialImage(formData);
-
-          if (!result.success) {
-            throw new Error(result.error);
-          }
-
-          const { imageUrl, hash, resized, originalWidth, originalHeight } = result;
-
-          // Set original image and dimensions
-          get().setOriginalImage(file, imageUrl, hash);
-          get().setImageDimensions({ width: originalWidth, height: originalHeight });
-          
-          return { resized, originalWidth, originalHeight };
-        } catch (error) {
-          console.error('Upload failed in store:', error);
-          throw error;
-        } finally {
-          set({ isProcessing: false, processingStep: null }, false, 'uploadOriginalImage:end');
-        }
-      },
-      
-      applyCrop: async () => {
-        const { completedCrop, activeVersionId, versions } = get();
-        if (!completedCrop || !activeVersionId) {
-          throw new Error('Cannot apply crop: No active image or crop selection.');
-        }
-
-        const currentVersion = versions[activeVersionId];
-        set({ isProcessing: true, processingStep: 'crop' }, false, 'applyCrop:start');
-
-        try {
-          const result = await cropImage(currentVersion.imageUrl, completedCrop);
-          if (!result.success) {
-            throw new Error(result.error);
-          }
-          
-          get().addVersion({
-            imageUrl: result.imageUrl,
-            label: 'Cropped',
-            sourceVersionId: activeVersionId,
-            hash: result.hash,
-          });
-
-          // After cropping, reset aspect ratio to freeform for the new version
-          get().setAspect(undefined);
-
-        } catch (error) {
-          console.error('Error applying crop:', error);
-          throw error; // Re-throw to be caught in the component for a toast
-        } finally {
-          set({ isProcessing: false, processingStep: null }, false, 'applyCrop:end');
-        }
-      },
-
-      loadImageFromUrl: async (imageUrl: string) => {
-        set({ isProcessing: true, processingStep: 'upload' }, false, 'loadImageFromUrl:start');
-        
-        try {
-          let imageDataUri: string;
-          let imageHash: string;
-
-          // Check if it's an external URL that needs server-side fetching
-          if (imageUrl.startsWith('http')) {
-            console.log('Fetching external image via server action:', imageUrl);
-            const result = await fetchImageAndConvertToDataUri(imageUrl);
-            if (!result.success) {
-              throw new Error(result.error);
-            }
-            imageDataUri = result.dataUri;
-            imageHash = result.hash;
-          } else {
-            // Assume it's a local relative URL, which can be used directly.
-            // Create a simple hash from the local URL.
-            console.log('Using local image URL directly:', imageUrl);
-            imageDataUri = imageUrl;
-            imageHash = btoa(imageUrl).replace(/[/+=]/g, '').substring(0, 16);
-          }
-
-          // Create a File object from the (potentially fetched) data URI
-          const blob = dataUriToBlob(imageDataUri);
-          const fileName = imageUrl.split('/').pop()?.split('?')[0] || 'loaded-image.jpg';
-          const file = new File([blob], fileName, { type: blob.type });
-
-          // Set the image in the store
-          get().setOriginalImage(file, imageDataUri, imageHash);
-          console.log('Successfully loaded image into store from URL:', imageUrl);
-          
-        } catch (error) {
-          console.error('Error loading image from URL:', {
-            url: imageUrl,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          throw error;
-        } finally {
-          set({ isProcessing: false, processingStep: null }, false, 'loadImageFromUrl:end');
-        }
-      },
-    }),
-    {
-      name: 'image-store', // This will show up in Redux DevTools
+  setCrop: (crop) => set({ crop }),
+  setCompletedCrop: (crop) => set({ completedCrop: crop }),
+  
+  setAspect: (aspect) => set((state) => {
+    if (state.imageDimensions?.originalWidth && state.imageDimensions?.originalHeight) {
+      const { originalWidth: width, originalHeight: height } = state.imageDimensions;
+      const newCrop = aspect
+        ? centerCrop(
+            makeAspectCrop({ unit: '%', width: 90 }, aspect, width, height),
+            width,
+            height
+          )
+        : undefined;
+      return { aspect, crop: newCrop, completedCrop: undefined };
     }
-  )
-);
+    return { aspect, crop: undefined, completedCrop: undefined };
+  }),
 
-// --- Convenience Selectors ---
-export const useActiveImage = () => useImageStore((state) => {
-  const { activeVersionId, versions } = state;
-  return activeVersionId ? versions[activeVersionId] : null;
-});
+  setDimensions: (width, height) => set({ imageDimensions: { originalWidth: width, originalHeight: height } }),
+  setComparison: (comparison) => set({ comparison }),
+  reset: () => set(initialState),
 
-export const useImageProcessingState = () => useImageStore((state) => ({
-  isProcessing: state.isProcessing,
-  processingStep: state.processingStep,
+  // --- ASYNC ACTIONS ---
+
+  uploadOriginalImage: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const result = await prepareInitialImage(formData);
+    if (!result.success) throw new Error(result.error);
+    
+    get().setOriginal({ file, imageUrl: result.imageUrl, hash: result.hash, width: result.originalWidth, height: result.originalHeight });
+    return { resized: result.resized, originalWidth: result.originalWidth, originalHeight: result.originalHeight };
+  },
+
+  applyCrop: async () => {
+    const state = get();
+    const { crop, imageDimensions, activeVersionId: sourceVersionId } = state;
+    
+    if (!crop || !sourceVersionId || !imageDimensions) {
+      toast({ title: 'Cannot apply crop: Missing state.', variant: 'destructive' });
+      return;
+    }
+    const sourceImage = state.versions[sourceVersionId];
+
+    const scaledCrop: ScaledPixelCrop = {
+      x: Math.round((crop.x / 100) * imageDimensions.originalWidth),
+      y: Math.round((crop.y / 100) * imageDimensions.originalHeight),
+      width: Math.round((crop.width / 100) * imageDimensions.originalWidth),
+      height: Math.round((crop.height / 100) * imageDimensions.originalHeight),
+    };
+
+    if (scaledCrop.width === 0 || scaledCrop.height === 0) {
+      toast({ title: "Invalid crop selection", description: "Please select an area to crop.", variant: "destructive" });
+      return;
+    }
+
+    // Optimistic Update
+    const tempId = `optimistic_crop_${Date.now()}`;
+    set((s) => ({
+      versions: {
+        ...s.versions,
+        [tempId]: {
+          id: tempId,
+          label: 'Cropping...',
+          sourceVersionId,
+          imageUrl: sourceImage.imageUrl,
+          createdAt: Date.now(),
+          hash: 'optimistic',
+          status: 'processing'
+        }
+      }
+    }));
+
+    try {
+      const result = await cropImage(sourceImage.imageUrl, scaledCrop);
+      if (!result.success) throw new Error(result.error);
+      
+      // Check consistency
+      if (!get().versions[sourceVersionId]) return;
+
+      get().addVersion({
+        id: `cropped_${Date.now()}`,
+        imageUrl: result.imageUrl,
+        label: 'Cropped',
+        sourceVersionId,
+        hash: result.hash,
+        createdAt: Date.now(),
+        status: 'complete',
+      });
+
+      get().setAspect(undefined);
+      toast({ title: "Crop Applied", description: "A new cropped version has been created." });
+
+    } catch (error) {
+      console.error('Crop failed:', error);
+      toast({ title: "Cropping Failed", description: (error as Error).message, variant: "destructive" });
+    } finally {
+       // Cleanup optimistic version
+       set((s) => {
+         const { [tempId]: _, ...rest } = s.versions;
+         return { versions: rest };
+       });
+    }
+  },
+
+  removeBackground: async () => performOptimisticAction(get, set, 'Background Removed', removeBackgroundAction),
+  upscaleImage: async () => performOptimisticAction(get, set, 'Upscaled', upscaleImageAction),
+  faceDetailer: async () => performOptimisticAction(get, set, 'Face Enhanced', faceDetailerAction),
+  rotateImageLeft: async () => performOptimisticAction(get, set, 'Rotated Left', (url, hash) => rotateImage(url, -90)),
+  rotateImageRight: async () => performOptimisticAction(get, set, 'Rotated Right', (url, hash) => rotateImage(url, 90)),
+  flipHorizontal: async () => performOptimisticAction(get, set, 'Flipped Horizontal', (url, hash) => flipImage(url, 'horizontal')),
+  flipVertical: async () => performOptimisticAction(get, set, 'Flipped Vertical', (url, hash) => flipImage(url, 'vertical')),
+
+  initializeFromHistory: async (item) => {
+    try {
+      const result = await recreateStateFromHistoryAction(item.id);
+      if (!result.success) throw new Error(result.error);
+
+      get().setOriginal({
+        file: new File([], 'history_image.png'),
+        imageUrl: result.imageUrl,
+        hash: result.hash,
+        width: result.originalWidth,
+        height: result.originalHeight,
+      });
+
+      toast({
+        title: "History Item Loaded",
+        description: "Configuration restored. You can now generate new images or videos.",
+      });
+    } catch (error) {
+      console.error('Failed to initialize from history:', error);
+      toast({ title: "Error", description: "Could not load history item.", variant: "destructive" });
+    }
+  },
+
+  initializeFromUrl: async (url) => {
+    try {
+      const result = await recreateStateFromImageUrl(url);
+      if (!result.success) throw new Error(result.error);
+
+      get().setOriginal({
+        file: new File([], 'generated_image.png'),
+        imageUrl: url,
+        hash: result.hash,
+        width: result.originalWidth,
+        height: result.originalHeight,
+      });
+
+      toast({
+        title: "Image Loaded",
+        description: "You can now begin a new creative workflow.",
+      });
+    } catch (error) {
+      console.error('Failed to initialize from URL:', error);
+      toast({ title: "Error", description: "Could not load image.", variant: "destructive" });
+    }
+  }
 }));
 
-// --- Debug Helpers ---
-export const getStoreSnapshot = () => {
-  const state = useImageStore.getState();
-  return {
-    hasOriginal: !!state.original,
-    versionCount: Object.keys(state.versions).length,
-    activeVersionId: state.activeVersionId,
-    isProcessing: state.isProcessing,
-    processingStep: state.processingStep,
-    hasComparison: !!state.comparison,
-  };
-};
+// Helper for optimistic actions
+async function performOptimisticAction(
+  get: () => ImagePreparationState & ImagePreparationActions,
+  set: (partial: Partial<ImagePreparationState> | ((state: ImagePreparationState) => Partial<ImagePreparationState>)) => void,
+  label: string,
+  action: (url: string, hash: string) => Promise<any>
+) {
+  const state = get();
+  const activeVersionId = state.activeVersionId;
+  if (!activeVersionId) {
+    toast({ title: "No active image selected.", variant: "destructive" });
+    return;
+  }
+  
+  const sourceImage = state.versions[activeVersionId];
+  if (!sourceImage) {
+    toast({ title: "Source image not found.", variant: "destructive" });
+    return;
+  }
 
-// For development - access in console as window.imageStore
-if (typeof window !== 'undefined') {
-  (window as any).imageStore = useImageStore;
-  (window as any).imageStoreSnapshot = getStoreSnapshot;
+  const tempId = `optimistic_${label.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
+  
+  // Optimistic Update
+  set((s) => ({
+    versions: {
+      ...s.versions,
+      [tempId]: {
+        id: tempId,
+        label: `${label}...`,
+        sourceVersionId: activeVersionId,
+        imageUrl: sourceImage.imageUrl,
+        createdAt: Date.now(),
+        hash: 'optimistic',
+        status: 'processing'
+      }
+    }
+  }));
+
+  try {
+    const result = await action(sourceImage.imageUrl, sourceImage.hash);
+    
+    if (!get().versions[activeVersionId]) return;
+
+    const finalImageUrl = result.savedPath || result.imageUrl;
+    const finalHash = result.outputHash || result.hash;
+
+    if (!finalImageUrl || !finalHash) throw new Error('Invalid action result');
+
+    get().addVersion({
+      id: `${label.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`,
+      imageUrl: finalImageUrl,
+      label,
+      sourceVersionId: activeVersionId,
+      hash: finalHash,
+      createdAt: Date.now(),
+      status: 'complete',
+    });
+
+    if (result.originalWidth && result.originalHeight) {
+      get().setDimensions(result.originalWidth, result.originalHeight);
+    }
+    
+    toast({ title: `${label} applied successfully.` });
+
+  } catch (error) {
+    console.error(`${label} failed:`, error);
+    toast({ title: `${label} Failed`, description: (error as Error).message, variant: "destructive" });
+  } finally {
+    set((s) => {
+      const { [tempId]: _, ...rest } = s.versions;
+      return { versions: rest };
+    });
+  }
 }

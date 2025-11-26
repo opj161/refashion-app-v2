@@ -1,20 +1,24 @@
 // src/components/history-gallery.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useOptimistic, startTransition, lazy, Suspense } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { getHistoryPaginated, deleteHistoryItem } from "@/actions/historyActions";
 import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertTriangle, ImageIcon } from "lucide-react";
 import HistoryCard from "./HistoryCard";
+import { HistoryGallerySkeleton } from "./HistoryCardSkeleton"; // Import skeleton loader
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { HistoryDetailModal } from './HistoryDetailModal'; // Import the new image modal
-import { VideoPlaybackModal } from './VideoPlaybackModal'; // Import the video modal
+import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
+import { COMMON_VARIANTS } from "@/lib/motion-constants";
+
+// Lazy load modals for better initial page load performance
+const ImageViewerModal = lazy(() => import('./ImageViewerModal').then(m => ({ default: m.ImageViewerModal })));
+const VideoPlaybackModal = lazy(() => import('./VideoPlaybackModal').then(m => ({ default: m.VideoPlaybackModal })));
 
 type FilterType = 'all' | 'image' | 'video';
 
@@ -25,13 +29,20 @@ interface PaginatedResult {
   currentPage: number;
 }
 
-export default function HistoryGallery({ initialHistory }: { initialHistory: PaginatedResult }) {
+export default function HistoryGallery({
+  initialHistory,
+}: {
+  initialHistory: PaginatedResult;
+}) {
   const { toast } = useToast();
   const router = useRouter();
-  const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
+  
+  // Read history filter directly from Zustand store
+  const historyFilter = useGenerationSettingsStore(state => state.historyFilter);
+  const loadFromHistory = useGenerationSettingsStore(state => state.loadFromHistory);
+  
   const [detailItem, setDetailItem] = useState<HistoryItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<HistoryItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // State is now initialized from server-provided props
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>(initialHistory.items);
@@ -39,36 +50,47 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
   const [hasMore, setHasMore] = useState<boolean>(initialHistory.hasMore);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
-  // Animation variants for the gallery
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.08,
-      },
-    },
-  };
+  // Add useOptimistic hook for instant UI updates on deletion
+  const [optimisticHistory, removeOptimisticHistoryItem] = useOptimistic(
+    historyItems,
+    (currentHistory: HistoryItem[], itemIdToDelete: string) => {
+      return currentHistory.filter(item => item.id !== itemIdToDelete);
+    }
+  );
 
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: { stiffness: 300, damping: 25 }, // Removed 'type' property for compatibility
-    },
-    exit: { y: -20, opacity: 0, transition: { duration: 0.2 } },
-  };
+  // Subscribe to generation counter from Zustand store
+  const generationCount = useGenerationSettingsStore(state => state.generationCount);
 
+  // Function to refresh the history (can be called internally)
+  const refreshHistory = useCallback(async () => {
+    try {
+      const result = await getHistoryPaginated(1, 9, historyFilter);
+      setHistoryItems(result.items);
+      setCurrentPage(result.currentPage + 1);
+      setHasMore(result.hasMore);
+    } catch (err) {
+      console.error('Failed to refresh history:', err);
+    }
+  }, [historyFilter]);
+
+  // Listen for generation count changes and refresh history
+  useEffect(() => {
+    if (generationCount > 0) {
+      // Use router.refresh() for Next.js App Router to re-fetch server component data
+      router.refresh();
+      // Also refresh local state
+      refreshHistory();
+    }
+  }, [generationCount, router, refreshHistory]);
 
   const isInitialRender = useRef(true);
 
-  // Data fetching is now handled by this function, called on filter change or load more.
+  // Data fetching is now handled by this function, called on filter change
   useEffect(() => {
     const loadFilteredHistory = async () => {
-      setIsLoadingMore(true); // Use loadingMore state for subsequent loads
+      setIsLoadingMore(true);
       try {
-        const result = await getHistoryPaginated(1, 9, currentFilter);
+        const result = await getHistoryPaginated(1, 9, historyFilter);
         setHistoryItems(result.items);
         setCurrentPage(result.currentPage + 1);
         setHasMore(result.hasMore);
@@ -82,20 +104,23 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
         setIsLoadingMore(false);
       }
     };
-    // Don't run on initial render, only when filter changes
+    
+    // Skip on initial render (we already have initialHistory prop)
+    // But run whenever historyFilter changes after that
     if (isInitialRender.current) {
       isInitialRender.current = false;
-    } else {
-      loadFilteredHistory();
+      return;
     }
-  }, [currentFilter, toast]);
+    
+    loadFilteredHistory();
+  }, [historyFilter, toast]);
 
   const handleLoadMore = useCallback(async () => {
     if (!hasMore || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
       // Use a server action for pagination
-      const result = await getHistoryPaginated(currentPage, 9, currentFilter);
+      const result = await getHistoryPaginated(currentPage, 9, historyFilter);
       setHistoryItems(prevItems => [...prevItems, ...result.items]);
       setCurrentPage(prev => prev + 1);
       setHasMore(result.hasMore);
@@ -108,27 +133,24 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
     } finally {
       setIsLoadingMore(false);
     }
-  }, [hasMore, isLoadingMore, currentPage, currentFilter, toast]);
+  }, [hasMore, isLoadingMore, currentPage, historyFilter, toast]);
 
 
+  // handleFilterChange is no longer needed - filtering is controlled by the store
+  // This function is now dead code and can be removed
   const handleFilterChange = (newFilter: string | null) => {
-    // ToggleGroup can return null/empty string if deselected. Default to 'all'.
-    if (newFilter) {
-      setCurrentFilter(newFilter as FilterType);
-    } else {
-      setCurrentFilter('all');
-    }
+    // This was used when the filter UI was in this component
+    // Now the SegmentedControl in creation-hub.tsx writes directly to the store
   };
 
+  // React Compiler auto-memoizes this function
   const handleViewDetails = (item: HistoryItem) => {
     setDetailItem(item);
   };
 
-  const handleReloadConfig = (item: HistoryItem) => {
-    // Only navigate, do not show a toast here
-    router.push(`/?historyItemId=${item.id}`);
-  };
+  // handleReloadConfig is now handled directly in HistoryCard via client-side store
 
+  // React Compiler auto-memoizes this function
   const handleDeleteRequest = (item: HistoryItem) => {
     setItemToDelete(item);
   };
@@ -136,31 +158,31 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
 
-    setIsDeleting(true);
-    try {
-      const result = await deleteHistoryItem(itemToDelete.id);
+    // Start optimistic update immediately - item disappears from UI instantly
+    startTransition(() => {
+      removeOptimisticHistoryItem(itemToDelete.id);
+    });
 
-      if (result.success) {
-        // Optimistic UI Update: Remove the item from the local state
-        setHistoryItems(prevItems => prevItems.filter(item => item.id !== itemToDelete.id));
-        toast({
-          title: "Item Deleted",
-          description: "The history item has been permanently removed.",
-        });
-      } else {
-        throw new Error(result.error || "Failed to delete the item.");
-      }
-    } catch (err) {
-      console.error("Deletion failed:", err);
+    // Call server action without blocking UI
+    const result = await deleteHistoryItem(itemToDelete.id);
+
+    if (result.success) {
+      // On success, sync the real state to match the optimistic one
+      setHistoryItems(prevItems => prevItems.filter(item => item.id !== itemToDelete.id));
+      toast({
+        title: "Item Deleted",
+        description: "The history item has been permanently removed.",
+      });
+    } else {
+      // On failure, useOptimistic automatically reverts. We just show a toast.
       toast({
         title: "Deletion Failed",
-        description: err instanceof Error ? err.message : "An unknown error occurred.",
+        description: result.error || "An unknown error occurred.",
         variant: "destructive",
       });
-    } finally {
-      setIsDeleting(false);
-      setItemToDelete(null); // Close the dialog
     }
+    
+    setItemToDelete(null); // Close dialog regardless of outcome
   };
 
 
@@ -180,79 +202,124 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
   // Helper to check if item is a video
   const itemIsVideo = (item: HistoryItem) => !!(item.videoGenerationParams || (item.generatedVideoUrls && item.generatedVideoUrls.some(url => !!url)));
 
+  // Handler for reloading config from history
+  const handleReloadConfig = useCallback((item: HistoryItem) => {
+    // 1. Update global store
+    loadFromHistory(item);
+    
+    // 2. Determine target tab
+    const targetTab = item.videoGenerationParams ? 'video' : 'image';
+    
+    // 3. Navigate to creation hub with initialization params to ensure UI updates
+    router.push(`/?init_history_id=${item.id}&target_tab=${targetTab}`);
+    
+    // 4. Close modal
+    setDetailItem(null);
+    
+    toast({
+      title: "Settings Restored",
+      description: "Generation parameters have been loaded into the workspace.",
+    });
+  }, [router, loadFromHistory, toast]);
+
+  // Define a simple fade variant for this component's transitions
+  const fadeVariant = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.3 } },
+    exit: { opacity: 0, transition: { duration: 0.2 } },
+  };
+
   return (
     <>
-      {/* --- REPLACEMENT FOR TABS --- */}
-      <div className="flex justify-start mb-6">
-        <ToggleGroup
-          type="single"
-          defaultValue="all"
-          value={currentFilter}
-          onValueChange={handleFilterChange}
-          className="bg-muted/30 p-1 rounded-lg"
-          aria-label="Filter history items"
-        >
-          <ToggleGroupItem value="all" aria-label="Show all items">All</ToggleGroupItem>
-          <ToggleGroupItem value="image" aria-label="Show only images">Images</ToggleGroupItem>
-          <ToggleGroupItem value="video" aria-label="Show only videos">Videos</ToggleGroupItem>
-        </ToggleGroup>
-      </div>
-
-      {historyItems.length === 0 && !isLoadingMore && (
-        <Card variant="glass" className="mt-8">
-          <CardContent className="py-16 flex flex-col items-center justify-center text-center">
-            <ImageIcon className="h-16 w-16 text-muted-foreground/50 mb-4" />
-            <h3 className="text-xl font-semibold">No History Found</h3>
-            <p className="text-muted-foreground mt-1">Creations for this filter will appear here once you&apos;ve made some.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      <LayoutGroup>
-        <>
-          {historyItems.length > 0 && (
-            <motion.div
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-              layout
-            >
-              <AnimatePresence>
-                {historyItems.map((item) => (
-                  <motion.div key={item.id} variants={itemVariants} layout>
-                    <HistoryCard
-                      item={item}
-                      onViewDetails={handleViewDetails}
-                      onReloadConfig={handleReloadConfig}
-                      onDeleteItem={handleDeleteRequest}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+      <div className="relative min-h-[400px]">
+        <AnimatePresence mode="wait">
+          {/* STATE 1: Initial Loading Skeleton */}
+          {isLoadingMore && historyItems.length === 0 && (
+            <motion.div key="skeleton" variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
+              <HistoryGallerySkeleton count={9} />
             </motion.div>
           )}
-          <AnimatePresence>
-            {detailItem && itemIsVideo(detailItem) && (
-              <VideoPlaybackModal
-                item={detailItem}
-                onClose={() => setDetailItem(null)}
-              />
-            )}
-          </AnimatePresence>
-          <AnimatePresence>
-            {detailItem && !itemIsVideo(detailItem) && (
-              <HistoryDetailModal
-                isOpen={!!detailItem}
-                onClose={() => setDetailItem(null)}
-                item={detailItem}
-                onReloadConfig={handleReloadConfig}
-              />
-            )}
-          </AnimatePresence>
-        </>
-      </LayoutGroup>
 
+          {/* STATE 2: Empty State Card */}
+          {!isLoadingMore && optimisticHistory.length === 0 && (
+            <motion.div key="empty" variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
+              <Card variant="glass" className="mt-8">
+                <CardContent className="py-16 flex flex-col items-center justify-center text-center">
+                  <ImageIcon className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                  <h3 className="text-xl font-semibold">No History Found</h3>
+                  <p className="text-muted-foreground mt-1">Creations for this filter will appear here.</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* STATE 3: Content Grid */}
+          {optimisticHistory.length > 0 && (
+            <motion.div
+              key="content"
+              variants={fadeVariant}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <LayoutGroup>
+                <div className="relative">
+                  <motion.div
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
+                    layout
+                    variants={COMMON_VARIANTS.staggeredListContainer}
+                    initial="hidden"
+                    animate="visible"
+                  >
+                    <AnimatePresence>
+                      {optimisticHistory.map((item) => (
+                        <motion.div 
+                          key={item.id} 
+                          variants={COMMON_VARIANTS.staggeredListItem}
+                          exit="exit"
+                          layout
+                        >
+                          <HistoryCard
+                            item={item}
+                            onViewDetails={handleViewDetails}
+                            onDeleteItem={handleDeleteRequest}
+                          />
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </motion.div>
+
+                  {/* Modals are kept here to benefit from LayoutGroup */}
+                  <AnimatePresence>
+                    {detailItem && itemIsVideo(detailItem) && (
+                      <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+                        <VideoPlaybackModal
+                          item={detailItem}
+                          onClose={() => setDetailItem(null)}
+                        />
+                      </Suspense>
+                    )}
+                  </AnimatePresence>
+                  <AnimatePresence>
+                    {detailItem && !itemIsVideo(detailItem) && (
+                      <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+                        <ImageViewerModal
+                          isOpen={!!detailItem}
+                          onClose={() => setDetailItem(null)}
+                          item={detailItem}
+                          onReloadConfig={handleReloadConfig}
+                        />
+                      </Suspense>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </LayoutGroup>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* "Load More" button and Delete Dialog remain outside the animation container */}
       {hasMore && (
         <div className="mt-8 text-center">
           <Button onClick={handleLoadMore} disabled={isLoadingMore}>
@@ -261,7 +328,6 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
           </Button>
         </div>
       )}
-
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!itemToDelete} onOpenChange={(isOpen) => !isOpen && setItemToDelete(null)}>
@@ -273,13 +339,9 @@ export default function HistoryGallery({ initialHistory }: { initialHistory: Pag
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-              {isDeleting ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...</>
-              ) : (
-                "Yes, delete it"
-              )}
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">
+              Yes, delete it
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

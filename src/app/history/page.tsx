@@ -5,7 +5,13 @@ import { History } from "lucide-react";
 import { getHistoryPaginated } from '@/actions/historyActions';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Force dynamic rendering for user-specific content
+// export const dynamic = 'force-dynamic';
+
+import { connection } from 'next/server';
+
 export default async function HistoryPage() {
+  await connection();
   return (
     <div className="container mx-auto max-w-7xl px-4 py-10 space-y-8">
       <PageHeader

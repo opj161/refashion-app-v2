@@ -2,6 +2,16 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
+  // Turbopack configuration
+  turbopack: {
+    rules: {
+      '*.svg': {
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
+      },
+    },
+  },
+  // Keep webpack config for non-Turbopack builds
   webpack(config: any) {
     // Grab the existing rule that handles SVG imports
     const fileLoaderRule = config.module.rules.find((rule: any) =>
@@ -32,10 +42,44 @@ const nextConfig: NextConfig = {
   },
   output: 'standalone',
   experimental: {
+    reactCompiler: true,
     serverActions: {
       bodySizeLimit: '50mb', // Increase limit for image uploads
     },
+    // Optimize package imports to reduce bundle size
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-accordion',
+      '@radix-ui/react-alert-dialog',
+      '@radix-ui/react-avatar',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-label',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-progress',
+      '@radix-ui/react-radio-group',
+      '@radix-ui/react-scroll-area',
+      '@radix-ui/react-select',
+      '@radix-ui/react-separator',
+      '@radix-ui/react-slider',
+      '@radix-ui/react-switch',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-toast',
+      '@radix-ui/react-tooltip',
+    ],
   },
+  // Enable fetch logging for debugging polling in development
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
+  // Build caching configuration for faster subsequent builds
+  cacheMaxMemorySize: 50 * 1024 * 1024, // 50MB - optimize build cache
+  cacheHandler: process.env.NODE_ENV === 'production' 
+    ? undefined // Use default in production
+    : undefined, // Default for development
   images: {
     remotePatterns: [
       {
@@ -80,6 +124,14 @@ const nextConfig: NextConfig = {
     // Allow the Image Optimizer to process images from our own API routes
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/uploads/:path*',
+        destination: '/api/images/:path*',
+      },
+    ];
   },
 };
 

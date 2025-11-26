@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { motion, useReducedMotion, Variants, Transition } from 'framer-motion';
+import { motion, useReducedMotion, Variants, Transition } from 'motion/react';
 import LogoSvg from '../../public/refashion.svg'; // Used for the reduced-motion fallback
 
 // --- Path data from the refashion.svg (remains unchanged) ---
@@ -270,10 +270,10 @@ export function AnimatedLogo({
       initial="initial"
       animate={state}
       exit="exit"
-      // IMPROVEMENT 2: Hover interaction
+      // IMPROVEMENT 2: Hover interaction - more subtle
       whileHover={{
-        scale: 1.05,
-        transition: { type: 'spring', stiffness: 400, damping: 15 }
+        scale: 1.02,
+        transition: { type: 'spring', stiffness: 300, damping: 30 }
       }}
     >
       {renderAnimation()}

@@ -20,6 +20,21 @@ export interface RetryableError {
 }
 
 /**
+ * Custom error for AI generation failures to provide more context to the retry logic.
+ */
+export class AIGenerationError extends Error {
+  public readonly isRetryable: boolean;
+  public readonly finishReason?: string;
+
+  constructor(message: string, options: { isRetryable: boolean; finishReason?: string }) {
+    super(message);
+    this.name = 'AIGenerationError';
+    this.isRetryable = options.isRetryable;
+    this.finishReason = options.finishReason;
+  }
+}
+
+/**
  * Determines if an error should be retried based on its characteristics
  */
 export function isRetryableError(error: any): boolean {
@@ -31,6 +46,11 @@ export function isRetryableError(error: any): boolean {
     503, // Service Unavailable
     504, // Gateway Timeout
   ];
+
+  // Check for our custom, more specific error type first.
+  if (error instanceof AIGenerationError) {
+    return error.isRetryable;
+  }
 
   // Check HTTP status codes
   if (error?.status && retryableHttpCodes.includes(error.status)) {

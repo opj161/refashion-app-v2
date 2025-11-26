@@ -1,17 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { SettingKey } from '@/services/settings.service';
-import { updateSetting, triggerCacheCleanup, updateEncryptedSetting } from '@/actions/adminActions';
-import { Loader2, Video, Wand2, Sparkles, UserCheck, Trash2, KeyRound } from 'lucide-react';
+import { 
+  updateSetting, 
+  handleApiKeysUpdate, 
+  handleSystemPromptUpdate, 
+  handleCacheCleanup,
+  type ApiKeysFormState,
+  type SystemPromptsFormState,
+  type CacheCleanupFormState
+} from '@/actions/adminActions';
+import { Loader2, Video, Wand2, Sparkles, UserCheck, Trash2, KeyRound, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { StudioPromptTester } from './StudioPromptTester';
 
 type SettingsState = Record<SettingKey, boolean>;
+
+type SystemPromptData = {
+  success: boolean;
+  prompts?: {
+    engineer?: string;
+    studio?: string;
+  };
+  sources?: {
+    engineer?: 'database' | 'file' | 'none';
+  };
+  error?: string;
+}
 
 // Metadata for boolean feature flags ONLY
 const FEATURE_FLAG_METADATA: Record<
@@ -28,9 +51,41 @@ const FEATURE_FLAG_METADATA: Record<
 interface SettingsFormProps {
   initialSettings: Record<SettingKey, string>;
   maskedApiKeys?: { gemini1: string; gemini2: string; gemini3: string; fal: string };
+  systemPromptData?: SystemPromptData;
 }
 
-export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormProps) {
+// SubmitButton components using useFormStatus for pending state
+function ApiKeysSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending}>
+      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+      Save API Keys
+    </Button>
+  );
+}
+
+function SystemPromptSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending}>
+      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+      Save System Prompt
+    </Button>
+  );
+}
+
+function CacheCleanupSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending}>
+      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+      Run Cleanup
+    </Button>
+  );
+}
+
+export function SettingsForm({ initialSettings, maskedApiKeys, systemPromptData }: SettingsFormProps) {
   const { toast } = useToast();
   const [settings, setSettings] = useState<SettingsState>(
     Object.entries(initialSettings).reduce((acc, [key, value]) => {
@@ -47,17 +102,55 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
     global_gemini_api_key_2: false,
     global_gemini_api_key_3: false,
     global_fal_api_key: false,
+    ai_prompt_engineer_system: false,
+    ai_studio_mode_prompt_template: false,
   });
-  const [isCleaningCache, setIsCleaningCache] = useState(false);
-  const [isUpdatingApiKeys, setIsUpdatingApiKeys] = useState(false);
-  const initialApiKeys = { 
-    gemini1: initialSettings.global_gemini_api_key_1 || '', 
-    gemini2: initialSettings.global_gemini_api_key_2 || '', 
-    gemini3: initialSettings.global_gemini_api_key_3 || '', 
-    fal: initialSettings.global_fal_api_key || '' 
-  };
-  const [apiKeys, setApiKeys] = useState(initialApiKeys);
-
+  
+  // Initialize useActionState for each form
+  const initialApiKeysState: ApiKeysFormState = { message: '' };
+  const [apiKeysState, apiKeysAction] = useActionState(handleApiKeysUpdate, initialApiKeysState);
+  
+  const initialSystemPromptState: SystemPromptsFormState = { message: '' };
+  const [systemPromptState, systemPromptAction] = useActionState(handleSystemPromptUpdate, initialSystemPromptState);
+  
+  const initialCacheCleanupState: CacheCleanupFormState = { message: '' };
+  const [cacheCleanupState, cacheCleanupAction] = useActionState(handleCacheCleanup, initialCacheCleanupState);
+  
+  // Studio Prompt controlled state for testing
+  const [studioPrompt, setStudioPrompt] = useState(systemPromptData?.prompts?.studio || '');
+  
+  // Update studio prompt state when props change
+  useEffect(() => {
+    if (systemPromptData?.prompts?.studio) {
+      setStudioPrompt(systemPromptData.prompts.studio);
+    }
+  }, [systemPromptData?.prompts?.studio]);
+  
+  // Handle feedback from useActionState forms
+  useEffect(() => {
+    if (apiKeysState?.success) {
+      toast({ title: 'Success', description: apiKeysState.message });
+    } else if (apiKeysState?.error) {
+      toast({ title: 'Error', description: apiKeysState.error, variant: 'destructive' });
+    }
+  }, [apiKeysState, toast]);
+  
+  useEffect(() => {
+    if (systemPromptState?.success) {
+      toast({ title: 'Success', description: systemPromptState.message });
+    } else if (systemPromptState?.error) {
+      toast({ title: 'Error', description: systemPromptState.error, variant: 'destructive' });
+    }
+  }, [systemPromptState, toast]);
+  
+  useEffect(() => {
+    if (cacheCleanupState?.success) {
+      toast({ title: 'Success', description: cacheCleanupState.message });
+    } else if (cacheCleanupState?.error) {
+      toast({ title: 'Error', description: cacheCleanupState.error, variant: 'destructive' });
+    }
+  }, [cacheCleanupState, toast]);
+  
   const handleSettingChange = async (key: SettingKey, value: boolean) => {
     setIsUpdating(prev => ({ ...prev, [key]: true }));
     setSettings(prev => ({...prev, [key]: value})); // Optimistic update
@@ -70,33 +163,6 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
         toast({ title: 'Setting Updated', description: `${FEATURE_FLAG_METADATA[key as keyof typeof FEATURE_FLAG_METADATA]?.label} has been ${value ? 'enabled' : 'disabled'}.` });
     }
     setIsUpdating(prev => ({ ...prev, [key]: false }));
-  };
-  
-  const handleCacheCleanup = async () => {
-    setIsCleaningCache(true);
-    const result = await triggerCacheCleanup();
-    if(result.success) {
-        toast({ title: 'Cache Cleanup', description: result.message });
-    } else {
-        toast({ title: 'Error', description: result.error, variant: 'destructive' });
-    }
-    setIsCleaningCache(false);
-  }
-
-  const handleApiKeysUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsUpdatingApiKeys(true);
-    try {
-      await updateEncryptedSetting('global_gemini_api_key_1', apiKeys.gemini1);
-      await updateEncryptedSetting('global_gemini_api_key_2', apiKeys.gemini2);
-      await updateEncryptedSetting('global_gemini_api_key_3', apiKeys.gemini3);
-      await updateEncryptedSetting('global_fal_api_key', apiKeys.fal);
-      toast({ title: 'API Keys Updated', description: 'Global API keys have been saved.' });
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to update API keys.', variant: 'destructive' });
-    } finally {
-      setIsUpdatingApiKeys(false);
-    }
   };
 
   return (
@@ -139,16 +205,15 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
                 <CardDescription>Run maintenance tasks to keep the application running smoothly.</CardDescription>
             </CardHeader>
             <CardContent>
-                 <div className="flex items-center justify-between p-3 border rounded-lg">
+                <form action={cacheCleanupAction}>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
                         <Label className="font-medium">Clean Image Cache</Label>
                         <p className="text-xs text-muted-foreground">Removes old processed images (e.g., background-removed, upscaled) from the server to save space.</p>
                     </div>
-                    <Button onClick={handleCacheCleanup} disabled={isCleaningCache}>
-                        {isCleaningCache ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                        Run Cleanup
-                    </Button>
-                </div>
+                    <CacheCleanupSubmitButton />
+                  </div>
+                </form>
             </CardContent>
         </Card>
 
@@ -158,32 +223,79 @@ export function SettingsForm({ initialSettings, maskedApiKeys }: SettingsFormPro
             <CardDescription>Set the system-wide default API keys for AI services. User-specific keys will override these.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleApiKeysUpdate} className="space-y-4">
+            <form action={apiKeysAction} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="global_gemini_api_key_1">Global Gemini API Key 1</Label>
-                <Input id="global_gemini_api_key_1" type="password" value={apiKeys.gemini1} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, gemini1: e.target.value}))} placeholder={maskedApiKeys?.gemini1 || undefined} />
+                <Label htmlFor="gemini1">Global Gemini API Key 1</Label>
+                <Input id="gemini1" name="gemini1" type="password" placeholder={maskedApiKeys?.gemini1 || "Enter new key"} />
                 {maskedApiKeys?.gemini1 && <div className="text-xs text-muted-foreground">Current: {maskedApiKeys.gemini1}</div>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="global_gemini_api_key_2">Global Gemini API Key 2</Label>
-                <Input id="global_gemini_api_key_2" type="password" value={apiKeys.gemini2} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, gemini2: e.target.value}))} placeholder={maskedApiKeys?.gemini2 || undefined} />
+                <Label htmlFor="gemini2">Global Gemini API Key 2</Label>
+                <Input id="gemini2" name="gemini2" type="password" placeholder={maskedApiKeys?.gemini2 || "Enter new key"} />
                 {maskedApiKeys?.gemini2 && <div className="text-xs text-muted-foreground">Current: {maskedApiKeys.gemini2}</div>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="global_gemini_api_key_3">Global Gemini API Key 3</Label>
-                <Input id="global_gemini_api_key_3" type="password" value={apiKeys.gemini3} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, gemini3: e.target.value}))} placeholder={maskedApiKeys?.gemini3 || undefined} />
+                <Label htmlFor="gemini3">Global Gemini API Key 3</Label>
+                <Input id="gemini3" name="gemini3" type="password" placeholder={maskedApiKeys?.gemini3 || "Enter new key"} />
                 {maskedApiKeys?.gemini3 && <div className="text-xs text-muted-foreground">Current: {maskedApiKeys.gemini3}</div>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="global_fal_api_key">Global Fal.ai API Key</Label>
-                <Input id="global_fal_api_key" type="password" value={apiKeys.fal} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKeys(prev => ({...prev, fal: e.target.value}))} placeholder={maskedApiKeys?.fal || undefined} />
+                <Label htmlFor="fal">Global Fal.ai API Key</Label>
+                <Input id="fal" name="fal" type="password" placeholder={maskedApiKeys?.fal || "Enter new key"} />
                 {maskedApiKeys?.fal && <div className="text-xs text-muted-foreground">Current: {maskedApiKeys.fal}</div>}
               </div>
               <div className="flex justify-end">
-                <Button type="submit" disabled={isUpdatingApiKeys}>
-                  {isUpdatingApiKeys ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
-                  Save API Keys
-                </Button>
+                <ApiKeysSubmitButton />
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card variant="glass">
+          <CardHeader>
+            <CardTitle>AI System Prompts</CardTitle>
+            <CardDescription>
+              Configure the base instructions used by AI models. Changes take effect immediately.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form action={systemPromptAction} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="systemPrompt">Prompt Engineer System Instruction (Creative Mode)</Label>
+                <Textarea 
+                  id="systemPrompt" 
+                  name="systemPrompt"
+                  defaultValue={systemPromptData?.prompts?.engineer || ''}
+                  placeholder="Enter the system instruction for the AI prompt engineer..."
+                  rows={10}
+                  className="font-mono text-sm"
+                />
+                <div className="text-xs text-muted-foreground">
+                  Current source: <span className="font-mono">{systemPromptData?.sources?.engineer || 'none'}</span>.
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="studioPromptTemplate">Studio Mode Prompt Template</Label>
+                  <StudioPromptTester currentTemplate={studioPrompt} />
+                </div>
+                <Textarea 
+                  id="studioPromptTemplate" 
+                  name="studioPromptTemplate"
+                  value={studioPrompt}
+                  onChange={(e) => setStudioPrompt(e.target.value)}
+                  placeholder="Enter the prompt template for Studio Mode..."
+                  rows={10}
+                  className="font-mono text-sm"
+                />
+                <div className="text-xs text-muted-foreground">
+                  This prompt is used for consistent product shots. Available placeholders: <code className="bg-muted px-1 py-0.5 rounded">{'{fitDescription}'}</code> (slim fit, etc) and <code className="bg-muted px-1 py-0.5 rounded">{'{clothingItem}'}</code> (AI detected description).
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <SystemPromptSubmitButton />
               </div>
             </form>
           </CardContent>

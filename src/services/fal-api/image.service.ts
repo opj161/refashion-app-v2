@@ -1,5 +1,103 @@
 'use server';
 
+import 'server-only';
+
+import { fal } from '@/lib/fal-client';
+import { createApiLogger } from '@/lib/api-logger';
+
+/**
+ * Generates an image using Fal.ai's Gemini 2.5 Flash Image model.
+ * @param prompt The text prompt for generation.
+ * @param imageUrl The public URL of the source image.
+ * @param username The user performing the action for authentication.
+ * @returns Promise<{imageUrl: string, description?: string}> The result from FAL.AI
+ */
+export async function generateWithFalEditModel(
+  prompt: string,
+  imageUrl: string, // MUST be a public URL
+  username: string,
+  modelId: 'fal-ai/gemini-25-flash-image/edit' | 'fal-ai/nano-banana-pro/edit',
+  apiKey?: string,
+  options?: { aspectRatio?: string } // NEW: Options argument
+): Promise<{ imageUrl: string; description?: string }> {
+  const logger = createApiLogger('FAL_IMAGE', `Generation (${modelId.split('/')[1]})`, {
+    username,
+    model: modelId,
+  });
+
+  // Construct input with optional aspect ratio
+  const input: any = {
+    prompt: prompt,
+    image_urls: [imageUrl],
+    num_images: 1,
+    output_format: "png",
+  };
+
+  // Only add aspect_ratio if explicitly provided AND model supports it (Nano Banana)
+  if (options?.aspectRatio && modelId.includes('nano-banana-pro')) {
+    input.aspect_ratio = options.aspectRatio;
+  }
+
+  logger.start({
+    promptLength: prompt.length,
+    imageUrl: imageUrl.substring(0, 100),
+    outputFormat: 'png',
+    aspectRatio: input.aspect_ratio, // Log it
+  });
+
+  try {
+    logger.progress('Submitting to Fal.ai queue');
+
+    const keyToUse = apiKey || process.env.FAL_KEY;
+    
+    if (!keyToUse) {
+      throw new Error("No Fal API key available (neither user-specific nor global).");
+    }
+
+    // Use the official client's subscribe method which handles polling robustly
+    const result: any = await fal.subscribe(modelId, {
+      input,
+      logs: true,
+      onQueueUpdate: (update: any) => {
+        if (update.status === 'IN_PROGRESS' && update.logs) {
+          update.logs.forEach((log: any) => logger.progress(`Queue: ${log.message}`));
+        }
+      },
+      // Pass the API key in headers to override any global config (and avoid proxy on server)
+      headers: {
+        'Authorization': `Key ${keyToUse}`,
+      },
+    } as any);
+
+    // Parse response
+    // Expected format from Fal: { images: [{ url: "..." }], description: "..." }
+    // The result object from subscribe contains the data in `data` property
+    const data = result.data;
+
+    if (!data?.images?.[0]?.url) {
+      console.error("Unexpected Fal Response:", JSON.stringify(data, null, 2));
+      throw new Error('Unexpected response format. Expected: { images: [{ url: "..." }] }');
+    }
+
+    const imageUrl_result = data.images[0].url;
+    const description = data.description || undefined;
+
+    logger.success({
+      imageUrl: imageUrl_result,
+      hasDescription: !!description,
+    });
+    
+    return {
+      imageUrl: imageUrl_result,
+      description: description
+    };
+
+  } catch (error) {
+    logger.error(error);
+    throw new Error(`FAL.AI generation failed: ${(error as Error).message}`);
+  }
+}
+
 /**
  * @fileOverview Fal.ai API service for image processing operations
  * 
@@ -12,10 +110,6 @@
  * They do not handle local storage.
  */
 
-import { fal, createFalClient } from '@fal-ai/client';
-import { uploadToFalStorage } from '@/ai/actions/generate-video.action';
-import { getApiKeyForUser } from '../apiKey.service';
-
 // Constants for upscaling and face enhancement
 const UPSCALE_PROMPT = "high quality fashion photography, high-quality clothing, natural, 8k";
 const NEGATIVE_UPSCALE_PROMPT = "low quality, ugly, make-up, fake, deformed";
@@ -27,62 +121,39 @@ const FACE_DETAILER_PROMPT = "photorealistic, detailed natural skin, high qualit
 const NEGATIVE_FACE_DETAILER_PROMPT = "weird, ugly, make-up, cartoon, anime";
 
 /**
- * Helper to convert data URI to Blob
- */
-function dataUriToBlob(dataURI: string): Blob {
-  // Split the data URI
-  const [header, data] = dataURI.split(',');
-  const mimeMatch = header.match(/:(.*?);/);
-  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-  const byteString = atob(data);
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mime });
-}
-
-/**
- * Helper to ensure we have a URL (uploads data URI to Fal Storage if needed)
- */
-async function ensureUrl(imageUrlOrDataUri: string, tempFileName: string, username: string): Promise<string> {
-  if (imageUrlOrDataUri.startsWith('data:')) {
-    console.log(`Data URI detected for ${tempFileName}, uploading to Fal Storage first...`);
-    const blob = dataUriToBlob(imageUrlOrDataUri);
-    const file = new File([blob], tempFileName, { type: blob.type || 'image/jpeg' });
-    const publicUrl = await uploadToFalStorage(file, username);
-    console.log(`Image uploaded to ${publicUrl}. Now processing.`);
-    return publicUrl;
-  }
-  return imageUrlOrDataUri;
-}
-
-/**
  * Generic helper to run a Fal.ai image workflow, handling subscription and response parsing.
+ * 
+ * This function uses the proxied fal client which automatically handles:
+ * - API key authentication via server-side proxy
+ * - Data URI uploads to Fal storage (no manual conversion needed)
+ * - Request queuing and progress tracking
+ * 
  * @param modelId The ID of the Fal.ai model to run.
- * @param input The input object for the model.
+ * @param input The input object for the model. Data URIs are automatically uploaded.
  * @param taskName A descriptive name for the task for logging purposes.
+ * @param username The username (preserved for compatibility, not used for auth).
  * @returns Promise<string> The URL of the processed image from Fal.ai.
  */
 async function runFalImageWorkflow(modelId: string, input: any, taskName: string, username: string): Promise<string> {
+  const logger = createApiLogger('FAL_IMAGE', taskName, {
+    username,
+    endpoint: modelId,
+  });
+
+  logger.start({
+    modelId,
+    inputKeys: Object.keys(input).join(', '),
+  });
+
   try {
-    console.log(`Calling Fal.ai ${modelId} for ${taskName}...`);
+    logger.progress('Submitting to Fal.ai queue');
 
-    const falKey = await getApiKeyForUser(username, 'fal');
-    const scopedFal = createFalClient({ credentials: falKey });
-
-    // Ensure the input image is a public URL
-    if (input.image_url || input.loadimage_1) {
-      const key = input.image_url ? 'image_url' : 'loadimage_1';
-      input[key] = await ensureUrl(input[key], `${taskName.replace(/\s+/g, '-')}-input.jpg`, username);
-    }
-    const result: any = await scopedFal.subscribe(modelId, {
+    const result: any = await fal.subscribe(modelId, {
       input,
       logs: process.env.NODE_ENV === 'development',
       onQueueUpdate: (update: any) => {
         if (update.status === "IN_PROGRESS" && update.logs && process.env.NODE_ENV === 'development') {
-          (update.logs as any[]).forEach((log: any) => console.log(`[Fal.ai Progress - ${taskName}]: ${log.message}`));
+          (update.logs as any[]).forEach((log: any) => logger.progress(`Queue: ${log.message}`));
         }
       },
     });
@@ -103,14 +174,16 @@ async function runFalImageWorkflow(modelId: string, input: any, taskName: string
     }
 
     if (!outputImageUrl) {
-      console.error(`Fal.ai ${taskName} raw result:`, JSON.stringify(result, null, 2));
-      throw new Error(`Fal.ai (${taskName}) did not return a valid image URL.`);
+      throw new Error('Fal.ai did not return a valid image URL');
     }
 
-    console.log(`${taskName} completed successfully.`);
+    logger.success({
+      imageUrl: outputImageUrl,
+    });
+
     return outputImageUrl;
   } catch (error) {
-    console.error(`Error in Fal.ai ${taskName}:`, error);
+    logger.error(error);
     throw new Error(`${taskName} failed: ${(error as Error).message}`);
   }
 }
@@ -159,10 +232,6 @@ export async function detailFaces(imageUrlOrDataUri: string, username: string): 
  * @returns {Promise<boolean>} True if the service is available, otherwise false.
  */
 export async function isServiceAvailable(): Promise<boolean> {
-  // Now, we can only check if the service is potentially available.
-  // A true availability check would require a username to check for keys.
-  // A simple check is to see if any global key is set.
-  const globalKey = (await import('../settings.service')).getSetting('global_fal_api_key');
-  const { decrypt } = await import('../encryption.service');
-  return !!decrypt(globalKey);
+  // Check if FAL_KEY environment variable is set (used by the proxy)
+  return !!process.env.FAL_KEY;
 }

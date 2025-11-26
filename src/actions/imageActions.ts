@@ -1,19 +1,19 @@
 'use server';
 
+import 'server-only';
+
 import { saveFileFromBuffer } from '@/services/storage.service';
 import sharp, { type Region } from 'sharp';
+import type { PixelCrop } from '@/lib/types';
 import path from 'path';
-import fs from 'fs/promises';
 import crypto from 'crypto';
+import mime from 'mime-types';
+import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
+import { getHistoryItem } from './historyActions';
+import { trackUserUpload } from '@/services/database.service';
+import { getCurrentUser } from '@/actions/authActions';
 
 const MAX_DIMENSION = 2048;
-
-interface PixelCrop {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
 
 type PrepareImageResult = {
   success: true;
@@ -41,30 +41,34 @@ export async function prepareInitialImage(formData: FormData): Promise<PrepareIm
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer() as ArrayBuffer);
-    const image = sharp(buffer);
+
+    // Create a sharp instance and apply auto-orientation based on EXIF data.
+    // This normalizes the image before any other processing.
+    const image = sharp(buffer).autoOrient();
+
+    // Get metadata *after* orientation has been applied to get correct dimensions.
     const metadata = await image.metadata();
 
     if (!metadata.width || !metadata.height) {
       return { success: false, error: 'Could not read image metadata.' };
     }
 
-    let finalBuffer = buffer;
+    let processingPipeline = image;
     let resized = false;
 
     if (metadata.width > MAX_DIMENSION || metadata.height > MAX_DIMENSION) {
-      finalBuffer = Buffer.from(await image
+      processingPipeline = processingPipeline
         .resize({
           width: MAX_DIMENSION,
           height: MAX_DIMENSION,
           fit: 'inside',
           withoutEnlargement: true,
-        })
-        .toBuffer());
+        });
       resized = true;
     }
 
-    // Save as PNG instead of lossless WEBP for Next.js Image Optimizer compatibility
-    const outputBuffer = await sharp(finalBuffer).png().toBuffer();
+    // Convert to PNG and get the final buffer from the pipeline
+    const outputBuffer = await processingPipeline.png().toBuffer();
 
     // Use the storage service to save the processed buffer and get a URL
     const { relativeUrl, hash } = await saveFileFromBuffer(
@@ -73,6 +77,18 @@ export async function prepareInitialImage(formData: FormData): Promise<PrepareIm
       'user_uploaded_clothing',
       'png'
     );
+
+    // Track this upload
+    const user = await getCurrentUser();
+    if (user?.username) {
+      // Fire and forget - don't block response if tracking fails
+      try {
+        trackUserUpload(user.username, relativeUrl);
+      } catch (trackError) {
+        console.error('Failed to track user upload:', trackError);
+        // Continue execution - do not fail the upload just because tracking failed
+      }
+    }
 
     return {
       success: true,
@@ -104,10 +120,8 @@ export async function cropImage(
   }
 
   try {
-    // FIX: The imageUrl is already the correct relative path from the project root (e.g., /uploads/...).
-    // We no longer need to add the 'public' directory segment.
-    const imagePath = path.join(process.cwd(), imageUrl);
-    const originalBuffer = await fs.readFile(imagePath);
+    // Use secure file system utility for reading the image
+    const originalBuffer = await getBufferFromLocalPath(imageUrl);
     
     const originalImage = sharp(originalBuffer);
     const metadata = await originalImage.metadata();
@@ -124,7 +138,12 @@ export async function cropImage(
     };
 
     // Ensure crop dimensions are within image bounds
-    if (cropRegion.left + cropRegion.width > metadata.width || cropRegion.top + cropRegion.height > metadata.height) {
+    if (
+      cropRegion.left < 0 ||
+      cropRegion.top < 0 ||
+      cropRegion.left + cropRegion.width > metadata.width ||
+      cropRegion.top + cropRegion.height > metadata.height
+    ) {
       return { success: false, error: 'Crop dimensions are out of bounds.' };
     }
 
@@ -162,29 +181,427 @@ export async function fetchImageAndConvertToDataUri(
   imageUrl: string
 ): Promise<{ success: true; dataUri: string; hash: string } | { success: false; error: string }> {
   try {
+    // If this looks like a server-relative uploads path, read from disk directly.
+    // Supports:
+    //   - /uploads/...
+    //   - /api/images/...
+    const uploadsPrefix = '/uploads/';
+    const apiImagesPrefix = '/api/images/';
+
+    // If it's a local path, use our canonical utility.
+    if (imageUrl.startsWith(uploadsPrefix) || imageUrl.startsWith(apiImagesPrefix)) {
+      // Map /api/images/... -> /uploads/...
+      const uploadsPath = imageUrl.startsWith(apiImagesPrefix)
+        ? imageUrl.replace(new RegExp(`^${apiImagesPrefix}`), uploadsPrefix)
+        : imageUrl;
+      
+      const buffer = await getBufferFromLocalPath(uploadsPath);
+      const contentType = mime.lookup(uploadsPath) || 'application/octet-stream';
+      if (!contentType.startsWith('image/')) {
+        throw new Error('Local file is not an image.');
+      }
+      const dataUri = `data:${contentType};base64,${buffer.toString('base64')}`;
+      const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+      return { success: true, dataUri, hash };
+    }
+
+    // Fallback: remote URL — perform network fetch.
     const response = await fetch(imageUrl, {
-      signal: AbortSignal.timeout(15000), 
+      cache: 'force-cache',
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
       throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
     }
 
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.startsWith('image/')) {
+    const contentType = response.headers.get('content-type') ?? 'application/octet-stream';
+    if (!contentType.startsWith('image/')) {
       throw new Error('Fetched content is not a valid image type.');
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
     const dataUri = `data:${contentType};base64,${buffer.toString('base64')}`;
-
-    const hash = crypto.createHash('sha256').update(imageUrl).digest('hex');
-
+    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
     return { success: true, dataUri, hash };
-
   } catch (error) {
     console.error(`Error fetching image from URL on server: ${imageUrl}`, error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown server error during image fetch.';
     return { success: false, error: errorMessage };
+  }
+}
+
+type RecreateStateResult = {
+  success: true;
+  imageUrl: string;
+  hash: string;
+  originalWidth: number;
+  originalHeight: number;
+} | {
+  success: false;
+  error: string;
+}
+
+export async function recreateStateFromHistoryAction(historyItemId: string): Promise<RecreateStateResult> {
+  // 1. Get the history item securely.
+  //    getHistoryItem already handles user authentication and authorization.
+  const item = await getHistoryItem(historyItemId);
+  if (!item) {
+    return { success: false, error: 'History item not found or you do not have permission.' };
+  }
+
+  // 2. Determine the source image URL from the history item
+  const sourceImageUrl = item.videoGenerationParams?.sourceImageUrl || item.originalClothingUrl;
+  if (!sourceImageUrl) {
+    return { success: false, error: 'No source image found in history item.' };
+  }
+
+  try {
+    // 3. Read the image file directly from the server's filesystem
+    //    This is the key optimization: NO client-side fetch, NO re-upload.
+    const imageBuffer = await getBufferFromLocalPath(sourceImageUrl);
+
+    // 4. Get image metadata using sharp
+    const image = sharp(imageBuffer);
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height) {
+      return { success: false, error: 'Could not read image metadata.' };
+    }
+
+    // 5. Calculate the hash of the existing file
+    const hash = crypto.createHash('sha256').update(imageBuffer).digest('hex');
+
+    // 6. Return the necessary state for the client context
+    //    We return the *existing* image URL, not a new one.
+    return {
+      success: true,
+      imageUrl: sourceImageUrl,
+      hash,
+      originalWidth: metadata.width,
+      originalHeight: metadata.height,
+    };
+  } catch (error) {
+    console.error('Error recreating state from history:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: `Failed to process history image: ${errorMessage}` };
+  }
+}
+
+/**
+ * Rotates an existing image on the server by a specified angle.
+ * @param imageUrl The server-relative URL of the image to rotate.
+ * @param angle The angle of rotation (-90 for left, 90 for right).
+ * @returns An object with the new URL, hash, and dimensions of the rotated image.
+ */
+export async function rotateImage(
+  imageUrl: string,
+  angle: number
+): Promise<PrepareImageResult | { success: false; error: string }> {
+  if (!imageUrl || (angle !== 90 && angle !== -90)) {
+    return { success: false, error: 'Image URL and a valid angle (90 or -90) are required.' };
+  }
+
+  try {
+    // Use secure file system utility for reading the image
+    const originalBuffer = await getBufferFromLocalPath(imageUrl);
+
+    // Perform rotation and convert to a new PNG buffer
+    const rotatedBuffer = await sharp(originalBuffer)
+      .rotate(angle)
+      .png()
+      .toBuffer();
+
+    // Get the new dimensions after rotation
+    const newMetadata = await sharp(rotatedBuffer).metadata();
+    if (!newMetadata.width || !newMetadata.height) {
+      return { success: false, error: 'Could not read metadata of the rotated image.' };
+    }
+
+    // Save the new buffer to a file
+    const { relativeUrl, hash } = await saveFileFromBuffer(
+      rotatedBuffer,
+      'rotated',
+      'processed_images',
+      'png'
+    );
+
+    return {
+      success: true,
+      imageUrl: relativeUrl,
+      hash,
+      // Return the new dimensions so the client context can update its state
+      originalWidth: newMetadata.width,
+      originalHeight: newMetadata.height,
+      resized: false, // This wasn't a resize operation
+    };
+  } catch (error) {
+    console.error('Error rotating image:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: `Failed to rotate image: ${errorMessage}` };
+  }
+}
+
+/**
+ * Flips an existing image on the server horizontally or vertically.
+ * @param imageUrl The server-relative URL of the image to flip.
+ * @param direction The flip direction ('horizontal' or 'vertical').
+ * @returns An object with the new URL, hash, and dimensions of the flipped image.
+ */
+export async function flipImage(
+  imageUrl: string,
+  direction: 'horizontal' | 'vertical'
+): Promise<PrepareImageResult | { success: false; error: string }> {
+  if (!imageUrl || (direction !== 'horizontal' && direction !== 'vertical')) {
+    return { success: false, error: 'Image URL and a valid direction (horizontal or vertical) are required.' };
+  }
+
+  try {
+    // Use secure file system utility for reading the image
+    const originalBuffer = await getBufferFromLocalPath(imageUrl);
+
+    // Create sharp instance
+    let pipeline = sharp(originalBuffer);
+
+    // Apply flip based on direction
+    if (direction === 'horizontal') {
+      pipeline = pipeline.flop(); // Horizontal flip (mirror)
+    } else {
+      pipeline = pipeline.flip(); // Vertical flip (upside down)
+    }
+
+    // Convert to PNG buffer
+    const flippedBuffer = await pipeline.png().toBuffer();
+
+    // Get the dimensions (should be unchanged for flip operations)
+    const newMetadata = await sharp(flippedBuffer).metadata();
+    if (!newMetadata.width || !newMetadata.height) {
+      return { success: false, error: 'Could not read metadata of the flipped image.' };
+    }
+
+    // Save the new buffer to a file
+    const { relativeUrl, hash } = await saveFileFromBuffer(
+      flippedBuffer,
+      `flipped_${direction}`,
+      'processed_images',
+      'png'
+    );
+
+    return {
+      success: true,
+      imageUrl: relativeUrl,
+      hash,
+      originalWidth: newMetadata.width,
+      originalHeight: newMetadata.height,
+      resized: false,
+    };
+  } catch (error) {
+    console.error('Error flipping image:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: `Failed to flip image: ${errorMessage}` };
+  }
+}
+
+/**
+ * Form State type for useActionState hook integration
+ */
+export type ImageGenerationFormState = {
+  message: string;
+  editedImageUrls?: (string | null)[];
+  constructedPrompt?: string;
+  errors?: (string | null)[];
+  newHistoryId?: string;
+};
+
+import { z } from 'zod';
+import { zfd } from 'zod-form-data';
+
+// Define the schema for image generation
+const imageGenerationSchema = zfd.formData({
+  imageDataUriOrUrl: zfd.text(),
+  generationMode: zfd.text(z.enum(['creative', 'studio']).default('creative')),
+  studioFit: zfd.text(z.enum(['slim', 'regular', 'relaxed']).default('regular')),
+  aspectRatio: zfd.text(z.string().optional()), // NEW field
+  settingsMode: zfd.text(z.enum(['basic', 'advanced']).default('basic')),
+  useAIPrompt: zfd.checkbox(),
+  useRandomization: zfd.checkbox(),
+  removeBackground: zfd.checkbox(),
+  upscale: zfd.checkbox(),
+  enhanceFace: zfd.checkbox(),
+  manualPrompt: zfd.text(z.string().optional()),
+  // Creative Mode Parameters
+  gender: zfd.text(z.string().optional()),
+  bodyShapeAndSize: zfd.text(z.string().optional()),
+  ageRange: zfd.text(z.string().optional()),
+  ethnicity: zfd.text(z.string().optional()),
+  poseStyle: zfd.text(z.string().optional()),
+  background: zfd.text(z.string().optional()),
+  fashionStyle: zfd.text(z.string().optional()),
+  hairStyle: zfd.text(z.string().optional()),
+  modelExpression: zfd.text(z.string().optional()),
+  lightingType: zfd.text(z.string().optional()),
+  lightQuality: zfd.text(z.string().optional()),
+  modelAngle: zfd.text(z.string().optional()),
+  lensEffect: zfd.text(z.string().optional()),
+  depthOfField: zfd.text(z.string().optional()),
+  timeOfDay: zfd.text(z.string().optional()),
+  overallMood: zfd.text(z.string().optional()),
+});
+
+/**
+ * Server Action wrapper for image generation compatible with useActionState.
+ * This action extracts parameters from FormData and calls the existing generateImageEdit flow.
+ * @param previousState The previous form state (unused but required by useActionState signature)
+ * @param formData The form data containing all generation parameters
+ * @returns A FormState object with generation results or errors
+ */
+export async function generateImageAction(
+  previousState: ImageGenerationFormState | null,
+  formData: FormData
+): Promise<ImageGenerationFormState> {
+  // Import here to avoid circular dependencies
+  const { generateImageEdit } = await import('@/ai/flows/generate-image-edit');
+  const { getCurrentUser } = await import('./authActions');
+  
+  // Type will be inferred from the imported function
+  type GenerateImageEditInput = Parameters<typeof generateImageEdit>[0];
+  
+  try {
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user || !user.username) {
+      return {
+        message: 'Authentication required',
+        errors: [null, null, null].map(() => 'User not authenticated'),
+      };
+    }
+
+    // Parse and validate form data using Zod
+    const result = imageGenerationSchema.safeParse(formData);
+
+    if (!result.success) {
+      const errorMessage = result.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(', ');
+      return {
+        message: 'Validation failed',
+        errors: [null, null, null].map(() => errorMessage),
+      };
+    }
+
+    const data = result.data;
+
+    // Build the generation input
+    const generationInput: GenerateImageEditInput = {
+      imageDataUriOrUrl: data.imageDataUriOrUrl,
+      generationMode: data.generationMode,
+      studioFit: data.studioFit,
+      aspectRatio: data.aspectRatio, // NEW property passed to flow
+      // Only extract and pass parameters for Creative Mode
+      parameters: data.generationMode === 'creative' ? {
+        gender: data.gender,
+        bodyShapeAndSize: data.bodyShapeAndSize,
+        ageRange: data.ageRange,
+        ethnicity: data.ethnicity,
+        poseStyle: data.poseStyle,
+        background: data.background,
+        fashionStyle: data.fashionStyle,
+        hairStyle: data.hairStyle,
+        modelExpression: data.modelExpression,
+        lightingType: data.lightingType,
+        lightQuality: data.lightQuality,
+        modelAngle: data.modelAngle,
+        lensEffect: data.lensEffect,
+        depthOfField: data.depthOfField,
+        timeOfDay: data.timeOfDay,
+        overallMood: data.overallMood,
+      } : undefined,
+      settingsMode: data.settingsMode,
+      useAIPrompt: data.useAIPrompt,
+      useRandomization: data.useRandomization,
+      removeBackground: data.removeBackground,
+      upscale: data.upscale,
+      enhanceFace: data.enhanceFace,
+      ...(data.manualPrompt && { prompt: data.manualPrompt }),
+    };
+
+    // Call the existing generation flow
+    const genResult = await generateImageEdit(generationInput, user.username);
+
+    // Check for success (Processing started)
+    if (genResult.newHistoryId) {
+      return {
+        message: 'Processing started',
+        editedImageUrls: genResult.editedImageUrls,
+        constructedPrompt: genResult.constructedPrompt,
+        errors: genResult.errors,
+        newHistoryId: genResult.newHistoryId,
+      };
+    }
+
+    // Fallback if no history ID was returned (should not happen with new flow unless error)
+    const successCount = genResult.editedImageUrls.filter(url => url !== null).length;
+    
+    if (successCount === 0) {
+      return {
+        message: 'All generations failed',
+        editedImageUrls: genResult.editedImageUrls,
+        constructedPrompt: genResult.constructedPrompt,
+        errors: genResult.errors || [null, null, null].map(() => 'Generation failed'),
+      };
+    }
+
+    // Return success state (legacy path)
+    return {
+      message: `${successCount} out of 3 images generated successfully`,
+      editedImageUrls: genResult.editedImageUrls,
+      constructedPrompt: genResult.constructedPrompt,
+      errors: genResult.errors,
+      newHistoryId: genResult.newHistoryId,
+    };
+
+  } catch (error) {
+    console.error('Error in generateImageAction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
+    // Return error state (never throw)
+    return {
+      message: 'Generation failed',
+      errors: [errorMessage, errorMessage, errorMessage],
+    };
+  }
+}
+
+/**
+ * Recreate state from an existing image URL (for "Send to Creative Studio" feature)
+ * Takes a server-relative image URL and returns metadata needed to initialize the image preparation workflow
+ * @param imageUrl The server-relative URL of the image (e.g., /uploads/generated_images/...)
+ * @returns Metadata including hash and dimensions
+ */
+export async function recreateStateFromImageUrl(imageUrl: string): Promise<PrepareImageResult> {
+  if (!imageUrl || !imageUrl.startsWith('/uploads/')) {
+    return { success: false, error: 'A valid server image URL is required.' };
+  }
+
+  try {
+    const imageBuffer = await getBufferFromLocalPath(imageUrl);
+
+    const image = sharp(imageBuffer);
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height) {
+      return { success: false, error: 'Could not read image metadata from the provided URL.' };
+    }
+
+    const hash = crypto.createHash('sha256').update(imageBuffer).digest('hex');
+
+    return {
+      success: true,
+      imageUrl, // Return the original URL, as the file already exists
+      hash,
+      originalWidth: metadata.width,
+      originalHeight: metadata.height,
+      resized: false,
+    };
+  } catch (error) {
+    console.error('Error recreating state from image URL:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: `Failed to process the image from URL: ${errorMessage}` };
   }
 }

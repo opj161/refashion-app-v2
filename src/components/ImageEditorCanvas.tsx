@@ -54,6 +54,7 @@ export default function ImageEditorCanvas({
         disabled={disabled}
         ruleOfThirds={ruleOfThirds}
         keepSelection={true}
+        style={{ touchAction: 'none' }}
       >
         <img 
           key={image.id}

@@ -22,12 +22,11 @@ export interface BaseGenerationParams {
   modelExpression?: string;
   lightingType?: string;
   lightQuality?: string;
-  cameraAngle?: string;
+  modelAngle?: string;
   lensEffect?: string;
   depthOfField?: string;
   timeOfDay?: string; // Also used by image if relevant to background
   overallMood?: string; // Image specific mood
-  fabricRendering?: string;
 
   // Video specific (can be optional for image)
   selectedPredefinedPrompt?: string;
@@ -53,9 +52,22 @@ interface BuildAIPromptArgs {
 }
 
 // --- Helper Function ---
+// Optimized option lookup with caching to avoid repeated array searches
+const optionCacheMap = new Map<OptionWithPromptSegment[], Map<string, OptionWithPromptSegment>>();
+
 const getSelectedOption = (options: OptionWithPromptSegment[], value?: string): OptionWithPromptSegment | undefined => {
   if (!value) return undefined;
-  return options.find(opt => opt.value === value);
+  
+  // Check if we have a cache for this options array
+  let cache = optionCacheMap.get(options);
+  if (!cache) {
+    // Build cache for this options array
+    cache = new Map();
+    options.forEach(opt => cache!.set(opt.value, opt));
+    optionCacheMap.set(options, cache);
+  }
+  
+  return cache.get(value);
 };
 
 
@@ -88,7 +100,7 @@ export const ETHNICITY_OPTIONS: OptionWithPromptSegment[] = [
   { 
     value: "ambiguous_multiracial", 
     displayLabel: "Multiracial Heritage", 
-    promptSegment: "with a multiracial or ethnically ambiguous appearance" 
+    promptSegment: "of multiracial ethnicity" 
   },
   { 
     value: "white", 
@@ -98,7 +110,7 @@ export const ETHNICITY_OPTIONS: OptionWithPromptSegment[] = [
   { 
     value: "black", 
     displayLabel: "Black", 
-    promptSegment: "of Black ethnicity, representing the diversity of the African diaspora" 
+    promptSegment: "of Black ethnicity" 
   },
   { 
     value: "east_asian", 
@@ -113,17 +125,17 @@ export const ETHNICITY_OPTIONS: OptionWithPromptSegment[] = [
   { 
     value: "latine", 
     displayLabel: "Latina / Latino / Latine", 
-    promptSegment: "of Latino, Latina, or Latine heritage" 
+    promptSegment: "of Latino ethnicity" 
   },
   { 
     value: "middle_eastern_north_african", 
-    displayLabel: "Middle Eastern & North African", 
-    promptSegment: "with features from the Middle East or North Africa" 
+    displayLabel: "Middle Eastern", 
+    promptSegment: "of Middle Eastern descent" 
   },
   { 
     value: "indigenous", 
     displayLabel: "Indigenous", 
-    promptSegment: "with Indigenous or First Nations features" 
+    promptSegment: "of Indigenous descent" 
   },
 ];
 export const BODY_SHAPE_AND_SIZE_OPTIONS: OptionWithPromptSegment[] = [
@@ -211,75 +223,100 @@ export const POSE_STYLE_OPTIONS: OptionWithPromptSegment[] = [
   {
     value: "natural_relaxed",
     displayLabel: "Natural, Relaxed",
-    promptSegment: "a natural and relaxed standing or seated pose, looking comfortable and at ease",
+    promptSegment: "a natural, relaxed pose",
   },
   {
     value: "candid_in_motion",
     displayLabel: "Candid, In Motion",
-    promptSegment: "captured in a candid, unposed moment, as if walking, turning, or interacting naturally with the environment",
+    promptSegment: "a candid pose capturing natural movement",
   },
   {
     value: "confident_stance",
     displayLabel: "Confident Stance",
-    promptSegment: "a strong, confident stance that conveys self-assurance and empowerment",
+    promptSegment: "a strong, confident stance",
   },
   {
     value: "playful_interactive",
     displayLabel: "Playful, Interactive",
-    promptSegment: "a playful, interactive pose, such as adjusting a sleeve, hand in pocket, or gently touching their hair",
+    promptSegment: "a playful, interactive pose",
   },
   {
     value: "effortless_poise",
     displayLabel: "Effortless Poise",
-    promptSegment: "an effortlessly chic pose, relaxed yet poised, with a natural weight shift (contrapposto)",
+    promptSegment: "an effortlessly chic and poised pose",
   },
   {
     value: "editorial_dramatic",
     displayLabel: "Editorial, Dramatic",
-    promptSegment: "a bold, artistic, and dramatic editorial pose with strong lines and dynamic angles",
+    promptSegment: "a bold, dramatic editorial pose",
   },
 ];
 export const BACKGROUND_OPTIONS: OptionWithPromptSegment[] = [
+  // --- Core & Studio ---
   { value: "default", displayLabel: "Default Background", promptSegment: "" },
-  { 
-    value: "studio_clean_minimalist", 
-    displayLabel: "Studio - Clean & Minimalist", 
-    promptSegment: "a minimalist studio with a clean, seamless background in a solid neutral color" 
+  {
+    value: "studio_white",
+    displayLabel: "Studio - Clean White",
+    promptSegment: "a professional studio with a seamless white background",
   },
-  { 
-    value: "studio_moody_textured", 
-    displayLabel: "Studio - Moody & Textured", 
-    promptSegment: "a studio setting with a moody, subtly textured backdrop like painted canvas or raw plaster, with dramatic lighting" 
+  {
+    value: "studio_colored",
+    displayLabel: "Studio - Colored / Textured",
+    promptSegment: "a modern studio setting with a colored or textured backdrop",
   },
-  { 
-    value: "lush_greenery_wild", 
-    displayLabel: "Lush & Wild Greenery", 
-    promptSegment: "a vibrant, lush natural setting of wild greenery, like an overgrown field, dense foliage, or a forest interior with rich, deep greens" 
+
+  // --- Outdoor - Urban ---
+  {
+    value: "urban_street_day",
+    displayLabel: "Urban - Daytime Street",
+    promptSegment: "a modern city street with interesting architecture",
   },
-  { 
-    value: "sun_drenched_coastline", 
-    displayLabel: "Sun-Drenched Coastline", 
-    promptSegment: "a bright, sun-drenched coastline with a dynamic mix of soft sand, ocean water, and rugged natural rock formations" 
+  {
+    value: "urban_rooftop",
+    displayLabel: "Urban - Rooftop View",
+    promptSegment: "a city rooftop with a panoramic urban skyline view",
   },
-  { 
-    value: "dramatic_natural_landscape", 
-    displayLabel: "Dramatic Natural Landscape", 
-    promptSegment: "a stark and expansive natural landscape with a sense of raw, untamed beauty, like a windswept desert, misty mountains, or open plains" 
+  {
+    value: "urban_industrial",
+    displayLabel: "Urban - Industrial Setting",
+    promptSegment: "a raw industrial space",
   },
-  { 
-    value: "urban_street_authentic", 
-    displayLabel: "Authentic Urban Street", 
-    promptSegment: "an authentic and raw city street scene with interesting textures like graffiti, aged brick, and weathered concrete" 
+
+  // --- Outdoor - Nature ---
+  {
+    value: "nature_beach",
+    displayLabel: "Nature - Sunlit Beach",
+    promptSegment: "a vibrant beach with sand dunes and ocean waves",
   },
-  { 
-    value: "modern_architecture_lines", 
-    displayLabel: "Modern Architecture", 
-    promptSegment: "an outdoor setting featuring the clean lines and bold shapes of modern architecture, with materials like glass, steel, and polished concrete" 
+  {
+    value: "nature_forest",
+    displayLabel: "Nature - Lush Forest",
+    promptSegment: "a lush, dense forest with a path and a rich canopy",
   },
-  { 
-    value: "urban_garden_juxtaposition", 
-    displayLabel: "Urban Garden & Park", 
-    promptSegment: "a setting that juxtaposes vibrant plant life with urban elements, such as a city park, a modern greenhouse, or a rooftop garden" 
+  {
+    value: "nature_field",
+    displayLabel: "Nature - Open Field / Meadow",
+    promptSegment: "an open field or meadow with tall grass and wildflowers",
+  },
+  {
+    value: "nature_desert",
+    displayLabel: "Nature - Dramatic Desert",
+    promptSegment: "a stark desert landscape with dramatic rock formations or sand dunes",
+  },
+  {
+    value: "nature_botanical_garden",
+    displayLabel: "Nature - Botanical Garden",
+    promptSegment: "a lush botanical garden with diverse, exotic plants",
+  },
+    {
+    value: "nature_waterfall",
+    displayLabel: "Nature - Mossy Waterfall",
+    promptSegment: "a scenic waterfall with moss-covered rocks and lush foliage",
+  },
+  {
+    value: "nature_jungle",
+    displayLabel: "Nature - Tropical Jungle",
+    promptSegment: "a dense tropical jungle with large leaves and hanging vines",
   },
 ];
 export const TIME_OF_DAY_OPTIONS: OptionWithPromptSegment[] = [
@@ -323,16 +360,7 @@ export const LIGHT_QUALITY_OPTIONS: OptionWithPromptSegment[] = [
   { value: "glowing_radiant_luminous", displayLabel: "Glowing, Radiant, Luminous", promptSegment: "The light appears glowing, radiant, or luminous, perhaps with a slight bloom effect." },
 ];
 export const CAMERA_ANGLE_OPTIONS: OptionWithPromptSegment[] = [
-  { value: "default", displayLabel: "Default (Eye-Level)", promptSegment: "an eye-level shot" },
-  { value: "low_angle_emphasize_height", displayLabel: "Low-Angle (Emphasize Height)", promptSegment: "a low-angle shot, making the subject appear powerful and tall" },
-  { value: "high_angle_overview_diminish", displayLabel: "High-Angle (Overview/Diminish)", promptSegment: "a high-angle shot, offering an overview or making the subject seem smaller or more vulnerable" },
-  { value: "dutch_angle_dynamic_unease", displayLabel: "Dutch Angle (Dynamic/Unease)", promptSegment: "a Dutch angle (canted frame), creating a sense of dynamism, tension, or unease" },
-  { value: "profile_view_side", displayLabel: "Profile View (Side)", promptSegment: "a profile view, showing the subject from the side" },
-  { value: "three_quarter_view_classic_portrait", displayLabel: "Three-Quarter View (Classic Portrait)", promptSegment: "a three-quarter view, a classic angle for portraits showing some depth" },
-  { value: "full_body_shot_entire_outfit", displayLabel: "Full Body Shot (Entire Outfit)", promptSegment: "a full body shot, showcasing the entire outfit from head to toe" },
-  { value: "medium_shot_waist_up_focus", displayLabel: "Medium Shot (Waist Up)", promptSegment: "a medium shot, typically from the waist up, balancing subject and some context" },
-  { value: "close_up_facial_expression_details", displayLabel: "Close-Up (Facial Expression/Details)", promptSegment: "a close-up, focusing on facial expression or specific garment details" },
-  { value: "extreme_close_up_texture_jewelry", displayLabel: "Extreme Close-Up (Texture/Jewelry)", promptSegment: "an extreme close-up, highlighting fabric texture, intricate details, or small accessories like jewelry" },
+  // This is deprecated and will be replaced by MODEL_ANGLE_OPTIONS
 ];
 export const LENS_EFFECT_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default (Standard Perspective)", promptSegment: "Photographed with a standard lens perspective, offering a natural field of view." },
@@ -348,28 +376,20 @@ export const DEPTH_OF_FIELD_OPTIONS: OptionWithPromptSegment[] = [
   { value: "deep_dof_all_sharp_f16_style", displayLabel: "Deep DoF (All Sharp, f/16 Style)", promptSegment: "Employing a deep depth of field (simulating an f/16 aperture) where both the subject and the background are in sharp focus, ideal for detailed environmental shots." },
   { value: "moderate_dof_subject_context_f5_6_style", displayLabel: "Moderate DoF (Subject & Context, f/5.6 Style)", promptSegment: "Using a moderate depth of field (simulating an f/5.6 aperture) to keep the subject sharp while retaining some recognizable detail in the background context." },
 ];
-export const FABRIC_RENDERING_OPTIONS: OptionWithPromptSegment[] = [
-  { value: "default", displayLabel: "Default Rendering", promptSegment: "The fabric of the clothing item should be rendered with realistic texture, drape, and interaction with light." },
-  { value: "lustrous_sheen_silk_satin_highlight", displayLabel: "Lustrous Sheen (Silks/Satins)", promptSegment: "Render the fabric with a lustrous sheen, characteristic of silk or satin, effectively catching and reflecting light to show its smooth, luxurious surface." },
-  { value: "matte_textured_wool_tweed_weave", displayLabel: "Matte & Textured (Wools/Tweeds)", promptSegment: "Emphasize a matte finish and intricate fabric textures, clearly showing the weave or knit pattern of materials like wool, tweed, or heavy cotton." },
-  { value: "flowing_ethereal_chiffon_organza_movement", displayLabel: "Flowing & Ethereal (Chiffon/Organza)", promptSegment: "Capture the flowing, ethereal quality of lightweight or sheer fabrics like chiffon or organza, showing graceful movement, folds, and translucency where appropriate." },
-  { value: "crisp_structured_cotton_poplin_neoprene_form", displayLabel: "Crisp & Structured (Poplin/Neoprene)", promptSegment: "Highlight the crisp lines, sharp folds, and structured form of fabrics like cotton poplin, stiff linen, or neoprene." },
-  { value: "soft_cozy_knitwear_cashmere_texture", displayLabel: "Soft & Cozy (Knitwear/Cashmere)", promptSegment: "Convey the soft, cozy, and tactile texture of knitwear, such as cashmere or chunky wool, with visible knit patterns and a comfortable drape." },
-  { value: "rugged_denim_leather_aged_detail", displayLabel: "Rugged & Worn (Denim/Leather)", promptSegment: "Showcase a rugged, perhaps slightly worn or aged texture, suitable for denim (showing twill lines, fades) or leather (showing grain, subtle creases, polished or matte finish)." },
+export const MODEL_ANGLE_OPTIONS: OptionWithPromptSegment[] = [
+  { value: "front_facing", displayLabel: "Default (Front-Facing)", promptSegment: "" },
+  { value: "slight_oblique", displayLabel: "Slight Angle (Oblique)", promptSegment: ", photographed from a slight oblique angle" },
+  { value: "three_quarter", displayLabel: "Three-Quarter View", promptSegment: ", photographed from a three-quarter angle" },
+  { value: "profile", displayLabel: "Profile View (Side Shot)", promptSegment: ", photographed in profile" },
 ];
-
 // For Video Generation
-export const PREDEFINED_PROMPTS: OptionWithPromptSegment[] = [ // Adjusted to OptionWithPromptSegment for consistency
-  { value: 'custom', displayLabel: 'Custom (Build your own)', promptSegment: '' }, // promptSegment is effectively the promptText here
-  { value: '360_turn', displayLabel: '360° Turn', promptSegment: 'The model executes a single, slow 360-degree turn on the spot, while the camera remains completely static.' },
-  { value: 'walks_toward_camera_pullback', displayLabel: 'Walks Toward You (Camera Pulls Back)', promptSegment: 'The model takes two slow, deliberate steps directly toward the camera, as the camera performs a smooth, subtle pull-back.' },
-  { value: 'slow_zoom_in_detail', displayLabel: 'Slow Zoom In for Detail', promptSegment: 'The model slowly shifts her weight from one foot to the other in a subtle, continuous motion, as the camera performs a slow, graceful push-in.'},
+export const PREDEFINED_PROMPTS: OptionWithPromptSegment[] = [
+  { value: 'walks_toward_camera_pullback', displayLabel: 'Walks Toward', promptSegment: 'The model takes two slow, deliberate steps directly toward the camera, as the camera performs a smooth, subtle pull-back.' },
+  { value: 'walks_away_from_camera', displayLabel: 'Walks Away', promptSegment: 'The model begins walking in a slow, continuous motion on a diagonal path away from the camera. The camera remains completely static, letting her recede into the scene.'},
+  { value: 'step_sideways_camera_follows', displayLabel: 'Side Step', promptSegment: 'The model takes one single, deliberate step to the side, and the camera performs a smooth, slight pan to follow her, keeping her centered in the frame.'},
   { value: 'turn_to_profile', displayLabel: 'Turn to Profile', promptSegment: 'The model gracefully turns her body 90 degrees to the side, holding the final pose. The camera remains static throughout the movement.'},
-  { value: 'step_sideways_camera_follows', displayLabel: 'Step Sideways (Camera Follows)', promptSegment: 'The model takes one single, deliberate step to the side, and the camera performs a smooth, slight pan to follow her, keeping her centered in the frame.'},
-  { value: 'walks_away_from_camera', displayLabel: 'Walks Away from Camera', promptSegment: 'The model begins walking in a slow, continuous motion on a diagonal path away from the camera. The camera remains completely static, letting her recede into the scene.'},
-  { value: 'slow_zoom_out_reveal', displayLabel: 'Slow Zoom Out to Reveal Scene', promptSegment: 'The model stands perfectly still, holding her pose, as the camera executes a slow, continuous pull-back, revealing more of the surrounding environment.'},
-  { value: '180_turn_camera_follows', displayLabel: '180° Turn (Camera Follows)', promptSegment: 'The model performs a slow, fluid half-turn (180 degrees), as the camera pans smoothly to follow her movement, keeping her upper body centered in the frame.'},
-  { value: 'walks_toward_camera_still', displayLabel: 'Walks Toward You (Camera is Still)', promptSegment: 'The model walks powerfully and directly forward for three steps. The camera remains static, emphasizing her determined approach.'},
+  { value: '180_turn_camera_follows', displayLabel: '180° Turn', promptSegment: 'The model performs a slow, fluid half-turn (180 degrees)'},
+  { value: 'slow_zoom_in_detail', displayLabel: 'Zoom In', promptSegment: 'The model slowly shifts her weight from one foot to the other in a subtle, continuous motion, as the camera performs a slow, graceful push-in.'},
 ];
 export const MODEL_MOVEMENT_OPTIONS: OptionWithPromptSegment[] = [
   { value: 'effortless_poise', displayLabel: 'Effortless Poise', promptSegment: 'settles into a composed, graceful pose with minimal movement' },
@@ -425,7 +445,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
     const {
         gender, bodyShapeAndSize, ageRange, ethnicity, poseStyle, background,
         fashionStyle, hairStyle, modelExpression, lightingType, lightQuality,
-        cameraAngle, lensEffect, depthOfField, timeOfDay, overallMood, fabricRendering,
+        modelAngle, lensEffect, depthOfField, timeOfDay, overallMood,
         settingsMode
     } = params;
 
@@ -452,7 +472,12 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
         modelDescriptionPart += ` standing in ${poseStyleOption.promptSegment}`;
       }
 
-      modelDescriptionPart += " wearing this clothing item in the image.";
+      const modelAngleOption = getSelectedOption(MODEL_ANGLE_OPTIONS, modelAngle);
+      if (modelAngleOption && modelAngleOption.value !== "front_facing" && modelAngleOption.promptSegment) {
+        modelDescriptionPart += `${modelAngleOption.promptSegment}`;
+      }
+
+      modelDescriptionPart += ", wearing this clothing item in the image.";
 
       let settingPart = "";
       const backgroundOption = getSelectedOption(BACKGROUND_OPTIONS, background);
@@ -546,7 +571,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
           if (opt && opt.value !== "default" && opt.promptSegment) shotDetailSegments.push(opt.promptSegment);
         };
 
-        addShotDetail(CAMERA_ANGLE_OPTIONS, cameraAngle);
+        addShotDetail(MODEL_ANGLE_OPTIONS, modelAngle);
         addShotDetail(LENS_EFFECT_OPTIONS, lensEffect);
         addShotDetail(DEPTH_OF_FIELD_OPTIONS, depthOfField);
 
@@ -554,7 +579,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
           prompt += `\n\nShot Details: ${shotDetailSegments.join('. ')}.`;
         } else {
           if (params.fashionStyle === "ecommerce_product") {
-            prompt += `\n\nShot Details: ${getSelectedOption(CAMERA_ANGLE_OPTIONS, "full_body_shot_entire_outfit")!.promptSegment}. ${getSelectedOption(LENS_EFFECT_OPTIONS, "default")!.promptSegment}.`;
+            prompt += `\n\nShot Details: a full body shot. ${getSelectedOption(LENS_EFFECT_OPTIONS, "default")!.promptSegment}.`;
           }
         }
 
@@ -565,15 +590,6 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
         const moodOpt = getSelectedOption(OVERALL_MOOD_OPTIONS, overallMood);
         if (moodOpt && moodOpt.value !== "default" && moodOpt.promptSegment) {
           prompt += `\n\nOverall Mood & Atmosphere: ${moodOpt.promptSegment}.`;
-        }
-
-        const fabricOpt = getSelectedOption(FABRIC_RENDERING_OPTIONS, fabricRendering);
-        if (fabricOpt && fabricOpt.value !== "default" && fabricOpt.promptSegment) {
-          prompt += `\n\nFabric Rendering Specifics: ${fabricOpt.promptSegment}.`;
-        } else if (params.fashionStyle === "ecommerce_product") {
-          prompt += `\n\nFabric Rendering Specifics: ${getSelectedOption(FABRIC_RENDERING_OPTIONS, "default")!.promptSegment} Emphasize true-to-life texture and how the fabric drapes on the model.`;
-        } else {
-          prompt += `\n\nFabric Rendering Specifics: ${getSelectedOption(FABRIC_RENDERING_OPTIONS, "default")!.promptSegment}`;
         }
 
         let finalQualityStatement = "The final image must be photorealistic, highly detailed, with impeccable exposure and color accuracy. Ensure the clothing fits the model perfectly and is the clear visual focus of the image. Avoid common AI artifacts, especially in hands and facial features, aiming for natural human anatomy.";

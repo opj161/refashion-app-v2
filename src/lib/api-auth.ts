@@ -1,4 +1,6 @@
 // src/lib/api-auth.ts
+import 'server-only';
+
 import { NextRequest } from 'next/server';
 import { findUserByApiKey } from '@/services/database.service';
 import type { SessionUser } from '@/lib/types';
@@ -8,7 +10,7 @@ export async function authenticateApiRequest(request: NextRequest): Promise<Sess
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
-  const apiKey = authHeader.substring(7);
+  const apiKey = authHeader.slice(7);
   if (!apiKey) {
     return null;
   }

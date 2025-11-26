@@ -85,7 +85,7 @@ export function ThemeToggleImproved({ variant = 'button', showLabel = true }: Th
         className="h-8 w-8 transition-all duration-200 hover:bg-accent/50"
         title={`Current: ${getThemeLabel()}${theme === 'system' ? ` (${effectiveTheme})` : ''}`}
       >
-        <span className="transition-transform duration-200 hover:scale-110">
+        <span className="transition-transform duration-200 hover:scale-105">
           {getIcon()}
         </span>
       </Button>
@@ -143,7 +143,7 @@ export function ThemeToggleImproved({ variant = 'button', showLabel = true }: Th
             showLabel ? "h-8 gap-2" : "h-8 w-8 p-0"
           )}
         >
-          <span className="transition-transform duration-200 group-hover:scale-110">
+          <span className="transition-transform duration-200 group-hover:scale-105">
             {getIcon()}
           </span>
           {showLabel && (

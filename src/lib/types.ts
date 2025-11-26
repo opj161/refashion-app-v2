@@ -18,6 +18,7 @@ export interface HistoryItem {
   originalImageUrls?: (string | null)[]; // Store pre-face-detailed versions for comparison
   username: string;
   settingsMode?: 'basic' | 'advanced';
+  generation_mode?: 'creative' | 'studio';
   generatedVideoUrls?: (string | null)[];
   videoGenerationParams?: {
     prompt: string;
@@ -38,6 +39,7 @@ export interface HistoryItem {
   status?: 'processing' | 'completed' | 'failed';
   error?: string;
   webhookUrl?: string;
+  imageGenerationModel?: 'fal_nano_banana_pro' | 'fal_gemini_2_5';
 }
 
 export interface ModelAttributes {
@@ -52,10 +54,19 @@ export interface ModelAttributes {
   modelExpression: string;
   lightingType: string;
   lightQuality: string;
-  cameraAngle: string;
+  modelAngle: string;
   lensEffect: string;
   depthOfField: string;
   timeOfDay: string;
   overallMood: string;
-  fabricRendering: string;
+  // Studio Mode Attributes
+  studioFit?: string;
+  aspectRatio?: string;
+}
+
+export interface PixelCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }

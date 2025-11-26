@@ -1,7 +1,10 @@
+import 'server-only';
+
+import { cache } from 'react';
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import { encrypt } from './encryption.service';
+
 import type { HistoryItem, ModelAttributes, SessionUser } from '@/lib/types';
 
 // Video status payload type for efficient polling
@@ -18,8 +21,16 @@ const DB_PATH = path.join(DB_DIR, 'history.db');
 
 let db: Database.Database;
 
+
+
 // Singleton pattern to ensure only one DB connection
+const globalForDb = global as unknown as { db: Database.Database };
+
 export function getDb(): Database.Database {
+  if (globalForDb.db) {
+    return globalForDb.db;
+  }
+
   if (db) {
     return db;
   }
@@ -27,116 +38,28 @@ export function getDb(): Database.Database {
   // Ensure directory exists
   fs.mkdirSync(DB_DIR, { recursive: true });
 
-  db = new Database(DB_PATH, { verbose: process.env.NODE_ENV === 'development' ? console.log : undefined });
+  const newDb = new Database(DB_PATH, { verbose: process.env.NODE_ENV === 'development' ? console.log : undefined });
   console.log('SQLite database connected at', DB_PATH);
   
   // Enable Write-Ahead Logging for better concurrency
-  db.pragma('journal_mode = WAL');
-  db.pragma('synchronous = NORMAL');
-  db.pragma('foreign_keys = ON');
+  newDb.pragma('journal_mode = WAL');
+  newDb.pragma('synchronous = NORMAL');
+  newDb.pragma('foreign_keys = ON');
 
-  // Initialize schema on first connect
-  initSchema(db);
-
-  return db;
-}
-
-// Load environment variables into database settings if they exist and database values are empty
-function initializeApiKeysFromEnv(db: Database.Database) {
-  const envKeys = [
-    { env: 'GEMINI_API_KEY_1', db: 'global_gemini_api_key_1' },
-    { env: 'GEMINI_API_KEY_2', db: 'global_gemini_api_key_2' }, 
-    { env: 'GEMINI_API_KEY_3', db: 'global_gemini_api_key_3' },
-    { env: 'FAL_KEY', db: 'global_fal_api_key' }
-  ];
-
-  for (const { env, db: dbKey } of envKeys) {
-    const envValue = process.env[env];
-    if (envValue) {
-      // Check if database value is empty
-      const stmt = db.prepare('SELECT value FROM settings WHERE key = ?');
-      const result = stmt.get(dbKey) as { value: string } | undefined;
-      
-      if (!result?.value) {
-        // Encrypt and store the environment variable value
-        const encryptedValue = encrypt(envValue);
-        const updateStmt = db.prepare('UPDATE settings SET value = ? WHERE key = ?');
-        updateStmt.run(encryptedValue, dbKey);
-        console.log(`Initialized ${dbKey} from environment variable ${env}`);
-      }
-    }
+  if (process.env.NODE_ENV !== 'production') {
+    globalForDb.db = newDb;
+  } else {
+    db = newDb;
   }
+
+  return newDb;
 }
 
-function initSchema(db: Database.Database) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS history (
-      id TEXT PRIMARY KEY,
-      username TEXT NOT NULL,
-      timestamp INTEGER NOT NULL,
-      constructedPrompt TEXT,
-      originalClothingUrl TEXT,
-      settingsMode TEXT,
-      attributes TEXT,
-      videoGenerationParams TEXT,
-      webhook_url TEXT,
-      status TEXT DEFAULT 'completed', -- ADDED
-      error TEXT -- ADDED
-    );
 
-    CREATE TABLE IF NOT EXISTS users (
-      username TEXT PRIMARY KEY,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin', 'user')),
-      gemini_api_key_1 TEXT,
-      gemini_api_key_1_mode TEXT NOT NULL DEFAULT 'global' CHECK (gemini_api_key_1_mode IN ('global', 'user_specific')),
-      gemini_api_key_2 TEXT,
-      gemini_api_key_2_mode TEXT NOT NULL DEFAULT 'global' CHECK (gemini_api_key_2_mode IN ('global', 'user_specific')),
-      gemini_api_key_3 TEXT,
-      gemini_api_key_3_mode TEXT NOT NULL DEFAULT 'global' CHECK (gemini_api_key_3_mode IN ('global', 'user_specific')),
-      fal_api_key TEXT,
-      fal_api_key_mode TEXT NOT NULL DEFAULT 'global' CHECK (fal_api_key_mode IN ('global', 'user_specific'))
-    );
-    
-    CREATE TABLE IF NOT EXISTS history_images (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      history_id TEXT NOT NULL,
-      url TEXT NOT NULL,
-      type TEXT NOT NULL CHECK (type IN ('edited', 'original_for_comparison', 'generated_video')),
-      slot_index INTEGER NOT NULL,
-      FOREIGN KEY (history_id) REFERENCES history (id) ON DELETE CASCADE
-    );
-    
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
 
-    CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history (username, timestamp DESC);
-    CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images (history_id);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username);
-  `);
 
-  // Insert default values for feature flags if they don't exist
-  db.exec(`
-    INSERT OR IGNORE INTO settings (key, value) VALUES 
-      ('feature_video_generation', 'true'),
-      ('feature_background_removal', 'true'),
-      ('feature_image_upscaling', 'true'),
-      ('feature_face_detailer', 'true'),
-      ('global_gemini_api_key_1', ''),
-      ('global_gemini_api_key_2', ''),
-      ('global_gemini_api_key_3', ''),
-      ('global_fal_api_key', '')
-  `);
 
-  // Load environment variables into database settings if they exist and database values are empty
-  initializeApiKeysFromEnv(db);
-  console.log('Database schema initialized.');
-}
-
-// Database operations
-export interface PaginationOptions {
+interface PaginationOptions {
   username: string;
   page: number;
   limit: number;
@@ -162,6 +85,8 @@ let preparedStatements: {
   findHistoryPaginated?: Database.Statement;
   findHistoryPaginatedWithVideoFilter?: Database.Statement;
   findHistoryPaginatedWithImageFilter?: Database.Statement;
+  findRecentUploads?: Database.Statement;
+  trackUpload?: Database.Statement;
 } = {};
 
 function getPreparedStatements() {
@@ -169,10 +94,10 @@ function getPreparedStatements() {
     const db = getDb();
     
     // Removed stray SQL code
-    preparedStatements.insertHistory = db.prepare(`
+  preparedStatements.insertHistory = db.prepare( `
       INSERT OR REPLACE INTO history 
-      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error, webhook_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error, webhook_url, image_generation_model, generation_mode)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     preparedStatements.insertImage = db.prepare(`
@@ -246,36 +171,50 @@ function getPreparedStatements() {
       ORDER BY h.timestamp DESC
       LIMIT ? OFFSET ?
     `);
+
+    preparedStatements.findRecentUploads = db.prepare(`
+      SELECT file_url as originalClothingUrl
+      FROM user_uploads 
+      WHERE username = ? 
+        AND file_url LIKE '/uploads/%'
+      ORDER BY timestamp DESC 
+      LIMIT 12
+    `);
+
+    preparedStatements.trackUpload = db.prepare(`
+      INSERT OR REPLACE INTO user_uploads (username, file_url, timestamp)
+      VALUES (?, ?, ?)
+    `);
   }
   
   return preparedStatements;
 }
 
+// Helper function to safely parse JSON with minimal overhead
+function safeJsonParse<T>(jsonString: string | null | undefined, fallback: T): T {
+  if (!jsonString) return fallback;
+  try {
+    return JSON.parse(jsonString);
+  } catch {
+    return fallback;
+  }
+}
+
 export function rowToHistoryItem(row: any): HistoryItem { // Export for use in actions
   // Do NOT filter(Boolean) -- preserve nulls for correct slot mapping
-  let editedImageUrls: any[] = [];
-  let originalImageUrls: any[] | undefined = undefined;
-  let generatedVideoUrls: any[] | undefined = undefined;
-  let attributes: ModelAttributes = {} as ModelAttributes;
-  let videoGenerationParams: any = undefined;
+  // Optimized: Use single helper function instead of multiple try-catch blocks
+  const editedImageUrls = safeJsonParse<any[]>(row.edited_images, []);
+  const originalImageUrls = safeJsonParse<any[] | undefined>(row.original_images, undefined);
+  const generatedVideoUrls = safeJsonParse<any[] | undefined>(row.video_urls, undefined);
+  const attributes = safeJsonParse<ModelAttributes>(row.attributes, {} as ModelAttributes);
+  const videoGenerationParams = safeJsonParse<any>(row.videoGenerationParams, undefined);
 
-  try {
-    editedImageUrls = row.edited_images ? JSON.parse(row.edited_images) : [];
-  } catch (e) { editedImageUrls = []; }
-  try {
-    originalImageUrls = row.original_images ? JSON.parse(row.original_images) : undefined;
-  } catch (e) { originalImageUrls = undefined; }
-  try {
-    generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls) : undefined;
-  } catch (e) { generatedVideoUrls = undefined; }
-  try {
-    attributes = row.attributes ? JSON.parse(row.attributes) : {} as ModelAttributes;
-  } catch (e) { attributes = {} as ModelAttributes; }
-  try {
-    videoGenerationParams = row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined;
-  } catch (e) { videoGenerationParams = undefined; }
+  // Helper to safely cast or fallback legacy models
+  let imageGenerationModel = row.image_generation_model;
+  if (imageGenerationModel === 'google_gemini_2_0') {
+    imageGenerationModel = 'fal_gemini_2_5'; // Fallback for legacy data reading
+  }
 
-  // removed malformed object literal
   return {
     id: row.id,
     username: row.username,
@@ -291,16 +230,18 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
     status: row.status as 'processing' | 'completed' | 'failed',
     error: row.error || undefined,
     webhookUrl: row.webhook_url || undefined,
+    imageGenerationModel: (imageGenerationModel as 'fal_nano_banana_pro' | 'fal_gemini_2_5') || 'fal_gemini_2_5',
+    generation_mode: row.generation_mode as 'creative' | 'studio' || 'creative',
   };
 }
 
-export function insertHistoryItem(item: HistoryItem): void {
+export const insertHistoryItem = (item: HistoryItem): void => {
   const db = getDb();
   const statements = getPreparedStatements();
   
   const insertTransaction = db.transaction(() => {
     // Insert main history record
-    statements.insertHistory!.run(
+  statements.insertHistory?.run(
       item.id,
       item.username,
       item.timestamp,
@@ -311,13 +252,15 @@ export function insertHistoryItem(item: HistoryItem): void {
       item.videoGenerationParams ? JSON.stringify(item.videoGenerationParams) : null,
       item.status || 'completed',
       item.error || null,
-      item.webhookUrl || null
+      item.webhookUrl || null,
+      item.imageGenerationModel || 'fal_gemini_2_5',
+      item.generation_mode || 'creative' // ADD THIS
     );
     
     // Insert edited images
     item.editedImageUrls.forEach((url, index) => {
       if (url) {
-        statements.insertImage!.run(item.id, url, 'edited', index);
+        statements.insertImage?.run(item.id, url, 'edited', index);
       }
     });
     
@@ -325,7 +268,7 @@ export function insertHistoryItem(item: HistoryItem): void {
     if (item.originalImageUrls) {
       item.originalImageUrls.forEach((url, index) => {
         if (url) {
-          statements.insertImage!.run(item.id, url, 'original_for_comparison', index);
+          statements.insertImage?.run(item.id, url, 'original_for_comparison', index);
         }
       });
     }
@@ -334,20 +277,20 @@ export function insertHistoryItem(item: HistoryItem): void {
     if (item.generatedVideoUrls) {
       item.generatedVideoUrls.forEach((url, index) => {
         if (url) {
-          statements.insertImage!.run(item.id, url, 'generated_video', index);
+          statements.insertImage?.run(item.id, url, 'generated_video', index);
         }
       });
     }
   });
   
   insertTransaction();
-}
+};
 
-export function findHistoryItemById(id: string): HistoryItem | null {
+export const findHistoryItemById = cache((id: string): HistoryItem | null => {
   const statements = getPreparedStatements();
-  const row = statements.findHistoryById!.get(id);
+  const row = statements.findHistoryById?.get(id);
   return row ? rowToHistoryItem(row) : null;
-}
+});
 
 /**
  * Atomically updates a history item and its related images/videos.
@@ -355,7 +298,7 @@ export function findHistoryItemById(id: string): HistoryItem | null {
  * @param id The ID of the history item to update.
  * @param updates A partial HistoryItem object. For arrays, you can provide the full array to replace it.
  */
-export function updateHistoryItem(id: string, updates: Partial<HistoryItem>): void {
+export const updateHistoryItem = (id: string, updates: Partial<HistoryItem>): void => {
   const db = getDb();
 
   const updateTransaction = db.transaction(() => {
@@ -409,70 +352,35 @@ export function updateHistoryItem(id: string, updates: Partial<HistoryItem>): vo
   });
 
   updateTransaction();
-}
+};
 
 /**
- * @deprecated Use the new atomic `updateHistoryItem` function instead. This function is not safe from race conditions for complex updates.
+ * Atomically updates a single image slot for a history item.
+ * Uses the normalized history_images table to avoid race conditions.
  */
-export function _dangerouslyUpdateHistoryItem(
-  id: string,
-  updates: Partial<Pick<HistoryItem, 'editedImageUrls' | 'originalImageUrls' | 'constructedPrompt' | 'generatedVideoUrls' | 'videoGenerationParams'>>
-): void {
-  // NOTE: updateHistoryItem is subject to race conditions if called concurrently for the same id.
-  // For robust webhook handling, consider using an atomic SQL UPDATE with JSON patch/merge logic.
+export const updateHistoryImageSlot = (historyId: string, slotIndex: number, url: string): void => {
   const db = getDb();
-  const statements = getPreparedStatements();
-  
-  const updateTransaction = db.transaction(() => {
-    // Update main record
-    statements.updateHistory!.run(
-      updates.constructedPrompt || null,
-      updates.videoGenerationParams ? JSON.stringify(updates.videoGenerationParams) : null,
-      id
-    );
-    
-    // If updating images/videos, delete existing and re-insert
-    if (updates.editedImageUrls || updates.originalImageUrls || updates.generatedVideoUrls) {
-      statements.deleteImagesByHistoryId!.run(id);
-      
-      if (updates.editedImageUrls) {
-        updates.editedImageUrls.forEach((url, index) => {
-          if (url) {
-            statements.insertImage!.run(id, url, 'edited', index);
-          }
-        });
-      }
-      
-      if (updates.originalImageUrls) {
-        updates.originalImageUrls.forEach((url, index) => {
-          if (url) {
-            statements.insertImage!.run(id, url, 'original_for_comparison', index);
-          }
-        });
-      }
-      
-      if (updates.generatedVideoUrls) {
-        updates.generatedVideoUrls.forEach((url, index) => {
-          if (url) {
-            statements.insertImage!.run(id, url, 'generated_video', index);
-          }
-        });
-      }
-    }
-  });
-  
-  updateTransaction();
-}
+  const stmt = db.prepare(`
+    INSERT OR REPLACE INTO history_images (history_id, url, type, slot_index)
+    VALUES (?, ?, 'edited', ?)
+  `);
+  stmt.run(historyId, url, slotIndex);
+};
 
-export function findHistoryByUsername(username: string): HistoryItem[] {
+
+export const findHistoryByUsername = cache((username: string): HistoryItem[] => {
   const statements = getPreparedStatements();
-  const rows = statements.findHistoryByUsername!.all(username);
+  const rows = statements.findHistoryByUsername?.all(username) as any[];
   return rows.map(rowToHistoryItem);
-}
+});
 
-export function getPaginatedHistoryForUser(options: PaginationOptions): PaginationResult {
+export const getPaginatedHistoryForUser = cache((
+  username: string,
+  page: number,
+  limit: number,
+  filter?: 'video' | 'image'
+): PaginationResult => {
   const statements = getPreparedStatements();
-  const { username, page, limit, filter } = options;
   
   const offset = (page - 1) * limit;
   
@@ -493,7 +401,7 @@ export function getPaginatedHistoryForUser(options: PaginationOptions): Paginati
   const countResult = countQuery.get(username) as { count: number };
   const totalCount = countResult.count;
   
-  const rows = dataQuery.all(username, limit, offset);
+  const rows = dataQuery.all(username, limit, offset) as any[];
   const items = rows.map(rowToHistoryItem);
   
   const hasMore = offset + limit < totalCount;
@@ -504,9 +412,9 @@ export function getPaginatedHistoryForUser(options: PaginationOptions): Paginati
     hasMore,
     currentPage: page
   };
-}
+});
 
-export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10): PaginationResult {
+export const getAllUsersHistoryPaginated = cache((page: number = 1, limit: number = 10): PaginationResult => {
   const db = getDb();
   
   const totalCount = db.prepare('SELECT COUNT(*) as count FROM history').get() as { count: number };
@@ -521,7 +429,7 @@ export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10
     GROUP BY h.id
     ORDER BY h.timestamp DESC
     LIMIT ? OFFSET ?
-  `).all(limit, offset);
+  `).all(limit, offset) as any[];
   
   const items = rows.map(rowToHistoryItem);
   const hasMore = offset + limit < totalCount.count;
@@ -532,13 +440,24 @@ export function getAllUsersHistoryPaginated(page: number = 1, limit: number = 10
     hasMore,
     currentPage: page
   };
+});
+
+// Extended status payload for both video and image polling
+export interface HistoryStatusPayload {
+  status: 'processing' | 'completed' | 'failed' | 'unknown';
+  videoUrl?: string | null;
+  localVideoUrl?: string | null;
+  error?: string;
+  seed?: number;
+  editedImageUrls?: (string | null)[];
 }
 
-export function getHistoryItemStatus(id: string, username: string): VideoStatusPayload | null {
+export const getHistoryItemStatus = cache((id: string, username: string): HistoryStatusPayload | null => {
   const db = getDb();
   const stmt = db.prepare(`
-    SELECT videoGenerationParams, 
-           (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' LIMIT 1) as video_url
+    SELECT h.status, h.error, h.videoGenerationParams,
+           (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' LIMIT 1) as video_url,
+           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images
     FROM history h
     WHERE h.id = ? AND h.username = ?
   `);
@@ -549,37 +468,42 @@ export function getHistoryItemStatus(id: string, username: string): VideoStatusP
     return null; // Item not found or does not belong to the user
   }
   
-  if (!row.videoGenerationParams) {
-    // This is an image-only item or something is wrong
-    return { status: 'unknown' };
+  // Parse edited images
+  const editedImageUrls = safeJsonParse<any[]>(row.edited_images, []);
+
+  // If video params exist, it's a video generation
+  if (row.videoGenerationParams) {
+    const params = safeJsonParse<any>(row.videoGenerationParams, null);
+    if (params) {
+        return {
+            status: params.status || row.status || 'processing',
+            videoUrl: row.video_url || null,
+            localVideoUrl: params.localVideoUrl || null,
+            error: params.error || row.error,
+            seed: params.seed,
+            editedImageUrls,
+        };
+    }
   }
 
-  let params: any = {};
-  try {
-    params = JSON.parse(row.videoGenerationParams);
-  } catch (e) {
-    console.error('Failed to parse videoGenerationParams JSON for history item', id, e);
-    return { status: 'unknown' };
-  }
-
+  // Default to main record status (for image generation)
   return {
-    status: params.status || 'processing', // Default to processing if status not set
-    videoUrl: row.video_url || null, // Remote Fal.ai URL
-    localVideoUrl: params.localVideoUrl || null, // Local URL for downloads
-    error: params.error,
-    seed: params.seed,
+    status: row.status as 'processing' | 'completed' | 'failed',
+    error: row.error,
+    editedImageUrls,
   };
-}
+});
 
-type FullUser = SessionUser & {
+export type FullUser = SessionUser & {
   passwordHash: string;
   gemini_api_key_1?: string; gemini_api_key_1_mode: 'global' | 'user_specific';
   gemini_api_key_2?: string; gemini_api_key_2_mode: 'global' | 'user_specific';
   gemini_api_key_3?: string; gemini_api_key_3_mode: 'global' | 'user_specific';
   fal_api_key?: string; fal_api_key_mode: 'global' | 'user_specific';
+  image_generation_model: 'fal_nano_banana_pro' | 'fal_gemini_2_5';
 };
 
-export function findUserByUsername(username: string): FullUser | null {
+export const findUserByUsername = cache((username: string): FullUser | null => {
   const db = getDb();
   const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
   const row: any = stmt.get(username);
@@ -599,11 +523,12 @@ export function findUserByUsername(username: string): FullUser | null {
     gemini_api_key_3: row.gemini_api_key_3,
     gemini_api_key_3_mode: row.gemini_api_key_3_mode,
     fal_api_key: row.fal_api_key,
-    fal_api_key_mode: row.fal_api_key_mode
+    fal_api_key_mode: row.fal_api_key_mode,
+    image_generation_model: row.image_generation_model === 'google_gemini_2_0' ? 'fal_gemini_2_5' : row.image_generation_model,
   };
-}
+});
 
-export function findUserByApiKey(apiKey: string): FullUser | null {
+export const findUserByApiKey = cache((apiKey: string): FullUser | null => {
   const db = getDb();
   const stmt = db.prepare('SELECT * FROM users WHERE app_api_key = ?');
   const row: any = stmt.get(apiKey);
@@ -623,9 +548,10 @@ export function findUserByApiKey(apiKey: string): FullUser | null {
     gemini_api_key_3: row.gemini_api_key_3,
     gemini_api_key_3_mode: row.gemini_api_key_3_mode,
     fal_api_key: row.fal_api_key,
-    fal_api_key_mode: row.fal_api_key_mode
+    fal_api_key_mode: row.fal_api_key_mode,
+    image_generation_model: row.image_generation_model === 'google_gemini_2_0' ? 'fal_gemini_2_5' : row.image_generation_model,
   };
-}
+});
 
 // Cleanup function for graceful shutdown
 export function closeDb(): void {
@@ -639,5 +565,19 @@ process.on('exit', closeDb);
 process.on('SIGINT', closeDb);
 process.on('SIGTERM', closeDb);
 
-// TODO: For standalone video history items, ensure the source image is not placed in editedImageUrls.
-// Instead, store it in a dedicated field or originalImageUrls. See addStandaloneVideoHistoryItem in actions.
+/**
+ * Retrieves the most recent unique source images uploaded by a specific user.
+ */
+export const getRecentUploadsForUser = cache((username: string): string[] => {
+  const statements = getPreparedStatements();
+  const rows = statements.findRecentUploads?.all(username) as { originalClothingUrl: string }[];
+  return rows.map(row => row.originalClothingUrl);
+});
+
+export const trackUserUpload = (username: string, fileUrl: string) => {
+  const stmt = getPreparedStatements().trackUpload;
+  stmt?.run(username, fileUrl, Date.now());
+};
+
+
+

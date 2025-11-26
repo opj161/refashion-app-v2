@@ -1,5 +1,7 @@
 'use server';
 
+import 'server-only';
+
 /**
  * @fileOverview Fal.ai API service for video processing operations
  * 
@@ -10,9 +12,9 @@
  * They do not handle local storage or history management.
  */
 
-import { fal } from '@fal-ai/client';
-import { getApiKeyForUser } from '../apiKey.service';
+import { fal } from '@/lib/fal-client';
 import { getSetting, getBooleanSetting } from '../settings.service';
+import { createApiLogger } from '@/lib/api-logger';
 
 export interface VideoGenerationInput {
   prompt: string;
@@ -116,37 +118,50 @@ export async function getVideoGenerationResult(taskId: string): Promise<VideoGen
  * @returns Promise<string> The request ID for the submitted job
  */
 export async function startVideoGenerationWithWebhook(input: VideoGenerationInput, webhookUrl: string, username: string): Promise<string> {
+  const logger = createApiLogger('FAL_VIDEO', 'Video Generation (Webhook)', {
+    username,
+    model: input.videoModel === 'pro' ? 'seedance-pro' : 'seedance-lite',
+  });
+
+  const modelId = input.videoModel === 'pro'
+    ? 'fal-ai/bytedance/seedance/v1/pro/image-to-video'
+    : 'fal-ai/bytedance/seedance/v1/lite/image-to-video';
+    
+  const falInput: any = {
+    prompt: input.prompt,
+    image_url: input.image_url,
+  };
+  if (input.resolution) falInput.resolution = input.resolution;
+  if (input.duration) falInput.duration = input.duration;
+  if (typeof input.camera_fixed === 'boolean') falInput.camera_fixed = input.camera_fixed;
+  if (typeof input.seed === 'number' && input.seed !== undefined) falInput.seed = input.seed;
+  if (input.end_image_url) falInput.end_image_url = input.end_image_url;
+
+  logger.start({
+    modelId,
+    promptLength: input.prompt.length,
+    imageUrl: input.image_url.substring(0, 100),
+    resolution: input.resolution || '480p',
+    duration: input.duration || '5',
+    webhookUrl: webhookUrl.substring(0, 100),
+  });
+
   try {
-    console.log('Submitting video job to Fal.ai with webhook:', webhookUrl);
-    const modelId = input.videoModel === 'pro'
-      ? 'fal-ai/bytedance/seedance/v1/pro/image-to-video'
-      : 'fal-ai/bytedance/seedance/v1/lite/image-to-video';
-    const falInput: any = {
-      prompt: input.prompt,
-      image_url: input.image_url,
-    };
-    if (input.resolution) falInput.resolution = input.resolution;
-    if (input.duration) falInput.duration = input.duration;
-    if (typeof input.camera_fixed === 'boolean') falInput.camera_fixed = input.camera_fixed;
-    if (typeof input.seed === 'number' && input.seed !== undefined) falInput.seed = input.seed;
-    if (input.end_image_url) falInput.end_image_url = input.end_image_url;
-    console.log('Fal.ai input parameters:', JSON.stringify(falInput, null, 2));
-    const falKey = await getApiKeyForUser(username, 'fal');
-    const response = await fetch(`https://queue.fal.run/${modelId}?fal_webhook=${encodeURIComponent(webhookUrl)}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${falKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(falInput),
+    logger.progress('Submitting to Fal.ai queue with webhook');
+    
+    // Use fal.queue.submit instead of manual fetch
+    const { request_id } = await fal.queue.submit(modelId, {
+      input: falInput,
+      webhookUrl: webhookUrl,
     });
-    if (!response.ok) {
-      throw new Error(`Fal.ai API error: ${response.statusText}`);
-    }
-    const data = await response.json();
-    return data.request_id;
+    
+    logger.success({
+      requestId: request_id,
+    });
+    
+    return request_id;
   } catch (error) {
-    console.error('Error submitting video job to Fal.ai:', error);
+    logger.error(error);
     throw error;
   }
 }
@@ -156,9 +171,7 @@ export async function startVideoGenerationWithWebhook(input: VideoGenerationInpu
  * @returns Promise<boolean> True if the service is configured and available
  */
 export async function isVideoServiceAvailable(): Promise<boolean> {
-  // Check if the feature flag is enabled AND a global key exists.
-  // This is the best we can do without a user context.
+  // Check if the feature flag is enabled AND FAL_KEY is set
   const featureEnabled = getBooleanSetting('feature_video_generation');
-  const globalKey = getSetting('global_fal_api_key');
-  return featureEnabled && !!globalKey;
+  return featureEnabled && !!process.env.FAL_KEY;
 }

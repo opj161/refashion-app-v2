@@ -1,7 +1,8 @@
 // src/components/video-parameters.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
     Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle
@@ -11,24 +12,24 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { uploadToFalStorage, isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
-import { useActiveImage } from "@/stores/imageStore";
-import { useAuth } from "@/contexts/AuthContext";
+import { isFalVideoGenerationAvailable, generateVideoAction, type VideoGenerationFormState } from '@/ai/actions/generate-video.action';
+import { useImageStore } from "@/stores/imageStore";
+import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
     PREDEFINED_PROMPTS, MODEL_MOVEMENT_OPTIONS, FABRIC_MOTION_OPTIONS_VIDEO, // Use FABRIC_MOTION_OPTIONS_VIDEO
     CAMERA_ACTION_OPTIONS, AESTHETIC_VIBE_OPTIONS as AESTHETIC_STYLE_OPTIONS
 } from "@/lib/prompt-builder";
-import { AlertTriangle, CheckCircle, Download, Info, Loader2, PaletteIcon, Settings2, Shuffle, Video } from "lucide-react";
+import { AlertTriangle, Info, Loader2, PaletteIcon, Settings2, Shuffle, Video, Code, ChevronDown, ChevronUp } from "lucide-react";
 import { OptionWithPromptSegment } from "@/lib/prompt-builder";
 import { usePromptManager } from "@/hooks/usePromptManager";
-import { getDisplayableImageUrl } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import type { HistoryItem } from "@/lib/types";
 import { calculateVideoCost, formatPrice, VideoModel, VideoResolution, VideoDuration } from "@/lib/pricing";
+import { motion, AnimatePresence } from 'motion/react';
+import { COMMON_VARIANTS } from '@/lib/motion-constants';
+import { VideoResultsDisplay } from './VideoResultsDisplay';
 
 
 // Type for video generation parameters
@@ -40,145 +41,89 @@ interface VideoGenerationParams {
   aestheticVibe: string;
 }
 
-// Types and constants from video-generation/page.tsx
-// interface VideoPromptOption { // Now OptionWithPromptSegment from prompt-builder
-//   value: string;
-//   displayLabel: string;
-//   promptSegment: string;
-// }
+// REMOVED: dataUriToBlob helper - server action handles image upload
 
-// interface PredefinedPromptOption { // Now OptionWithPromptSegment from prompt-builder
-//   value: string;
-//   displayLabel: string;
-//   promptText: string;
-// }
-
-// --- Options & Constants are now imported from prompt-builder.ts ---
-
-// Helper function to convert data URI to Blob
-function dataUriToBlob(dataUri: string): Blob {
-  const arr = dataUri.split(',');
-  const mime = arr[0].match(/:(.*?);/)![1];
-  const byteString = atob(arr[1]);
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return new Blob([ab], { type: mime });
-}
-
-
-interface RenderSelectProps {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: OptionWithPromptSegment[]; // Use the imported type
-  disabled?: boolean;
-  placeholder?: string;
-  priceData?: { model: VideoModel; duration: VideoDuration; resolution: VideoResolution; };
-}
-
-const RenderSelectComponent: React.FC<RenderSelectProps> = ({ 
-  id, label, value, onChange, options, disabled, placeholder, priceData 
-}) => {
-  return (
-    <div>
-      <Label htmlFor={id} className="text-sm">{label}</Label>
-      <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger id={id} className="mt-1 text-sm">
-          <SelectValue placeholder={placeholder || `Select ${label.toLowerCase()}`} />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map(option => {
-            let priceLabel = '';
-            if (priceData) {
-              // Dynamically calculate price for this specific option
-              const cost = calculateVideoCost(
-                priceData.model,
-                (id === 'resolution' ? option.value : priceData.resolution) as VideoResolution,
-                (id === 'duration' ? option.value : priceData.duration) as VideoDuration
-              );
-              priceLabel = formatPrice(cost);
-            }
-
-            return (
-              <TooltipProvider key={option.value}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <SelectItem value={option.value} className="text-sm">
-                      <div className="flex justify-between w-full items-center">
-                        <span>{option.displayLabel}</span>
-                        {priceLabel && <span className="text-xs text-muted-foreground ml-2">{priceLabel}</span>}
-                      </div>
-                    </SelectItem>
-                  </TooltipTrigger>
-                  {priceLabel && (
-                    <TooltipContent>
-                      <p>Estimated cost: {priceLabel}</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
-            );
-          })}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-};
-
-
-// Component is now prop-less - gets prepared image from Zustand store
-// Props interface for the component
-interface VideoParametersProps {
-  historyItemToLoad?: HistoryItem | null;
-  isLoadingHistory?: boolean;
-}
-
-export default function VideoParameters({ 
-  historyItemToLoad = null, 
-  isLoadingHistory = false 
-}: VideoParametersProps) {
-  const { toast } = useToast();
-  const { user } = useAuth();
+// SubmitButton component using useFormStatus for pending state
+function SubmitButton({ 
+  preparedImageUrl, 
+  currentPrompt, 
+  estimatedCost 
+}: { 
+  preparedImageUrl: string | null; 
+  currentPrompt: string;
+  estimatedCost: number | null;
+}) {
+  const { pending } = useFormStatus();
   
-  // Get prepared image from store instead of props
-  const activeImage = useActiveImage();
+  return (
+    <Button
+      type="submit"
+      variant="default"
+      disabled={pending || !preparedImageUrl || !currentPrompt.trim()}
+      className="w-full text-lg hover:animate-shimmer"
+      size="lg"
+    >
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          Generating...
+        </>
+      ) : (
+        <div className="flex items-center justify-center w-full relative">
+          <div className="flex items-center justify-center">
+            <Video className="mr-2 h-5 w-5" />
+            <span>Generate Video</span>
+          </div>
+          {estimatedCost !== null && !pending && (
+            <Badge variant="secondary" className="absolute right-0 text-base">
+              {formatPrice(estimatedCost)}
+            </Badge>
+          )}
+        </div>
+      )}
+    </Button>
+  );
+}
+
+export default function VideoParameters() {
+  const { toast } = useToast();
+  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
+  // REMOVED: useAuth - authentication handled by server action
+  
+  // Get the active image from the store
+  const { versions, activeVersionId } = useImageStore();
+  const activeImage = activeVersionId ? versions[activeVersionId] : null;
   const preparedImageUrl = activeImage?.imageUrl || null;
+
+  // Get video settings from Zustand store - read and write directly
+  const videoSettings = useGenerationSettingsStore(state => state.videoSettings);
+  const setVideoSettings = useGenerationSettingsStore(state => state.setVideoSettings);
+
+  // NEW: useActionState for form-based video generation
+  const initialState: VideoGenerationFormState = { message: '' };
+  const [formState, formAction, isPending] = useActionState(generateVideoAction, initialState);
 
   // Service availability state
   const [isServiceAvailable, setIsServiceAvailable] = useState(true); // Assume available initially
 
-  // State for video parameters
-  const [videoModel, setVideoModel] = useState<VideoModel>('lite');
-  const [resolution, setResolution] = useState<VideoResolution>('480p');
-  const [duration, setDuration] = useState<VideoDuration>('5');
-  const [seed, setSeed] = useState<string>("-1");
-  const [cameraFixed, setCameraFixed] = useState<boolean>(false);
-  const [estimatedCost, setEstimatedCost] = useState<number | null>(null);
+  // Local UI state only (not duplicating store values)
+  const [estimatedCost, setEstimatedCost] = useState<number | null>(calculateVideoCost(videoSettings.videoModel, videoSettings.resolution, videoSettings.duration as VideoDuration));
+  const [activePreset, setActivePreset] = useState<string | null>(videoSettings.selectedPredefinedPrompt);
+  const [openAccordions, setOpenAccordions] = useState<string[]>([]);
 
-  // Prompt builder states
-  const [selectedPredefinedPrompt, setSelectedPredefinedPrompt] = useState<string>('custom');
-  const [modelMovement, setModelMovement] = useState<string>(MODEL_MOVEMENT_OPTIONS[0].value);
-  const [fabricMotion, setFabricMotion] = useState<string>(FABRIC_MOTION_OPTIONS_VIDEO[0].value);
-  const [cameraAction, setCameraAction] = useState<string>(CAMERA_ACTION_OPTIONS[0].value);
-  const [aestheticVibe, setAestheticVibe] = useState<string>(AESTHETIC_STYLE_OPTIONS[0].value);
-
-  // Generation states
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [isUploadingToFal, setIsUploadingToFal] = useState<boolean>(false);
-  const [generationError, setGenerationError] = useState<string | null>(null);
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
-  const [generatedLocalVideoUrl, setGeneratedLocalVideoUrl] = useState<string | null>(null);
+  // REMOVED: Manual generation states - replaced with isPending from useActionState
+  // const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  // const [isUploadingToFal, setIsUploadingToFal] = useState<boolean>(false);
+  // const [generationError, setGenerationError] = useState<string | null>(null);
+  // const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+  // const [generatedLocalVideoUrl, setGeneratedLocalVideoUrl] = useState<string | null>(null);
 
   // Ref for auto-scroll to results
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to results when generation starts
   useEffect(() => {
-    if (isGenerating && resultsRef.current) {
+    if (isPending && resultsRef.current) {
       const timer = setTimeout(() => {
         resultsRef.current?.scrollIntoView({ 
           behavior: 'smooth', 
@@ -187,52 +132,46 @@ export default function VideoParameters({
       }, 100); // Small delay to ensure the results section is rendered
       return () => clearTimeout(timer);
     }
-  }, [isGenerating]);
+  }, [isPending]);
 
-  // Load form fields from history when historyItemToLoad changes
-  useEffect(() => {
-    if (historyItemToLoad && historyItemToLoad.videoGenerationParams) {
-      const videoParams = historyItemToLoad.videoGenerationParams;
-      
-      setVideoModel((videoParams.videoModel as VideoModel) || 'lite');
-      setResolution((videoParams.resolution as VideoResolution) || '480p');
-      setDuration((videoParams.duration as VideoDuration) || '5');
-      setSeed(videoParams.seed?.toString() || '-1');
-      setCameraFixed(videoParams.cameraFixed || false);
-      
-      setModelMovement(videoParams.modelMovement || MODEL_MOVEMENT_OPTIONS[0].value);
-      setFabricMotion(videoParams.fabricMotion || FABRIC_MOTION_OPTIONS_VIDEO[0].value);
-      setCameraAction(videoParams.cameraAction || CAMERA_ACTION_OPTIONS[0].value);
-      setAestheticVibe(videoParams.aestheticVibe || AESTHETIC_STYLE_OPTIONS[0].value);
-      
-      // If we have a generated video, set it
-      if (historyItemToLoad.generatedVideoUrls && historyItemToLoad.generatedVideoUrls[0]) {
-        setGeneratedVideoUrl(historyItemToLoad.generatedVideoUrls[0]);
-      }
-      if (videoParams.localVideoUrl) {
-        setGeneratedLocalVideoUrl(videoParams.localVideoUrl);
-      }
-    }
-  }, [historyItemToLoad]);
-  const [generatedSeedValue, setGeneratedSeedValue] = useState<number | null>(null);
+  // Video parameters are now managed entirely on the client side
+  // REMOVED: const [generatedSeedValue, setGeneratedSeedValue] = useState<number | null>(null);
 
-  // For webhook-based flow
-  const [generationTaskId, setGenerationTaskId] = useState<string | null>(null);
-  const [historyItemId, setHistoryItemId] = useState<string | null>(null);
-  const [loadedHistoryItemId, setLoadedHistoryItemId] = useState<string | null>(null);
-  const [progressValue, setProgressValue] = useState(0);
+  // Webhook-based flow - task tracking removed (webhook updates DB directly)
 
-  // Check if data URI is provided (not a server URL)
-  const isDataUri = preparedImageUrl?.startsWith('data:') || false;
-  const commonFormDisabled = isGenerating || isUploadingToFal || !isServiceAvailable || !preparedImageUrl;
+  // REMOVED: isDataUri check - server action handles all image formats
+  const commonFormDisabled = isPending || !isServiceAvailable || !preparedImageUrl;
 
   const currentVideoGenParams = React.useMemo((): VideoGenerationParams => ({
-    selectedPredefinedPrompt,
-    modelMovement,
-    fabricMotion, // Ensure this is the video-specific one from prompt-builder if names differ
-    cameraAction,
-    aestheticVibe,
-  }), [selectedPredefinedPrompt, modelMovement, fabricMotion, cameraAction, aestheticVibe]);
+    selectedPredefinedPrompt: videoSettings.selectedPredefinedPrompt,
+    modelMovement: videoSettings.modelMovement,
+    fabricMotion: videoSettings.fabricMotion,
+    cameraAction: videoSettings.cameraAction,
+    aestheticVibe: videoSettings.aestheticVibe,
+  }), [videoSettings.selectedPredefinedPrompt, videoSettings.modelMovement, videoSettings.fabricMotion, videoSettings.cameraAction, videoSettings.aestheticVibe]);
+
+  // Handler for when a preset button is clicked
+  const handlePresetChange = useCallback((presetValue: string) => {
+    setActivePreset(presetValue);
+    setVideoSettings({ selectedPredefinedPrompt: presetValue });
+  }, [setVideoSettings]);
+
+  // Handler for when a granular animation control is changed
+  const handleGranularChange = useCallback((key: string, value: string) => {
+      setVideoSettings({ [key]: value });
+      setActivePreset(null); // Deselect any active preset button
+      setVideoSettings({ selectedPredefinedPrompt: 'custom' });
+    },
+    [setVideoSettings]
+  );
+
+  // Effect to automatically select the first preset on mount or image change
+  useEffect(() => {
+    const firstPreset = PREDEFINED_PROMPTS[0];
+    if (firstPreset) {
+      handlePresetChange(firstPreset.value);
+    }
+  }, [preparedImageUrl, handlePresetChange]);
 
   const {
     currentPrompt,
@@ -254,13 +193,13 @@ export default function VideoParameters({
 
   // Effect to calculate and update the estimated cost  
   useEffect(() => {
-    const cost = calculateVideoCost(videoModel, resolution, duration);
+    const cost = calculateVideoCost(videoSettings.videoModel, videoSettings.resolution, videoSettings.duration as VideoDuration);
     setEstimatedCost(cost);
-  }, [videoModel, resolution, duration]);
+  }, [videoSettings.videoModel, videoSettings.resolution, videoSettings.duration]);
 
   // Dynamic resolution options based on the selected model
   const resolutionOptions = React.useMemo(() => {
-    if (videoModel === 'pro') {
+    if (videoSettings.videoModel === 'pro') {
       return [
         { value: '480p', displayLabel: '480p (Faster)', promptSegment: '' },
         { value: '1080p', displayLabel: '1080p (Higher Quality)', promptSegment: '' },
@@ -271,432 +210,237 @@ export default function VideoParameters({
       { value: '480p', displayLabel: '480p (Faster)', promptSegment: '' },
       { value: '720p', displayLabel: '720p (Higher Quality)', promptSegment: '' },
     ];
-  }, [videoModel]);
+  }, [videoSettings.videoModel]);
 
   // Effect to reset resolution if it becomes invalid after a model change
   useEffect(() => {
-    if (!resolutionOptions.some(opt => opt.value === resolution)) {
-      setResolution('480p');
+    if (!resolutionOptions.some(opt => opt.value === videoSettings.resolution)) {
+      setVideoSettings({ resolution: '480p' });
     }
-  }, [videoModel, resolution, resolutionOptions]);
+  }, [videoSettings.videoModel, videoSettings.resolution, resolutionOptions, setVideoSettings]);
 
-  // Effect to populate state when a history item with video parameters is loaded
+  // History loading is now handled by the client-side store
+
+  const handleRandomSeed = () => setVideoSettings({ seed: "-1" });
+
+  // REMOVED: handleGenerateVideo - replaced with form-based submission via useActionState
+  // The form action will be handled by formAction from useActionState
+
+  // Effect to handle form submission results
   useEffect(() => {
-    if (historyItemToLoad && !isLoadingHistory && historyItemToLoad.videoGenerationParams && historyItemToLoad.id !== loadedHistoryItemId) {
-      const { videoGenerationParams } = historyItemToLoad;
-      
-      // Set video-specific parameters if they exist
-      if (videoGenerationParams.prompt) {
-        handlePromptChange(videoGenerationParams.prompt);
-      }
-      if (videoGenerationParams.videoModel) {
-        setVideoModel(videoGenerationParams.videoModel);
-      }
-      if (videoGenerationParams.resolution) {
-        setResolution(videoGenerationParams.resolution as '480p' | '720p' | '1080p');
-      }
-      if (videoGenerationParams.duration) {
-        setDuration(videoGenerationParams.duration as '5' | '10');
-      }
-      if (videoGenerationParams.seed !== undefined) {
-        setSeed(videoGenerationParams.seed.toString());
-      }
-      if (videoGenerationParams.cameraFixed !== undefined) {
-        setCameraFixed(videoGenerationParams.cameraFixed);
-      }
-      if (videoGenerationParams.modelMovement) {
-        setModelMovement(videoGenerationParams.modelMovement);
-      }
-      if (videoGenerationParams.fabricMotion) {
-        setFabricMotion(videoGenerationParams.fabricMotion);
-      }
-      if (videoGenerationParams.cameraAction) {
-        setCameraAction(videoGenerationParams.cameraAction);
-      }
-      if (videoGenerationParams.aestheticVibe) {
-        setAestheticVibe(videoGenerationParams.aestheticVibe);
-      }
-      
-      // Mark this history item as loaded to prevent reloading
-      setLoadedHistoryItemId(historyItemToLoad.id);
-      
-      toast({
-        title: "History Restored",
-        description: "Source image and all video parameters have been successfully restored.",
-      });
-    }
-  }, [historyItemToLoad, isLoadingHistory, loadedHistoryItemId, handlePromptChange, toast]);
-
-  const handleRandomSeed = () => setSeed("-1");
-
-  const handleGenerateVideo = async () => {
-    if (!preparedImageUrl) {
-      toast({ title: "Image Not Prepared", description: "Please prepare an image in the previous step.", variant: "destructive" });
-      return;
-    }
-    if (!currentPrompt.trim()) {
-      toast({ title: "Missing Prompt", description: "Prompt is empty. Please select options or modify it.", variant: "destructive" });
-      return;
-    }
-    if (!user?.username) {
-        toast({ title: "Authentication Error", description: "Could not determine current user. Please log in again.", variant: "destructive" });
-        return;
-    }
-
-    setIsGenerating(true);
-    setGenerationError(null);
-    setGeneratedVideoUrl(null);
-    setGeneratedLocalVideoUrl(null);
-    setGeneratedSeedValue(null);
-    setGenerationTaskId(null);
-    setHistoryItemId(null);
-
-    try {
-      let imageUrlForVideo = preparedImageUrl;
-
-      // If we have a data URI, convert it to a Fal storage URL
-      if (isDataUri) {
-        setIsUploadingToFal(true);
-        // Use a single toast and update it after upload
-        const { update, dismiss, id: toastId } = toast({ 
-          title: "Uploading Image...", 
-          description: "Preparing your image for video generation." 
+    if (formState.message) {
+      if (formState.error) {
+        // Error case
+        toast({ 
+          title: "Video Generation Failed", 
+          description: formState.error, 
+          variant: "destructive" 
         });
-        try {
-          // Convert data URI to Blob
-          const imageBlob = dataUriToBlob(preparedImageUrl);
-          const imageFile = new File([imageBlob], "prepared-image.jpg", { type: "image/jpeg" });
-          // Upload to Fal storage
-          imageUrlForVideo = await uploadToFalStorage(imageFile, user.username);
-          update({ id: toastId, title: "Image Uploaded!", description: "Starting video generation..." });
-        } catch (uploadError) {
-          console.error("Error uploading to Fal storage:", uploadError);
-          update({ id: toastId, title: "Upload Failed", description: "Failed to upload image to Fal.ai storage.", variant: "destructive" });
-          setIsGenerating(false);
-          setIsUploadingToFal(false);
-          return;
-        } finally {
-          setIsUploadingToFal(false);
-        }
-      }
-
-      const videoInput = {
-        prompt: currentPrompt,
-        image_url: imageUrlForVideo,
-        local_image_path: preparedImageUrl, // Always pass the original local path for history storage
-        videoModel,
-        resolution,
-        duration,
-        seed: seed === "-1" ? -1 : parseInt(seed),
-        camera_fixed: cameraFixed,
-        selectedPredefinedPrompt,
-        modelMovement,
-        fabricMotion,
-        cameraAction,
-        aestheticVibe,
-      };
-
-      const response = await fetch('/api/video/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(videoInput),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: `Failed to start generation: ${response.statusText}` }));
-        throw new Error(errorData.error || `Failed to start generation: ${response.statusText}`);
-      }
-
-      const { taskId, historyItemId: hId } = await response.json();
-      setGenerationTaskId(taskId);
-      setHistoryItemId(hId);
-
-      toast({
-        title: "Video Generation Started",
-        description: "Processing in background. Result will appear here and in history.",
-        duration: 5000
-      });
-
-    } catch (error) {
-      console.error('Error initiating video generation:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error.';
-      setGenerationError(errorMessage);
-      toast({ title: "Generation Error", description: errorMessage, variant: "destructive" });
-      setIsGenerating(false); // Set to false only on error
-    }
-  };
-
-  const handleCancelGeneration = useCallback(() => {
-    setIsGenerating(false);
-    setGenerationTaskId(null);
-    setHistoryItemId(null);
-    // TODO: If there's a way to cancel on the backend via taskId, implement here
-    toast({ title: "Generation Cancelled", description: "Video generation stopped by user." });
-  }, [toast]);
-
-
-  // Efficient video status polling using dedicated endpoint
-  useEffect(() => {
-    if (!historyItemId || !isGenerating) return;
-
-    let isCancelled = false;
-    const poll = async () => {
-      if (isCancelled) return;
-
-      try {
-        // Call the new, specific endpoint
-        const response = await fetch(`/api/history/${historyItemId}/status`, { cache: 'no-store' });
-
-        if (!response.ok) {
-          // Stop polling on server errors like 404 or 500
-          console.error(`Status check failed: ${response.status}`);
-          setGenerationError(`Status check failed: ${response.statusText}`);
-          setIsGenerating(false);
-          return;
-        }
-
-        const data: import('@/services/database.service').VideoStatusPayload = await response.json();
-
-        if (data.status === 'completed') {
-          setGeneratedVideoUrl(data.videoUrl || null);
-          setGeneratedLocalVideoUrl(data.localVideoUrl || null);
-          setGeneratedSeedValue(data.seed || null);
-          setIsGenerating(false);
-          toast({ title: "Video Generated!", description: "Video is ready." });
-        } else if (data.status === 'failed') {
-          setGenerationError(data.error || 'Video generation failed');
-          setIsGenerating(false);
-          toast({ title: "Generation Failed", description: data.error || 'An unknown error occurred.', variant: "destructive" });
-        } else {
-          // Still processing, schedule the next poll
-          setTimeout(poll, 5000); 
-        }
-
-      } catch (error) {
-        console.error("Error checking video status:", error);
-        // Don't stop polling on network errors, just try again
-        setTimeout(poll, 5000);
-      }
-    };
-
-    // Start the first poll
-    poll();
-
-    // Safety timeout
-    const timeout = setTimeout(() => {
-      if (isGenerating) {
-          isCancelled = true;
-          setIsGenerating(false);
-          toast({ title: "Generation Timed Out", description: "Taking too long. Check history later." });
-      }
-    }, 10 * 60 * 1000); // 10 min timeout
-
-    return () => {
-      isCancelled = true;
-      clearTimeout(timeout);
-    };
-  }, [historyItemId, isGenerating, toast]);
-
-  // Effect to simulate progress during generation
-  useEffect(() => {
-    let progressInterval: NodeJS.Timeout | undefined;
-    if (isGenerating && !generatedVideoUrl) {
-      setProgressValue(10); // Start with a small amount
-      progressInterval = setInterval(() => {
-        setProgressValue(prev => {
-          if (prev >= 95) { // Cap progress before completion
-            clearInterval(progressInterval);
-            return 95;
-          }
-          return prev + Math.floor(Math.random() * 3) + 1; // Increment slowly and randomly
+      } else if (formState.taskId && formState.historyItemId) {
+        // Success case - trigger history gallery refresh
+        incrementGenerationCount();
+        toast({
+          title: "Video Generation Started",
+          description: formState.message,
+          duration: 5000
         });
-      }, 800);
-    } else {
-      setProgressValue(0);
+      }
     }
-    return () => clearInterval(progressInterval);
-  }, [isGenerating, generatedVideoUrl]);
+  }, [formState, toast, incrementGenerationCount]);
+
+  // REMOVED: handleCancelGeneration and progress simulation
+  // Webhook-based completion means no client-side polling needed
 
 
   return (
     <div className="space-y-6">
-      <Card variant="glass">
+      <Card variant="glass" className="overflow-hidden">
         <CardHeader className="flex flex-row items-start justify-between">
           <div>
             <CardTitle className="text-xl flex items-center gap-2">
               <PaletteIcon className="h-6 w-6 text-primary" />
-              Animation & Style
+              Animation & Video Settings
             </CardTitle>
-            <CardDescription className="hidden lg:block">Define the video&apos;s motion and aesthetic.</CardDescription>
+            <CardDescription>Define your video&apos;s motion, style, and technical details.</CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {!preparedImageUrl && (
-            <Alert className="md:col-span-2">
-              <Info className="h-4 w-4" />
-              <AlertTitle>Start with an Image</AlertTitle>
-              <AlertDescription>
-                First, create an image to bring it to life with video.
-              </AlertDescription>
-            </Alert>
-          )}
+        <form action={formAction}>
+          {/* Hidden inputs for all video generation parameters */}
+          <input type="hidden" name="prompt" value={currentPrompt} />
+          <input type="hidden" name="imageUrl" value={preparedImageUrl || ''} />
+          <input type="hidden" name="localImagePath" value={preparedImageUrl || ''} />
+          <input type="hidden" name="videoModel" value={videoSettings.videoModel} />
+          <input type="hidden" name="resolution" value={videoSettings.resolution} />
+          <input type="hidden" name="duration" value={videoSettings.duration} />
+          <input type="hidden" name="seed" value={videoSettings.seed} />
+          <input type="hidden" name="cameraFixed" value={String(videoSettings.cameraFixed)} />
+          <input type="hidden" name="selectedPredefinedPrompt" value={videoSettings.selectedPredefinedPrompt} />
+          <input type="hidden" name="modelMovement" value={videoSettings.modelMovement} />
+          <input type="hidden" name="fabricMotion" value={videoSettings.fabricMotion} />
+          <input type="hidden" name="cameraAction" value={videoSettings.cameraAction} />
+          <input type="hidden" name="aestheticVibe" value={videoSettings.aestheticVibe} />
+          
+        <CardContent className="space-y-6">
+          <AnimatePresence>
+            {!preparedImageUrl && (
+              <motion.div
+                key="image-required-alert"
+                variants={COMMON_VARIANTS.slideDownAndFade}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Start with an Image</AlertTitle>
+                  <AlertDescription>
+                    First, upload and prepare an image to bring it to life with video.
+                  </AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <div className="md:col-span-2">
-            <RenderSelectComponent
-              id="predefined-animation"
-              label="Predefined Animation"
-              value={selectedPredefinedPrompt} onChange={setSelectedPredefinedPrompt}
-              options={PREDEFINED_PROMPTS}
-              disabled={commonFormDisabled}
-            />
-          </div>
-          <RenderSelectComponent id="model-movement" label="Model Movement" value={modelMovement} onChange={setModelMovement} options={MODEL_MOVEMENT_OPTIONS} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
-          <RenderSelectComponent id="fabric-motion" label="Fabric Motion" value={fabricMotion} onChange={setFabricMotion} options={FABRIC_MOTION_OPTIONS_VIDEO} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
-          <RenderSelectComponent id="camera-action" label="Camera Action" value={cameraAction} onChange={setCameraAction} options={CAMERA_ACTION_OPTIONS} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
-          <RenderSelectComponent id="aesthetic-vibe" label="Aesthetic Vibe" value={aestheticVibe} onChange={setAestheticVibe} options={AESTHETIC_STYLE_OPTIONS} disabled={commonFormDisabled || selectedPredefinedPrompt !== 'custom'} />
-
-          {/* Camera Position Control - moved here from Technical Parameters */}
-          <div className="md:col-span-2 pt-2 border-t">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Switch 
-                  id="cameraFixed" 
-                  checked={cameraFixed} 
-                  onCheckedChange={setCameraFixed} 
-                  disabled={commonFormDisabled} 
-                />
-                <Label htmlFor="cameraFixed" className="text-sm cursor-pointer">
-                  Fix Camera Position
-                </Label>
-              </div>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-auto p-1 text-muted-foreground">
-                      <Info className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-xs">
-                      When enabled, prevents camera movement and keeps the shot static, 
-                      focusing only on model and fabric motion.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </div>
-
-          <div className="md:col-span-2 pt-2 space-y-2">
-            <div className="flex justify-between items-center">
-              <Label htmlFor="fullVideoPrompt" className="text-sm">Full Prompt</Label>
-              {isManualPromptOutOfSync() && (
-                <Button variant="link" size="sm" onClick={resetPromptToAuto} className="text-xs text-amber-600 hover:text-amber-700 p-0 h-auto">
-                  <AlertTriangle className="h-3 w-3 mr-1" /> Settings changed. Reset prompt?
-                </Button>
-              )}
-            </div>
-            <Textarea
-              id="fullVideoPrompt"
-              value={currentPrompt}
-              onChange={(e) => handlePromptChange(e.target.value)}
-              rows={3}
-              className="text-xs font-mono"
-              placeholder="Prompt will be generated here based on your selections, or you can type your own."
-              disabled={commonFormDisabled}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card variant="glass">
-        <CardHeader>
-          <CardTitle className="text-xl flex items-center gap-2">
-            <Settings2 className="h-6 w-6 text-primary" />
-            Video Settings
-          </CardTitle>
-          <CardDescription className="hidden lg:block">Fine-tune your video&apos;s quality, length, and style.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <RenderSelectComponent
-              id="video-model"
-              label="Video Model"
-              value={videoModel}
-              onChange={(v) => setVideoModel(v as VideoModel)}
-              options={[
-                { value: 'lite', displayLabel: 'Seedance Lite (Default)', promptSegment: '' },
-                { value: 'pro', displayLabel: 'Seedance Pro (Higher Quality)', promptSegment: '' },
-              ]}
-              disabled={commonFormDisabled}
-            />
-            <RenderSelectComponent
-              id="resolution"
-              label="Resolution"
-              value={resolution}
-              onChange={(v) => setResolution(v as VideoResolution)}
-              options={resolutionOptions}
-              disabled={commonFormDisabled}
-              priceData={{ model: videoModel, resolution, duration }}
-            />
-            <RenderSelectComponent
-              id="duration"
-              label="Duration"
-              value={duration}
-              onChange={(v) => setDuration(v as VideoDuration)}
-              options={[
-                { value: '3', displayLabel: '3 seconds', promptSegment: '' },
-                { value: '4', displayLabel: '4 seconds', promptSegment: '' },
-                { value: '5', displayLabel: '5 seconds', promptSegment: '' },
-                { value: '6', displayLabel: '6 seconds', promptSegment: '' },
-                { value: '7', displayLabel: '7 seconds', promptSegment: '' },
-                { value: '8', displayLabel: '8 seconds', promptSegment: '' },
-                { value: '9', displayLabel: '9 seconds', promptSegment: '' },
-                { value: '10', displayLabel: '10 seconds', promptSegment: '' },
-                { value: '11', displayLabel: '11 seconds', promptSegment: '' },
-                { value: '12', displayLabel: '12 seconds', promptSegment: '' }
-              ]}
-              disabled={commonFormDisabled}
-              priceData={{ model: videoModel, resolution, duration }}
-            />
+          <div className={commonFormDisabled ? 'opacity-50 pointer-events-none' : ''}>
             <div>
-              <Label htmlFor="seed" className="text-sm">Seed</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <Input id="seed" type="text" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="-1 for random" disabled={commonFormDisabled} className="text-sm"/>
-                <Button variant="outline" size="icon" onClick={handleRandomSeed} disabled={commonFormDisabled} title="Use Random Seed"><Shuffle className="h-4 w-4" /></Button>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                {PREDEFINED_PROMPTS.map((preset) => (
+                  <Button
+                    key={preset.value}
+                    variant={activePreset === preset.value ? 'secondary' : 'outline'}
+                    onClick={() => handlePresetChange(preset.value)}
+                    className="h-auto py-2 px-3 text-xs sm:text-sm whitespace-normal"
+                  >
+                    {preset.displayLabel}
+                  </Button>
+                ))}
               </div>
             </div>
+
+            <Accordion type="multiple" value={openAccordions} onValueChange={setOpenAccordions} className="w-full mt-4">
+              <AccordionItem value="advanced-animation">
+                <AccordionTrigger>Advanced Animation & Style</AccordionTrigger>
+                <AccordionContent className="pt-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="model-movement" className="text-sm">Model Movement</Label>
+                      <Select value={videoSettings.modelMovement} onValueChange={(v) => handleGranularChange('modelMovement', v)} disabled={commonFormDisabled}>
+                        <SelectTrigger id="model-movement" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>{MODEL_MOVEMENT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.displayLabel}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="fabric-motion" className="text-sm">Fabric Motion</Label>
+                      <Select value={videoSettings.fabricMotion} onValueChange={(v) => handleGranularChange('fabricMotion', v)} disabled={commonFormDisabled}>
+                        <SelectTrigger id="fabric-motion" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>{FABRIC_MOTION_OPTIONS_VIDEO.map(o => <SelectItem key={o.value} value={o.value}>{o.displayLabel}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="camera-action" className="text-sm">Camera Action</Label>
+                      <Select value={videoSettings.cameraAction} onValueChange={(v) => handleGranularChange('cameraAction', v)} disabled={commonFormDisabled}>
+                        <SelectTrigger id="camera-action" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>{CAMERA_ACTION_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.displayLabel}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="aesthetic-vibe" className="text-sm">Aesthetic Vibe</Label>
+                      <Select value={videoSettings.aestheticVibe} onValueChange={(v) => handleGranularChange('aestheticVibe', v)} disabled={commonFormDisabled}>
+                        <SelectTrigger id="aesthetic-vibe" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>{AESTHETIC_STYLE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.displayLabel}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch id="cameraFixed" checked={videoSettings.cameraFixed} onCheckedChange={(checked) => setVideoSettings({ cameraFixed: checked })} disabled={commonFormDisabled} />
+                    <Label htmlFor="cameraFixed" className="text-sm cursor-pointer">Fix Camera Position</Label>
+                  </div>
+                   <div className="pt-2">
+                     <div className="flex justify-between items-center">
+                       <Label htmlFor="fullVideoPrompt" className="text-sm">Full Prompt</Label>
+                       {isManualPromptOutOfSync && (
+                         <Button variant="link" size="sm" onClick={resetPromptToAuto} className="text-xs text-amber-600 hover:text-amber-700 p-0 h-auto">
+                           <AlertTriangle className="h-3 w-3 mr-1" /> Settings changed. Reset prompt?
+                         </Button>
+                       )}
+                     </div>
+                     <Textarea
+                       id="fullVideoPrompt"
+                       value={currentPrompt}
+                       onChange={(e) => handlePromptChange(e.target.value)}
+                       rows={3}
+                       className="text-xs font-mono mt-1"
+                       placeholder="Prompt will be generated here based on your selections, or you can type your own."
+                       disabled={commonFormDisabled}
+                     />
+                   </div>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="video-settings">
+                <AccordionTrigger>Video Settings</AccordionTrigger>
+                <AccordionContent className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="video-model" className="text-sm">Video Model</Label>
+                    <Select value={videoSettings.videoModel} onValueChange={(v: string) => setVideoSettings({ videoModel: v as VideoModel })} disabled={commonFormDisabled}>
+                      <SelectTrigger id="video-model" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lite">Seedance Lite (Default)</SelectItem>
+                        <SelectItem value="pro">Seedance Pro (Higher Quality)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="resolution" className="text-sm">Resolution</Label>
+                    <Select value={videoSettings.resolution} onValueChange={(v: string) => setVideoSettings({ resolution: v as VideoResolution })} disabled={commonFormDisabled}>
+                      <SelectTrigger id="resolution" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {resolutionOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value} className="text-sm">
+                            <div className="flex justify-between w-full items-center">
+                              <span>{option.displayLabel}</span>
+                              <span className="text-xs text-muted-foreground ml-2">{formatPrice(calculateVideoCost(videoSettings.videoModel, option.value as VideoResolution, videoSettings.duration as VideoDuration))}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="duration" className="text-sm">Duration</Label>
+                    <Select value={videoSettings.duration} onValueChange={(v: string) => setVideoSettings({ duration: v as VideoDuration })} disabled={commonFormDisabled}>
+                      <SelectTrigger id="duration" className="mt-1 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(d => (
+                           <SelectItem key={d} value={d} className="text-sm">
+                             <div className="flex justify-between w-full items-center">
+                               <span>{d} seconds</span>
+                               <span className="text-xs text-muted-foreground ml-2">{formatPrice(calculateVideoCost(videoSettings.videoModel, videoSettings.resolution, d as VideoDuration))}</span>
+                             </div>
+                           </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="seed" className="text-sm">Seed</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Input id="seed" type="text" value={videoSettings.seed} onChange={(e) => setVideoSettings({ seed: e.target.value })} placeholder="-1 for random" disabled={commonFormDisabled} className="text-sm"/>
+                      <Button variant="outline" size="icon" onClick={handleRandomSeed} disabled={commonFormDisabled} title="Use Random Seed"><Shuffle className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
-          {/* Removed camera position switch from here */}
         </CardContent>
         <CardFooter>
-          <Button
-            variant="default"
-            onClick={handleGenerateVideo}
-            disabled={commonFormDisabled || isGenerating || !currentPrompt.trim()}
-            className="w-full text-lg hover:animate-shimmer"
-            size="lg"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <div className="flex items-center justify-center w-full relative">
-                <div className="flex items-center justify-center">
-                  <Video className="mr-2 h-5 w-5" />
-                  <span>Generate Video</span>
-                </div>
-                {estimatedCost !== null && !isGenerating && (
-                  <Badge variant="secondary" className="absolute right-0 text-base">
-                    {formatPrice(estimatedCost)}
-                  </Badge>
-                )}
-              </div>
-            )}
-          </Button>
+          <SubmitButton 
+            preparedImageUrl={preparedImageUrl} 
+            currentPrompt={currentPrompt}
+            estimatedCost={estimatedCost}
+          />
         </CardFooter>
+        </form>
       </Card>
 
       {!isServiceAvailable && (
@@ -706,65 +450,9 @@ export default function VideoParameters({
         </Card>
       )}
 
-      {generationError && (
-        <Card variant="glass" className="border-destructive bg-destructive/10 text-destructive">
-          <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle /> Generation Failed</CardTitle></CardHeader>
-          <CardContent><p>{generationError}</p></CardContent>
-        </Card>
-      )}
-
-      {isGenerating && !generatedVideoUrl && (
-        <Card ref={resultsRef}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Loader2 className="h-6 w-6 text-primary animate-spin" />
-              {isUploadingToFal ? "Uploading Image..." : "Generating Video..."}
-            </CardTitle>
-            <CardDescription>
-              Your video is being processed. This may take a minute. Please wait.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-center items-center py-10">
-            <div className="w-full max-w-md space-y-4">
-              <div className="aspect-video bg-muted/50 rounded-md flex items-center justify-center relative overflow-hidden">
-                <Video className="h-16 w-16 text-muted-foreground/50" />
-              </div>
-              <Progress 
-                value={progressValue}
-                isEstimating={true}
-                className="h-2"
-              />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCancelGeneration}
-              className="w-full text-muted-foreground hover:text-destructive"
-            >
-              Cancel Generation
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-
-      {generatedVideoUrl && !isGenerating && ( // Ensure isGenerating is false to show result
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-600"><CheckCircle /> Video Ready!</CardTitle>
-            {generatedSeedValue !== null && (<CardDescription>Seed used: {generatedSeedValue}</CardDescription>)}
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-md overflow-hidden w-full aspect-video">
-              <video src={getDisplayableImageUrl(generatedVideoUrl) || undefined} controls autoPlay loop playsInline className="w-full h-full object-contain" />
-            </div>
-            <Button asChild variant="outline" className="w-full">
-              <a href={getDisplayableImageUrl(generatedLocalVideoUrl || generatedVideoUrl) || undefined} download={`RefashionAI_video_${generatedSeedValue || Date.now()}.mp4`}><Download className="h-4 w-4 mr-2" />Download Video</a>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      <div ref={resultsRef}>
+         <VideoResultsDisplay formState={formState} isPending={isPending} />
+      </div>
     </div>
   );
 }

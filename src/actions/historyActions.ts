@@ -1,5 +1,7 @@
 'use server';
 
+import 'server-only';
+
 import { getCurrentUser } from './authActions';
 import type { HistoryItem, ModelAttributes } from '@/lib/types';
 import * as dbService from '@/services/database.service';
@@ -57,12 +59,12 @@ export async function getUserHistoryPaginated(
     throw new Error('User not authenticated');
   }
   
-  return dbService.getPaginatedHistoryForUser({
-    username: user.username,
+  return dbService.getPaginatedHistoryForUser(
+    user.username,
     page,
     limit,
     filter
-  });
+  );
 }
 
 export async function addHistoryItem(
@@ -71,10 +73,12 @@ export async function addHistoryItem(
   originalClothingUrl: string,
   editedImageUrls: (string | null)[],
   settingsMode: 'basic' | 'advanced',
+  imageGenerationModel: 'fal_nano_banana_pro' | 'fal_gemini_2_5',
   status: 'processing' | 'completed' | 'failed' = 'completed',
   error?: string,
   username?: string, // NEW optional username parameter for API context
-  webhookUrl?: string // NEW optional webhookUrl
+  webhookUrl?: string, // NEW optional webhookUrl
+  generation_mode?: 'creative' | 'studio' // NEW optional generation mode
 ): Promise<string> {
   const user = username ? { username } : await getCurrentUser();
   if (!user || !user.username) {
@@ -90,9 +94,11 @@ export async function addHistoryItem(
     editedImageUrls,
     username: user.username,
     settingsMode,
+    imageGenerationModel, // This line remains unchanged
     status,
     error,
     webhookUrl,
+    generation_mode, // ADD THIS
   };
   
   dbService.insertHistoryItem(newItem);
@@ -274,12 +280,12 @@ export async function getHistoryPaginated(
   }
   
   const filterParam = filter === 'all' ? undefined : filter;
-  return dbService.getPaginatedHistoryForUser({
-    username: user.username,
+  return dbService.getPaginatedHistoryForUser(
+    user.username,
     page,
     limit,
-    filter: filterParam
-  });
+    filterParam
+  );
 }
 
 export async function getVideoHistoryPaginated(
@@ -308,3 +314,10 @@ export async function getHistoryItemById(historyItemId: string): Promise<{ succe
   }
   return { success: true, item };
 }
+
+export async function getRecentUploadsAction(): Promise<string[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  return dbService.getRecentUploadsForUser(user.username);
+}
+
