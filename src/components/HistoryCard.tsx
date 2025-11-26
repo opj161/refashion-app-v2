@@ -244,7 +244,8 @@ const HistoryCard = React.memo(function HistoryCard({
                 src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
                 alt="Video thumbnail"
                 fill
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                sizes="(max-width: 640px) 95vw, (max-width: 1024px) 45vw, 30vw"
+                decoding="async"
                 className={cn(`object-cover object-top transition-opacity duration-300`, isInView ? 'opacity-0' : 'opacity-100')}
               />
               <video

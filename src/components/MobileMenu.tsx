@@ -6,61 +6,78 @@ import { logoutUser } from '@/actions/authActions';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuGroup,
-} from '@/components/ui/dropdown-menu';
-import { ShieldCheck, Menu, Sun, Moon, Monitor, LogOut, LogIn } from 'lucide-react';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
+import { ShieldCheck, Menu, Sun, Moon, Monitor, LogOut, LogIn, User } from 'lucide-react';
 
 export function MobileMenu() {
   const { user } = useAuth();
-  const { setTheme } = useTheme();
+  const { setTheme, theme } = useTheme();
 
   return (
     <div className="md:hidden">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      <Sheet>
+        <SheetTrigger asChild>
           <Button variant="ghost" size="icon">
-            <Menu className="h-5 w-5" />
+            <Menu className="h-6 w-6" />
             <span className="sr-only">Open menu</span>
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>
-            {user?.isLoggedIn ? `Hello, ${user.username}` : "Menu"}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {user?.role === 'admin' && (
-            <DropdownMenuItem asChild>
-              <Link href="/admin"><ShieldCheck className="mr-2 h-4 w-4" /> Admin Console</Link>
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Theme</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => setTheme('light')}><Sun className="mr-2 h-4 w-4" /> Light</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme('dark')}><Moon className="mr-2 h-4 w-4" /> Dark</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme('system')}><Monitor className="mr-2 h-4 w-4" /> System</DropdownMenuItem>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          {user?.isLoggedIn ? (
-            <DropdownMenuItem asChild>
+        </SheetTrigger>
+        <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+          <SheetHeader className="text-left mb-6">
+            <SheetTitle className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <User className="h-4 w-4" />
+              </div>
+              {user?.isLoggedIn ? user.username : "Menu"}
+            </SheetTitle>
+          </SheetHeader>
+          
+          <div className="flex flex-col gap-4">
+            {user?.role === 'admin' && (
+              <Button asChild variant="outline" className="justify-start h-12 text-base">
+                <Link href="/admin">
+                  <ShieldCheck className="mr-3 h-5 w-5" /> Admin Console
+                </Link>
+              </Button>
+            )}
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground px-1">Theme</p>
+              <div className="grid grid-cols-3 gap-2">
+                <Button variant={theme === 'light' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('light')}>
+                  <Sun className="h-4 w-4 mr-2" /> Light
+                </Button>
+                <Button variant={theme === 'dark' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('dark')}>
+                  <Moon className="h-4 w-4 mr-2" /> Dark
+                </Button>
+                <Button variant={theme === 'system' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('system')}>
+                  <Monitor className="h-4 w-4 mr-2" /> Auto
+                </Button>
+              </div>
+            </div>
+
+            <Separator className="my-2" />
+
+            {user?.isLoggedIn ? (
               <form action={logoutUser} className="w-full">
-                <button type="submit" className="flex items-center w-full h-full cursor-default text-left">
-                  <LogOut className="mr-2 h-4 w-4" /> Logout
-                </button>
+                <Button type="submit" variant="destructive" className="w-full justify-start h-12 text-base">
+                  <LogOut className="mr-3 h-5 w-5" /> Logout
+                </Button>
               </form>
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem asChild>
-              <Link href="/login"><LogIn className="mr-2 h-4 w-4" /> Login</Link>
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            ) : (
+              <Button asChild className="w-full justify-start h-12 text-base">
+                <Link href="/login"><LogIn className="mr-3 h-5 w-5" /> Login</Link>
+              </Button>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

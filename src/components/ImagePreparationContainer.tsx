@@ -190,8 +190,8 @@ export default function ImagePreparationContainer({
                   {hubContent}
                 </div>
               ) : ( // MOBILE VIEW
-                <div className="flex flex-col gap-4">
-                  <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg min-h-[60vh] shadow-lg shadow-black/10">
+                <div className="flex flex-col h-[calc(100dvh-220px)] gap-4">
+                  <div className="relative flex-1 flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg shadow-lg shadow-black/10 overflow-hidden min-h-0">
                     <ImageEditorCanvas
                       key={activeImage.id}
                       image={activeImage}
@@ -206,7 +206,7 @@ export default function ImagePreparationContainer({
                   </div>
                   <Sheet>
                     <SheetTrigger asChild>
-                      <Button className="w-full"><Brush className="mr-2 h-4 w-4" /> Edit & Manage Versions</Button>
+                      <Button className="w-full h-12 text-base shadow-xl"><Brush className="mr-2 h-5 w-5" /> Edit & Manage Versions</Button>
                     </SheetTrigger>
                     <SheetContent side="bottom" className="h-[85vh] p-4 flex flex-col">
                       {hubContent}
