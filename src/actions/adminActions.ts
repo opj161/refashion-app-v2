@@ -22,7 +22,7 @@ import type {
   TopParameterUsageData,
   UserActivityData,
 } from '@/services/analytics.service';
-import { constructStudioPrompt } from '@/ai/domain/studio-prompt';
+import { constructStudioPrompt, compareClothingDescriptions } from '@/ai/domain/studio-prompt';
 
 const SALT_ROUNDS = 12;
 
@@ -447,10 +447,13 @@ export async function getGenerationActivityAction(
 
 // --- Studio Prompt Testing Action ---
 
+// ... (existing code)
+
 export async function testStudioPrompt(formData: FormData): Promise<{
   success: boolean;
   classification?: string;
   prompt?: string;
+  comparisons?: Record<string, string>;
   error?: string;
 }> {
   // 1. Security Check
@@ -461,6 +464,7 @@ export async function testStudioPrompt(formData: FormData): Promise<{
   const fit = formData.get('fit') as string;
   const model = formData.get('model') as string;
   const template = formData.get('template') as string;
+  const compareAll = formData.get('compareAll') === 'true';
 
   if (!file || file.size === 0) {
     return { success: false, error: "No test image provided." };
@@ -478,21 +482,29 @@ export async function testStudioPrompt(formData: FormData): Promise<{
     const mimeType = file.type || 'image/png';
     const dataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
-    // 4. Execute Domain Logic (Dry Run)
-    // We pass the template explicitly to override the database setting
-    const result = await constructStudioPrompt(
-      dataUri,
-      fit as 'slim' | 'regular' | 'relaxed',
-      admin.username,
-      template, // <--- The override from the UI
-      model // <--- The selected model
-    );
+    // 4. Execute Domain Logic
+    if (compareAll) {
+      const comparisons = await compareClothingDescriptions(dataUri, admin.username);
+      return {
+        success: true,
+        comparisons
+      };
+    } else {
+      // We pass the template explicitly to override the database setting
+      const result = await constructStudioPrompt(
+        dataUri,
+        fit as 'slim' | 'regular' | 'relaxed',
+        admin.username,
+        template, // <--- The override from the UI
+        model // <--- The selected model
+      );
 
-    return {
-      success: true,
-      classification: result.classification,
-      prompt: result.finalPrompt,
-    };
+      return {
+        success: true,
+        classification: result.classification,
+        prompt: result.finalPrompt,
+      };
+    }
 
   } catch (error) {
     console.error("Studio Prompt Dry Run Failed:", error);
