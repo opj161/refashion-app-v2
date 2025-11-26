@@ -98,15 +98,13 @@ export function ImageViewerModal({
   // Aggregate all images: Original + Generated (filtering out nulls)
   const images = useMemo(() => {
     if (!item) return [];
-    const imgs = [
-      { type: 'Original', url: item.originalClothingUrl, isGenerated: false, index: -1 },
-      ...item.editedImageUrls.map((url, i) => ({ 
-        type: `Generated #${i + 1}`, 
-        url, 
-        isGenerated: true, 
-        index: i // Keep track of the real slot index for actions
-      })).filter(img => img.url) // Filter out failed generations
-    ];
+    // Only include generated images, not the original
+    const imgs = item.editedImageUrls.map((url, i) => ({ 
+      type: `Generated #${i + 1}`, 
+      url, 
+      isGenerated: true, 
+      index: i // Keep track of the real slot index for actions
+    })).filter(img => img.url); // Filter out failed generations
     return imgs;
   }, [item]);
 
@@ -117,8 +115,8 @@ export function ImageViewerModal({
       if (foundIndex !== -1) {
         setSelectedIndex(foundIndex);
       } else {
-        // Default to the first generated image if available, else original
-        setSelectedIndex(images.length > 1 ? 1 : 0);
+        // Default to the first image
+        setSelectedIndex(0);
       }
     }
   }, [isOpen, initialImageUrl, images]);
@@ -156,6 +154,14 @@ export function ImageViewerModal({
   const downloadFilename = `RefashionAI_${item.id.slice(0, 8)}_${currentImage.type.replace(/[^a-z0-9]/gi, '_')}.png`;
   const displayUrl = getDisplayableImageUrl(currentImage.url);
 
+  // Check if this is Studio Mode
+  const isStudioMode = item.generation_mode === 'studio';
+  
+  // Handle "Processing..." state or missing prompts
+  const displayPrompt = item.constructedPrompt === 'Processing...' 
+    ? 'Generation in progress...'
+    : (item.constructedPrompt || 'No prompt available');
+
   // Content for the sidebar / mobile sheet
   const InspectorContent = (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
@@ -168,13 +174,14 @@ export function ImageViewerModal({
 
       <ParameterSection title="Prompt & Config">
         <div className="relative bg-muted/50 rounded-md p-3 text-xs font-mono leading-relaxed text-foreground/80 max-h-[150px] overflow-y-auto custom-scrollbar">
-          {item.constructedPrompt}
+          {displayPrompt}
           <Button
             variant="ghost"
             size="icon"
             className="absolute top-1 right-1 h-6 w-6 hover:bg-background"
             onClick={handleCopyPrompt}
             title="Copy Prompt"
+            disabled={displayPrompt === 'Generation in progress...' || displayPrompt === 'No prompt available'}
           >
             <Copy className="h-3 w-3" />
           </Button>
@@ -186,12 +193,18 @@ export function ImageViewerModal({
         )}
       </ParameterSection>
 
-      {item.attributes && Object.keys(item.attributes).length > 0 ? (
+      {/* Conditionally display parameters based on generation mode */}
+      {!isStudioMode && item.attributes && Object.keys(item.attributes).length > 0 ? (
         <ParameterSection title="Generation Parameters">
           {Object.entries(item.attributes).map(([label, value]) => (
             <ParameterRow key={label} label={label} value={value as string} />
           ))}
         </ParameterSection>
+      ) : isStudioMode ? (
+        <div className="p-4 bg-muted/30 rounded text-center text-sm text-muted-foreground">
+          <p className="font-medium mb-1">Studio Mode</p>
+          <p className="text-xs">Custom prompt-driven generation</p>
+        </div>
       ) : (
          <div className="p-4 bg-muted/30 rounded text-center text-sm text-muted-foreground">
             No parameters available for this item.
