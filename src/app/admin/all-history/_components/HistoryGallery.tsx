@@ -7,7 +7,7 @@ import { getAllUsersHistoryPaginatedForAdmin, deleteHistoryItem } from '@/action
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { HistoryDetailModal } from '@/components/HistoryDetailModal';
+import { ImageViewerModal } from '@/components/ImageViewerModal';
 import { VideoPlaybackModal } from '@/components/VideoPlaybackModal';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
@@ -114,7 +114,7 @@ export function HistoryGallery({ initialHistory }: { initialHistory: PaginatedRe
 
       {/* Detail Modal - conditionally renders based on item type */}
       {detailItem && !itemIsVideo(detailItem) && (
-        <HistoryDetailModal
+        <ImageViewerModal
           item={detailItem}
           isOpen={true}
           onClose={() => setDetailItem(null)}

@@ -175,7 +175,7 @@ async function generateClothingDescription(
     keyIndex: 1,
   });
 
-  const classificationPrompt = "Classify this clothing item using 2-5 words that specify both fit and length. Provide only the classification without additional formatting or explanation.";
+  const classificationPrompt = "Use 1-3 descriptive words to specify both the fit and length of this clothing item, and 1-2 words to classify the garment type correctly. Provide only this 2-5 word total classification without additional formatting or explanation, using standard fashion terminology.";
 
   logger.start({
     imageSource: imageDataUriOrUrl.substring(0, 100),

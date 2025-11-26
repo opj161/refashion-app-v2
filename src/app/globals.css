@@ -4,6 +4,17 @@
 @tailwind components;
 @tailwind utilities;
 
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+}
+
 /* Motion constants for optimized animations */
 :root {
   --motion-spring-quick: 200ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -52,35 +63,35 @@
 
   .dark {
     /* Main Dark Theme */
-    --background: 224 71% 4%;          /* hsl(224, 71%, 4%) - Almost black, deep blue */
-    --background-accent: 224 40% 8%;   /* hsl(224, 40%, 8%) - Slightly lighter, for depth */
-    --foreground: 210 20% 92%;         /* hsl(210, 20%, 92%) - Off-white with a cool tint */
-    
-    --card: 224 25% 12%;               /* hsl(224, 25%, 12%) - Dark blue-gray */
-    --card-foreground: 210 20% 95%;    /* hsl(210, 20%, 95%) */
+    --background: 224 71% 4%; /* hsl(224, 71%, 4%) - Almost black, deep blue */
+    --background-accent: 224 40% 8%; /* hsl(224, 40%, 8%) - Slightly lighter, for depth */
+    --foreground: 210 20% 92%; /* hsl(210, 20%, 92%) - Off-white with a cool tint */
+
+    --card: 224 25% 12%; /* hsl(224, 25%, 12%) - Dark blue-gray */
+    --card-foreground: 210 20% 95%; /* hsl(210, 20%, 95%) */
 
     --popover: 224 71% 4%;
     --popover-foreground: 210 20% 95%;
 
-    --primary: 173 71% 42%;            /* #1fab99 */
+    --primary: 173 71% 42%; /* #1fab99 */
     --primary-foreground: 224 20% 98%; /* Very light, almost white */
     --primary-gradient-end: 237 92% 76%; /* A bit lighter and more cyan */
 
-    --secondary: 210 15% 23%;          /* hsl(210, 15%, 23%) - Muted dark blue */
+    --secondary: 210 15% 23%; /* hsl(210, 15%, 23%) - Muted dark blue */
     --secondary-foreground: 210 20% 92%;
 
     --muted: 210 15% 18%;
     --muted-foreground: 210 10% 65%;
 
-    --accent: 177 63% 48%;             /* #2abab1 */
+    --accent: 177 63% 48%; /* #2abab1 */
     --accent-foreground: 224 20% 98%;
 
-    --destructive: 12 64% 49%;         /* #ef571a */
+    --destructive: 12 64% 49%; /* #ef571a */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 210 10% 23%;             /* A slightly lighter blue-gray */
+    --border: 210 10% 23%; /* A slightly lighter blue-gray */
     --input: 210 15% 18%;
-    --ring: 177 63% 55%;               /* Lighter teal for focus rings */
+    --ring: 177 63% 55%; /* Lighter teal for focus rings */
     --radius: 0.75rem;
   }
 
@@ -111,13 +122,19 @@
   }
 
   @keyframes aurora-animation {
-    0% { transform: translate(-50%, -50%) rotate(0deg) scale(1.2); }
-    50% { transform: translate(-50%, -50%) rotate(180deg) scale(1.5); }
-    100% { transform: translate(-50%, -50%) rotate(360deg) scale(1.2); }
+    0% {
+      transform: translate(-50%, -50%) rotate(0deg) scale(1.2);
+    }
+    50% {
+      transform: translate(-50%, -50%) rotate(180deg) scale(1.5);
+    }
+    100% {
+      transform: translate(-50%, -50%) rotate(360deg) scale(1.2);
+    }
   }
 
   .aurora-bg {
-    content: '';
+    content: "";
     position: fixed;
     left: 50%;
     top: 50%;
@@ -125,9 +142,10 @@
     height: 120vh;
     max-width: 1400px;
     max-height: 1400px;
-    background-image: radial-gradient(circle at 20% 20%, hsl(173 71% 42% / 0.2), transparent 40%),
-                      radial-gradient(circle at 80% 30%, hsl(278 48% 28% / 0.2), transparent 40%),
-                      radial-gradient(circle at 60% 80%, hsl(244 62% 30% / 0.2), transparent 40%);
+    background-image:
+      radial-gradient(circle at 20% 20%, hsl(173 71% 42% / 0.2), transparent 40%),
+      radial-gradient(circle at 80% 30%, hsl(278 48% 28% / 0.2), transparent 40%),
+      radial-gradient(circle at 60% 80%, hsl(244 62% 30% / 0.2), transparent 40%);
     filter: blur(100px);
     z-index: -1;
     pointer-events: none;
@@ -137,7 +155,7 @@
 
   /* --- Improvement 1: Aurora Background Glow --- */
   .dark body::before {
-    content: '';
+    content: "";
     position: fixed;
     left: 50%;
     top: 15%;
@@ -159,9 +177,12 @@
     border: 1px solid transparent;
   }
   .dark .card::before {
-    content: '';
+    content: "";
     position: absolute;
-    top: 0; right: 0; bottom: 0; left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     z-index: -1;
     margin: -1px;
     border-radius: inherit;
@@ -174,7 +195,8 @@
     transition: none;
   }
 
-  html, body {
+  html,
+  body {
     width: 100%;
     overflow-x: hidden;
     margin: 0;
@@ -187,8 +209,8 @@
   }
 
   /* --- Improvement 4: Softer Focus Rings --- */
-  .dark input:focus-visible, 
-  .dark textarea:focus-visible, 
+  .dark input:focus-visible,
+  .dark textarea:focus-visible,
   .dark [data-radix-select-trigger]:focus-visible {
     border-color: hsl(var(--primary) / 0.8) !important;
     box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important;
@@ -197,7 +219,7 @@
 
 @layer components {
   .glass-card {
-    @apply border border-white/10 bg-card/50 backdrop-blur-xl shadow-2xl shadow-black/20;
+    @apply border border-white/10 bg-card/50 shadow-2xl shadow-black/20 backdrop-blur-xl;
     @apply transition-all duration-300;
   }
   .glass-card:hover {
@@ -210,22 +232,29 @@
   }
 
   .uploader-dropzone::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     border-radius: inherit;
     padding: 1px; /* border thickness */
-    background: radial-gradient(400px circle at 50% 50%, hsl(var(--primary) / 0.5), transparent 40%);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    background: radial-gradient(
+      400px circle at 50% 50%,
+      hsl(var(--primary) / 0.5),
+      transparent 40%
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
     mask-composite: exclude;
     opacity: 0;
     transition: opacity 0.3s ease-in-out;
   }
-  
 
-  .uploader-dropzone[data-state='drag-over']::before {
+  .uploader-dropzone[data-state="drag-over"]::before {
     opacity: 1;
   }
 }
@@ -242,7 +271,9 @@
     background-color: hsl(var(--background)); /* Ensures it matches theme */
     opacity: 1;
     visibility: visible;
-    transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+    transition:
+      opacity 0.5s ease-out,
+      visibility 0.5s ease-out;
   }
 
   .splash-screen.hidden {

@@ -17,7 +17,7 @@ import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { COMMON_VARIANTS } from "@/lib/motion-constants";
 
 // Lazy load modals for better initial page load performance
-const HistoryDetailModal = lazy(() => import('./HistoryDetailModal').then(m => ({ default: m.HistoryDetailModal })));
+const ImageViewerModal = lazy(() => import('./ImageViewerModal').then(m => ({ default: m.ImageViewerModal })));
 const VideoPlaybackModal = lazy(() => import('./VideoPlaybackModal').then(m => ({ default: m.VideoPlaybackModal })));
 
 type FilterType = 'all' | 'image' | 'video';
@@ -39,6 +39,7 @@ export default function HistoryGallery({
   
   // Read history filter directly from Zustand store
   const historyFilter = useGenerationSettingsStore(state => state.historyFilter);
+  const loadFromHistory = useGenerationSettingsStore(state => state.loadFromHistory);
   
   const [detailItem, setDetailItem] = useState<HistoryItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<HistoryItem | null>(null);
@@ -199,6 +200,26 @@ export default function HistoryGallery({
   // Helper to check if item is a video
   const itemIsVideo = (item: HistoryItem) => !!(item.videoGenerationParams || (item.generatedVideoUrls && item.generatedVideoUrls.some(url => !!url)));
 
+  // Handler for reloading config from history
+  const handleReloadConfig = useCallback((item: HistoryItem) => {
+    // 1. Update global store
+    loadFromHistory(item);
+    
+    // 2. Determine target tab
+    const targetTab = item.videoGenerationParams ? 'video' : 'image';
+    
+    // 3. Navigate to creation hub with initialization params to ensure UI updates
+    router.push(`/?init_history_id=${item.id}&target_tab=${targetTab}`);
+    
+    // 4. Close modal
+    setDetailItem(null);
+    
+    toast({
+      title: "Settings Restored",
+      description: "Generation parameters have been loaded into the workspace.",
+    });
+  }, [router, loadFromHistory, toast]);
+
   // Define a simple fade variant for this component's transitions
   const fadeVariant = {
     hidden: { opacity: 0 },
@@ -280,10 +301,11 @@ export default function HistoryGallery({
                   <AnimatePresence>
                     {detailItem && !itemIsVideo(detailItem) && (
                       <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
-                        <HistoryDetailModal
+                        <ImageViewerModal
                           isOpen={!!detailItem}
                           onClose={() => setDetailItem(null)}
                           item={detailItem}
+                          onReloadConfig={handleReloadConfig}
                         />
                       </Suspense>
                     )}

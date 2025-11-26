@@ -12,8 +12,8 @@ import Image from 'next/image';
 import { getDisplayableImageUrl } from '@/lib/utils';
 import { upscaleImageAction, faceDetailerAction, isFaceDetailerAvailable } from '@/ai/actions/upscale-image.action';
 import { updateHistoryItem } from '@/actions/historyActions';
-import { UnifiedMediaModal, MediaSlot, SidebarSlot } from './UnifiedMediaModal';
-import { DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { ImageViewerModal } from './ImageViewerModal';
+import { useGenerationSettingsStore } from '@/stores/generationSettingsStore';
 import type { ImageGenerationFormState } from '@/actions/imageActions';
 
 interface ImageResultsDisplayProps {
@@ -32,6 +32,7 @@ export function ImageResultsDisplay({
   maxImages = 3
 }: ImageResultsDisplayProps) {
   const { toast } = useToast();
+  const imageSettings = useGenerationSettingsStore(state => state.imageSettings);
 
   // Local state for post-generation operations (upscale, face detail)
   const [localOutputImageUrls, setLocalOutputImageUrls] = useState<(string | null)[]>(
@@ -471,76 +472,28 @@ export function ImageResultsDisplay({
       {/* Image Viewer Modal */}
       <AnimatePresence>
         {isImageViewerOpen && selectedImageUrl && (
-          <UnifiedMediaModal
+          <ImageViewerModal
             isOpen={isImageViewerOpen}
             onClose={handleCloseImageViewer}
-            title={<DialogTitle>Image Viewer</DialogTitle>}
-            description={
-              <DialogDescription>
-                Viewing generated image {(selectedImageIndex ?? 0) + 1} of {maxImages}.
-              </DialogDescription>
-            }
-            footerRight={
-              <>
-                <Button variant="outline" onClick={handleCloseImageViewer}>
-                  <X className="w-4 h-4 mr-2" /> Close
-                </Button>
-              </>
-            }
-          >
-            <>
-              <MediaSlot>
-                <Image
-                  src={selectedImageUrl}
-                  alt={`Generated Image ${(selectedImageIndex ?? 0) + 1} - Large View`}
-                  fill
-                  className="object-contain"
-                  quality={95}
-                />
-              </MediaSlot>
-              <SidebarSlot>
-                <div className="p-4 flex flex-col gap-4">
-                  <h3 className="font-semibold">Actions</h3>
-                  <div className="grid grid-cols-1 gap-2">
-                    {isFaceDetailerServiceAvailable && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleFaceRetouch(selectedImageIndex!)}
-                        disabled={
-                          isFaceRetouchingSlot !== null ||
-                          isUpscalingSlot !== null ||
-                          !!originalOutputImageUrls[selectedImageIndex!]
-                        }
-                      >
-                        <UserCheck className="mr-2 h-4 w-4" /> Face Retouch
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleUpscale(selectedImageIndex!)}
-                      disabled={
-                        isUpscalingSlot !== null ||
-                        isFaceRetouchingSlot !== null ||
-                        !!originalOutputImageUrls[selectedImageIndex!]
-                      }
-                    >
-                      <Sparkles className="mr-2 h-4 w-4" /> Upscale
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSendToVideoPage(outputImageUrls[selectedImageIndex!])}
-                      disabled={isUpscalingSlot !== null || isFaceRetouchingSlot !== null}
-                    >
-                      <VideoIcon className="mr-2 h-4 w-4" /> Use for Video
-                    </Button>
-                  </div>
-                </div>
-              </SidebarSlot>
-            </>
-          </UnifiedMediaModal>
+            initialImageUrl={selectedImageUrl}
+            item={{
+                id: activeHistoryItemId || 'preview',
+                timestamp: Date.now(),
+                constructedPrompt: formState?.constructedPrompt || '',
+                originalClothingUrl: originalOutputImageUrls.find(u => u) || '', 
+                editedImageUrls: outputImageUrls,
+                attributes: imageSettings,
+                username: 'current',
+            } as any}
+            
+            onUpscale={(idx) => handleUpscale(idx)}
+            onFaceDetail={(idx) => handleFaceRetouch(idx)}
+            onSendToVideo={(url) => handleSendToVideoPage(url)}
+            
+            isUpscalingSlot={isUpscalingSlot}
+            isFaceRetouchingSlot={isFaceRetouchingSlot}
+            isFaceDetailerAvailable={isFaceDetailerServiceAvailable}
+          />
         )}
       </AnimatePresence>
     </>
