@@ -18,6 +18,7 @@ export interface HistoryItem {
   originalImageUrls?: (string | null)[]; // Store pre-face-detailed versions for comparison
   username: string;
   settingsMode?: 'basic' | 'advanced';
+  generation_mode?: 'creative' | 'studio';
   generatedVideoUrls?: (string | null)[];
   videoGenerationParams?: {
     prompt: string;

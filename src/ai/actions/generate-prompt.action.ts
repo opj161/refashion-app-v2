@@ -16,6 +16,7 @@ import {
 } from '@/lib/prompt-builder';
 import { withGeminiRetry, AIGenerationError } from '@/lib/api-retry';
 import { getSystemPrompt } from '@/services/systemPrompt.service';
+import { createApiLogger } from '@/lib/api-logger';
 
 // Helper to convert an image path/URI to the format the SDK needs
 async function imageToGenerativePart(imageDataUriOrUrl: string) {
@@ -149,6 +150,12 @@ export async function generatePromptWithAI(
   username: string,
   keyIndex: 1 | 2 | 3
 ): Promise<string> {
+  const logger = createApiLogger('GEMINI_TEXT', 'AI Prompt Enhancement', {
+    username,
+    model: 'gemini-2.5-pro',
+    keyIndex,
+  });
+
   const apiKey = await getApiKeyForUser(username, 'gemini', keyIndex);
   const ai = new GoogleGenAI({ apiKey });
   
@@ -188,11 +195,11 @@ export async function generatePromptWithAI(
   const imagePart = await imageToGenerativePart(imageDataUriOrUrl);
   const parametersText = formatParametersForAI(params);
   
-  // Log the input text being sent to AI prompt enhancer
-  console.log(`\n🎨 AI PROMPT ENHANCER INPUT (Key ${keyIndex}):`);
-  console.log('='.repeat(80));
-  console.log(parametersText);
-  console.log('='.repeat(80));
+  logger.start({
+    parametersLength: parametersText.length,
+    imageSource: imageDataUriOrUrl.substring(0, 100),
+    temperature: config.temperature,
+  });
   
   const contents = [
     {
@@ -208,6 +215,8 @@ export async function generatePromptWithAI(
 
   // Use centralized retry logic
   return withGeminiRetry(async () => {
+    logger.progress('Sending request to Gemini API');
+    
     const response = await ai.models.generateContent({
       model,
       config,
@@ -221,7 +230,10 @@ export async function generatePromptWithAI(
 
     // Case 1: The generation was explicitly blocked for safety. This is NOT retryable.
     if (finishReason === 'SAFETY') {
-      console.warn(`Prompt generation blocked by safety settings for Key ${keyIndex}.`);
+      logger.warning('Prompt generation blocked by safety settings', {
+        keyIndex: keyIndex.toString(),
+        finishReason: 'SAFETY',
+      });
       throw new AIGenerationError(
         'Prompt generation was blocked due to safety settings.',
         { isRetryable: false, finishReason: 'SAFETY' }
@@ -230,18 +242,18 @@ export async function generatePromptWithAI(
 
     // Case 2: The API call succeeded, but the model returned no text. This IS retryable.
     if (!text) {
-      console.error("AI Prompt Generation Response:", JSON.stringify(response, null, 2));
+      logger.error(new Error('No text returned from API'), 'Will retry');
       throw new AIGenerationError(
         'The AI prompt generator did not return a valid prompt.',
         { isRetryable: true, finishReason }
       );
     }
 
-    // Log the received optimized prompt
-    console.log(`\n✨ AI PROMPT ENHANCER OUTPUT (Key ${keyIndex}):`);
-    console.log('='.repeat(80));
-    console.log(text.trim());
-    console.log('='.repeat(80));
+    logger.success({
+      promptLength: text.trim().length,
+      finishReason: finishReason || 'STOP',
+      candidatesCount: response.candidates?.length || 0,
+    });
 
     return text.trim();
   }, `AI prompt generation (Key ${keyIndex})`);

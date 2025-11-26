@@ -15,6 +15,7 @@ import { getCachedImage, setCachedImage } from './cache-manager';
 import { getCurrentUser } from '@/actions/authActions';
 import mime from 'mime-types';
 import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
+import { createApiLogger } from '@/lib/api-logger';
 
 /**
  * Upscale and enhance a user-uploaded image
@@ -35,31 +36,41 @@ export async function upscaleImageAction(
     throw new Error('Authentication required for upscaling.');
   }
 
+  const logger = createApiLogger('FAL_IMAGE', 'Image Upscaling', {
+    username: user.username,
+    endpoint: 'fal-ai/sd-ultimateface',
+  });
+
   // Check cache first if hash is provided
   if (imageHash) {
     const cachedEntry = await getCachedImage(imageHash, 'upscaled');
     if (cachedEntry) {
-      console.log(`[Cache] HIT: Found upscaled image for hash ${imageHash} at path ${cachedEntry.path}`);
+      logger.warning('Using cached result', {
+        hash: imageHash,
+        path: cachedEntry.path,
+      });
       return { savedPath: cachedEntry.path, outputHash: cachedEntry.hash };
     }
-    console.log(`[Cache] MISS: No cached upscaled image for hash ${imageHash}`);
   }
   
-  try {
-    console.log('Starting image upscaling process with Fal.ai...');
+  logger.start({
+    imageUrl: imageUrl.substring(0, 100),
+    hasCache: !!imageHash,
+  });
 
-    // Read the local file and convert it to a data URI
-    // This ensures Fal.ai receives the image data directly, avoiding localhost access issues.
+  try {
+    logger.progress('Reading local file and converting to data URI');
+    
     const buffer = await getBufferFromLocalPath(imageUrl);
     const mimeType = mime.lookup(imageUrl) || 'image/png';
     const imageDataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
-    // Process image using Fal.ai service
+    logger.progress('Calling Fal.ai API');
+    
     const outputImageUrl = await falImageService.upscaleAndEnhance(imageDataUri, user.username);
     
-    console.log(`Fal.ai processed image URL: ${outputImageUrl}`);
+    logger.progress('Saving processed image locally');
 
-    // Save the processed image locally using the storage service
     const { relativeUrl, hash: outputHash } = await saveFileFromUrl(
       outputImageUrl, 
       'RefashionAI_upscaled', 
@@ -70,14 +81,18 @@ export async function upscaleImageAction(
     // Cache the result if hash is provided
     if (imageHash) {
       await setCachedImage(imageHash, 'upscaled', relativeUrl, outputHash);
-      console.log(`[Cache] SET: Stored upscaled image for hash ${imageHash}`);
+      logger.progress('Result cached');
     }
     
-    console.log('Image upscaling completed successfully using Fal.ai.');
+    logger.success({
+      savedPath: relativeUrl,
+      outputHash,
+    });
+    
     return { savedPath: relativeUrl, outputHash };
     
   } catch (error) {
-    console.error('Error in upscale image action (Fal.ai):', error);
+    logger.error(error);
     throw new Error(`Image upscaling with Fal.ai failed: ${(error as Error).message}`);
   }
 }
@@ -101,34 +116,44 @@ export async function faceDetailerAction(
     throw new Error('Authentication required for face detailing.');
   }
 
+  const logger = createApiLogger('FAL_IMAGE', 'Face Enhancement', {
+    username: user.username,
+    endpoint: 'fal-ai/face-detailer',
+  });
+
   // Check cache first if hash is provided
   if (imageHash) {
     const cachedEntry = await getCachedImage(imageHash, 'faceDetailed');
     if (cachedEntry) {
-      console.log(`[Cache] HIT: Found face-enhanced image for hash ${imageHash} at path ${cachedEntry.path}`);
+      logger.warning('Using cached result', {
+        hash: imageHash,
+        path: cachedEntry.path,
+      });
       return { savedPath: cachedEntry.path, outputHash: cachedEntry.hash };
     }
-    console.log(`[Cache] MISS: No cached face-enhanced image for hash ${imageHash}`);
   }
 
-  try {
-    console.log('Starting face enhancement process with Fal.ai...');
+  logger.start({
+    imageUrl: imageUrl.substring(0, 100),
+    hasCache: !!imageHash,
+  });
 
-    // Read the local file and convert it to a data URI
-    // This ensures Fal.ai receives the image data directly, avoiding localhost access issues.
+  try {
+    logger.progress('Reading local file and converting to data URI');
+    
     const buffer = await getBufferFromLocalPath(imageUrl);
     const mimeType = mime.lookup(imageUrl) || 'image/png';
     const imageDataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
-    // Call the new, specific service function
+    logger.progress('Calling Fal.ai face detailer API');
+
     const outputImageUrl = await falImageService.detailFaces(imageDataUri, user.username);
 
-    console.log(`Fal.ai face-detailer processed image URL: ${outputImageUrl}`);
+    logger.progress('Saving processed image locally');
 
-    // Save the processed image locally
     const { relativeUrl, hash: outputHash } = await saveFileFromUrl(
       outputImageUrl, 
-      'RefashionAI_face_enhanced', // Use a different prefix
+      'RefashionAI_face_enhanced',
       'processed_images', 
       'png'
     );
@@ -136,14 +161,18 @@ export async function faceDetailerAction(
     // Cache the result if hash is provided
     if (imageHash) {
       await setCachedImage(imageHash, 'faceDetailed', relativeUrl, outputHash);
-      console.log(`[Cache] SET: Stored face-enhanced image for hash ${imageHash}`);
+      logger.progress('Result cached');
     }
 
-    console.log('Face enhancement completed successfully using Fal.ai.');
+    logger.success({
+      savedPath: relativeUrl,
+      outputHash,
+    });
+    
     return { savedPath: relativeUrl, outputHash };
 
   } catch (error) {
-    console.error('Error in face detailer action (Fal.ai):', error);
+    logger.error(error);
     throw new Error(`Face enhancement with Fal.ai failed: ${(error as Error).message}`);
   }
 }

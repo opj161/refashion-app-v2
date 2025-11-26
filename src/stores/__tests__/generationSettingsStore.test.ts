@@ -1,7 +1,28 @@
 // src/stores/__tests__/generationSettingsStore.test.ts
 import { renderHook, act } from '@testing-library/react';
 import { useGenerationSettingsStore } from '../generationSettingsStore';
-import type { ModelAttributes } from '@/lib/types';
+import type { ModelAttributes, HistoryItem } from '@/lib/types';
+
+// Helper function to create a minimal HistoryItem for testing
+const createHistoryItem = (
+  attributes: ModelAttributes,
+  options?: {
+    settingsMode?: 'basic' | 'advanced';
+    generation_mode?: 'creative' | 'studio';
+    videoGenerationParams?: HistoryItem['videoGenerationParams'];
+  }
+): HistoryItem => ({
+  id: 'test-id',
+  timestamp: Date.now(),
+  attributes,
+  constructedPrompt: 'Test prompt',
+  originalClothingUrl: '/test/image.png',
+  editedImageUrls: [],
+  username: 'testuser',
+  settingsMode: options?.settingsMode,
+  generation_mode: options?.generation_mode,
+  videoGenerationParams: options?.videoGenerationParams,
+});
 
 describe('GenerationSettingsStore', () => {
   beforeEach(() => {
@@ -29,6 +50,16 @@ describe('GenerationSettingsStore', () => {
     it('should have basic settings mode by default', () => {
       const state = useGenerationSettingsStore.getState();
       expect(state.settingsMode).toBe('basic');
+    });
+
+    it('should have creative generation mode by default', () => {
+      const state = useGenerationSettingsStore.getState();
+      expect(state.generationMode).toBe('creative');
+    });
+
+    it('should have regular studio fit by default', () => {
+      const state = useGenerationSettingsStore.getState();
+      expect(state.studioFit).toBe('regular');
     });
 
     it('should have zero generation count by default', () => {
@@ -129,8 +160,10 @@ describe('GenerationSettingsStore', () => {
         overallMood: 'confident',
       };
 
+      const historyItem = createHistoryItem(historyAttributes);
+
       act(() => {
-        result.current.loadFromHistory(historyAttributes);
+        result.current.loadFromHistory(historyItem);
       });
 
       expect(result.current.imageSettings).toEqual(historyAttributes);
@@ -159,20 +192,24 @@ describe('GenerationSettingsStore', () => {
       };
 
       const videoParams = {
+        prompt: 'Test video prompt',
         selectedPredefinedPrompt: 'turn_to_profile',
         modelMovement: 'elegant_turn_profile',
         fabricMotion: 'soft_flow_with_movement',
         cameraAction: 'slow_zoom_in',
         aestheticVibe: 'timeless_chic_sophistication',
         videoModel: 'pro' as 'lite' | 'pro',
-        resolution: '1080p' as '480p' | '720p' | '1080p',
+        resolution: '1080p',
         duration: '8',
         seed: 42,
         cameraFixed: true,
+        sourceImageUrl: '/test/source.png',
       };
 
+      const historyItem = createHistoryItem(historyAttributes, { videoGenerationParams: videoParams });
+
       act(() => {
-        result.current.loadFromHistory(historyAttributes, videoParams);
+        result.current.loadFromHistory(historyItem);
       });
 
       expect(result.current.videoSettings.selectedPredefinedPrompt).toBe('turn_to_profile');
@@ -203,8 +240,10 @@ describe('GenerationSettingsStore', () => {
         overallMood: 'default',
       };
 
+      const historyItem = createHistoryItem(historyAttributes, { settingsMode: 'advanced' });
+
       act(() => {
-        result.current.loadFromHistory(historyAttributes, undefined, 'advanced');
+        result.current.loadFromHistory(historyItem);
       });
 
       expect(result.current.settingsMode).toBe('advanced');
@@ -217,8 +256,10 @@ describe('GenerationSettingsStore', () => {
         gender: 'male',
       } as Partial<ModelAttributes>;
 
+      const historyItem = createHistoryItem(partialAttributes as ModelAttributes);
+
       act(() => {
-        result.current.loadFromHistory(partialAttributes as ModelAttributes);
+        result.current.loadFromHistory(historyItem);
       });
 
       expect(result.current.imageSettings.gender).toBe('male');
@@ -329,6 +370,167 @@ describe('GenerationSettingsStore', () => {
       expect(result.current.backgroundRemovalEnabled).toBe(true);
       expect(result.current.upscaleEnabled).toBe(true);
       expect(result.current.faceDetailEnabled).toBe(true);
+    });
+  });
+
+  describe('Studio Mode', () => {
+    describe('setGenerationMode', () => {
+      it('should update generation mode to studio', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        act(() => {
+          result.current.setGenerationMode('studio');
+        });
+
+        expect(result.current.generationMode).toBe('studio');
+      });
+
+      it('should update generation mode back to creative', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        act(() => {
+          result.current.setGenerationMode('studio');
+        });
+
+        expect(result.current.generationMode).toBe('studio');
+
+        act(() => {
+          result.current.setGenerationMode('creative');
+        });
+
+        expect(result.current.generationMode).toBe('creative');
+      });
+    });
+
+    describe('setStudioFit', () => {
+      it('should update studio fit to slim', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        act(() => {
+          result.current.setStudioFit('slim');
+        });
+
+        expect(result.current.studioFit).toBe('slim');
+      });
+
+      it('should update studio fit to relaxed', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        act(() => {
+          result.current.setStudioFit('relaxed');
+        });
+
+        expect(result.current.studioFit).toBe('relaxed');
+      });
+
+      it('should update studio fit back to regular', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        act(() => {
+          result.current.setStudioFit('slim');
+        });
+
+        act(() => {
+          result.current.setStudioFit('regular');
+        });
+
+        expect(result.current.studioFit).toBe('regular');
+      });
+    });
+
+    describe('loadFromHistory with Studio Mode', () => {
+      it('should load studio mode and fit from history', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        const historyAttributes: ModelAttributes & { studioFit?: 'slim' | 'regular' | 'relaxed' } = {
+          gender: 'female',
+          bodyShapeAndSize: 'default',
+          ageRange: 'default',
+          ethnicity: 'default',
+          poseStyle: 'default',
+          background: 'outdoor_nature_elements',
+          fashionStyle: 'default_style',
+          hairStyle: 'default',
+          modelExpression: 'default',
+          lightingType: 'default',
+          lightQuality: 'default',
+          modelAngle: 'default',
+          lensEffect: 'default',
+          depthOfField: 'default',
+          timeOfDay: 'default',
+          overallMood: 'default',
+          studioFit: 'slim', // Studio fit stored in attributes
+        };
+
+        const historyItem = createHistoryItem(historyAttributes, {
+          settingsMode: 'basic',
+          generation_mode: 'studio',
+        });
+
+        act(() => {
+          result.current.loadFromHistory(historyItem);
+        });
+
+        expect(result.current.generationMode).toBe('studio');
+        expect(result.current.studioFit).toBe('slim');
+      });
+
+      it('should preserve creative mode when loading history without generation mode', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        const historyAttributes: ModelAttributes = {
+          gender: 'male',
+          bodyShapeAndSize: 'default',
+          ageRange: 'default',
+          ethnicity: 'default',
+          poseStyle: 'default',
+          background: 'outdoor_nature_elements',
+          fashionStyle: 'default_style',
+          hairStyle: 'default',
+          modelExpression: 'default',
+          lightingType: 'default',
+          lightQuality: 'default',
+          modelAngle: 'default',
+          lensEffect: 'default',
+          depthOfField: 'default',
+          timeOfDay: 'default',
+          overallMood: 'default',
+        };
+
+        const historyItem = createHistoryItem(historyAttributes);
+
+        act(() => {
+          result.current.loadFromHistory(historyItem);
+        });
+
+        // Should remain creative mode when not specified
+        expect(result.current.generationMode).toBe('creative');
+        expect(result.current.studioFit).toBe('regular');
+      });
+    });
+
+    describe('reset with Studio Mode', () => {
+      it('should reset studio mode settings to defaults', () => {
+        const { result } = renderHook(() => useGenerationSettingsStore());
+
+        // Modify studio mode settings
+        act(() => {
+          result.current.setGenerationMode('studio');
+          result.current.setStudioFit('slim');
+        });
+
+        expect(result.current.generationMode).toBe('studio');
+        expect(result.current.studioFit).toBe('slim');
+
+        // Reset
+        act(() => {
+          result.current.reset();
+        });
+
+        // Should be back to initial state
+        expect(result.current.generationMode).toBe('creative');
+        expect(result.current.studioFit).toBe('regular');
+      });
     });
   });
 });

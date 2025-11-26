@@ -39,7 +39,8 @@ export function VideoPlaybackModal({ item, onClose }: VideoPlaybackModalProps) {
       footerRight={
         <>
           <Button variant="outline" onClick={onClose}>
-            <X className="mr-2 h-4 w-4" /> Close
+            <X className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Close</span>
           </Button>
           <a href={downloadUrl || '#'} download={`RefashionAI_video_${item.id.slice(0, 8)}.mp4`}>
             <Button disabled={!downloadUrl}>

@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useImageStore } from "@/stores/imageStore";
-import { useShallow } from 'zustand/react/shallow';
-import { UploadCloud } from "lucide-react";
+import { useImagePreparation } from "@/contexts/ImagePreparationContext";
+import { UploadCloud, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from 'motion/react';
 
 // --- Constants ---
@@ -21,16 +20,12 @@ export default function ImageUploader() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
   
-  // Store state
-  const { original, isProcessing, uploadOriginalImage } = useImageStore(
-    useShallow((state) => ({
-      original: state.original,
-      isProcessing: state.isProcessing,
-      uploadOriginalImage: state.uploadOriginalImage,
-    }))
-  );
+  // Context state
+  const { state, uploadOriginalImage } = useImagePreparation();
+  const { original } = state;
   
   // Local UI state
+  const [isUploading, setIsUploading] = useState(false);
   const [isDraggingOverPage, setIsDraggingOverPage] = useState(false);
   const [isDraggingOverDropZone, setIsDraggingOverDropZone] = useState(false);
 
@@ -70,6 +65,7 @@ export default function ImageUploader() {
       return;
     }
 
+    setIsUploading(true);
     try {
       const { resized, originalWidth, originalHeight } = await uploadOriginalImage(file);
       let toastDescription = "Your image is ready for editing.";
@@ -88,6 +84,8 @@ export default function ImageUploader() {
         description: errorMessage, 
         variant: "destructive" 
       });
+    } finally {
+      setIsUploading(false);
     }
   }, [toast, uploadOriginalImage]);
 
@@ -100,7 +98,7 @@ export default function ImageUploader() {
     e.preventDefault();
     e.stopPropagation();
     
-    if (isProcessing) return;
+    if (isUploading) return;
     
     if (action === 'enter') {
       dragCounter.current++;
@@ -116,7 +114,7 @@ export default function ImageUploader() {
       setIsDraggingOverPage(false);
       processFile(e.dataTransfer.files[0]);
     }
-  }, [processFile, isProcessing]);
+  }, [processFile, isUploading]);
 
   // Modify handleDragAction to set state for the drop zone specifically
   const handleDropZoneDrag = (e: React.DragEvent, action: 'enter' | 'leave') => {
@@ -177,19 +175,29 @@ export default function ImageUploader() {
             variants={dropZoneVariants}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="p-12 rounded-lg flex flex-col items-center justify-center text-center text-muted-foreground border-2 border-dashed cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => !isUploading && fileInputRef.current?.click()}
             onDragEnter={(e) => handleDropZoneDrag(e, 'enter')}
             onDragLeave={(e) => handleDropZoneDrag(e, 'leave')}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { setIsDraggingOverDropZone(false); handleDragAction(e, 'drop'); }}
           >
-            <motion.div
-              animate={{ scale: isDraggingOverDropZone ? 1.05 : 1, y: isDraggingOverDropZone ? -3 : 0 }}
-            >
-              <UploadCloud className="w-16 h-16 mb-4 text-muted-foreground" />
-            </motion.div>
-            <p className="font-semibold text-foreground">Click to upload or drag & drop</p>
-            <p className="text-sm">PNG, JPG, WEBP, etc.</p>
+            {isUploading ? (
+              <>
+                <Loader2 className="w-16 h-16 mb-4 text-primary animate-spin" />
+                <p className="font-semibold text-foreground">Processing Image...</p>
+                <p className="text-sm">Please wait a moment.</p>
+              </>
+            ) : (
+              <>
+                <motion.div
+                  animate={{ scale: isDraggingOverDropZone ? 1.05 : 1, y: isDraggingOverDropZone ? -3 : 0 }}
+                >
+                  <UploadCloud className="w-16 h-16 mb-4 text-muted-foreground" />
+                </motion.div>
+                <p className="font-semibold text-foreground">Click to upload or drag & drop</p>
+                <p className="text-sm">PNG, JPG, WEBP, etc.</p>
+              </>
+            )}
             <Input 
               id="image-upload" 
               type="file" 
@@ -197,7 +205,7 @@ export default function ImageUploader() {
               ref={fileInputRef} 
               onChange={handleFileChange} 
               accept={ALLOWED_FILE_TYPES.join(',')} 
-              disabled={isProcessing}
+              disabled={isUploading}
             />
           </motion.div>
         </CardContent>

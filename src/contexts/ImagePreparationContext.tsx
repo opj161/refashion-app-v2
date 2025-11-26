@@ -1,18 +1,21 @@
 // src/contexts/ImagePreparationContext.tsx
-"use client";
+'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { type Crop, type PixelCrop } from 'react-image-crop';
-import { toast } from "@/hooks/use-toast";
-import type { PixelCrop as ScaledPixelCrop, HistoryItem } from '@/lib/types';
-import { getDisplayableImageUrl } from '@/lib/utils';
+import React, { createContext, useContext, useReducer, useCallback, ReactNode, useEffect, useOptimistic, startTransition } from 'react';
+import { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import { toast } from '@/hooks/use-toast';
+import type { HistoryItem, PixelCrop as ScaledPixelCrop } from '@/lib/types';
 
-// Server Actions
-import { removeBackgroundAction } from "@/ai/actions/remove-background.action";
-import { upscaleImageAction, faceDetailerAction } from "@/ai/actions/upscale-image.action";
-import { prepareInitialImage, cropImage, recreateStateFromHistoryAction, rotateImage, flipImage } from "@/actions/imageActions";
+// Import all relevant server actions
+import {
+  prepareInitialImage, cropImage, rotateImage, flipImage,
+  recreateStateFromHistoryAction, recreateStateFromImageUrl
+} from '@/actions/imageActions';
+import { removeBackgroundAction } from '@/ai/actions/remove-background.action';
+import { upscaleImageAction, faceDetailerAction } from '@/ai/actions/upscale-image.action';
 
-// Types for the image preparation workflow
+// --- STATE AND ACTION TYPES ---
+
 export interface ImageVersion {
   id: string;
   imageUrl: string;
@@ -20,88 +23,63 @@ export interface ImageVersion {
   sourceVersionId: string;
   createdAt: number;
   hash: string;
+  status?: 'processing' | 'complete';
 }
 
-export interface ImagePreparationState {
-  // Core image state
-  original: {
-    file: File;
-    imageUrl: string;
-    hash: string;
-  } | null;
+interface ImagePreparationState {
+  original: { file: File; imageUrl: string; hash: string; } | null;
   versions: Record<string, ImageVersion>;
   activeVersionId: string | null;
-  
-  // Version history for undo/redo
-  versionHistory: string[]; // Array of version IDs in chronological order
-  historyIndex: number; // Current position in history (-1 means no history)
-  
-  // Crop-related state
+  versionHistory: string[];
+  historyIndex: number;
   crop?: Crop;
   completedCrop?: PixelCrop;
   aspect?: number;
-  imageDimensions?: { 
-    originalWidth: number;
-    originalHeight: number;
-  };
-  
-  // Processing state
-  isProcessing: boolean;
-  processingStep: 'upload' | 'crop' | 'bg' | 'upscale' | 'face' | 'rotate' | 'flip' | 'confirm' | null;
-  
-  // Comparison state
+  imageDimensions?: { originalWidth: number; originalHeight: number; };
   comparison: {
     left: string;
     right: string;
   } | null;
 }
 
-export interface ImagePreparationActions {
-  // Core actions
-  setOriginalImage: (file: File, imageUrl: string, hash: string) => void;
-  addVersion: (version: Omit<ImageVersion, 'id' | 'createdAt'>) => string;
-  setActiveVersion: (versionId: string) => void;
-  reset: () => void;
-  
-  // Undo/Redo actions
-  undo: () => void;
-  redo: () => void;
+// Reducer actions for predictable state management
+type Action =
+  | { type: 'SET_ORIGINAL'; payload: { file: File; imageUrl: string; hash: string; width: number; height: number; } }
+  | { type: 'ADD_VERSION'; payload: { version: ImageVersion } }
+  | { type: 'SET_ACTIVE_VERSION'; payload: { versionId: string } }
+  | { type: 'UNDO' }
+  | { type: 'REDO' }
+  | { type: 'SET_CROP'; payload: { crop?: Crop } }
+  | { type: 'SET_COMPLETED_CROP'; payload: { crop?: PixelCrop } }
+  | { type: 'SET_ASPECT'; payload: { aspect?: number } }
+  | { type: 'SET_DIMENSIONS'; payload: { width: number; height: number } }
+  | { type: 'SET_COMPARISON'; payload: { comparison: { left: string; right: string } | null } }
+  | { type: 'RESET' };
+
+// Context shape
+interface ImagePreparationContextType {
+  state: ImagePreparationState;
+  dispatch: React.Dispatch<Action>;
+  // Derived state
+  activeImage: ImageVersion | null;
   canUndo: boolean;
   canRedo: boolean;
-  
-  // Crop actions
-  setCrop: (crop?: Crop) => void;
-  setCompletedCrop: (crop?: PixelCrop) => void;
-  setAspect: (aspect?: number) => void;
-  setOriginalImageDimensions: (dimensions: { width: number; height: number }) => void;
-  
-  // Processing actions
-  setProcessing: (isProcessing: boolean, step: ImagePreparationState['processingStep']) => void;
-  setComparison: (comparison: { left: string; right: string } | null) => void;
-  
-  // Tab navigation actions (eliminates prop drilling)
-  setCurrentTab: (tab: string) => void;
-  
-  // Async actions (these will call server actions but manage local state)
+  isAnyVersionProcessing: boolean;
+  // Async actions
+  uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
   applyCrop: () => Promise<void>;
-  removeBackground: (username: string) => Promise<void>;
-  upscaleImage: (username: string) => Promise<void>;
-  faceDetailer: (username: string) => Promise<void>;
+  removeBackground: () => Promise<void>;
+  upscaleImage: () => Promise<void>;
+  faceDetailer: () => Promise<void>;
   rotateImageLeft: () => Promise<void>;
   rotateImageRight: () => Promise<void>;
   flipHorizontal: () => Promise<void>;
   flipVertical: () => Promise<void>;
-  uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
-  initializeFromHistory: (item: HistoryItem) => Promise<void>;
+  reset: () => void;
 }
 
-type ImagePreparationContextType = ImagePreparationState & ImagePreparationActions & {
-  currentTab: string;
-};
+// --- INITIAL STATE & REDUCER ---
 
-const ImagePreparationContext = createContext<ImagePreparationContextType | undefined>(undefined);
-
-// Initial state
 const initialState: ImagePreparationState = {
   original: null,
   versions: {},
@@ -112,501 +90,454 @@ const initialState: ImagePreparationState = {
   completedCrop: undefined,
   aspect: undefined,
   imageDimensions: undefined,
-  isProcessing: false,
-  processingStep: null,
   comparison: null,
 };
 
-export const ImagePreparationProvider = ({ children }: { children: ReactNode }) => {
-  // LIFT tab state from CreationHub into the provider to eliminate prop drilling
-  const [currentTab, setCurrentTab] = useState<string>('image');
-  const [state, setState] = useState<ImagePreparationState>(initialState);
-
-  // Helper function to update state
-  const updateState = useCallback((updates: Partial<ImagePreparationState>) => {
-    setState(prev => ({ ...prev, ...updates }));
-  }, []);
-
-  // Core actions
-  const setOriginalImage = useCallback((file: File, imageUrl: string, hash: string) => {
-    const originalVersion: ImageVersion = {
-      id: 'original',
-      imageUrl,
-      label: 'Original',
-      sourceVersionId: '',
-      createdAt: Date.now(),
-      hash,
-    };
-
-    setState({
-      ...initialState, // Reset everything
-      original: { file, imageUrl, hash },
-      versions: { original: originalVersion },
-      activeVersionId: 'original',
-      versionHistory: ['original'],
-      historyIndex: 0,
-    });
-  }, []);
-
-  const addVersion = useCallback((version: Omit<ImageVersion, 'id' | 'createdAt'>) => {
-    const id = `${version.label.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
-    const newVersion: ImageVersion = {
-      ...version,
-      id,
-      createdAt: Date.now(),
-    };
-
-    setState(prev => {
-      // When adding a new version, clear any forward history if we're not at the end
-      const newHistory = prev.historyIndex < prev.versionHistory.length - 1
-        ? [...prev.versionHistory.slice(0, prev.historyIndex + 1), id]
-        : [...prev.versionHistory, id];
-
+function imagePreparationReducer(state: ImagePreparationState, action: Action): ImagePreparationState {
+  switch (action.type) {
+    case 'SET_ORIGINAL': {
+      const { file, imageUrl, hash, width, height } = action.payload;
+      const originalVersion: ImageVersion = {
+        id: 'original', imageUrl, label: 'Original', sourceVersionId: '', createdAt: Date.now(), hash, status: 'complete'
+      };
       return {
-        ...prev,
-        versions: {
-          ...prev.versions,
-          [id]: newVersion,
-        },
-        activeVersionId: id,
+        ...initialState,
+        original: { file, imageUrl, hash },
+        versions: { original: originalVersion },
+        activeVersionId: 'original',
+        versionHistory: ['original'],
+        historyIndex: 0,
+        imageDimensions: { originalWidth: width, originalHeight: height },
+      };
+    }
+    case 'ADD_VERSION': {
+      const { version } = action.payload;
+      
+      // Ensure the version being added is marked as complete
+      const finalVersion = { ...version, status: 'complete' as const };
+      
+      const newHistory = state.historyIndex < state.versionHistory.length - 1
+        ? [...state.versionHistory.slice(0, state.historyIndex + 1), finalVersion.id]
+        : [...state.versionHistory, finalVersion.id];
+      return {
+        ...state,
+        versions: { ...state.versions, [finalVersion.id]: finalVersion },
+        activeVersionId: finalVersion.id,
         versionHistory: newHistory,
         historyIndex: newHistory.length - 1,
       };
-    });
-
-    return id;
-  }, []);
-
-  const setActiveVersion = useCallback((versionId: string) => {
-    updateState({
-      activeVersionId: versionId,
-      comparison: null,
-      // Reset dimensions and crop when switching images
-      imageDimensions: undefined,
-      crop: undefined,
-      completedCrop: undefined,
-    });
-  }, [updateState]);
-
-  const reset = useCallback(() => {
-    setState(initialState);
-  }, []);
-
-  // Undo/Redo actions
-  const undo = useCallback(() => {
-    setState(prev => {
-      if (prev.historyIndex <= 0) return prev; // Can't undo further
-      
-      const newIndex = prev.historyIndex - 1;
-      const newActiveId = prev.versionHistory[newIndex];
-      
+    }
+    case 'SET_ACTIVE_VERSION': {
       return {
-        ...prev,
-        activeVersionId: newActiveId,
-        historyIndex: newIndex,
-        // Reset crop/dimensions when undoing
-        crop: undefined,
-        completedCrop: undefined,
+        ...state,
+        activeVersionId: action.payload.versionId,
+        crop: undefined, 
+        completedCrop: undefined, 
+        aspect: undefined, 
         imageDimensions: undefined,
         comparison: null,
       };
-    });
-  }, []);
-
-  const redo = useCallback(() => {
-    setState(prev => {
-      if (prev.historyIndex >= prev.versionHistory.length - 1) return prev; // Can't redo further
-      
-      const newIndex = prev.historyIndex + 1;
-      const newActiveId = prev.versionHistory[newIndex];
-      
+    }
+    case 'UNDO': {
+      if (state.historyIndex <= 0) return state;
+      const newIndex = state.historyIndex - 1;
       return {
-        ...prev,
-        activeVersionId: newActiveId,
+        ...state,
         historyIndex: newIndex,
-        // Reset crop/dimensions when redoing
-        crop: undefined,
-        completedCrop: undefined,
+        activeVersionId: state.versionHistory[newIndex],
+        crop: undefined, 
+        completedCrop: undefined, 
+        aspect: undefined, 
         imageDimensions: undefined,
         comparison: null,
       };
-    });
+    }
+    case 'REDO': {
+      if (state.historyIndex >= state.versionHistory.length - 1) return state;
+      const newIndex = state.historyIndex + 1;
+      return {
+        ...state,
+        historyIndex: newIndex,
+        activeVersionId: state.versionHistory[newIndex],
+        crop: undefined, 
+        completedCrop: undefined, 
+        aspect: undefined, 
+        imageDimensions: undefined,
+        comparison: null,
+      };
+    }
+    case 'SET_CROP': return { ...state, crop: action.payload.crop };
+    case 'SET_COMPLETED_CROP': return { ...state, completedCrop: action.payload.crop };
+    case 'SET_ASPECT': {
+      const { aspect } = action.payload;
+      const { imageDimensions } = state;
+      
+      if (imageDimensions?.originalWidth && imageDimensions?.originalHeight) {
+        const { originalWidth: width, originalHeight: height } = imageDimensions;
+        const newCrop = aspect
+          ? centerCrop(
+              makeAspectCrop({ unit: '%', width: 90 }, aspect, width, height),
+              width,
+              height
+            )
+          : undefined;
+        return { ...state, aspect, crop: newCrop, completedCrop: undefined };
+      }
+      return { ...state, aspect, crop: undefined, completedCrop: undefined };
+    }
+    case 'SET_DIMENSIONS': return { ...state, imageDimensions: { originalWidth: action.payload.width, originalHeight: action.payload.height } };
+    case 'SET_COMPARISON': return { ...state, comparison: action.payload.comparison };
+    case 'RESET': return initialState;
+    default: return state;
+  }
+}
+
+// --- CONTEXT PROVIDER & HOOK ---
+
+const ImagePreparationContext = createContext<ImagePreparationContextType | undefined>(undefined);
+
+interface ImagePreparationProviderProps {
+  children: ReactNode;
+  initialHistoryItem?: HistoryItem | null;
+  initialImageUrl?: string | null;
+  onInitializationComplete?: () => void;
+}
+
+export function ImagePreparationProvider({ 
+  children, 
+  initialHistoryItem, 
+  initialImageUrl,
+  onInitializationComplete 
+}: ImagePreparationProviderProps) {
+  const [state, dispatch] = useReducer(imagePreparationReducer, initialState);
+
+  // Define the type for an optimistic action
+  type OptimisticActionPayload = {
+    label: string;
+    sourceVersionId: string;
+  };
+  
+  // Wrap the state from the reducer with useOptimistic
+  const [optimisticState, addOptimisticAction] = useOptimistic(
+    state,
+    (currentState: ImagePreparationState, payload: OptimisticActionPayload): ImagePreparationState => {
+      // This reducer runs instantly on the client when addOptimisticAction is called
+      const tempId = `optimistic_${crypto.randomUUID()}`;
+      
+      const optimisticVersion: ImageVersion = {
+        id: tempId,
+        label: `${payload.label}...`,
+        sourceVersionId: payload.sourceVersionId,
+        imageUrl: currentState.versions[payload.sourceVersionId].imageUrl, // Use source as placeholder
+        createdAt: Date.now(),
+        hash: 'optimistic-hash',
+        status: 'processing', // Mark this version as pending
+      };
+
+      // Return the new state with the optimistic version added
+      return {
+        ...currentState,
+        versions: {
+          ...currentState.versions,
+          [tempId]: optimisticVersion,
+        },
+        // We do NOT modify versionHistory here. It should only track final, committed states.
+      };
+    }
+  );
+
+  // From now on, use optimisticState for rendering
+  const activeImage = optimisticState.activeVersionId ? optimisticState.versions[optimisticState.activeVersionId] : null;
+  const canUndo = optimisticState.historyIndex > 0;
+  const canRedo = optimisticState.historyIndex < optimisticState.versionHistory.length - 1;
+  
+  // DERIVED STATE: Check if any version is currently in an optimistic 'processing' state.
+  const isAnyVersionProcessing = Object.values(optimisticState.versions).some(v => v.status === 'processing');
+
+  // --- ASYNC ACTIONS ---
+  // These wrap server actions and dispatch state updates
+
+  const addVersion = useCallback((version: Omit<ImageVersion, 'id' | 'createdAt'>) => {
+    const id = `${version.label.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
+    dispatch({ type: 'ADD_VERSION', payload: { version: { ...version, id, createdAt: Date.now() } } });
   }, []);
 
-  // Derived state for undo/redo availability
-  const canUndo = state.historyIndex > 0;
-  const canRedo = state.historyIndex < state.versionHistory.length - 1;
+  // A generic wrapper for all optimistic image processing actions
+  const createOptimisticAction = useCallback((
+    label: string,
+    serverAction: (imageUrl: string, hash: string) => Promise<{ imageUrl?: string; savedPath?: string; hash?: string; outputHash?: string; [key: string]: any; }>
+  ) => {
+    return async () => {
+      const activeVersionId = state.activeVersionId; // Use the "real" state here, not optimisticState
+      if (!activeVersionId) {
+        toast({ title: "No active image selected.", variant: "destructive" });
+        return;
+      }
+      
+      const sourceImage = state.versions[activeVersionId];
+      if (!sourceImage) {
+        toast({ title: "Source image not found.", variant: "destructive" });
+        return;
+      }
+      
+      // Immediately add an optimistic update to the UI
+      startTransition(() => {
+        addOptimisticAction({ label, sourceVersionId: activeVersionId });
+      });
 
-  // Crop actions
-  const setCrop = useCallback((crop?: Crop) => {
-    updateState({ crop });
-  }, [updateState]);
-
-  const setCompletedCrop = useCallback((completedCrop?: PixelCrop) => {
-    updateState({ completedCrop });
-  }, [updateState]);
-
-  const setOriginalImageDimensions = useCallback((dimensions: { width: number; height: number }) => {
-    updateState({ 
-      imageDimensions: { 
-        originalWidth: dimensions.width, 
-        originalHeight: dimensions.height 
-      } 
-    });
-  }, [updateState]);
-
-  const setAspect = useCallback((aspect?: number) => {
-    // Import centerCrop and makeAspectCrop dynamically to avoid issues
-    import('react-image-crop').then(({ centerCrop, makeAspectCrop }) => {
-      setState(prev => {
-        const { imageDimensions } = prev;
+      try {
+        // Await the actual server action with the source image data
+        const result = await serverAction(sourceImage.imageUrl, sourceImage.hash);
         
-        if (imageDimensions?.originalWidth && imageDimensions?.originalHeight) {
-          const { originalWidth: width, originalHeight: height } = imageDimensions;
-          const newCrop = aspect
-            ? centerCrop(
-                makeAspectCrop({ unit: '%', width: 90 }, aspect, width, height),
-                width,
-                height
-              )
-            : undefined;
-          return { ...prev, aspect, crop: newCrop, completedCrop: undefined };
-        } else {
-          // If dimensions aren't ready, just set the desired aspect
-          return { ...prev, aspect, crop: undefined, completedCrop: undefined };
+        // --- STATE CONSISTENCY CHECK ---
+        // Before dispatching the final result, check if the source version is still part of the committed state.
+        // This prevents updating state if the user has undone, reset, or navigated away.
+        if (!state.versions[activeVersionId]) {
+          console.log(`[Optimistic Action] Action for '${label}' completed, but source version '${activeVersionId}' is no longer present. Aborting final state update.`);
+          return; // Silently abort the update. The optimistic UI will have already disappeared.
         }
-      });
-    });
-  }, []);
+        // --- END STATE CONSISTENCY CHECK ---
+        
+        // On success, dispatch the final state to the reducer
+        // Handle both old (savedPath/outputHash) and new (imageUrl/hash) return formats
+        const finalImageUrl = result.savedPath || result.imageUrl;
+        const finalHash = result.outputHash || result.hash;
+        
+        if (!finalImageUrl || !finalHash) {
+          throw new Error('Server action did not return required imageUrl and hash');
+        }
+        
+        dispatch({
+          type: 'ADD_VERSION',
+          payload: {
+            version: {
+              id: `${label.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`,
+              imageUrl: finalImageUrl,
+              label,
+              sourceVersionId: activeVersionId,
+              hash: finalHash,
+              createdAt: Date.now(),
+              status: 'complete',
+            },
+          },
+        });
 
-  // Processing actions
-  const setProcessing = useCallback((isProcessing: boolean, step: ImagePreparationState['processingStep']) => {
-    updateState({ isProcessing, processingStep: step });
-  }, [updateState]);
+        // Handle dimension changes for transforms like rotate/crop
+        if (result.originalWidth && result.originalHeight) {
+          dispatch({ type: 'SET_DIMENSIONS', payload: { width: result.originalWidth, height: result.originalHeight } });
+        }
+        
+        toast({ title: `${label} applied successfully.` });
 
-  const setComparison = useCallback((comparison: { left: string; right: string } | null) => {
-    updateState({ comparison });
-  }, [updateState]);
-
-  // Async actions - implemented to call the existing server actions
-  const applyCrop = useCallback(async () => {
-    const { crop, activeVersionId, versions, imageDimensions } = state;
-    if (!crop || !activeVersionId || !imageDimensions) {
-      throw new Error('Cannot apply crop: No active image, dimensions, or crop selection.');
-    }
-
-    const currentVersion = versions[activeVersionId];
-    setProcessing(true, 'crop');
-
-    try {
-      // Convert percentage-based crop to absolute pixels for the server
-      const scaledPixelCrop: ScaledPixelCrop = {
-        x: Math.round((crop.x / 100) * imageDimensions.originalWidth),
-        y: Math.round((crop.y / 100) * imageDimensions.originalHeight),
-        width: Math.round((crop.width / 100) * imageDimensions.originalWidth),
-        height: Math.round((crop.height / 100) * imageDimensions.originalHeight),
-      };
-
-      // A width of 0 means the user likely just clicked the image without dragging.
-      if (scaledPixelCrop.width === 0 || scaledPixelCrop.height === 0) {
-        throw new Error("Invalid crop selection: width or height is zero.");
+      } catch (error) {
+        // On failure, React automatically reverts the optimistic update.
+        // We just need to show a toast.
+        console.error(`Optimistic action for '${label}' failed:`, error);
+        toast({
+          title: `${label} Failed`,
+          description: (error as Error).message,
+          variant: "destructive",
+        });
       }
-
-      // Call server action with the correctly scaled pixel values
-      const result = await cropImage(currentVersion.imageUrl, scaledPixelCrop);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      
-      addVersion({
-        imageUrl: result.imageUrl,
-        label: 'Cropped',
-        sourceVersionId: activeVersionId,
-        hash: result.hash,
-      });
-
-      // After cropping, reset aspect ratio to freeform for the new version
-      setAspect(undefined);
-
-    } catch (error) {
-      console.error('Error applying crop:', error);
-      throw error; // Re-throw to be caught in the component for a toast
-    } finally {
-      setProcessing(false, null);
-    }
-  }, [state, setProcessing, addVersion, setAspect]);
-
-  const handleRotation = useCallback(async (angle: 90 | -90) => {
-    const { activeVersionId, versions } = state;
-    if (!activeVersionId || !versions[activeVersionId]) {
-      toast({ title: 'No active image to rotate', variant: 'destructive' });
-      return;
-    }
-
-    const currentVersion = versions[activeVersionId];
-    setProcessing(true, 'rotate');
-
-    try {
-      const result = await rotateImage(currentVersion.imageUrl, angle);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-
-      const newVersionId = addVersion({
-        imageUrl: result.imageUrl,
-        label: angle === -90 ? 'Rotated Left' : 'Rotated Right',
-        sourceVersionId: activeVersionId,
-        hash: result.hash,
-      });
-
-      // Explicitly update dimensions in the context.
-      // The canvas will reload via key change and its onLoad will also fire,
-      // but this makes the state update more immediate and robust.
-      setOriginalImageDimensions({ width: result.originalWidth, height: result.originalHeight });
-      
-      toast({ title: "Image Rotated", description: "A new rotated version has been created." });
-    } catch (error) {
-      console.error('Error rotating image:', error);
-      toast({ title: "Rotation Failed", description: (error as Error).message, variant: "destructive" });
-    } finally {
-      setProcessing(false, null);
-    }
-  }, [state, addVersion, setProcessing, setOriginalImageDimensions]);
-
-  const rotateImageLeft = useCallback(() => handleRotation(-90), [handleRotation]);
-  const rotateImageRight = useCallback(() => handleRotation(90), [handleRotation]);
-
-  const handleFlip = useCallback(async (direction: 'horizontal' | 'vertical') => {
-    const { activeVersionId, versions } = state;
-    if (!activeVersionId || !versions[activeVersionId]) {
-      toast({ title: 'No active image to flip', variant: 'destructive' });
-      return;
-    }
-
-    const currentVersion = versions[activeVersionId];
-    setProcessing(true, 'flip');
-
-    try {
-      const result = await flipImage(currentVersion.imageUrl, direction);
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-
-      const label = direction === 'horizontal' ? 'Flipped Horizontal' : 'Flipped Vertical';
-      const newVersionId = addVersion({
-        imageUrl: result.imageUrl,
-        label,
-        sourceVersionId: activeVersionId,
-        hash: result.hash,
-      });
-
-      // Update dimensions
-      setOriginalImageDimensions({ width: result.originalWidth, height: result.originalHeight });
-      
-      toast({ title: "Image Flipped", description: `A new ${label.toLowerCase()} version has been created.` });
-    } catch (error) {
-      console.error('Error flipping image:', error);
-      toast({ title: "Flip Failed", description: (error as Error).message, variant: "destructive" });
-    } finally {
-      setProcessing(false, null);
-    }
-  }, [state, addVersion, setProcessing, setOriginalImageDimensions]);
-
-  const flipHorizontal = useCallback(() => handleFlip('horizontal'), [handleFlip]);
-  const flipVertical = useCallback(() => handleFlip('vertical'), [handleFlip]);
-
-  const removeBackground = useCallback(async (username: string) => {
-    const { activeVersionId, versions } = state;
-    if (!activeVersionId || !versions[activeVersionId]) {
-      console.warn('No active version for background removal');
-      return;
-    }
-    const currentVersion = versions[activeVersionId];
-    setProcessing(true, 'bg');
-
-    try {
-      const { savedPath, outputHash } = await removeBackgroundAction(currentVersion.imageUrl, currentVersion.hash);
-      addVersion({
-        imageUrl: savedPath,
-        label: 'Background Removed',
-        sourceVersionId: activeVersionId,
-        hash: outputHash,
-      });
-    } catch (error) {
-      console.error('Error removing background:', error);
-      throw error;
-    } finally {
-      setProcessing(false, null);
-    }
-  }, [state, setProcessing, addVersion]);
-
-  const upscaleImage = useCallback(async (username: string) => {
-    const { activeVersionId, versions } = state;
-    if (!activeVersionId || !versions[activeVersionId]) {
-      console.warn('No active version for upscaling');
-      return;
-    }
-    const currentVersion = versions[activeVersionId];
-    setProcessing(true, 'upscale');
-
-    try {
-      const { savedPath, outputHash } = await upscaleImageAction(currentVersion.imageUrl, currentVersion.hash);
-      addVersion({
-        imageUrl: savedPath,
-        label: 'Upscaled',
-        sourceVersionId: activeVersionId,
-        hash: outputHash,
-      });
-    } catch (error) {
-      console.error('Error upscaling image:', error);
-      throw error;
-    } finally {
-      setProcessing(false, null);
-    }
-  }, [state, setProcessing, addVersion]);
-
-  const faceDetailer = useCallback(async (username: string) => {
-    const { activeVersionId, versions } = state;
-    if (!activeVersionId || !versions[activeVersionId]) {
-      console.warn('No active version for face detailer');
-      return;
-    }
-    const currentVersion = versions[activeVersionId];
-    setProcessing(true, 'face');
-
-    try {
-      const { savedPath, outputHash } = await faceDetailerAction(currentVersion.imageUrl, currentVersion.hash);
-      addVersion({
-        imageUrl: savedPath,
-        label: 'Face Enhanced',
-        sourceVersionId: activeVersionId,
-        hash: outputHash,
-      });
-    } catch (error) {
-      console.error('Error enhancing face details:', error);
-      throw error;
-    } finally {
-      setProcessing(false, null);
-    }
-  }, [state, setProcessing, addVersion]);
+    };
+  }, [state, addOptimisticAction]);
 
   const uploadOriginalImage = useCallback(async (file: File) => {
-    setProcessing(true, 'upload');
+    const formData = new FormData();
+    formData.append('file', file);
+    const result = await prepareInitialImage(formData);
+    if (!result.success) throw new Error(result.error);
+    
+    dispatch({ type: 'SET_ORIGINAL', payload: { file, imageUrl: result.imageUrl, hash: result.hash, width: result.originalWidth, height: result.originalHeight } });
+    return { resized: result.resized, originalWidth: result.originalWidth, originalHeight: result.originalHeight };
+  }, []);
+
+  // Special handling for applyCrop as it uses local state (crop region)
+  const applyCrop = useCallback(async () => {
+    const { crop, imageDimensions, activeVersionId: sourceVersionId } = optimisticState;
+    if (!crop || !sourceVersionId || !imageDimensions) {
+      toast({ title: 'Cannot apply crop: Missing state.', variant: 'destructive' });
+      return;
+    }
+    const sourceImage = optimisticState.versions[sourceVersionId];
+
+    const scaledCrop: ScaledPixelCrop = {
+      x: Math.round((crop.x / 100) * imageDimensions.originalWidth),
+      y: Math.round((crop.y / 100) * imageDimensions.originalHeight),
+      width: Math.round((crop.width / 100) * imageDimensions.originalWidth),
+      height: Math.round((crop.height / 100) * imageDimensions.originalHeight),
+    };
+
+    if (scaledCrop.width === 0 || scaledCrop.height === 0) {
+      toast({ title: "Invalid crop selection", description: "Please select an area to crop.", variant: "destructive" });
+      return;
+    }
+    
+    // This follows the same optimistic pattern manually
+    startTransition(() => {
+      addOptimisticAction({ label: 'Cropping', sourceVersionId });
+    });
+
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const result = await prepareInitialImage(formData);
-
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-
-      const { imageUrl, hash, resized, originalWidth, originalHeight } = result;
-
-      // Set original image and dimensions
-      setOriginalImage(file, imageUrl, hash);
-      setOriginalImageDimensions({ width: originalWidth, height: originalHeight });
+      const result = await cropImage(sourceImage.imageUrl, scaledCrop);
+      if (!result.success) throw new Error(result.error);
       
-      return { resized, originalWidth, originalHeight };
-    } catch (error) {
-      console.error('Upload failed in context:', error);
-      throw error;
-    } finally {
-      setProcessing(false, null);
-    }
-  }, [setProcessing, setOriginalImage, setOriginalImageDimensions]);
-
-  const initializeFromHistory = useCallback(async (item: HistoryItem) => {
-    reset(); // Reset current state
-    setProcessing(true, 'upload'); // Use 'upload' step for consistent loading UI
-
-    try {
-      // Call the new, efficient server action. This replaces the entire
-      // client-side fetch and re-upload process.
-      const result = await recreateStateFromHistoryAction(item.id);
-
-      if (!result.success) {
-        throw new Error(result.error);
+      // Check state consistency
+      if (!state.versions[sourceVersionId]) {
+        console.log('[Optimistic Action] Crop completed, but source version is no longer present. Aborting final state update.');
+        return;
       }
-
-      // The server action gives us everything we need directly.
-      const { imageUrl, hash, originalWidth, originalHeight } = result;
-
-      // Update the context state directly with the info from the existing file.
-      // NOTE: We pass a dummy File object because the function signature requires it,
-      // but its content is not used. The imageUrl and hash are what matter for this flow.
-      setOriginalImage(new File([], "history_image.png"), imageUrl, hash);
-      setOriginalImageDimensions({ width: originalWidth, height: originalHeight });
-
-      toast({
-        title: "History Item Loaded",
-        description: "Configuration restored. You can now generate new images or videos.",
+      
+      dispatch({
+        type: 'ADD_VERSION',
+        payload: {
+          version: {
+            id: `cropped_${Date.now()}`,
+            imageUrl: result.imageUrl,
+            label: 'Cropped',
+            sourceVersionId: sourceVersionId,
+            hash: result.hash,
+            createdAt: Date.now(),
+            status: 'complete',
+          },
+        },
       });
+
+      // After cropping, reset the aspect ratio selection
+      dispatch({ type: 'SET_ASPECT', payload: { aspect: undefined } });
+      toast({ title: "Crop Applied", description: "A new cropped version has been created." });
 
     } catch (error) {
-      console.error('Failed to initialize from history:', error);
-      toast({
-        title: "Error",
-        description: "Could not load image from history.",
-        variant: "destructive"
-      });
-      throw error;
-    } finally {
-      setProcessing(false, null);
+      console.error('Optimistic crop failed:', error);
+      toast({ title: "Cropping Failed", description: (error as Error).message, variant: "destructive" });
     }
-  }, [reset, setProcessing, setOriginalImage, setOriginalImageDimensions]);
+  }, [optimisticState, state, addOptimisticAction]);
+
+  // Refactor all async actions using the generic wrapper
+  const removeBackground = createOptimisticAction(
+    'Background Removed',
+    (imageUrl: string, hash: string) => removeBackgroundAction(imageUrl, hash)
+  );
+  
+  const upscaleImage = createOptimisticAction(
+    'Upscaled',
+    (imageUrl: string, hash: string) => upscaleImageAction(imageUrl, hash)
+  );
+  
+  const faceDetailer = createOptimisticAction(
+    'Face Enhanced',
+    (imageUrl: string, hash: string) => faceDetailerAction(imageUrl, hash)
+  );
+
+  const rotateImageLeft = createOptimisticAction(
+    'Rotated Left',
+    (imageUrl: string, hash: string) => rotateImage(imageUrl, -90)
+  );
+
+  const rotateImageRight = createOptimisticAction(
+    'Rotated Right',
+    (imageUrl: string, hash: string) => rotateImage(imageUrl, 90)
+  );
+
+  const flipHorizontal = createOptimisticAction(
+    'Flipped Horizontal',
+    (imageUrl: string, hash: string) => flipImage(imageUrl, 'horizontal')
+  );
+
+  const flipVertical = createOptimisticAction(
+    'Flipped Vertical',
+    (imageUrl: string, hash: string) => flipImage(imageUrl, 'vertical')
+  );
+
+  const reset = useCallback(() => {
+    dispatch({ type: 'RESET' });
+  }, []);
+
+  // Effect to handle initialization from props
+  useEffect(() => {
+    if (!initialHistoryItem && !initialImageUrl) return;
+
+    const initialize = async () => {
+      try {
+        let result;
+        if (initialHistoryItem) {
+          result = await recreateStateFromHistoryAction(initialHistoryItem.id);
+          if (!result.success) throw new Error(result.error);
+
+          dispatch({
+            type: 'SET_ORIGINAL',
+            payload: {
+              file: new File([], 'history_image.png'),
+              imageUrl: result.imageUrl,
+              hash: result.hash,
+              width: result.originalWidth,
+              height: result.originalHeight,
+            }
+          });
+
+          toast({
+            title: "History Item Loaded",
+            description: "Configuration restored. You can now generate new images or videos.",
+          });
+        } else if (initialImageUrl) {
+          result = await recreateStateFromImageUrl(initialImageUrl);
+          if (!result.success) throw new Error(result.error);
+
+          dispatch({
+            type: 'SET_ORIGINAL',
+            payload: {
+              file: new File([], 'generated_image.png'),
+              imageUrl: initialImageUrl,
+              hash: result.hash,
+              width: result.originalWidth,
+              height: result.originalHeight,
+            }
+          });
+
+          toast({
+            title: "Image Loaded into Creative Studio",
+            description: "You can now begin a new creative workflow.",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to initialize:', error);
+        toast({
+          title: "Error",
+          description: "Could not load image.",
+          variant: "destructive"
+        });
+      } finally {
+        onInitializationComplete?.();
+      }
+    };
+
+    initialize();
+  }, [initialHistoryItem, initialImageUrl, onInitializationComplete]);
 
   const value: ImagePreparationContextType = {
-    // State
-    ...state,
-    currentTab, // PROVIDE tab state
-    
-    // Actions
-    setOriginalImage,
-    addVersion,
-    setActiveVersion,
-    reset,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    setCrop,
-    setCompletedCrop,
-    setAspect,
-    setOriginalImageDimensions,
-    setProcessing,
-    setComparison,
-    setCurrentTab, // PROVIDE tab action
-    applyCrop,
-    removeBackground,
-    upscaleImage,
-    faceDetailer,
-    rotateImageLeft,
-    rotateImageRight,
-    flipHorizontal,
-    flipVertical,
-    uploadOriginalImage,
-    initializeFromHistory,
+    state: optimisticState, // IMPORTANT: Pass optimistic state to all consumers
+    dispatch,
+    activeImage, // Derived from optimisticState
+    canUndo, // Derived from optimisticState
+    canRedo, // Derived from optimisticState
+    isAnyVersionProcessing, // Exposed for disabling generate buttons
+    uploadOriginalImage, applyCrop, removeBackground, upscaleImage, faceDetailer,
+    rotateImageLeft, rotateImageRight, flipHorizontal, flipVertical, reset
   };
 
-  return (
-    <ImagePreparationContext.Provider value={value}>
-      {children}
-    </ImagePreparationContext.Provider>
-  );
-};
+  return <ImagePreparationContext.Provider value={value}>{children}</ImagePreparationContext.Provider>;
+}
 
-export const useImagePreparation = () => {
+export const useImagePreparation = (): ImagePreparationContextType => {
   const context = useContext(ImagePreparationContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useImagePreparation must be used within an ImagePreparationProvider');
   }
   return context;
 };
 
-// Convenience hook to get the active image
+// Convenience hook to get just the active image
 export const useActivePreparationImage = () => {
-  const { activeVersionId, versions } = useImagePreparation();
-  return activeVersionId ? versions[activeVersionId] : null;
+  const { activeImage } = useImagePreparation();
+  return activeImage;
 };

@@ -1,13 +1,12 @@
 // src/components/ImageProcessingTools.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useImageStore, useActivePreparationImage } from "@/stores/imageStore";
-import { useShallow } from 'zustand/react/shallow';
+import { useImagePreparation, useActivePreparationImage } from "@/contexts/ImagePreparationContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   isBackgroundRemovalAvailable as checkBgAvailable,
@@ -19,7 +18,6 @@ import {
 import {
   Wand2, Sparkles, UserCheck, CheckCircle, Loader2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Undo2, Redo2
 } from "lucide-react";
-import { useAuth } from '@/contexts/AuthContext';
 import { spacing } from "@/lib/design-tokens";
 
 // --- Reusable Row Component for a consistent look ---
@@ -32,9 +30,9 @@ interface ProcessingToolRowProps {
   isDisabled: boolean;
 }
 
-const ProcessingToolRow: React.FC<ProcessingToolRowProps> = ({
+const ProcessingToolRow = ({
   icon: Icon, label, onApply, isApplied, isProcessing, isDisabled
-}) => (
+}: ProcessingToolRowProps) => (
   <div 
     className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 transition-colors"
     style={{ gap: spacing[2] }}
@@ -65,8 +63,10 @@ interface ImageProcessingToolsProps {
 export default function ImageProcessingTools({ preparationMode, disabled = false }: ImageProcessingToolsProps) {
   const { toast } = useToast();
   
-  // Use Zustand selectors to subscribe only to needed state
+  // Use Context instead of Zustand
   const {
+    state,
+    dispatch,
     removeBackground,
     upscaleImage,
     faceDetailer,
@@ -74,32 +74,15 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
     rotateImageRight,
     flipHorizontal,
     flipVertical,
-    undo,
-    redo,
     canUndo,
     canRedo,
-    isProcessing,
-    processingStep,
-  } = useImageStore(
-    useShallow((state) => ({
-      removeBackground: state.removeBackground,
-      upscaleImage: state.upscaleImage,
-      faceDetailer: state.faceDetailer,
-      rotateImageLeft: state.rotateImageLeft,
-      rotateImageRight: state.rotateImageRight,
-      flipHorizontal: state.flipHorizontal,
-      flipVertical: state.flipVertical,
-      undo: state.undo,
-      redo: state.redo,
-      canUndo: state.canUndo,
-      canRedo: state.canRedo,
-      isProcessing: state.isProcessing,
-      processingStep: state.processingStep,
-    }))
-  );
+  } = useImagePreparation();
   
   const activeImage = useActivePreparationImage();
-  const { user } = useAuth();
+
+  // Undo/Redo actions - wrapped in useCallback to prevent recreation
+  const undo = useCallback(() => dispatch({ type: 'UNDO' }), [dispatch]);
+  const redo = useCallback(() => dispatch({ type: 'REDO' }), [dispatch]);
 
   // Service availability state
   const [isBgRemovalAvailable, setIsBgRemovalAvailable] = useState(false);
@@ -129,7 +112,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canUndo, canRedo, undo, redo]);
+  }, [undo, redo, canUndo, canRedo]);
 
   // Don't render if no active image
   if (!activeImage) {
@@ -143,48 +126,40 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
 
   // --- Event Handlers ---
   const handleApplyBackgroundRemoval = async () => {
-    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     try {
-      await removeBackground(user.username);
-      toast({ title: 'Background Removed', description: 'A new version has been created.' });
+      await removeBackground();
+      // Toast is now handled by the optimistic action wrapper
     } catch (error) {
-      toast({
-        title: 'Background Removal Failed',
-        description: (error as Error).message,
-        variant: 'destructive'
-      });
+      // Error toast is also handled by the optimistic action wrapper
+      console.error('Background removal error:', error);
     }
   };
 
   const handleUpscaleImage = async () => {
-    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     try {
-      await upscaleImage(user.username);
-      toast({ title: 'Image Upscaled', description: 'Your image has been upscaled successfully.' });
+      await upscaleImage();
+      // Toast is now handled by the optimistic action wrapper
     } catch (error) {
-      toast({ 
-        title: 'Upscaling Failed', 
-        description: (error as Error).message, 
-        variant: 'destructive' 
-      });
+      // Error toast is also handled by the optimistic action wrapper
+      console.error('Upscale error:', error);
     }
   };
 
   const handleFaceDetailer = async () => {
-    if (!user?.username) return toast({ title: 'Authentication Error', variant: 'destructive' });
     try {
-      await faceDetailer(user.username);
-      toast({ title: 'Face Details Enhanced', description: 'Face details have been enhanced successfully.' });
+      await faceDetailer();
+      // Toast is now handled by the optimistic action wrapper
     } catch (error) {
-      toast({ 
-        title: 'Face Enhancement Failed', 
-        description: (error as Error).message, 
-        variant: 'destructive' 
-      });
+      // Error toast is also handled by the optimistic action wrapper
+      console.error('Face detailer error:', error);
     }
   };
 
-  const isToolDisabled = disabled || isProcessing;
+  // Check if ANY version is currently in an optimistic 'processing' state.
+  const isAnyVersionProcessing = Object.values(state.versions).some(v => v.status === 'processing');
+  
+  // The master disable flag
+  const isToolDisabled = disabled || isAnyVersionProcessing;
 
   return (
     <div className="space-y-4">
@@ -259,7 +234,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
               label="Remove Background"
               onApply={handleApplyBackgroundRemoval}
               isApplied={isBgRemoved}
-              isProcessing={isProcessing && processingStep === 'bg'}
+              isProcessing={false}
               isDisabled={isToolDisabled || isUpscaled} // Can't remove BG after upscaling
             />
           )}
@@ -271,7 +246,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
               label="Upscale Image"
               onApply={handleUpscaleImage}
               isApplied={isUpscaled}
-              isProcessing={isProcessing && processingStep === 'upscale'}
+              isProcessing={false}
               isDisabled={isToolDisabled}
             />
           )}
@@ -283,7 +258,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
               label="Face Detailer"
               onApply={handleFaceDetailer}
               isApplied={isFaceDetailed}
-              isProcessing={isProcessing && processingStep === 'face'}
+              isProcessing={false}
               isDisabled={isToolDisabled}
             />
           )}

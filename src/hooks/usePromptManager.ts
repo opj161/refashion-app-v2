@@ -1,5 +1,5 @@
 // src/hooks/usePromptManager.ts
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { buildAIPrompt, BaseGenerationParams, ImageDetails } from '@/lib/prompt-builder';
 
 interface UsePromptManagerProps {
@@ -37,19 +37,20 @@ export function usePromptManager({
     setIsPromptManuallyEdited(true);
   }, []);
 
-  const resetPromptToAuto = () => {
+  const resetPromptToAuto = useCallback(() => {
     setIsPromptManuallyEdited(false);
     // The useEffect above will trigger a regeneration of the prompt
     // and update currentPrompt if isPromptManuallyEdited was true.
     // If it was already false, explicitly set it to ensure re-render if params changed meanwhile.
     setCurrentPrompt(generatePromptFromParams());
-  };
+  }, [generatePromptFromParams]);
 
   // This function checks if the current manual prompt is out of sync with what would be auto-generated.
-  const isManualPromptOutOfSync = () : boolean => {
+  // Memoized to prevent unnecessary recalculations
+  const isManualPromptOutOfSync = useMemo(() : boolean => {
     if (!isPromptManuallyEdited) return false;
     return currentPrompt !== generatePromptFromParams();
-  }
+  }, [isPromptManuallyEdited, currentPrompt, generatePromptFromParams]);
 
   return {
     currentPrompt,

@@ -254,15 +254,40 @@ export async function getGlobalApiKeysForDisplay() {
   };
 }
 
-export async function getSystemPromptForAdmin() {
+export async function getSystemPromptsForAdmin() {
   await verifyAdmin();
   try {
-    const prompt = await systemPromptService.getSystemPrompt();
-    const source = await systemPromptService.getSystemPromptSource();
-    return { success: true, prompt, source };
+    const engineerPrompt = await systemPromptService.getSystemPrompt();
+    const engineerSource = await systemPromptService.getSystemPromptSource();
+    
+    // Fetch the new studio prompt directly from settings service
+    const studioPrompt = settingsService.getSetting('ai_studio_mode_prompt_template');
+    
+    // Define the fallback template that matches the one used in generate-image-edit.ts
+    const studioFallbackTemplate = `Create a PHOTOREALISTIC image of a female fashion model, of Indigenous descent, wearing this clothing item in the image with a {fitDescription}.
+
+Setting: a modern studio setting with a seamless cyclorama with a subtle, even gradient as background
+
+Style: The model should look authentic and relatable, with a natural expression and subtle smile
+
+Technical details: Full-body shot. Superior clarity, well-exposed, and masterful composition.`;
+
+    // Use the database template if available; otherwise, use the fallback
+    const studioPromptToShow = studioPrompt && studioPrompt.trim() ? studioPrompt : studioFallbackTemplate;
+
+    return { 
+      success: true, 
+      prompts: {
+        engineer: engineerPrompt,
+        studio: studioPromptToShow
+      },
+      sources: {
+        engineer: engineerSource,
+      } 
+    };
   } catch (error) {
-    console.error('Error getting system prompt:', error);
-    return { success: false, error: 'Failed to get system prompt.' };
+    console.error('Error getting system prompts:', error);
+    return { success: false, error: 'Failed to get system prompts.' };
   }
 }
 
@@ -433,7 +458,7 @@ export type ApiKeysFormState = {
   error?: string;
 };
 
-export type SystemPromptFormState = {
+export type SystemPromptsFormState = {
   message: string;
   success?: boolean;
   error?: string;
@@ -449,6 +474,15 @@ export type UserFormState = {
   message: string;
   success?: boolean;
   error?: string;
+  user?: {
+    username: string;
+    role: 'admin' | 'user';
+    gemini_api_key_1_mode: 'global' | 'user_specific';
+    gemini_api_key_2_mode: 'global' | 'user_specific';
+    gemini_api_key_3_mode: 'global' | 'user_specific';
+    fal_api_key_mode: 'global' | 'user_specific';
+    image_generation_model: 'google_gemini_2_0' | 'fal_gemini_2_5';
+  };
 };
 
 // --- useActionState-compatible Server Actions ---
@@ -512,40 +546,48 @@ export async function handleApiKeysUpdate(
 }
 
 /**
- * Server Action for updating system prompt, compatible with useActionState.
+ * Server Action for updating system prompts, compatible with useActionState.
  * @param previousState The previous form state (unused but required by useActionState signature)
- * @param formData The form data containing the system prompt
+ * @param formData The form data containing the system prompts
  * @returns A FormState object with success/error status
  */
 export async function handleSystemPromptUpdate(
-  previousState: SystemPromptFormState | null,
+  previousState: SystemPromptsFormState | null,
   formData: FormData
-): Promise<SystemPromptFormState> {
+): Promise<SystemPromptsFormState> {
   await verifyAdmin();
   
-  const prompt = formData.get('systemPrompt') as string;
-  
-  if (!prompt || prompt.trim() === '') {
-    return {
-      success: false,
-      error: 'System prompt cannot be empty.',
-      message: 'Please enter a valid system prompt.'
-    };
-  }
+  const engineerPrompt = formData.get('systemPrompt') as string;
+  const studioPrompt = formData.get('studioPromptTemplate') as string;
   
   try {
-    systemPromptService.updateSystemPrompt(prompt);
+    const updatedFields: string[] = [];
+
+    if (engineerPrompt && engineerPrompt.trim() !== '') {
+      systemPromptService.updateSystemPrompt(engineerPrompt);
+      updatedFields.push('Prompt Engineer instruction');
+    }
+
+    if (studioPrompt && studioPrompt.trim() !== '') {
+      settingsService.setSetting('ai_studio_mode_prompt_template', studioPrompt);
+      updatedFields.push('Studio Mode template');
+    }
+
+    if (updatedFields.length === 0) {
+        return { message: "No changes submitted.", success: true };
+    }
+
     revalidatePath('/admin/settings');
     return { 
       success: true, 
-      message: 'AI prompt engineer system instruction has been saved.' 
+      message: `${updatedFields.join(' and ')} saved successfully.` 
     };
   } catch (error) {
-    console.error('Error updating system prompt:', error);
+    console.error('Error updating system prompts:', error);
     return { 
       success: false,
-      error: 'Failed to update system prompt.',
-      message: 'An error occurred while updating the system prompt.'
+      error: 'Failed to update system prompts.',
+      message: 'An error occurred while updating the system prompts.'
     };
   }
 }
@@ -626,9 +668,20 @@ export async function handleCreateUser(
   const result = await createUser(formData);
   
   if (result.success) {
+    const username = formData.get('username') as string;
+    const user = dbService.findUserByUsername(username);
     return {
       success: true,
-      message: `User '${formData.get('username')}' has been successfully created.`
+      message: `User '${username}' has been successfully created.`,
+      user: user ? {
+        username: user.username,
+        role: user.role as 'admin' | 'user',
+        gemini_api_key_1_mode: (user.gemini_api_key_1_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_2_mode: (user.gemini_api_key_2_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_3_mode: (user.gemini_api_key_3_mode || 'global') as 'global' | 'user_specific',
+        fal_api_key_mode: (user.fal_api_key_mode || 'global') as 'global' | 'user_specific',
+        image_generation_model: (user.image_generation_model || 'google_gemini_2_0') as 'google_gemini_2_0' | 'fal_gemini_2_5',
+      } : undefined
     };
   } else {
     return {
@@ -652,9 +705,20 @@ export async function handleUpdateUserConfiguration(
   const result = await updateUserConfiguration(formData);
   
   if (result.success) {
+    const username = formData.get('username') as string;
+    const user = dbService.findUserByUsername(username);
     return {
       success: true,
-      message: `User '${formData.get('username')}' has been updated.`
+      message: `User '${username}' has been updated.`,
+      user: user ? {
+        username: user.username,
+        role: user.role as 'admin' | 'user',
+        gemini_api_key_1_mode: (user.gemini_api_key_1_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_2_mode: (user.gemini_api_key_2_mode || 'global') as 'global' | 'user_specific',
+        gemini_api_key_3_mode: (user.gemini_api_key_3_mode || 'global') as 'global' | 'user_specific',
+        fal_api_key_mode: (user.fal_api_key_mode || 'global') as 'global' | 'user_specific',
+        image_generation_model: (user.image_generation_model || 'google_gemini_2_0') as 'google_gemini_2_0' | 'fal_gemini_2_5',
+      } : undefined
     };
   } else {
     return {

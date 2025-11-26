@@ -1,7 +1,7 @@
 // src/stores/generationSettingsStore.ts
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import type { ModelAttributes } from '@/lib/types';
+import type { ModelAttributes, HistoryItem } from '@/lib/types';
 
 // Video-specific parameters that aren't in ModelAttributes
 export interface VideoParameters {
@@ -27,8 +27,17 @@ export interface GenerationSettingsState {
   // Settings mode (shared between image and video potentially)
   settingsMode: 'basic' | 'advanced';
   
+  // Generation mode (Creative or Studio)
+  generationMode: 'creative' | 'studio';
+  
+  // Studio mode settings
+  studioFit: 'slim' | 'regular' | 'relaxed';
+  
   // Generation counter for triggering history refresh
   generationCount: number;
+  
+  // History filter state
+  historyFilter: 'all' | 'image' | 'video';
   
   // Image preparation options (for non-destructive pipeline)
   backgroundRemovalEnabled: boolean;
@@ -46,6 +55,15 @@ export interface GenerationSettingsActions {
   // Update settings mode
   setSettingsMode: (mode: 'basic' | 'advanced') => void;
   
+  // Update generation mode
+  setGenerationMode: (mode: 'creative' | 'studio') => void;
+  
+  // Update studio fit
+  setStudioFit: (fit: 'slim' | 'regular' | 'relaxed') => void;
+  
+  // Update history filter
+  setHistoryFilter: (filter: 'all' | 'image' | 'video') => void;
+  
   // Increment generation counter to trigger history refresh
   incrementGenerationCount: () => void;
   
@@ -54,23 +72,8 @@ export interface GenerationSettingsActions {
   setUpscaleEnabled: (enabled: boolean) => void;
   setFaceDetailEnabled: (enabled: boolean) => void;
   
-  // Load from history item - videoParams should match HistoryItem.videoGenerationParams
-  loadFromHistory: (
-    attributes: ModelAttributes, 
-    videoParams?: {
-      selectedPredefinedPrompt?: string;
-      modelMovement?: string;
-      fabricMotion?: string;
-      cameraAction?: string;
-      aestheticVibe?: string;
-      videoModel?: 'lite' | 'pro';
-      resolution?: string;
-      duration?: string;
-      seed?: number;
-      cameraFixed?: boolean;
-    },
-    mode?: 'basic' | 'advanced'
-  ) => void;
+  // Load from history item - takes full HistoryItem object
+  loadFromHistory: (item: HistoryItem) => void;
   
   // Reset to defaults
   reset: () => void;
@@ -117,7 +120,10 @@ const initialState: GenerationSettingsState = {
   imageSettings: defaultImageSettings,
   videoSettings: defaultVideoSettings,
   settingsMode: 'basic',
+  generationMode: 'studio',
+  studioFit: 'regular',
   generationCount: 0,
+  historyFilter: 'all',
   backgroundRemovalEnabled: false,
   upscaleEnabled: false,
   faceDetailEnabled: false,
@@ -142,6 +148,15 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
       setSettingsMode: (mode) =>
         set({ settingsMode: mode }, false, 'setSettingsMode'),
       
+      setGenerationMode: (mode) =>
+        set({ generationMode: mode }, false, 'setGenerationMode'),
+      
+      setStudioFit: (fit) =>
+        set({ studioFit: fit }, false, 'setStudioFit'),
+      
+      setHistoryFilter: (filter) =>
+        set({ historyFilter: filter }, false, 'setHistoryFilter'),
+      
       incrementGenerationCount: () =>
         set((state) => ({ generationCount: state.generationCount + 1 }), false, 'incrementGenerationCount'),
       
@@ -154,28 +169,38 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
       setFaceDetailEnabled: (enabled) =>
         set({ faceDetailEnabled: enabled }, false, 'setFaceDetailEnabled'),
       
-      loadFromHistory: (attributes, videoParams, mode) =>
+      loadFromHistory: (item) =>
         set((state) => {
           const newState: Partial<GenerationSettingsState> = {
-            imageSettings: { ...defaultImageSettings, ...attributes },
+            imageSettings: { ...defaultImageSettings, ...item.attributes },
           };
           
-          if (mode) {
-            newState.settingsMode = mode;
+          // Load settings mode if present
+          if (item.settingsMode) {
+            newState.settingsMode = item.settingsMode;
           }
           
-          if (videoParams) {
+          // Load generation mode if present (defaults to 'creative' if not specified)
+          newState.generationMode = item.generation_mode || 'creative';
+          
+          // Load studio fit from attributes if present and in Studio Mode
+          if (item.generation_mode === 'studio' && (item.attributes as any).studioFit) {
+            newState.studioFit = (item.attributes as any).studioFit;
+          }
+          
+          // Load video parameters if present
+          if (item.videoGenerationParams) {
             newState.videoSettings = {
-              selectedPredefinedPrompt: videoParams.selectedPredefinedPrompt || defaultVideoSettings.selectedPredefinedPrompt,
-              modelMovement: videoParams.modelMovement || defaultVideoSettings.modelMovement,
-              fabricMotion: videoParams.fabricMotion || defaultVideoSettings.fabricMotion,
-              cameraAction: videoParams.cameraAction || defaultVideoSettings.cameraAction,
-              aestheticVibe: videoParams.aestheticVibe || defaultVideoSettings.aestheticVibe,
-              videoModel: videoParams.videoModel || defaultVideoSettings.videoModel,
-              resolution: (videoParams.resolution as '480p' | '720p' | '1080p') || defaultVideoSettings.resolution,
-              duration: (videoParams.duration as VideoParameters['duration']) || defaultVideoSettings.duration,
-              seed: videoParams.seed?.toString() || defaultVideoSettings.seed,
-              cameraFixed: videoParams.cameraFixed ?? defaultVideoSettings.cameraFixed,
+              selectedPredefinedPrompt: (item.videoGenerationParams as any).selectedPredefinedPrompt || defaultVideoSettings.selectedPredefinedPrompt,
+              modelMovement: item.videoGenerationParams.modelMovement || defaultVideoSettings.modelMovement,
+              fabricMotion: item.videoGenerationParams.fabricMotion || defaultVideoSettings.fabricMotion,
+              cameraAction: item.videoGenerationParams.cameraAction || defaultVideoSettings.cameraAction,
+              aestheticVibe: item.videoGenerationParams.aestheticVibe || defaultVideoSettings.aestheticVibe,
+              videoModel: item.videoGenerationParams.videoModel || defaultVideoSettings.videoModel,
+              resolution: (item.videoGenerationParams.resolution as '480p' | '720p' | '1080p') || defaultVideoSettings.resolution,
+              duration: (item.videoGenerationParams.duration as VideoParameters['duration']) || defaultVideoSettings.duration,
+              seed: item.videoGenerationParams.seed?.toString() || defaultVideoSettings.seed,
+              cameraFixed: item.videoGenerationParams.cameraFixed ?? defaultVideoSettings.cameraFixed,
             };
           }
           

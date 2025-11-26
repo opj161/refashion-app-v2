@@ -52,9 +52,22 @@ interface BuildAIPromptArgs {
 }
 
 // --- Helper Function ---
+// Optimized option lookup with caching to avoid repeated array searches
+const optionCacheMap = new Map<OptionWithPromptSegment[], Map<string, OptionWithPromptSegment>>();
+
 const getSelectedOption = (options: OptionWithPromptSegment[], value?: string): OptionWithPromptSegment | undefined => {
   if (!value) return undefined;
-  return options.find(opt => opt.value === value);
+  
+  // Check if we have a cache for this options array
+  let cache = optionCacheMap.get(options);
+  if (!cache) {
+    // Build cache for this options array
+    cache = new Map();
+    options.forEach(opt => cache!.set(opt.value, opt));
+    optionCacheMap.set(options, cache);
+  }
+  
+  return cache.get(value);
 };
 
 

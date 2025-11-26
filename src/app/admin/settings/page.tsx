@@ -1,5 +1,5 @@
 // src/app/admin/settings/page.tsx
-import { getAllSettings, getGlobalApiKeysForDisplay, getSystemPromptForAdmin } from '@/actions/adminActions';
+import { getAllSettings, getGlobalApiKeysForDisplay, getSystemPromptsForAdmin } from '@/actions/adminActions';
 import { PageHeader } from '@/components/ui/page-header';
 import { Settings } from 'lucide-react';
 import { SettingsForm } from './_components/SettingsForm';
@@ -8,7 +8,7 @@ import { ExportTool } from './_components/ExportTool';
 export default async function AdminSettingsPage() {
   const initialSettings = await getAllSettings();
   const maskedApiKeys = await getGlobalApiKeysForDisplay();
-  const systemPromptData = await getSystemPromptForAdmin();
+  const systemPromptData = await getSystemPromptsForAdmin();
 
   return (
     <div className="space-y-8">

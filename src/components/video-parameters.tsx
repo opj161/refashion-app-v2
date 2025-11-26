@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { isFalVideoGenerationAvailable, generateVideoAction, type VideoGenerationFormState } from '@/ai/actions/generate-video.action';
-import { useActivePreparationImage } from "@/stores/imageStore";
+import { useActivePreparationImage } from "@/contexts/ImagePreparationContext";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
@@ -28,6 +28,7 @@ import { usePromptManager } from "@/hooks/usePromptManager";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { calculateVideoCost, formatPrice, VideoModel, VideoResolution, VideoDuration } from "@/lib/pricing";
 import { motion, AnimatePresence } from 'motion/react';
+import { COMMON_VARIANTS } from '@/lib/motion-constants';
 
 
 // Type for video generation parameters
@@ -85,6 +86,7 @@ function SubmitButton({
 
 export default function VideoParameters() {
   const { toast } = useToast();
+  const incrementGenerationCount = useGenerationSettingsStore(state => state.incrementGenerationCount);
   // REMOVED: useAuth - authentication handled by server action
   
   // Get the active image from the context
@@ -233,7 +235,8 @@ export default function VideoParameters() {
           variant: "destructive" 
         });
       } else if (formState.taskId && formState.historyItemId) {
-        // Success case
+        // Success case - trigger history gallery refresh
+        incrementGenerationCount();
         toast({
           title: "Video Generation Started",
           description: formState.message,
@@ -241,7 +244,7 @@ export default function VideoParameters() {
         });
       }
     }
-  }, [formState, toast]);
+  }, [formState, toast, incrementGenerationCount]);
 
   // REMOVED: handleCancelGeneration and progress simulation
   // Webhook-based completion means no client-side polling needed
@@ -276,15 +279,25 @@ export default function VideoParameters() {
           <input type="hidden" name="aestheticVibe" value={videoSettings.aestheticVibe} />
           
         <CardContent className="space-y-6">
-          {!preparedImageUrl && (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>Start with an Image</AlertTitle>
-              <AlertDescription>
-                First, upload and prepare an image to bring it to life with video.
-              </AlertDescription>
-            </Alert>
-          )}
+          <AnimatePresence>
+            {!preparedImageUrl && (
+              <motion.div
+                key="image-required-alert"
+                variants={COMMON_VARIANTS.slideDownAndFade}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Start with an Image</AlertTitle>
+                  <AlertDescription>
+                    First, upload and prepare an image to bring it to life with video.
+                  </AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className={commonFormDisabled ? 'opacity-50 pointer-events-none' : ''}>
             <div>
@@ -343,7 +356,7 @@ export default function VideoParameters() {
                    <div className="pt-2">
                      <div className="flex justify-between items-center">
                        <Label htmlFor="fullVideoPrompt" className="text-sm">Full Prompt</Label>
-                       {isManualPromptOutOfSync() && (
+                       {isManualPromptOutOfSync && (
                          <Button variant="link" size="sm" onClick={resetPromptToAuto} className="text-xs text-amber-600 hover:text-amber-700 p-0 h-auto">
                            <AlertTriangle className="h-3 w-3 mr-1" /> Settings changed. Reset prompt?
                          </Button>

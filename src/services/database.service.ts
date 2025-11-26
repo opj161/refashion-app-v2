@@ -21,6 +21,76 @@ const DB_PATH = path.join(DB_DIR, 'history.db');
 
 let db: Database.Database;
 
+// Migration orchestrator function
+function runMigrations(db: Database.Database) {
+  const LATEST_SCHEMA_VERSION = 1;
+  let currentVersion = 0;
+
+  try {
+    const row = db.prepare("PRAGMA user_version").get() as { user_version: number };
+    currentVersion = row.user_version;
+    console.log(`[DB Migration] Current database schema version: ${currentVersion}`);
+  } catch (error) {
+    console.error('[DB Migration] Could not read user_version pragma:', error);
+    // This likely means it's a very old or new DB, we assume version 0.
+    db.prepare(`PRAGMA user_version = 0`).run();
+  }
+
+  if (currentVersion >= LATEST_SCHEMA_VERSION) {
+    console.log('[DB Migration] Database schema is up to date.');
+    return;
+  }
+  
+  console.log(`[DB Migration] Migrating from version ${currentVersion} to ${LATEST_SCHEMA_VERSION}...`);
+
+  // --- Migration to Version 1 ---
+  if (currentVersion < 1) {
+    const migration_v1 = db.transaction(() => {
+      console.log('[DB Migration] Applying migration to version 1...');
+      
+      // Idempotency Check: See if the column already exists.
+      const columns = db.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+      const hasColumn = columns.some(col => col.name === 'generation_mode');
+
+      if (!hasColumn) {
+        console.log("[DB Migration] Adding 'generation_mode' column to 'history' table.");
+        db.exec(`
+          ALTER TABLE history 
+          ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'creative'
+        `);
+      } else {
+        console.log("[DB Migration] 'generation_mode' column already exists, skipping ALTER TABLE.");
+      }
+
+      // CRITICAL: Update the schema version inside the transaction.
+      db.prepare(`PRAGMA user_version = 1`).run();
+      console.log('[DB Migration] Successfully migrated to version 1.');
+    });
+
+    try {
+      migration_v1();
+    } catch (error) {
+      console.error('[DB Migration] FAILED to apply migration to version 1:', error);
+      // Since it's in a transaction, any failed part will roll back.
+      // We should stop the application here to prevent it from running with a mismatched schema.
+      throw new Error("Database migration failed. Application cannot start.");
+    }
+  }
+
+  // --- Placeholder for Future Migrations ---
+  /*
+  if (currentVersion < 2) {
+    const migration_v2 = db.transaction(() => {
+      console.log('[DB Migration] Applying migration to version 2...');
+      // ... your ALTER TABLE statements for v2 ...
+      db.prepare(`PRAGMA user_version = 2`).run();
+      console.log('[DB Migration] Successfully migrated to version 2.');
+    });
+    migration_v2();
+  }
+  */
+}
+
 // Singleton pattern to ensure only one DB connection
 export function getDb(): Database.Database {
   if (db) {
@@ -38,8 +108,11 @@ export function getDb(): Database.Database {
   db.pragma('synchronous = NORMAL');
   db.pragma('foreign_keys = ON');
 
-  // Initialize schema on first connect
+  // 1. Ensure base tables exist
   initSchema(db);
+
+  // 2. Run migrations to update the schema to the latest version
+  runMigrations(db);
 
   return db;
 }
@@ -113,7 +186,8 @@ function initSchema(db: Database.Database) {
       webhook_url TEXT,
       status TEXT DEFAULT 'completed', -- ADDED
       error TEXT, -- ADDED
-      image_generation_model TEXT -- ADD THIS
+      image_generation_model TEXT, -- ADD THIS
+      generation_mode TEXT NOT NULL DEFAULT 'creative' -- Studio Mode support
     );
 
     CREATE TABLE IF NOT EXISTS users (
@@ -169,7 +243,8 @@ function initSchema(db: Database.Database) {
       ('global_gemini_api_key_2', ''),
       ('global_gemini_api_key_3', ''),
       ('global_fal_api_key', ''),
-      ('ai_prompt_engineer_system', '')
+      ('ai_prompt_engineer_system', ''),
+      ('ai_studio_mode_prompt_template', '')
   `);
 
   // Load environment variables into database settings if they exist and database values are empty
@@ -216,8 +291,8 @@ function getPreparedStatements() {
     // Removed stray SQL code
   preparedStatements.insertHistory = db.prepare( `
       INSERT OR REPLACE INTO history 
-      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error, webhook_url, image_generation_model)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, username, timestamp, constructedPrompt, originalClothingUrl, settingsMode, attributes, videoGenerationParams, status, error, webhook_url, image_generation_model, generation_mode)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     preparedStatements.insertImage = db.prepare(`
@@ -296,29 +371,24 @@ function getPreparedStatements() {
   return preparedStatements;
 }
 
+// Helper function to safely parse JSON with minimal overhead
+function safeJsonParse<T>(jsonString: string | null | undefined, fallback: T): T {
+  if (!jsonString) return fallback;
+  try {
+    return JSON.parse(jsonString);
+  } catch {
+    return fallback;
+  }
+}
+
 export function rowToHistoryItem(row: any): HistoryItem { // Export for use in actions
   // Do NOT filter(Boolean) -- preserve nulls for correct slot mapping
-  let editedImageUrls: any[] = [];
-  let originalImageUrls: any[] | undefined = undefined;
-  let generatedVideoUrls: any[] | undefined = undefined;
-  let attributes: ModelAttributes = {} as ModelAttributes;
-  let videoGenerationParams: any = undefined;
-
-  try {
-    editedImageUrls = row.edited_images ? JSON.parse(row.edited_images) : [];
-  } catch (e) { editedImageUrls = []; }
-  try {
-    originalImageUrls = row.original_images ? JSON.parse(row.original_images) : undefined;
-  } catch (e) { originalImageUrls = undefined; }
-  try {
-    generatedVideoUrls = row.video_urls ? JSON.parse(row.video_urls) : undefined;
-  } catch (e) { generatedVideoUrls = undefined; }
-  try {
-    attributes = row.attributes ? JSON.parse(row.attributes) : {} as ModelAttributes;
-  } catch (e) { attributes = {} as ModelAttributes; }
-  try {
-    videoGenerationParams = row.videoGenerationParams ? JSON.parse(row.videoGenerationParams) : undefined;
-  } catch (e) { videoGenerationParams = undefined; }
+  // Optimized: Use single helper function instead of multiple try-catch blocks
+  const editedImageUrls = safeJsonParse<any[]>(row.edited_images, []);
+  const originalImageUrls = safeJsonParse<any[] | undefined>(row.original_images, undefined);
+  const generatedVideoUrls = safeJsonParse<any[] | undefined>(row.video_urls, undefined);
+  const attributes = safeJsonParse<ModelAttributes>(row.attributes, {} as ModelAttributes);
+  const videoGenerationParams = safeJsonParse<any>(row.videoGenerationParams, undefined);
 
   // removed malformed object literal
   return {
@@ -337,6 +407,7 @@ export function rowToHistoryItem(row: any): HistoryItem { // Export for use in a
     error: row.error || undefined,
     webhookUrl: row.webhook_url || undefined,
     imageGenerationModel: row.image_generation_model || 'google_gemini_2_0', // ADD THIS
+    generation_mode: row.generation_mode as 'creative' | 'studio' || 'creative', // ADD THIS
   };
 }
 
@@ -358,7 +429,8 @@ export const insertHistoryItem = (item: HistoryItem): void => {
       item.status || 'completed',
       item.error || null,
       item.webhookUrl || null,
-      item.imageGenerationModel || 'google_gemini_2_0' // ADD THIS
+      item.imageGenerationModel || 'google_gemini_2_0', // ADD THIS
+      item.generation_mode || 'creative' // ADD THIS
     );
     
     // Insert edited images
@@ -458,59 +530,6 @@ export const updateHistoryItem = (id: string, updates: Partial<HistoryItem>): vo
   updateTransaction();
 };
 
-/**
- * @deprecated Use the new atomic `updateHistoryItem` function instead. This function is not safe from race conditions.
- */
-export function _dangerouslyUpdateHistoryItem(
-  id: string,
-  updates: Partial<Pick<HistoryItem, 'editedImageUrls' | 'originalImageUrls' | 'constructedPrompt' | 'generatedVideoUrls' | 'videoGenerationParams'>>
-): void {
-  // NOTE: updateHistoryItem is subject to race conditions if called concurrently for the same id.
-  // For robust webhook handling, consider using an atomic SQL UPDATE with JSON patch/merge logic.
-  const db = getDb();
-  const statements = getPreparedStatements();
-  
-  const updateTransaction = db.transaction(() => {
-    // Update main record
-    statements.updateHistory?.run(
-      updates.constructedPrompt || null,
-      updates.videoGenerationParams ? JSON.stringify(updates.videoGenerationParams) : null,
-      id
-    );
-    
-    // If updating images/videos, delete existing and re-insert
-    if (updates.editedImageUrls || updates.originalImageUrls || updates.generatedVideoUrls) {
-      statements.deleteImagesByHistoryId?.run(id);
-      
-      if (updates.editedImageUrls) {
-        updates.editedImageUrls.forEach((url, index) => {
-          if (url) {
-            statements.insertImage?.run(id, url, 'edited', index);
-          }
-        });
-      }
-      
-      if (updates.originalImageUrls) {
-        updates.originalImageUrls.forEach((url, index) => {
-          if (url) {
-            statements.insertImage?.run(id, url, 'original_for_comparison', index);
-          }
-        });
-      }
-      
-      if (updates.generatedVideoUrls) {
-        updates.generatedVideoUrls.forEach((url, index) => {
-          if (url) {
-            statements.insertImage?.run(id, url, 'generated_video', index);
-          }
-        });
-      }
-    }
-  });
-  
-  updateTransaction();
-}
-
 export const findHistoryByUsername = cache((username: string): HistoryItem[] => {
   const statements = getPreparedStatements();
   const rows = statements.findHistoryByUsername?.all(username) as any[];
@@ -605,11 +624,10 @@ export const getHistoryItemStatus = cache((id: string, username: string): VideoS
     return { status: 'unknown' };
   }
 
-  let params: any = {};
-  try {
-    params = JSON.parse(row.videoGenerationParams);
-  } catch (e) {
-    console.error('Failed to parse videoGenerationParams JSON for history item', id, e);
+  // Optimized: Use helper function for JSON parsing
+  const params = safeJsonParse<any>(row.videoGenerationParams, null);
+  if (!params) {
+    console.error('Failed to parse videoGenerationParams JSON for history item', id);
     return { status: 'unknown' };
   }
 

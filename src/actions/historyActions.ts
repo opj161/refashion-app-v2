@@ -77,7 +77,8 @@ export async function addHistoryItem(
   status: 'processing' | 'completed' | 'failed' = 'completed',
   error?: string,
   username?: string, // NEW optional username parameter for API context
-  webhookUrl?: string // NEW optional webhookUrl
+  webhookUrl?: string, // NEW optional webhookUrl
+  generation_mode?: 'creative' | 'studio' // NEW optional generation mode
 ): Promise<string> {
   const user = username ? { username } : await getCurrentUser();
   if (!user || !user.username) {
@@ -97,6 +98,7 @@ export async function addHistoryItem(
     status,
     error,
     webhookUrl,
+    generation_mode, // ADD THIS
   };
   
   dbService.insertHistoryItem(newItem);

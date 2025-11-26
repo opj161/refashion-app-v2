@@ -3,6 +3,7 @@
 import 'server-only';
 
 import { fal } from '@/lib/fal-client';
+import { createApiLogger } from '@/lib/api-logger';
 
 /**
  * Generates an image using Fal.ai's Gemini 2.5 Flash Image model.
@@ -16,69 +17,11 @@ export async function generateWithGemini25Flash(
   imageUrl: string, // MUST be a public URL
   username: string
 ): Promise<{ imageUrl: string; description?: string }> {
-  try {
-    console.log(`Calling FAL.AI Gemini 2.5 Flash for image generation...`);
+  const logger = createApiLogger('FAL_IMAGE', 'Gemini 2.5 Flash Generation', {
+    username,
+    model: 'fal-ai/gemini-25-flash-image/edit',
+  });
 
-    const input = {
-      prompt: prompt,
-      image_urls: [imageUrl], // The API expects a list
-      num_images: 1,
-      output_format: "png" as const,
-    };
-
-    console.log(`FAL.AI Input:`, { 
-      prompt: prompt.slice(0, 100) + (prompt.length > 100 ? '...' : ''),
-      image_urls: [imageUrl],
-      num_images: 1,
-      output_format: "png"
-    });
-
-    const result: any = await fal.subscribe("fal-ai/gemini-25-flash-image/edit", {
-      input,
-      logs: process.env.NODE_ENV === 'development',
-      onQueueUpdate: (update: any) => {
-        if (update.status === "IN_PROGRESS" && update.logs && process.env.NODE_ENV === 'development') {
-          (update.logs as any[]).forEach((log: any) => 
-            console.log(`[FAL.AI Gemini 2.5 Progress]: ${log.message}`)
-          );
-        }
-      },
-    });
-
-    console.log(`FAL.AI Raw Response:`, JSON.stringify(result?.data, null, 2));
-
-    // Parse response according to FAL.AI Gemini 2.5 Flash documentation:
-    // Expected format: { images: [{ url: "..." }], description: "..." }
-    if (!result?.data?.images?.[0]?.url) {
-      console.error('FAL.AI Gemini 2.5 unexpected response format:', JSON.stringify(result, null, 2));
-      throw new Error('FAL.AI Gemini 2.5 did not return expected image format. Expected: { images: [{ url: "..." }] }');
-    }
-
-    const imageUrl_result = result.data.images[0].url;
-    const description = result.data.description || undefined;
-
-    console.log(`FAL.AI Gemini 2.5 generation completed successfully. Image URL: ${imageUrl_result}`);
-    
-    return {
-      imageUrl: imageUrl_result,
-      description: description
-    };
-
-  } catch (error) {
-    console.error('Error in FAL.AI Gemini 2.5 generation:', error);
-    throw new Error(`FAL.AI Gemini 2.5 generation failed: ${(error as Error).message}`);
-  }
-}
-
-/**
- * Legacy function - generates an image using generic workflow (kept for other FAL.AI models)
- * @deprecated Use generateWithGemini25Flash for Gemini 2.5 Flash specifically
- */
-export async function generateWithGemini25FlashLegacy(
-  prompt: string,
-  imageUrl: string,
-  username: string
-): Promise<string> {
   const input = {
     prompt: prompt,
     image_urls: [imageUrl],
@@ -86,12 +29,50 @@ export async function generateWithGemini25FlashLegacy(
     output_format: "png" as const,
   };
 
-  return await runFalImageWorkflow(
-    "fal-ai/gemini-25-flash-image/edit",
-    input,
-    'Gemini 2.5 Image Generation',
-    username
-  );
+  logger.start({
+    promptLength: prompt.length,
+    imageUrl: imageUrl.substring(0, 100),
+    outputFormat: 'png',
+  });
+
+  try {
+    logger.progress('Submitting to Fal.ai queue');
+
+    const result: any = await fal.subscribe("fal-ai/gemini-25-flash-image/edit", {
+      input,
+      logs: process.env.NODE_ENV === 'development',
+      onQueueUpdate: (update: any) => {
+        if (update.status === "IN_PROGRESS" && update.logs && process.env.NODE_ENV === 'development') {
+          (update.logs as any[]).forEach((log: any) => 
+            logger.progress(`Queue: ${log.message}`)
+          );
+        }
+      },
+    });
+
+    // Parse response according to FAL.AI Gemini 2.5 Flash documentation:
+    // Expected format: { images: [{ url: "..." }], description: "..." }
+    if (!result?.data?.images?.[0]?.url) {
+      throw new Error('Unexpected response format. Expected: { images: [{ url: "..." }] }');
+    }
+
+    const imageUrl_result = result.data.images[0].url;
+    const description = result.data.description || undefined;
+
+    logger.success({
+      imageUrl: imageUrl_result,
+      hasDescription: !!description,
+    });
+    
+    return {
+      imageUrl: imageUrl_result,
+      description: description
+    };
+
+  } catch (error) {
+    logger.error(error);
+    throw new Error(`FAL.AI Gemini 2.5 generation failed: ${(error as Error).message}`);
+  }
 }
 
 /**
@@ -131,15 +112,25 @@ const NEGATIVE_FACE_DETAILER_PROMPT = "weird, ugly, make-up, cartoon, anime";
  * @returns Promise<string> The URL of the processed image from Fal.ai.
  */
 async function runFalImageWorkflow(modelId: string, input: any, taskName: string, username: string): Promise<string> {
+  const logger = createApiLogger('FAL_IMAGE', taskName, {
+    username,
+    endpoint: modelId,
+  });
+
+  logger.start({
+    modelId,
+    inputKeys: Object.keys(input).join(', '),
+  });
+
   try {
-    console.log(`Calling Fal.ai ${modelId} for ${taskName}...`);
+    logger.progress('Submitting to Fal.ai queue');
 
     const result: any = await fal.subscribe(modelId, {
       input,
       logs: process.env.NODE_ENV === 'development',
       onQueueUpdate: (update: any) => {
         if (update.status === "IN_PROGRESS" && update.logs && process.env.NODE_ENV === 'development') {
-          (update.logs as any[]).forEach((log: any) => console.log(`[Fal.ai Progress - ${taskName}]: ${log.message}`));
+          (update.logs as any[]).forEach((log: any) => logger.progress(`Queue: ${log.message}`));
         }
       },
     });
@@ -160,14 +151,16 @@ async function runFalImageWorkflow(modelId: string, input: any, taskName: string
     }
 
     if (!outputImageUrl) {
-      console.error(`Fal.ai ${taskName} raw result:`, JSON.stringify(result, null, 2));
-      throw new Error(`Fal.ai (${taskName}) did not return a valid image URL.`);
+      throw new Error('Fal.ai did not return a valid image URL');
     }
 
-    console.log(`${taskName} completed successfully.`);
+    logger.success({
+      imageUrl: outputImageUrl,
+    });
+
     return outputImageUrl;
   } catch (error) {
-    console.error(`Error in Fal.ai ${taskName}:`, error);
+    logger.error(error);
     throw new Error(`${taskName} failed: ${(error as Error).message}`);
   }
 }

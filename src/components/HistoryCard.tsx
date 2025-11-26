@@ -8,15 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { HistoryItem } from "@/lib/types";
 import { getDisplayableImageUrl } from "@/lib/utils";
-import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle, MoreVertical, Trash2, Download } from "lucide-react";
+import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle, MoreVertical, Trash2, Download, Sparkles } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from 'motion/react';
 import { useToast } from "@/hooks/use-toast";
-import { useImageStore } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { transitions, shadows } from "@/lib/design-tokens";
+import { useRouter } from 'next/navigation';
 
 
 interface HistoryCardProps {
@@ -24,14 +24,29 @@ interface HistoryCardProps {
   onViewDetails: (item: HistoryItem) => void;
   onDeleteItem: (item: HistoryItem) => void;
   username?: string;
+  onLoadFromHistory?: (item: HistoryItem) => void;
+  onLoadFromImageUrl?: (imageUrl: string) => void;
+  currentTab?: string;
+  setCurrentTab?: (tab: string) => void;
 }
 
-export default function HistoryCard({ item, onViewDetails, onDeleteItem, username }: HistoryCardProps) {
+// Memoize HistoryCard to prevent unnecessary re-renders when gallery updates
+const HistoryCard = React.memo(function HistoryCard({ 
+  item, 
+  onViewDetails, 
+  onDeleteItem, 
+  username,
+  onLoadFromHistory,
+  onLoadFromImageUrl,
+  currentTab,
+  setCurrentTab 
+}: HistoryCardProps) {
   const { toast } = useToast();
-  const initializeFromHistory = useImageStore(state => state.initializeFromHistory);
-  const setCurrentTab = useImageStore(state => state.setCurrentTab);
+  const router = useRouter();
   const loadFromHistory = useGenerationSettingsStore(state => state.loadFromHistory);
+  const setGenerationMode = useGenerationSettingsStore(state => state.setGenerationMode);
   const [isInView, setIsInView] = useState(false);
+  const [isLoadingAction, setIsLoadingAction] = useState<'reload' | 'send' | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const isVideoItem = !!(item.videoGenerationParams || (item.generatedVideoUrls && item.generatedVideoUrls.some(url => !!url)));
@@ -118,25 +133,22 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
 
   const handleReload = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    setIsLoadingAction('reload');
     try {
-      // 1. Initialize image from history (existing functionality)
-      await initializeFromHistory(item);
-      
-      // 2. Load generation settings into Zustand store (NEW!)
-      loadFromHistory(
-        item.attributes,
-        item.videoGenerationParams,
-        item.settingsMode
-      );
-      
-      // 3. Switch to the appropriate tab
+      // Navigate to the main page with a query param
       const targetTab = item.videoGenerationParams ? 'video' : 'image';
-      setCurrentTab(targetTab);
+      router.push(`/?init_history_id=${item.id}&target_tab=${targetTab}`);
       
-      toast({
-        title: "Configuration Loaded",
-        description: "Image and settings restored from history.",
-      });
+      // If onLoadFromHistory is available (on main page), use it for immediate feedback
+      if (onLoadFromHistory) {
+        onLoadFromHistory(item);
+        loadFromHistory(item);
+        toast({
+          title: "Configuration Loaded",
+          description: "Image and settings restored from history.",
+        });
+      }
     } catch (error) {
       console.error('Failed to reload config:', error);
       toast({
@@ -144,13 +156,48 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
         description: "Could not load configuration from this item.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoadingAction(null);
     }
-  }, [initializeFromHistory, loadFromHistory, item, setCurrentTab, toast]);
+  }, [item, router, onLoadFromHistory, loadFromHistory, toast]);
 
   const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onDeleteItem(item);
   }, [onDeleteItem, item]);
+
+  const handleSendToCreative = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Find the first valid generated image to send
+    const imageUrlToSend = item.editedImageUrls?.find(url => !!url);
+    
+    if (!imageUrlToSend) {
+      toast({
+        title: "No Image Available",
+        description: "This history item does not have a valid generated image to edit.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoadingAction('send');
+    try {
+      // Navigate with a different query param
+      router.push(`/?init_image_url=${encodeURIComponent(imageUrlToSend)}`);
+      
+      // If onLoadFromImageUrl is available (on main page), use it for immediate feedback
+      if (onLoadFromImageUrl) {
+        onLoadFromImageUrl(imageUrlToSend);
+        setGenerationMode('creative');
+      }
+    } catch (error) {
+      console.error("Failed to send image to Creative Studio:", error);
+      toast({ title: "Error", description: "Failed to load image", variant: "destructive" });
+    } finally {
+      setIsLoadingAction(null);
+    }
+  }, [item, onLoadFromImageUrl, setGenerationMode, router, toast]);
 
   const triggerDownload = (url: string, filename: string) => {
     const link = document.createElement('a');
@@ -228,6 +275,13 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
             {isVideoItem ? "Video" : "Image"}
           </Badge>
 
+          {/* Studio Mode Badge */}
+          {item.generation_mode === 'studio' && (
+            <Badge variant="outline" className="absolute top-2 right-2 z-10 text-xs bg-black/50 border-white/30 text-white">
+              Studio
+            </Badge>
+          )}
+
           {/* Hover/Focus Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 sm:p-4 flex flex-col justify-between opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300 ease-in-out">
             {/* Top Actions */}
@@ -257,11 +311,28 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
                   </Tooltip>
                 </TooltipProvider>
                 <DropdownMenuContent align="end" onClick={handleActionClick}>
-                  <DropdownMenuItem onClick={handleReload}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    <span>Reload Config</span>
+                  <DropdownMenuItem onClick={handleReload} disabled={!!isLoadingAction}>
+                    {isLoadingAction === 'reload' ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                    )}
+                    <span>{isLoadingAction === 'reload' ? 'Loading...' : 'Reload Config'}</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDelete}>
+                  
+                  {/* Conditionally render the "Use in Creative" action for Studio Mode items */}
+                  {item.generation_mode === 'studio' && (
+                    <DropdownMenuItem onClick={handleSendToCreative} disabled={!!isLoadingAction}>
+                      {isLoadingAction === 'send' ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                      )}
+                      <span>{isLoadingAction === 'send' ? 'Loading...' : 'Use in Creative'}</span>
+                    </DropdownMenuItem>
+                  )}
+                  
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDelete} disabled={!!isLoadingAction}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     <span>Delete</span>
                   </DropdownMenuItem>
@@ -284,4 +355,6 @@ export default function HistoryCard({ item, onViewDetails, onDeleteItem, usernam
       </Card>
     </motion.div>
   );
-}
+});
+
+export default HistoryCard;

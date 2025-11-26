@@ -435,25 +435,9 @@ export async function generateImageAction(
       };
     }
 
-    // Extract all ModelAttributes parameters
-    const parameters = {
-      gender: formData.get('gender') as string,
-      bodyShapeAndSize: formData.get('bodyShapeAndSize') as string,
-      ageRange: formData.get('ageRange') as string,
-      ethnicity: formData.get('ethnicity') as string,
-      poseStyle: formData.get('poseStyle') as string,
-      background: formData.get('background') as string,
-      fashionStyle: formData.get('fashionStyle') as string,
-      hairStyle: formData.get('hairStyle') as string,
-      modelExpression: formData.get('modelExpression') as string,
-      lightingType: formData.get('lightingType') as string,
-      lightQuality: formData.get('lightQuality') as string,
-      modelAngle: formData.get('modelAngle') as string,
-      lensEffect: formData.get('lensEffect') as string,
-      depthOfField: formData.get('depthOfField') as string,
-      timeOfDay: formData.get('timeOfDay') as string,
-      overallMood: formData.get('overallMood') as string,
-    };
+    // Extract generation mode and studio fit
+    const generationMode = (formData.get('generationMode') as 'creative' | 'studio') || 'creative';
+    const studioFit = (formData.get('studioFit') as 'slim' | 'regular' | 'relaxed') || 'regular';
 
     // Extract generation options
     const settingsMode = (formData.get('settingsMode') as 'basic' | 'advanced') || 'basic';
@@ -467,7 +451,27 @@ export async function generateImageAction(
     // Build the generation input
     const generationInput: GenerateImageEditInput = {
       imageDataUriOrUrl,
-      parameters,
+      generationMode,
+      studioFit,
+      // Only extract and pass parameters for Creative Mode
+      parameters: generationMode === 'creative' ? {
+        gender: formData.get('gender') as string,
+        bodyShapeAndSize: formData.get('bodyShapeAndSize') as string,
+        ageRange: formData.get('ageRange') as string,
+        ethnicity: formData.get('ethnicity') as string,
+        poseStyle: formData.get('poseStyle') as string,
+        background: formData.get('background') as string,
+        fashionStyle: formData.get('fashionStyle') as string,
+        hairStyle: formData.get('hairStyle') as string,
+        modelExpression: formData.get('modelExpression') as string,
+        lightingType: formData.get('lightingType') as string,
+        lightQuality: formData.get('lightQuality') as string,
+        modelAngle: formData.get('modelAngle') as string,
+        lensEffect: formData.get('lensEffect') as string,
+        depthOfField: formData.get('depthOfField') as string,
+        timeOfDay: formData.get('timeOfDay') as string,
+        overallMood: formData.get('overallMood') as string,
+      } : undefined,
       settingsMode,
       useAIPrompt,
       useRandomization,
@@ -510,5 +514,42 @@ export async function generateImageAction(
       message: 'Generation failed',
       errors: [errorMessage, errorMessage, errorMessage],
     };
+  }
+}
+
+/**
+ * Recreate state from an existing image URL (for "Send to Creative Studio" feature)
+ * Takes a server-relative image URL and returns metadata needed to initialize the image preparation workflow
+ * @param imageUrl The server-relative URL of the image (e.g., /uploads/generated_images/...)
+ * @returns Metadata including hash and dimensions
+ */
+export async function recreateStateFromImageUrl(imageUrl: string): Promise<PrepareImageResult> {
+  if (!imageUrl || !imageUrl.startsWith('/uploads/')) {
+    return { success: false, error: 'A valid server image URL is required.' };
+  }
+
+  try {
+    const imageBuffer = await getBufferFromLocalPath(imageUrl);
+
+    const image = sharp(imageBuffer);
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height) {
+      return { success: false, error: 'Could not read image metadata from the provided URL.' };
+    }
+
+    const hash = crypto.createHash('sha256').update(imageBuffer).digest('hex');
+
+    return {
+      success: true,
+      imageUrl, // Return the original URL, as the file already exists
+      hash,
+      originalWidth: metadata.width,
+      originalHeight: metadata.height,
+      resized: false,
+    };
+  } catch (error) {
+    console.error('Error recreating state from image URL:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: `Failed to process the image from URL: ${errorMessage}` };
   }
 }

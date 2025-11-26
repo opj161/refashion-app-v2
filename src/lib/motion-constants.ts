@@ -145,3 +145,56 @@ export const MOTION_TRANSITIONS = {
     delayChildren: 0.1,
   },
 } as const;
+
+/**
+ * Reusable variants for common animation patterns across the application.
+ * These centralized variants ensure consistency and simplify maintenance.
+ */
+export const COMMON_VARIANTS = {
+  // Simple fade-in
+  fadeIn: {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: MOTION_TRANSITIONS.tween.standard },
+  },
+  
+  // Slide down and fade in (for dropdowns, conditional UI)
+  slideDownAndFade: {
+    hidden: { opacity: 0, y: -15 },
+    visible: { opacity: 1, y: 0, transition: MOTION_TRANSITIONS.tween.quick },
+    exit: { opacity: 0, y: -15, transition: MOTION_TRANSITIONS.tween.fast },
+  },
+
+  // Page transition effect
+  pageTransition: {
+    hidden: { opacity: 0, y: 8 },
+    visible: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -8 },
+  },
+
+  // For staggering list animations (e.g., history gallery)
+  staggeredListContainer: {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.07,
+        delayChildren: 0.1,
+      },
+    },
+  },
+
+  staggeredListItem: {
+    hidden: { y: 20, opacity: 0, scale: 0.98 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      scale: 1,
+      transition: MOTION_TRANSITIONS.spring.gentle,
+    },
+    exit: {
+      opacity: 0,
+      scale: 0.98,
+      transition: { duration: 0.2, ease: 'easeOut' },
+    },
+  },
+} as const;

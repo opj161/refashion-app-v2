@@ -14,6 +14,7 @@ import 'server-only';
 
 import { fal } from '@/lib/fal-client';
 import { getSetting, getBooleanSetting } from '../settings.service';
+import { createApiLogger } from '@/lib/api-logger';
 
 export interface VideoGenerationInput {
   prompt: string;
@@ -117,21 +118,36 @@ export async function getVideoGenerationResult(taskId: string): Promise<VideoGen
  * @returns Promise<string> The request ID for the submitted job
  */
 export async function startVideoGenerationWithWebhook(input: VideoGenerationInput, webhookUrl: string, username: string): Promise<string> {
+  const logger = createApiLogger('FAL_VIDEO', 'Video Generation (Webhook)', {
+    username,
+    model: input.videoModel === 'pro' ? 'seedance-pro' : 'seedance-lite',
+  });
+
+  const modelId = input.videoModel === 'pro'
+    ? 'fal-ai/bytedance/seedance/v1/pro/image-to-video'
+    : 'fal-ai/bytedance/seedance/v1/lite/image-to-video';
+    
+  const falInput: any = {
+    prompt: input.prompt,
+    image_url: input.image_url,
+  };
+  if (input.resolution) falInput.resolution = input.resolution;
+  if (input.duration) falInput.duration = input.duration;
+  if (typeof input.camera_fixed === 'boolean') falInput.camera_fixed = input.camera_fixed;
+  if (typeof input.seed === 'number' && input.seed !== undefined) falInput.seed = input.seed;
+  if (input.end_image_url) falInput.end_image_url = input.end_image_url;
+
+  logger.start({
+    modelId,
+    promptLength: input.prompt.length,
+    imageUrl: input.image_url.substring(0, 100),
+    resolution: input.resolution || '480p',
+    duration: input.duration || '5',
+    webhookUrl: webhookUrl.substring(0, 100),
+  });
+
   try {
-    console.log('Submitting video job to Fal.ai with webhook:', webhookUrl);
-    const modelId = input.videoModel === 'pro'
-      ? 'fal-ai/bytedance/seedance/v1/pro/image-to-video'
-      : 'fal-ai/bytedance/seedance/v1/lite/image-to-video';
-    const falInput: any = {
-      prompt: input.prompt,
-      image_url: input.image_url,
-    };
-    if (input.resolution) falInput.resolution = input.resolution;
-    if (input.duration) falInput.duration = input.duration;
-    if (typeof input.camera_fixed === 'boolean') falInput.camera_fixed = input.camera_fixed;
-    if (typeof input.seed === 'number' && input.seed !== undefined) falInput.seed = input.seed;
-    if (input.end_image_url) falInput.end_image_url = input.end_image_url;
-    console.log('Fal.ai input parameters:', JSON.stringify(falInput, null, 2));
+    logger.progress('Submitting to Fal.ai queue with webhook');
     
     // Use fal.queue.submit instead of manual fetch
     const { request_id } = await fal.queue.submit(modelId, {
@@ -139,10 +155,13 @@ export async function startVideoGenerationWithWebhook(input: VideoGenerationInpu
       webhookUrl: webhookUrl,
     });
     
-    console.log(`Video generation task started with webhook. Request ID: ${request_id}`);
+    logger.success({
+      requestId: request_id,
+    });
+    
     return request_id;
   } catch (error) {
-    console.error('Error submitting video job to Fal.ai:', error);
+    logger.error(error);
     throw error;
   }
 }

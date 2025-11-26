@@ -8,6 +8,7 @@ import { addStandaloneVideoHistoryItem, updateVideoHistoryItem } from '@/actions
 import * as videoService from '@/services/fal-api/video.service'; // Use the service layer
 import { getDisplayableImageUrl } from '@/lib/utils';
 import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
+import { createApiLogger } from '@/lib/api-logger';
 
 // Ensure FAL_KEY is available, otherwise Fal.ai calls will fail
 if (!process.env.FAL_KEY) {
@@ -61,13 +62,29 @@ export async function isFalVideoGenerationAvailable(): Promise<{ available: bool
  * Utility to upload a file (from Blob or File object) to Fal Storage.
  */
 export async function uploadToFalStorage(file: File | Blob, username: string): Promise<string> {
+  const logger = createApiLogger('STORAGE', 'Fal Storage Upload', {
+    username,
+    endpoint: 'fal.storage.upload',
+  });
+
+  logger.start({
+    fileSize: file.size,
+    fileType: file.type,
+  });
+
   try {
-    // Use the proxied fal client - no need for manual API key management
+    logger.progress('Uploading to Fal Storage');
+    
     const url = await fal.storage.upload(file);
-    console.log(`File uploaded to Fal Storage: ${url}`);
+    
+    logger.success({
+      url: url.substring(0, 100),
+      fullUrl: url,
+    });
+    
     return url;
   } catch (error: any) {
-    console.error('Error uploading file to Fal Storage:', error);
+    logger.error(error);
     throw new Error(`Failed to upload to Fal Storage: ${error.message}`);
   }
 }
