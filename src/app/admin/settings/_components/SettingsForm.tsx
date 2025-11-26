@@ -20,6 +20,7 @@ import {
 import { Loader2, Video, Wand2, Sparkles, UserCheck, Trash2, KeyRound, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { StudioPromptTester } from './StudioPromptTester';
 
 type SettingsState = Record<SettingKey, boolean>;
 
@@ -114,6 +115,16 @@ export function SettingsForm({ initialSettings, maskedApiKeys, systemPromptData 
   
   const initialCacheCleanupState: CacheCleanupFormState = { message: '' };
   const [cacheCleanupState, cacheCleanupAction] = useActionState(handleCacheCleanup, initialCacheCleanupState);
+  
+  // Studio Prompt controlled state for testing
+  const [studioPrompt, setStudioPrompt] = useState(systemPromptData?.prompts?.studio || '');
+  
+  // Update studio prompt state when props change
+  useEffect(() => {
+    if (systemPromptData?.prompts?.studio) {
+      setStudioPrompt(systemPromptData.prompts.studio);
+    }
+  }, [systemPromptData?.prompts?.studio]);
   
   // Handle feedback from useActionState forms
   useEffect(() => {
@@ -265,11 +276,15 @@ export function SettingsForm({ initialSettings, maskedApiKeys, systemPromptData 
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="studioPromptTemplate">Studio Mode Prompt Template</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="studioPromptTemplate">Studio Mode Prompt Template</Label>
+                  <StudioPromptTester currentTemplate={studioPrompt} />
+                </div>
                 <Textarea 
                   id="studioPromptTemplate" 
                   name="studioPromptTemplate"
-                  defaultValue={systemPromptData?.prompts?.studio || ''}
+                  value={studioPrompt}
+                  onChange={(e) => setStudioPrompt(e.target.value)}
                   placeholder="Enter the prompt template for Studio Mode..."
                   rows={10}
                   className="font-mono text-sm"

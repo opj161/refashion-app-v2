@@ -34,17 +34,15 @@ import { generateWithFalEditModel } from '@/services/fal-api/image.service';
 import { downloadAndSaveImageFromUrl } from '@/services/storage.service';
 import { removeBackgroundAction } from '@/ai/actions/remove-background.action';
 import { upscaleImageAction, faceDetailerAction } from '@/ai/actions/upscale-image.action';
-import { getSetting } from '@/services/settings.service'; // Add this import for Studio Mode prompt
-
 // Import Axios and HttpsProxyAgent for explicit proxy control
 // Axios and HttpsProxyAgent removed as they were only for Google API
 import { withGeminiRetry } from '@/lib/api-retry';
 
-// Import GoogleGenAI SDK for text-based classification tasks
-import { GoogleGenAI } from '@google/genai';
-
 // Import API logger for standardized logging
 import { createApiLogger } from '@/lib/api-logger';
+
+// Import Studio Prompt domain service
+import { constructStudioPrompt } from '@/ai/domain/studio-prompt';
 
 // Direct API configuration matching Python implementation
 // BASE_URL removed
@@ -101,126 +99,7 @@ function generateRandomBasicParameters(baseParameters: ModelAttributes): ModelAt
   return result;
 }
 
-/**
- * Studio Mode: Get fit description based on the selected fit type
- */
-function getStudioModeFitDescription(fit: 'slim' | 'regular' | 'relaxed'): string {
-  switch (fit) {
-    case 'slim': return "slim fit";
-    case 'relaxed': return "relaxed fit";
-    case 'regular':
-    default: return "regular fit";
-  }
-}
 
-/**
- * Studio Mode: Build the ironclad prompt template for consistent product photography
- */
-function buildStudioModePrompt(fit: 'slim' | 'regular' | 'relaxed'): string {
-  const fitDescription = getStudioModeFitDescription(fit);
-
-  // Fetch the template from the database via the settings service.
-  const promptTemplate = getSetting('ai_studio_mode_prompt_template');
-  
-  // Define a hardcoded fallback for resilience in case the setting is empty.
-  const fallbackTemplate = `Create a high-quality fashion photograph featuring a realistic female model wearing this {clothingItem} in the provided image with a {fitDescription}. The model should have a modern, approachable look and stand in a relaxed, candid pose with a natural expression and subtle smile. Ensure the fabric weight, drape, and texture interact realistically with the model's body geometry and pose. The setting is a bright, daylight studio with a textured, neutral wall background that provides soft, complementary contrast. Use diffused natural lighting to highlight the material details of the clothing without harsh shadows. Frame the image as a full-body shot using a 50mm lens perspective for a natural, photorealistic result.`;
-
-  // Use the database template if available; otherwise, use the fallback.
-  const templateToUse = promptTemplate && promptTemplate.trim() ? promptTemplate : fallbackTemplate;
-
-  // Inject the dynamic fit description.
-  return templateToUse.replace('{fitDescription}', fitDescription);
-}
-
-/**
- * Helper to convert an image path/URI to the format the GoogleGenAI SDK needs
- * Duplicated from generate-prompt.action.ts for encapsulation
- */
-async function imageToGenerativePart(imageDataUriOrUrl: string) {
-  let dataUri = imageDataUriOrUrl;
-  
-  if (dataUri.startsWith('/')) {
-    const buffer = await getBufferFromLocalPath(dataUri);
-    const mimeType = mime.lookup(dataUri) || 'image/png';
-    dataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
-  }
-  
-  const match = dataUri.match(/^data:(image\/\w+);base64,(.+)$/);
-  if (!match) throw new Error('Invalid image data URI');
-
-  return {
-    inlineData: {
-      mimeType: match[1],
-      data: match[2],
-    },
-  };
-}
-
-/**
- * Studio Mode Enhancement: Generate a concise clothing description using Gemini text model
- * This description replaces the generic "clothing item" placeholder in the studio prompt
- * for more specific and accurate image generation.
- * 
- * @param imageDataUriOrUrl - The source image (data URI, local path, or HTTPS URL)
- * @param username - Username for API key retrieval
- * @returns A 2-5 word clothing description, or "clothing item" as fallback on failure
- */
-async function generateClothingDescription(
-  imageDataUriOrUrl: string,
-  username: string
-): Promise<string> {
-  const logger = createApiLogger('GEMINI_TEXT', 'Clothing Classification', {
-    username,
-    model: 'gemini-flash-lite-latest',
-    keyIndex: 1,
-  });
-
-  const classificationPrompt = "Use 1-3 descriptive words to specify both the fit and length of this clothing item, and 1-2 words to classify the garment type correctly. Provide only this 2-5 word total classification without additional formatting or explanation, using standard fashion terminology.";
-
-  logger.start({
-    imageSource: imageDataUriOrUrl.substring(0, 100),
-    promptLength: classificationPrompt.length,
-  });
-
-  try {
-    const apiKey = await getApiKeyForUser(username, 'gemini', 1);
-    const ai = new GoogleGenAI({ apiKey });
-
-    const imagePart = await imageToGenerativePart(imageDataUriOrUrl);
-    logger.progress(`Image converted: ${imagePart.inlineData.mimeType}`);
-
-    const contents = [{
-      role: 'user',
-      parts: [imagePart, { text: classificationPrompt }]
-    }];
-
-    const model = 'gemini-flash-lite-latest';
-    
-    logger.progress('Sending request to Gemini API');
-
-    const response = await withGeminiRetry(async () => {
-      const result = await ai.models.generateContent({ model, contents });
-      if (!result.text) {
-        throw new Error("Gemini did not return a text description");
-      }
-      return result;
-    }, 'Clothing Classification');
-
-    const description = response.text?.trim() || "clothing item";
-    
-    logger.success({
-      description,
-      candidatesCount: response.candidates?.length || 0,
-      finishReason: response.candidates?.[0]?.finishReason || 'N/A',
-    });
-    
-    return description;
-
-  } catch (error) {
-    logger.error(error, 'Using generic "clothing item" placeholder');
-    return "clothing item";
-  }
-}
 
 /**
  * Make a direct API call to Gemini API with explicit proxy support using axios
@@ -426,23 +305,14 @@ export async function generateImageEdit(
           throw new Error('Studio Mode requires a fit setting and a source image.');
         }
 
-        // Step 1: Generate a dynamic clothing description using AI
-        const clothingDescription = await generateClothingDescription(
+        // Use the domain service to construct the prompt
+        const { classification, finalPrompt: studioPrompt } = await constructStudioPrompt(
           input.imageDataUriOrUrl,
+          input.studioFit,
           username
         );
-        console.log(`🏷️ Clothing identified as: "${clothingDescription}"`);
         
-        // Step 2: Build the Studio Mode prompt and inject the clothing description
-        let studioPrompt = buildStudioModePrompt(input.studioFit);
-        
-        // Use explicit placeholder replacement first, fall back to string match for backwards compatibility
-        if (studioPrompt.includes('{clothingItem}')) {
-           studioPrompt = studioPrompt.replace('{clothingItem}', clothingDescription);
-        } else {
-           // Fallback for legacy templates in DB that might still use the literal string
-           studioPrompt = studioPrompt.replace("clothing item", clothingDescription);
-        }
+        console.log(`🏷️ Clothing identified as: "${classification}"`);
         console.log('📝 Studio Mode Prompt constructed with dynamic clothing description.');
 
         // Parallel Generation with Tuned Parameters (low temperature for consistency)

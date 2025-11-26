@@ -22,6 +22,7 @@ import type {
   TopParameterUsageData,
   UserActivityData,
 } from '@/services/analytics.service';
+import { constructStudioPrompt } from '@/ai/domain/studio-prompt';
 
 const SALT_ROUNDS = 12;
 
@@ -264,7 +265,7 @@ export async function getSystemPromptsForAdmin() {
     const studioPrompt = settingsService.getSetting('ai_studio_mode_prompt_template');
     
     // Define the fallback template that matches the one used in generate-image-edit.ts
-    const studioFallbackTemplate = `Create a high-quality fashion photograph featuring a realistic female model wearing this {clothingItem} in the provided image with a {fitDescription}. The model should have a modern, approachable look and stand in a relaxed, candid pose with a natural expression and subtle smile. Ensure the fabric weight, drape, and texture interact realistically with the model's body geometry and pose. The setting is a bright, daylight studio with a textured, neutral wall background that provides soft, complementary contrast. Use diffused natural lighting to highlight the material details of the clothing without harsh shadows. Frame the image as a full-body shot using a 50mm lens perspective for a natural, photorealistic result.`;
+    const studioFallbackTemplate = `Create a high-quality, full-body fashion photograph of a realistic female model wearing the {clothingItem} from the provided image. The model should wear the item with a {fitDescription}, posing in a relaxed, candid manner with a natural expression and subtle smile. The setting should be simple and well-suited to the clothing. To perfectly replicate the reference garment, ensure high fidelity to the original fabric texture, color, pattern, and specific design details.`;
 
     // Use the database template if available; otherwise, use the fallback
     const studioPromptToShow = studioPrompt && studioPrompt.trim() ? studioPrompt : studioFallbackTemplate;
@@ -441,6 +442,64 @@ export async function getGenerationActivityAction(
   } catch (error) {
     console.error(`Error fetching activity for ${days} days:`, error);
     return { success: false, error: 'Failed to fetch activity data.' };
+  }
+}
+
+// --- Studio Prompt Testing Action ---
+
+export async function testStudioPrompt(formData: FormData): Promise<{
+  success: boolean;
+  classification?: string;
+  prompt?: string;
+  error?: string;
+}> {
+  // 1. Security Check
+  const admin = await verifyAdmin();
+
+  // 2. Extract Data
+  const file = formData.get('image') as File | null;
+  const fit = formData.get('fit') as string;
+  const model = formData.get('model') as string;
+  const template = formData.get('template') as string;
+
+  if (!file || file.size === 0) {
+    return { success: false, error: "No test image provided." };
+  }
+
+  if (!fit || !['slim', 'regular', 'relaxed'].includes(fit)) {
+    return { success: false, error: "Invalid fit parameter." };
+  }
+
+  try {
+    // 3. Convert File to Data URI
+    // The domain service expects a Data URI for direct API transmission
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const mimeType = file.type || 'image/png';
+    const dataUri = `data:${mimeType};base64,${buffer.toString('base64')}`;
+
+    // 4. Execute Domain Logic (Dry Run)
+    // We pass the template explicitly to override the database setting
+    const result = await constructStudioPrompt(
+      dataUri,
+      fit as 'slim' | 'regular' | 'relaxed',
+      admin.username,
+      template, // <--- The override from the UI
+      model // <--- The selected model
+    );
+
+    return {
+      success: true,
+      classification: result.classification,
+      prompt: result.finalPrompt,
+    };
+
+  } catch (error) {
+    console.error("Studio Prompt Dry Run Failed:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error occurred during test." 
+    };
   }
 }
 
