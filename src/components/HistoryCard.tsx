@@ -260,7 +260,7 @@ const HistoryCard = React.memo(function HistoryCard({
               src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
               alt={item.constructedPrompt || "Generated image"}
               fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              sizes="(max-width: 640px) 95vw, (max-width: 1024px) 45vw, 30vw"
               className="object-cover object-top transition-transform duration-300 ease-in-out group-hover:scale-105"
             />
           ) : (
@@ -290,7 +290,7 @@ const HistoryCard = React.memo(function HistoryCard({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 bg-black/50 text-white hover:bg-black/70 hover:text-white" onClick={handleDownload} aria-label="Download">
+                    <Button variant="ghost" size="icon" className="h-10 w-10 bg-black/50 text-white hover:bg-black/70 hover:text-white backdrop-blur-sm" onClick={handleDownload} aria-label="Download">
                       <Download className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
@@ -303,7 +303,7 @@ const HistoryCard = React.memo(function HistoryCard({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 bg-black/50 text-white hover:bg-black/70 hover:text-white" onClick={handleActionClick} aria-label="More options">
+                        <Button variant="ghost" size="icon" className="h-10 w-10 bg-black/50 text-white hover:bg-black/70 hover:text-white backdrop-blur-sm" onClick={handleActionClick} aria-label="More options">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>

@@ -231,7 +231,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
           )}>
             
             {/* Left Side: Drop Zone */}
-            <div className="flex flex-col h-full min-h-[280px]">
+            <div className="flex flex-col h-full min-h-[200px] md:min-h-[280px]">
               <motion.div
                 animate={isDraggingOverDropZone ? "dragOver" : "idle"}
                 variants={dropZoneVariants}
@@ -260,7 +260,10 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
                     >
                       <UploadCloud className="w-16 h-16 mb-4 text-muted-foreground" />
                     </motion.div>
-                    <p className="font-semibold text-foreground">Click to upload or drag & drop</p>
+                    <p className="font-semibold text-foreground">
+                      <span className="md:hidden">Tap to select image</span>
+                      <span className="hidden md:inline">Click to upload or drag & drop</span>
+                    </p>
                     <p className="text-sm">PNG, JPG, WEBP, etc.</p>
                   </>
                 )}

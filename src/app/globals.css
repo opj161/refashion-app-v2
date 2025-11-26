@@ -30,6 +30,15 @@
 }
 
 @layer base {
+  /* FIX: Force 16px font size on inputs for mobile to prevent iOS zoom */
+  @media (max-width: 768px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+
   /* Remove existing :root and .dark color definitions and replace with these */
   :root {
     /* Best Practice: Separate variables for header height and content offset */
@@ -303,6 +312,30 @@
 }
 
 @layer utilities {
+  /* FIX: Use dvh (dynamic viewport height) for full-screen layouts */
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+
+  /* FIX: Add Safe Area Utilities for iPhone X+ Home Indicator */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* FIX: Increase touch targets for cropping handles on mobile */
+  @media (hover: none) {
+    .ReactCrop__drag-handle {
+      width: 24px !important;
+      height: 24px !important;
+      margin-top: -12px; /* Center adjustment */
+      margin-left: -12px;
+      background-color: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(0, 0, 0, 0.2);
+    }
+  }
   /* Shimmer effect for skeleton loaders */
   @keyframes shimmer {
     0% {

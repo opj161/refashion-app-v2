@@ -134,14 +134,14 @@ function CreationHubContent({
         {/* === START: INTEGRATED LAYOUT === */}
         <div className="bg-muted/30 p-1 rounded-lg flex flex-col items-center">
           {/* Main Tabs */}
-          <TabsList className="grid w-full grid-cols-3 bg-transparent p-0">
-            <TabsTrigger value="image">🖼️ Image</TabsTrigger>
-            <TabsTrigger value="video">🎥 Video</TabsTrigger>
-            <TabsTrigger value="history">📃 History</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 bg-transparent p-0 h-14">
+            <TabsTrigger value="image" className="h-full text-sm sm:text-base data-[state=active]:bg-background/80">🖼️ Image</TabsTrigger>
+            <TabsTrigger value="video" className="h-full text-sm sm:text-base data-[state=active]:bg-background/80">🎥 Video</TabsTrigger>
+            <TabsTrigger value="history" className="h-full text-sm sm:text-base data-[state=active]:bg-background/80">📃 History</TabsTrigger>
           </TabsList>
 
           {/* Mode Switcher Container - Fixed height to prevent layout shift */}
-          <div className="relative w-full h-[2.5rem] mt-2">
+          <div className="relative w-full h-[3rem] mt-2">
             <AnimatePresence mode="wait">
               {currentTab === 'image' && (
                 <motion.div 

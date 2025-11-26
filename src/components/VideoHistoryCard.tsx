@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, PlayCircle, Clock, AlertCircle, CheckCircle } from "lucide-react";
 import { getDisplayableImageUrl, cn } from "@/lib/utils";
 import { VideoPlaybackModal } from "@/components/VideoPlaybackModal";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { motion, AnimatePresence } from "motion/react";
 
 interface VideoHistoryCardProps {
@@ -15,6 +16,7 @@ interface VideoHistoryCardProps {
 }
 
 export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
+  const isMobile = useIsMobile();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInView, setIsInView] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -55,14 +57,18 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
     const video = videoRef.current;
     if (!video || !videoUrl) return;
 
-    if (isInView) {
+    // OPTIMIZATION: Only autoplay if in view AND (not mobile OR user enabled data saver override)
+    // For now, we disable autoplay on mobile for data safety unless explicitly clicked
+    const shouldPlay = isInView && !isMobile;
+
+    if (shouldPlay) {
       video.play().catch((error) => {
         if (error.name !== "AbortError") console.error("Video play failed:", error);
       });
     } else {
       video.pause();
     }
-  }, [isInView, videoUrl]);
+  }, [isInView, videoUrl, isMobile]);
 
   const getStatusIcon = () => {
     switch (status) {

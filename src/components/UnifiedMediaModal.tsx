@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 export const MediaSlot = ({ children, className }: { children: React.ReactNode, className?: string }) => (
   <div className={cn(
       // Add w-full and h-full to make the div fill its grid cell
-      "relative w-full h-full bg-muted/20 rounded-lg overflow-hidden p-2", // [!code focus]
+      "w-full min-h-[40vh] bg-black/20 p-4 flex items-center justify-center", // [!code focus]
       // On desktop, this slot is placed in the second row, first column
       "lg:row-start-2 lg:col-start-1",
       className
@@ -98,7 +98,7 @@ export function UnifiedMediaModal({ isOpen, onClose, title, description, footerL
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="bottom" className={cn(
-        "h-[95vh] p-4 !gap-y-4",
+        "h-[92dvh] p-4 !gap-y-4",
         // THE CORE LAYOUT LOGIC (Mobile)
         // --- THE FIX: The image row was 'auto', causing collapse. ---
         // We change it to a flexible unit '1.5fr' to give it proportional space.
