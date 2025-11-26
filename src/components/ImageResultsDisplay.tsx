@@ -13,6 +13,7 @@ import { getDisplayableImageUrl } from '@/lib/utils';
 import { upscaleImageAction, faceDetailerAction, isFaceDetailerAvailable } from '@/ai/actions/upscale-image.action';
 import { updateHistoryItem } from '@/actions/historyActions';
 import { ImageViewerModal } from './ImageViewerModal';
+import { ImageResultSkeleton } from './ImageResultSkeleton';
 import { useGenerationSettingsStore } from '@/stores/generationSettingsStore';
 import type { ImageGenerationFormState } from '@/actions/imageActions';
 
@@ -70,20 +71,19 @@ export function ImageResultsDisplay({
   const generationErrors = localErrors;
   const activeHistoryItemId = formState?.newHistoryId || null;
 
-  // Polling Effect
+  // Polling Effect with Exponential Backoff
   useEffect(() => {
     if (!activeHistoryItemId) return;
 
-    // Stop polling ONLY if the history item status is terminal (completed/failed)
-    // OR if we have results for all slots (success or failure)
-    // const allSlotsFilled = outputImageUrls.every(url => url !== null) || generationErrors.every(err => err !== null);
-    
-    const intervalId = setInterval(async () => {
+    let delay = 2000; 
+    let timeoutId: NodeJS.Timeout;
+    let isMounted = true;
+
+    const poll = async () => {
       try {
-        // OPTIMIZATION: Use lightweight API route for polling instead of Server Action
         const res = await fetch(`/api/history/${activeHistoryItemId}/status`, { cache: 'no-store' });
         
-        if (res.ok) {
+        if (res.ok && isMounted) {
             const result = await res.json();
             
             // Update local state with whatever we have so far
@@ -109,19 +109,32 @@ export function ImageResultsDisplay({
                   url === null ? (result.error || 'Generation failed') : null
                 );
                 setLocalErrors(newErrors);
-                clearInterval(intervalId); // Stop polling
+                // Stop polling - don't schedule next poll
+                return;
             } else if (result.status === 'failed') {
                 setLocalErrors(Array(maxImages).fill(result.error || 'Generation failed'));
                 setPollingStatus('failed');
-                clearInterval(intervalId); // Stop polling
+                // Stop polling - don't schedule next poll
+                return;
             }
         }
       } catch (err) {
         console.error("Polling error", err);
       }
-    }, 2000);
 
-    return () => clearInterval(intervalId);
+      // Exponential backoff: cap at 10 seconds
+      if (isMounted) {
+        delay = Math.min(delay * 1.2, 10000); 
+        timeoutId = setTimeout(poll, delay);
+      }
+    };
+
+    poll(); // Start polling
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [activeHistoryItemId, maxImages]); 
 
   // Local state for loading indicators
@@ -382,12 +395,11 @@ export function ImageResultsDisplay({
                   <CardContent className="p-0">
                     <div className="relative aspect-[3/4] bg-muted/30 flex items-center justify-center group">
                       
-                      {/* Loading State */}
+                      {/* Loading State - Replaced Spinner with Skeleton */}
                       {isLoading && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm z-10">
-                          <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-                          <p className="text-sm text-muted-foreground animate-pulse">Generating...</p>
-                        </div>
+                         <div className="absolute inset-0 z-20">
+                           <ImageResultSkeleton />
+                         </div>
                       )}
 
                       {/* Error State */}

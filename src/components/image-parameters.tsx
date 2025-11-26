@@ -50,8 +50,12 @@ const SubmitButton = React.memo(function SubmitButton({ preparedImageUrl, maxIma
       <Button type="submit" disabled={isDisabled} className="w-full text-lg h-14">
         <AnimatePresence mode="wait" initial={false}>
           {pending ? (
-            <motion.span key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating...
+            <motion.span key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center leading-none">
+              <span className="flex items-center gap-2">
+                 <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 
+                 Processing...
+              </span>
+              <span className="text-[10px] font-normal opacity-70 mt-1">Running in background</span>
             </motion.span>
           ) : (
             <motion.span key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center">

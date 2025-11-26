@@ -46,6 +46,14 @@ interface UnifiedMediaModalProps {
 }
 export function UnifiedMediaModal({ isOpen, onClose, title, description, footerLeft, footerRight, children, layoutId }: UnifiedMediaModalProps) {
   const isMobile = useIsMobile();
+  const [isMounted, setIsMounted] = React.useState(false);
+  
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Prevent hydration mismatch by waiting for client mount
+  if (!isMounted) return null;
 
   const ModalContent = (
     <motion.div layoutId={layoutId} className="contents"> {/* `contents` prevents this from adding a DOM element */}

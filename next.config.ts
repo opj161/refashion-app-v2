@@ -69,6 +69,12 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-tooltip',
     ],
   },
+  // Enable fetch logging for debugging polling in development
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
   // Build caching configuration for faster subsequent builds
   cacheMaxMemorySize: 50 * 1024 * 1024, // 50MB - optimize build cache
   cacheHandler: process.env.NODE_ENV === 'production' 

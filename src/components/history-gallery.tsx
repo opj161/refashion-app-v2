@@ -143,12 +143,14 @@ export default function HistoryGallery({
     // Now the SegmentedControl in creation-hub.tsx writes directly to the store
   };
 
+  // React Compiler auto-memoizes this function
   const handleViewDetails = (item: HistoryItem) => {
     setDetailItem(item);
   };
 
   // handleReloadConfig is now handled directly in HistoryCard via client-side store
 
+  // React Compiler auto-memoizes this function
   const handleDeleteRequest = (item: HistoryItem) => {
     setItemToDelete(item);
   };

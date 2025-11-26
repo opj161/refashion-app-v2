@@ -1,5 +1,5 @@
 import { satoshi } from '@/lib/fonts';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
 import { getCurrentUser } from '@/actions/authActions';
@@ -10,6 +10,14 @@ import { AppBody } from '@/components/AppBody';
 
 // Removed force-dynamic from root - moved to per-page basis for better performance
 // Only pages requiring auth should use force-dynamic
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false, // Prevents zooming issues on input focus on iOS
+  themeColor: '#020410',
+};
 
 export const metadata: Metadata = {
   title: 'Refashion AI',

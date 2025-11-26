@@ -244,7 +244,7 @@ const HistoryCard = React.memo(function HistoryCard({
                 src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
                 alt="Video thumbnail"
                 fill
-                sizes="(max-width: 640px) 100vw, 320px"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 className={cn(`object-cover object-top transition-opacity duration-300`, isInView ? 'opacity-0' : 'opacity-100')}
               />
               <video
@@ -259,7 +259,7 @@ const HistoryCard = React.memo(function HistoryCard({
               src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
               alt={item.constructedPrompt || "Generated image"}
               fill
-              sizes="(max-width: 640px) 100vw, 320px"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
               className="object-cover object-top transition-transform duration-300 ease-in-out group-hover:scale-105"
             />
           ) : (
@@ -283,7 +283,7 @@ const HistoryCard = React.memo(function HistoryCard({
           )}
 
           {/* Hover/Focus Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 sm:p-4 flex flex-col justify-between opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300 ease-in-out">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 sm:p-4 flex flex-col justify-between opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 transition-opacity duration-300 ease-in-out">
             {/* Top Actions */}
             <div className="flex justify-end items-start gap-1">
               <TooltipProvider>
