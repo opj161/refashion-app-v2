@@ -25,7 +25,7 @@ export default function LoginPage() {
   const [state, formAction] = useActionState(loginUser, initialState);
 
   return (
-    <div className="flex justify-center items-center min-h-[calc(100vh-var(--content-offset,80px))] p-4 bg-gradient-to-br from-background-accent to-background">
+    <div className="flex-1 flex justify-center items-center p-4">
       <Card variant="glass" className="w-full max-w-md shadow-2xl">
         <form action={formAction}>
           <CardHeader className="text-center">

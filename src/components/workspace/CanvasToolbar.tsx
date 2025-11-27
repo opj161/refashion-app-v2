@@ -18,6 +18,7 @@ import {
 import { useImageStore } from '@/stores/imageStore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 /**
  * CanvasToolbar - A floating pill-shaped toolbar for image manipulation.
@@ -118,14 +119,14 @@ function ToolbarBtn({ icon: Icon, label, onClick, disabled, active, variant = 'g
             size="icon"
             onClick={onClick}
             disabled={disabled}
-            className={`
-              h-9 w-9 rounded-full transition-all
-              ${variant === 'default' ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}
-              ${variant === 'destructive' ? 'text-red-400 hover:bg-red-950/50 hover:text-red-300' : ''}
-              ${variant === 'ghost' && active ? 'bg-white/20 text-white' : ''}
-              ${variant === 'ghost' && !active ? 'text-white/70 hover:text-white hover:bg-white/10' : ''}
-              ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
-            `}
+            className={cn(
+              "h-9 w-9 rounded-full transition-all",
+              variant === 'default' && "bg-primary text-primary-foreground hover:bg-primary/90",
+              variant === 'destructive' && "text-red-400 hover:bg-red-950/50 hover:text-red-300",
+              variant === 'ghost' && active && "bg-white/20 text-white",
+              variant === 'ghost' && !active && "text-white/70 hover:text-white hover:bg-white/10",
+              disabled && "opacity-40 cursor-not-allowed"
+            )}
           >
             <Icon className="h-4 w-4" />
           </Button>

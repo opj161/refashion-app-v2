@@ -20,10 +20,11 @@ const ALLOWED_FILE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'
 
 interface ImageUploaderProps {
   recentUploads?: string[];
+  showRecentUploads?: boolean; // NEW: Control whether to show the recent uploads panel
 }
 import { useRouter } from 'next/navigation';
 
-export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps) {
+export default function ImageUploader({ recentUploads = [], showRecentUploads = true }: ImageUploaderProps) {
   const { toast } = useToast();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -197,7 +198,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
   }, [handleDragAction]);
 
   // Determine layout mode
-  const hasHistory = recentUploads.length > 0;
+  const hasHistory = showRecentUploads && recentUploads.length > 0;
   const isDisabled = isUploading || isLoadingRecent;
 
   return (

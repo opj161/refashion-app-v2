@@ -65,7 +65,8 @@ export function InputStage({ recentUploads = [] }: InputStageProps) {
               exit={{ opacity: 0, scale: 0.95 }}
               className="max-w-md w-full"
             >
-              <ImageUploader recentUploads={[]} /> {/* Pass empty here, we show strip below */}
+              {/* Use showRecentUploads=false since we show the AssetStrip below */}
+              <ImageUploader recentUploads={[]} showRecentUploads={false} />
             </motion.div>
           ) : (
             <motion.div 

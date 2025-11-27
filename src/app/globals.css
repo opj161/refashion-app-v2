@@ -42,7 +42,7 @@
   /* Remove existing :root and .dark color definitions and replace with these */
   :root {
     /* Best Practice: Separate variables for header height and content offset */
-    --header-height: 64px; /* Fixed 64px header for pro-tool layout */
+    --header-height: 4rem; /* 64px at default font size - using rem for accessibility */
     --content-offset: 0rem; /* padding to prevent content hiding under header */
 
     /* Light Theme (if you ever need it, but we'll focus on dark) */

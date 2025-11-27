@@ -1,7 +1,7 @@
 // src/components/workspace/OutputGallery.tsx
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ImageViewerModal } from '@/components/ImageViewerModal';
+import type { HistoryItem, ModelAttributes } from '@/lib/types';
 
 interface OutputGalleryProps {
   maxImages?: number;
@@ -47,6 +48,41 @@ export function OutputGallery({ maxImages = 3 }: OutputGalleryProps) {
   // Modal State
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+
+  // Create a minimal HistoryItem for the viewer modal
+  const modalHistoryItem: HistoryItem | null = useMemo(() => {
+    if (!isImageViewerOpen || !selectedImageUrl) return null;
+    
+    // Create default empty attributes
+    const defaultAttributes: ModelAttributes = {
+      gender: 'female',
+      bodyShapeAndSize: 'default',
+      ageRange: 'default',
+      ethnicity: 'default',
+      poseStyle: 'default',
+      background: 'default',
+      fashionStyle: 'default_style',
+      hairStyle: 'default',
+      modelExpression: 'default',
+      lightingType: 'default',
+      lightQuality: 'default',
+      modelAngle: 'front_facing',
+      lensEffect: 'default',
+      depthOfField: 'default',
+      timeOfDay: 'default',
+      overallMood: 'default',
+    };
+    
+    return {
+      id: currentResultId || 'preview',
+      timestamp: Date.now(),
+      constructedPrompt: '',
+      originalClothingUrl: '',
+      editedImageUrls: outputImageUrls,
+      attributes: defaultAttributes,
+      username: 'current',
+    };
+  }, [isImageViewerOpen, selectedImageUrl, currentResultId, outputImageUrls]);
 
   // Polling Effect - watches for currentResultId changes
   useEffect(() => {
@@ -307,20 +343,12 @@ export function OutputGallery({ maxImages = 3 }: OutputGalleryProps) {
 
       {/* Image Viewer Modal */}
       <AnimatePresence>
-        {isImageViewerOpen && selectedImageUrl && (
+        {isImageViewerOpen && selectedImageUrl && modalHistoryItem && (
           <ImageViewerModal
             isOpen={isImageViewerOpen}
             onClose={handleCloseImageViewer}
             initialImageUrl={selectedImageUrl}
-            item={{
-              id: currentResultId || 'preview',
-              timestamp: Date.now(),
-              constructedPrompt: '',
-              originalClothingUrl: '',
-              editedImageUrls: outputImageUrls,
-              attributes: {},
-              username: 'current',
-            } as any}
+            item={modalHistoryItem}
             onUpscale={() => {}}
             onFaceDetail={() => {}}
             onSendToVideo={() => {}}

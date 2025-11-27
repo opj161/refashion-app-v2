@@ -13,15 +13,17 @@ import { connection } from 'next/server';
 export default async function HistoryPage() {
   await connection();
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-10 space-y-8">
-      <PageHeader
-        icon={History}
-        title="Creation History"
-        description="Review your past image and video generations."
-      />
-      <Suspense fallback={<HistoryGallerySkeleton />}>
-        <UserHistoryLoader />
-      </Suspense>
+    <div className="flex-1 overflow-y-auto">
+      <div className="container mx-auto max-w-7xl px-4 py-10 space-y-8">
+        <PageHeader
+          icon={History}
+          title="Creation History"
+          description="Review your past image and video generations."
+        />
+        <Suspense fallback={<HistoryGallerySkeleton />}>
+          <UserHistoryLoader />
+        </Suspense>
+      </div>
     </div>
   );
 }
