@@ -5,8 +5,8 @@ import Image from "next/image";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Download, Copy, RefreshCw, Sparkles, UserCheck, 
+import {
+  Download, Copy, RefreshCw, Sparkles, UserCheck,
   ChevronLeft, ChevronRight, Info, Video as VideoIcon, Loader2
 } from "lucide-react";
 import { getDisplayableImageUrl, cn } from "@/lib/utils";
@@ -22,12 +22,12 @@ interface ImageViewerModalProps {
   onClose: () => void;
   initialImageUrl?: string | null;
   onReloadConfig?: (item: HistoryItem) => void;
-  
+
   // Action Handlers
   onUpscale?: (index: number) => void;
   onFaceDetail?: (index: number) => void;
   onSendToVideo?: (url: string) => void;
-  
+
   // Action States
   isUpscalingSlot?: number | null;
   isFaceRetouchingSlot?: number | null;
@@ -35,13 +35,13 @@ interface ImageViewerModalProps {
 }
 
 // Helper component for action buttons (shared between desktop and mobile)
-function ActionButtons({ 
-  currentImage, 
-  isUpscalingSlot, 
-  isFaceRetouchingSlot, 
-  isFaceDetailerAvailable, 
-  onUpscale, 
-  onFaceDetail 
+function ActionButtons({
+  currentImage,
+  isUpscalingSlot,
+  isFaceRetouchingSlot,
+  isFaceDetailerAvailable,
+  onUpscale,
+  onFaceDetail
 }: {
   currentImage: { isGenerated: boolean; index: number };
   isUpscalingSlot: number | null | undefined;
@@ -54,18 +54,18 @@ function ActionButtons({
 
   return (
     <div className="grid grid-cols-2 gap-3 mb-3">
-      <Button 
-        variant="outline" 
+      <Button
+        variant="outline"
         className="bg-background/50"
         onClick={() => onUpscale?.(currentImage.index)}
         disabled={!!isUpscalingSlot || !!isFaceRetouchingSlot}
       >
-         {isUpscalingSlot === currentImage.index ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2 text-purple-500" />}
-         Upscale
+        {isUpscalingSlot === currentImage.index ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2 text-purple-500" />}
+        Upscale
       </Button>
       {isFaceDetailerAvailable && (
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="bg-background/50"
           onClick={() => onFaceDetail?.(currentImage.index)}
           disabled={!!isUpscalingSlot || !!isFaceRetouchingSlot}
@@ -78,10 +78,10 @@ function ActionButtons({
   );
 }
 
-export function ImageViewerModal({ 
-  item, 
-  isOpen, 
-  onClose, 
+export function ImageViewerModal({
+  item,
+  isOpen,
+  onClose,
   initialImageUrl,
   onReloadConfig,
   onUpscale,
@@ -99,10 +99,10 @@ export function ImageViewerModal({
   const images = useMemo(() => {
     if (!item) return [];
     // Only include generated images, not the original
-    const imgs = item.editedImageUrls.map((url, i) => ({ 
-      type: `Generated #${i + 1}`, 
-      url, 
-      isGenerated: true, 
+    const imgs = item.editedImageUrls.map((url, i) => ({
+      type: `Generated #${i + 1}`,
+      url,
+      isGenerated: true,
       index: i // Keep track of the real slot index for actions
     })).filter(img => img.url); // Filter out failed generations
     return imgs;
@@ -156,9 +156,9 @@ export function ImageViewerModal({
 
   // Check if this is Studio Mode
   const isStudioMode = item.generation_mode === 'studio';
-  
+
   // Handle "Processing..." state or missing prompts
-  const displayPrompt = item.constructedPrompt === 'Processing...' 
+  const displayPrompt = item.constructedPrompt === 'Processing...'
     ? 'Generation in progress...'
     : (item.constructedPrompt || 'No prompt available');
 
@@ -206,9 +206,9 @@ export function ImageViewerModal({
           <p className="text-xs">Custom prompt-driven generation</p>
         </div>
       ) : (
-         <div className="p-4 bg-muted/30 rounded text-center text-sm text-muted-foreground">
-            No parameters available for this item.
-         </div>
+        <div className="p-4 bg-muted/30 rounded text-center text-sm text-muted-foreground">
+          No parameters available for this item.
+        </div>
       )}
     </div>
   );
@@ -217,16 +217,16 @@ export function ImageViewerModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent variant="fullscreen" className="p-0 gap-0 overflow-hidden bg-background border-0">
         <div className="sr-only"><DialogTitle>Image Viewer</DialogTitle></div>
-        
+
         <div className="flex flex-col lg:flex-row h-full w-full">
-          
+
           {/* --- MAIN CANVAS AREA (Left/Top) --- */}
           <div className="relative flex-1 h-full bg-zinc-950 flex flex-col justify-center items-center overflow-hidden">
-            
+
             {/* Image Display */}
             <div className="relative w-full h-full p-4 lg:p-12 flex items-center justify-center">
               <AnimatePresence mode="wait">
-                <motion.div 
+                <motion.div
                   key={currentImage.url}
                   initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -248,20 +248,20 @@ export function ImageViewerModal({
 
             {/* Navigation Arrows (Visible on Mobile & Desktop) */}
             <div className="absolute inset-x-2 lg:inset-x-4 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none z-10">
-              <Button 
-                variant="secondary" size="icon" 
+              <Button
+                variant="secondary" size="icon"
                 className={cn(
-                  "h-10 w-10 lg:h-12 lg:w-12 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md border-white/10 pointer-events-auto transition-opacity shadow-lg", 
+                  "h-10 w-10 lg:h-12 lg:w-12 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md border-white/10 pointer-events-auto transition-opacity shadow-lg",
                   !hasPrev && "opacity-0 pointer-events-none"
                 )}
                 onClick={(e) => { e.stopPropagation(); handlePrev(); }}
               >
                 <ChevronLeft className="h-6 w-6" />
               </Button>
-              <Button 
-                variant="secondary" size="icon" 
+              <Button
+                variant="secondary" size="icon"
                 className={cn(
-                  "h-10 w-10 lg:h-12 lg:w-12 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md border-white/10 pointer-events-auto transition-opacity shadow-lg", 
+                  "h-10 w-10 lg:h-12 lg:w-12 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md border-white/10 pointer-events-auto transition-opacity shadow-lg",
                   !hasNext && "opacity-0 pointer-events-none"
                 )}
                 onClick={(e) => { e.stopPropagation(); handleNext(); }}
@@ -281,10 +281,10 @@ export function ImageViewerModal({
                     idx === selectedIndex ? "border-primary scale-110 ring-2 ring-black" : "border-transparent opacity-60 hover:opacity-100"
                   )}
                 >
-                  <Image 
-                    src={getDisplayableImageUrl(img.url) || ''} 
-                    alt={img.type} 
-                    fill 
+                  <Image
+                    src={getDisplayableImageUrl(img.url) || ''}
+                    alt={img.type}
+                    fill
                     className="object-cover"
                     sizes="56px"
                   />
@@ -294,46 +294,46 @@ export function ImageViewerModal({
 
             {/* Mobile Top Bar (Sticky) */}
             <div className="absolute top-0 left-0 right-0 p-4 flex justify-center items-center lg:hidden z-20 pointer-events-none">
-               <div className="text-white/90 text-xs font-medium backdrop-blur-xl bg-black/40 px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
-                 {selectedIndex + 1} / {images.length} • {currentImage.type}
-               </div>
+              <div className="text-white/90 text-xs font-medium backdrop-blur-xl bg-black/40 px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+                {selectedIndex + 1} / {images.length} • {currentImage.type}
+              </div>
             </div>
-            
-            {/* Mobile Bottom Controls (Floating) */}
-            <div className="absolute bottom-6 left-4 right-4 flex gap-2 lg:hidden z-20">
-               {currentImage.isGenerated && onSendToVideo && currentImage.url && (
-                 <Button className="flex-1 shadow-xl bg-white text-black hover:bg-white/90" onClick={() => onSendToVideo(currentImage.url!)}>
-                   <VideoIcon className="mr-2 h-4 w-4" /> Animate
-                 </Button>
-               )}
-               <Sheet open={showMobileInfo} onOpenChange={setShowMobileInfo}>
-                 <SheetTrigger asChild>
-                   <Button variant="secondary" size="icon" className="h-10 w-10 rounded-full shadow-xl shrink-0 bg-white/10 text-white border-white/10 backdrop-blur-md">
-                     <Info className="h-5 w-5" />
-                   </Button>
-                 </SheetTrigger>
-                 <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl z-[60]">
-                    <ScrollArea className="h-full pr-4">
-                      {InspectorContent}
-                      {/* Mobile Actions in Sheet */}
-                      <div className="mt-8 pb-8 grid gap-3">
-                        <ActionButtons 
-                          currentImage={currentImage}
-                          isUpscalingSlot={isUpscalingSlot}
-                          isFaceRetouchingSlot={isFaceRetouchingSlot}
-                          isFaceDetailerAvailable={isFaceDetailerAvailable}
-                          onUpscale={onUpscale}
-                          onFaceDetail={onFaceDetail}
-                        />
-                        <Button className="w-full" asChild variant="secondary">
-                          <a href={displayUrl || '#'} download={downloadFilename}>
-                            <Download className="mr-2 h-4 w-4" /> Download Image
-                          </a>
-                        </Button>
-                      </div>
-                    </ScrollArea>
-                 </SheetContent>
-               </Sheet>
+
+            {/* Mobile Bottom Controls (Floating) - Safe area optimized */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 pb-safe flex gap-2 lg:hidden z-20 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-16">
+              {currentImage.isGenerated && onSendToVideo && currentImage.url && (
+                <Button className="flex-1 shadow-xl bg-white text-black hover:bg-white/90" onClick={() => onSendToVideo(currentImage.url!)}>
+                  <VideoIcon className="mr-2 h-4 w-4" /> Animate
+                </Button>
+              )}
+              <Sheet open={showMobileInfo} onOpenChange={setShowMobileInfo}>
+                <SheetTrigger asChild>
+                  <Button variant="secondary" size="icon" className="h-12 w-12 rounded-full shadow-xl shrink-0 bg-white/10 text-white border-white/10 backdrop-blur-md">
+                    <Info className="h-6 w-6" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl z-[60]">
+                  <ScrollArea className="h-full pr-4">
+                    {InspectorContent}
+                    {/* Mobile Actions in Sheet */}
+                    <div className="mt-8 pb-8 grid gap-3">
+                      <ActionButtons
+                        currentImage={currentImage}
+                        isUpscalingSlot={isUpscalingSlot}
+                        isFaceRetouchingSlot={isFaceRetouchingSlot}
+                        isFaceDetailerAvailable={isFaceDetailerAvailable}
+                        onUpscale={onUpscale}
+                        onFaceDetail={onFaceDetail}
+                      />
+                      <Button className="w-full" asChild variant="secondary">
+                        <a href={displayUrl || '#'} download={downloadFilename}>
+                          <Download className="mr-2 h-4 w-4" /> Download Image
+                        </a>
+                      </Button>
+                    </div>
+                  </ScrollArea>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
 
@@ -341,33 +341,33 @@ export function ImageViewerModal({
           <div className="hidden lg:flex w-[400px] h-full border-l border-border bg-background flex-col z-10 shadow-xl">
             <ScrollArea className="flex-1">
               <div className="p-6">
-                 {InspectorContent}
+                {InspectorContent}
               </div>
             </ScrollArea>
-            
+
             {/* Sticky Action Footer (Desktop) */}
             <div className="p-6 border-t border-border bg-muted/10">
-               <ActionButtons 
-                 currentImage={currentImage}
-                 isUpscalingSlot={isUpscalingSlot}
-                 isFaceRetouchingSlot={isFaceRetouchingSlot}
-                 isFaceDetailerAvailable={isFaceDetailerAvailable}
-                 onUpscale={onUpscale}
-                 onFaceDetail={onFaceDetail}
-               />
-               
-               <div className="flex gap-3">
-                 <Button className="flex-1" variant="secondary" asChild>
-                    <a href={displayUrl || '#'} download={downloadFilename}>
-                      <Download className="mr-2 h-4 w-4" /> Download
-                    </a>
-                 </Button>
-                 {currentImage.isGenerated && onSendToVideo && currentImage.url && (
-                    <Button className="flex-1" onClick={() => onSendToVideo(currentImage.url!)}>
-                      <VideoIcon className="mr-2 h-4 w-4" /> Animate
-                    </Button>
-                 )}
-               </div>
+              <ActionButtons
+                currentImage={currentImage}
+                isUpscalingSlot={isUpscalingSlot}
+                isFaceRetouchingSlot={isFaceRetouchingSlot}
+                isFaceDetailerAvailable={isFaceDetailerAvailable}
+                onUpscale={onUpscale}
+                onFaceDetail={onFaceDetail}
+              />
+
+              <div className="flex gap-3">
+                <Button className="flex-1" variant="secondary" asChild>
+                  <a href={displayUrl || '#'} download={downloadFilename}>
+                    <Download className="mr-2 h-4 w-4" /> Download
+                  </a>
+                </Button>
+                {currentImage.isGenerated && onSendToVideo && currentImage.url && (
+                  <Button className="flex-1" onClick={() => onSendToVideo(currentImage.url!)}>
+                    <VideoIcon className="mr-2 h-4 w-4" /> Animate
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 

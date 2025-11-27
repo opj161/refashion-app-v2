@@ -31,15 +31,15 @@ interface HistoryCardProps {
 }
 
 // Memoize HistoryCard to prevent unnecessary re-renders when gallery updates
-const HistoryCard = React.memo(function HistoryCard({ 
-  item, 
-  onViewDetails, 
-  onDeleteItem, 
+const HistoryCard = React.memo(function HistoryCard({
+  item,
+  onViewDetails,
+  onDeleteItem,
   username,
   onLoadFromHistory,
   onLoadFromImageUrl,
   currentTab,
-  setCurrentTab 
+  setCurrentTab
 }: HistoryCardProps) {
   const { toast } = useToast();
   const router = useRouter();
@@ -133,13 +133,13 @@ const HistoryCard = React.memo(function HistoryCard({
 
   const handleReload = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     setIsLoadingAction('reload');
     try {
       // Navigate to the main page with a query param
       const targetTab = item.videoGenerationParams ? 'video' : 'image';
       router.push(`/?init_history_id=${item.id}&target_tab=${targetTab}`);
-      
+
       // If onLoadFromHistory is available (on main page), use it for immediate feedback
       if (onLoadFromHistory) {
         onLoadFromHistory(item);
@@ -168,10 +168,10 @@ const HistoryCard = React.memo(function HistoryCard({
 
   const handleSendToCreative = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     // Find the first valid generated image to send
     const imageUrlToSend = item.editedImageUrls?.find(url => !!url);
-    
+
     if (!imageUrlToSend) {
       toast({
         title: "No Image Available",
@@ -185,7 +185,7 @@ const HistoryCard = React.memo(function HistoryCard({
     try {
       // Navigate with a different query param
       router.push(`/?init_image_url=${encodeURIComponent(imageUrlToSend)}`);
-      
+
       // If onLoadFromImageUrl is available (on main page), use it for immediate feedback
       if (onLoadFromImageUrl) {
         onLoadFromImageUrl(imageUrlToSend);
@@ -270,27 +270,31 @@ const HistoryCard = React.memo(function HistoryCard({
             </div>
           )}
 
-          {/* Type Badge */}
-          <Badge variant={isVideoItem ? 'default' : 'secondary'} className="absolute top-2 left-2 z-10 text-xs">
-            {isVideoItem ? <Video className="h-3 w-3 mr-1.5" /> : <ImageIcon className="h-3 w-3 mr-1.5" />}
-            {isVideoItem ? "Video" : "Image"}
-          </Badge>
-
-          {/* Studio Mode Badge */}
-          {item.generation_mode === 'studio' && (
-            <Badge variant="outline" className="absolute top-2 right-2 z-10 text-xs bg-black/50 border-white/30 text-white">
-              Studio
+          {/* FIX: Consolidate Badges to Top Left Container */}
+          <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5 items-start">
+            {/* Type Badge */}
+            <Badge variant={isVideoItem ? 'default' : 'secondary'} className="text-xs shadow-sm bg-black/60 backdrop-blur-md border-white/10 text-white hover:bg-black/70">
+              {isVideoItem ? <Video className="h-3 w-3 mr-1.5" /> : <ImageIcon className="h-3 w-3 mr-1.5" />}
+              {isVideoItem ? "Video" : "Image"}
             </Badge>
-          )}
 
-          {/* Hover/Focus Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 sm:p-4 flex flex-col justify-between opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 transition-opacity duration-300 ease-in-out">
-            {/* Top Actions */}
-            <div className="flex justify-end items-start gap-1">
+            {/* Studio Mode Badge */}
+            {item.generation_mode === 'studio' && (
+              <Badge variant="outline" className="text-xs bg-purple-500/80 border-purple-300/30 text-white backdrop-blur-md shadow-sm">
+                Studio
+              </Badge>
+            )}
+          </div>
+
+          {/* FIX: Action Overlay with Top Gradient for visibility */}
+          <div className="absolute inset-0 flex flex-col justify-between opacity-100 transition-opacity duration-300 ease-in-out z-10">
+
+            {/* Top Action Bar with Gradient Background */}
+            <div className="w-full p-2 flex justify-end items-start gap-1 bg-gradient-to-b from-black/60 via-black/20 to-transparent pb-8">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-10 w-10 bg-black/50 text-white hover:bg-black/70 hover:text-white backdrop-blur-sm" onClick={handleDownload} aria-label="Download">
+                    <Button variant="ghost" size="icon" className="h-9 w-9 bg-black/40 text-white hover:bg-primary hover:text-white backdrop-blur-md rounded-full" onClick={handleDownload} aria-label="Download">
                       <Download className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
@@ -303,7 +307,7 @@ const HistoryCard = React.memo(function HistoryCard({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 bg-black/50 text-white hover:bg-black/70 hover:text-white backdrop-blur-sm" onClick={handleActionClick} aria-label="More options">
+                        <Button variant="ghost" size="icon" className="h-9 w-9 bg-black/40 text-white hover:bg-primary hover:text-white backdrop-blur-md rounded-full" onClick={handleActionClick} aria-label="More options">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -320,7 +324,7 @@ const HistoryCard = React.memo(function HistoryCard({
                     )}
                     <span>{isLoadingAction === 'reload' ? 'Loading...' : 'Reload Config'}</span>
                   </DropdownMenuItem>
-                  
+
                   {/* Conditionally render the "Use in Creative" action for Studio Mode items */}
                   {item.generation_mode === 'studio' && (
                     <DropdownMenuItem onClick={handleSendToCreative} disabled={!!isLoadingAction}>
@@ -332,7 +336,7 @@ const HistoryCard = React.memo(function HistoryCard({
                       <span>{isLoadingAction === 'send' ? 'Loading...' : 'Use in Creative'}</span>
                     </DropdownMenuItem>
                   )}
-                  
+
                   <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDelete} disabled={!!isLoadingAction}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     <span>Delete</span>
@@ -341,8 +345,8 @@ const HistoryCard = React.memo(function HistoryCard({
               </DropdownMenu>
             </div>
 
-            {/* Bottom Metadata */}
-            <div className="text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
+            {/* Bottom Metadata with stronger gradient */}
+            <div className="p-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-10 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
               <p className="text-sm font-semibold truncate" title={item.constructedPrompt}>
                 {item.constructedPrompt}
               </p>

@@ -23,12 +23,12 @@ export function MobileMenu() {
     <div className="md:hidden">
       <Sheet>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" className="touch-target-min">
             <Menu className="h-6 w-6" />
             <span className="sr-only">Open menu</span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+        <SheetContent side="right" className="w-[300px] sm:w-[400px] flex flex-col">
           <SheetHeader className="text-left mb-6">
             <SheetTitle className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -37,8 +37,8 @@ export function MobileMenu() {
               {user?.isLoggedIn ? user.username : "Menu"}
             </SheetTitle>
           </SheetHeader>
-          
-          <div className="flex flex-col gap-4">
+
+          <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
             {user?.role === 'admin' && (
               <Button asChild variant="outline" className="justify-start h-12 text-base">
                 <Link href="/admin">
@@ -63,7 +63,10 @@ export function MobileMenu() {
             </div>
 
             <Separator className="my-2" />
+          </div>
 
+          {/* FIX: Footer area with safe area padding */}
+          <div className="mt-auto pb-safe pt-4 border-t border-border/40">
             {user?.isLoggedIn ? (
               <form action={logoutUser} className="w-full">
                 <Button type="submit" variant="destructive" className="w-full justify-start h-12 text-base">

@@ -3,12 +3,12 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useFormStatus } from "react-dom";
-import { Button } from "@/components/ui/button"; 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; 
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Palette, PersonStanding, Settings2, Sparkles, FileText, Shuffle, Save, Trash2, BrainCircuit, Code, Camera, Wand2 } from 'lucide-react';
 import { isFaceDetailerAvailable, isUpscaleServiceAvailable } from "@/ai/actions/upscale-image.action";
@@ -19,11 +19,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useImageStore } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import {
-    FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
-    BODY_SHAPE_AND_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
-    POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS, TIME_OF_DAY_OPTIONS, OVERALL_MOOD_OPTIONS, MODEL_ANGLE_OPTIONS,
-    LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, LENS_EFFECT_OPTIONS,
-    DEPTH_OF_FIELD_OPTIONS, OptionWithPromptSegment
+  FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
+  BODY_SHAPE_AND_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
+  POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS, TIME_OF_DAY_OPTIONS, OVERALL_MOOD_OPTIONS, MODEL_ANGLE_OPTIONS,
+  LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, LENS_EFFECT_OPTIONS,
+  DEPTH_OF_FIELD_OPTIONS, OptionWithPromptSegment, ASPECT_RATIOS
 } from '@/lib/prompt-builder';
 import { motion, AnimatePresence } from 'motion/react';
 import { MOTION_TRANSITIONS } from '@/lib/motion-constants';
@@ -42,9 +42,9 @@ const SubmitButton = React.memo(function SubmitButton({ preparedImageUrl, maxIma
   const { pending } = useFormStatus();
   const { versions } = useImageStore();
   const isAnyVersionProcessing = Object.values(versions).some(v => v.status === 'processing');
-  
+
   const isDisabled = pending || !preparedImageUrl || isAnyVersionProcessing;
-  
+
   return (
     <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
       <Button type="submit" disabled={isDisabled} className="w-full text-lg h-14">
@@ -52,8 +52,8 @@ const SubmitButton = React.memo(function SubmitButton({ preparedImageUrl, maxIma
           {pending ? (
             <motion.span key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center leading-none">
               <span className="flex items-center gap-2">
-                 <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 
-                 Processing...
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Processing...
               </span>
               <span className="text-[10px] font-normal opacity-70 mt-1">Running in background</span>
             </motion.span>
@@ -71,12 +71,13 @@ const SubmitButton = React.memo(function SubmitButton({ preparedImageUrl, maxIma
 interface ImageParametersProps {
   isPending: boolean;
   maxImages?: number;
+  userModel?: string; // Add this prop
 }
 
 // Component only handles parameter selection and form UI
-export default function ImageParameters({ isPending, maxImages = 3 }: ImageParametersProps) {
+export default function ImageParameters({ isPending, maxImages = 3, userModel }: ImageParametersProps) {
   const { toast } = useToast();
-  
+
   // Get the active image from store
   const { versions, activeVersionId } = useImageStore();
   const activeImage = activeVersionId ? versions[activeVersionId] : null;
@@ -87,7 +88,7 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
   const settingsMode = useGenerationSettingsStore(state => state.settingsMode);
   const setImageSettings = useGenerationSettingsStore(state => state.setImageSettings);
   const setSettingsModeStore = useGenerationSettingsStore(state => state.setSettingsMode);
-  
+
   // Get preparation options from Zustand store
   const backgroundRemovalEnabled = useGenerationSettingsStore(state => state.backgroundRemovalEnabled);
   const upscaleEnabled = useGenerationSettingsStore(state => state.upscaleEnabled);
@@ -95,6 +96,16 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
   const setBackgroundRemovalEnabled = useGenerationSettingsStore(state => state.setBackgroundRemovalEnabled);
   const setUpscaleEnabled = useGenerationSettingsStore(state => state.setUpscaleEnabled);
   const setFaceDetailEnabled = useGenerationSettingsStore(state => state.setFaceDetailEnabled);
+
+  // NEW: Access studioAspectRatio from store (reused for generic aspect ratio)
+  const { studioAspectRatio, setStudioAspectRatio } = useGenerationSettingsStore(
+    (state) => ({
+      studioAspectRatio: state.studioAspectRatio,
+      setStudioAspectRatio: state.setStudioAspectRatio,
+    })
+  );
+
+  const isNanoBanana = userModel === 'fal_nano_banana_pro';
 
   // --- REFACTORED STATE MANAGEMENT ---
   // Creative Mode is replaced by two independent states with new smart defaults.
@@ -218,7 +229,7 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
     isUpscaleServiceAvailable().then(setIsUpscaleServiceAvailableState);
   }, []);
 
-  const handleRandomizeConfiguration = useCallback(() => {    
+  const handleRandomizeConfiguration = useCallback(() => {
     // This button is only active in manual mode. It randomizes the UI fields directly.
     const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
     const randomized: Partial<ModelAttributes> = {};
@@ -235,7 +246,7 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
     if (typeof window === 'undefined') return;
     // Save current store settings directly
     window.localStorage.setItem('imageForgeDefaults', JSON.stringify(imageSettings));
-    toast({ 
+    toast({
       title: "Defaults Saved",
       description: "Your current settings have been saved for future sessions."
     });
@@ -254,7 +265,7 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
     if (typeof window === 'undefined') return;
     window.localStorage.removeItem('imageForgeDefaults');
     resetAllParametersToAppDefaults();
-    toast({ 
+    toast({
       title: "Defaults Cleared",
       description: "All saved settings have been reset to application defaults."
     });
@@ -266,21 +277,21 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
   }) => {
 
     return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="text-sm font-medium text-foreground/80">{label}</Label>
-      <Select value={value} onValueChange={(v) => handleParamChange(id, v)} disabled={disabled}>
-        <SelectTrigger id={id} className="w-full h-10 text-sm border-muted/60 focus:border-primary/50 bg-background/50">
-          <SelectValue placeholder={options.find(o => o.value === value)?.displayLabel || `Select ${label.toLowerCase()}`} />
-        </SelectTrigger>
-        <SelectContent className="max-h-[300px]">
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value} className="text-sm py-2">
-              {option.displayLabel}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+      <div className="space-y-2">
+        <Label htmlFor={id} className="text-sm font-medium text-foreground/80">{label}</Label>
+        <Select value={value} onValueChange={(v) => handleParamChange(id, v)} disabled={disabled}>
+          <SelectTrigger id={id} className="w-full h-12 md:h-10 text-sm border-muted/60 focus:border-primary/50 bg-background/50">
+            <SelectValue placeholder={options.find(o => o.value === value)?.displayLabel || `Select ${label.toLowerCase()}`} />
+          </SelectTrigger>
+          <SelectContent className="max-h-[300px]">
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value} className="text-sm py-3 md:py-2">
+                {option.displayLabel}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     )
   };
 
@@ -310,22 +321,47 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
       <input type="hidden" name="removeBackground" value={String(backgroundRemovalEnabled)} />
       <input type="hidden" name="upscale" value={String(upscaleEnabled)} />
       <input type="hidden" name="enhanceFace" value={String(faceDetailEnabled)} />
+      {/* Ensure aspectRatio is passed if Nano Banana */}
+      {isNanoBanana && <input type="hidden" name="aspectRatio" value={studioAspectRatio} />}
       {isPromptManuallyEdited && <input type="hidden" name="manualPrompt" value={currentPrompt} />}
-      
+
       {/* --- RESTRUCTURED CARD --- */}
       <Card variant="glass">
-          <CardHeader>
-            <div>
-              <CardTitle className="text-xl flex items-center gap-2">
-                <Palette className="h-6 w-6 text-primary" />
-                Image Generation Settings
-              </CardTitle>
-              <CardDescription>{useRandomization ? 'Using automatic style randomization for variety. Change any setting to switch to manual mode.' : 'Fine-tune every detail to match your vision.'}</CardDescription>
+        <CardHeader>
+          <div>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <Palette className="h-6 w-6 text-primary" />
+              Image Generation Settings
+            </CardTitle>
+            <CardDescription>{useRandomization ? 'Using automatic style randomization for variety. Change any setting to switch to manual mode.' : 'Fine-tune every detail to match your vision.'}</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <SubmitButton preparedImageUrl={preparedImageUrl} maxImages={maxImages} />
+
+          {/* NEW: Aspect Ratio Selector for Creative Mode (Only for Nano Banana) */}
+          {isNanoBanana && (
+            <div className="mt-4 p-4 rounded-lg bg-muted/30 border border-muted/30">
+              <Label htmlFor="creative-aspect-ratio" className="mb-2 block text-sm font-medium">Aspect Ratio</Label>
+              <Select
+                value={studioAspectRatio}
+                onValueChange={setStudioAspectRatio}
+                disabled={isPending || !preparedImageUrl}
+              >
+                <SelectTrigger id="creative-aspect-ratio" className="w-full h-12 md:h-10 bg-background/50">
+                  <SelectValue placeholder="Select aspect ratio..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASPECT_RATIOS.map((ratio) => (
+                    <SelectItem key={ratio.value} value={ratio.value} className="py-3 md:py-2">
+                      {ratio.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </CardHeader>
-          <CardContent>
-            <SubmitButton preparedImageUrl={preparedImageUrl} maxImages={maxImages} />
-          
+          )}
+
           {/* Image Processing Options - Non-Destructive Pipeline */}
           <div className="mt-6 p-4 rounded-lg bg-muted/30 border border-muted/30 space-y-3">
             <div className="flex items-center gap-2 mb-2">
@@ -335,7 +371,7 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
             <p className="text-xs text-muted-foreground mb-3">
               These options will be applied automatically during generation
             </p>
-            
+
             <div className="space-y-3">
               {/* Background Removal Toggle */}
               {isBackgroundRemovalServiceAvailable && (
@@ -351,7 +387,7 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
                   />
                 </div>
               )}
-              
+
               {/* Upscale Toggle */}
               {isUpscaleServiceAvailableState && (
                 <div className="flex items-center justify-between py-2">
@@ -366,7 +402,7 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
                   />
                 </div>
               )}
-              
+
               {/* Face Detail Toggle */}
               {isFaceDetailerServiceAvailable && (
                 <div className="flex items-center justify-between py-2">
@@ -388,7 +424,7 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="customize" className="border-b-0">
               <AccordionTrigger className="text-sm text-muted-foreground hover:text-foreground justify-center py-2 group">
-                <Settings2 className="mr-2 h-4 w-4 transition-transform group-data-[state=open]:rotate-90"/>
+                <Settings2 className="mr-2 h-4 w-4 transition-transform group-data-[state=open]:rotate-90" />
                 Customize Settings
               </AccordionTrigger>
               <AccordionContent className="pt-6 space-y-6">
@@ -411,46 +447,46 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
                   </div>
 
                   {/* Manual Controls are now always available, not progressively disclosed */}
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        transition={{ duration: 0.3, ease: 'easeInOut' }}
-                        className="overflow-hidden"
-                      >
-                        <div className="pt-4 border-t border-border/20 space-y-4">
-                          {/* AI Enhancement Toggle */}
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="ai-prompt-switch" className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
-                              <BrainCircuit className="h-4 w-4 text-primary"/>
-                              AI Prompt Enhancement
-                            </Label>
-                            <Switch
-                              id="ai-prompt-switch"
-                              checked={useAIPrompt}
-                              onCheckedChange={handleAIPromptChange}
-                            />
-                          </div>
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pt-4 border-t border-border/20 space-y-4">
+                      {/* AI Enhancement Toggle */}
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="ai-prompt-switch" className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
+                          <BrainCircuit className="h-4 w-4 text-primary" />
+                          AI Prompt Enhancement
+                        </Label>
+                        <Switch
+                          id="ai-prompt-switch"
+                          checked={useAIPrompt}
+                          onCheckedChange={handleAIPromptChange}
+                        />
+                      </div>
 
-                          {/* Detail Level & Randomize Action */}
-                          <div className="flex items-end justify-between gap-4">
-                            <div className="flex-grow">
-                              <div className="mt-2 inline-flex h-9 items-center justify-center rounded-md bg-background/50 p-1 text-muted-foreground">
-                                <Button variant={settingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('basic')} className="h-7 px-3 text-xs">Simple</Button>
-                                <Button variant={settingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
-                              </div>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleRandomizeConfiguration}
-                              className="h-9 px-3"
-                              disabled={isPending || !preparedImageUrl}>
-                              <Shuffle className="mr-2 h-4 w-4"/>
-                              Randomize
-                            </Button>
+                      {/* Detail Level & Randomize Action */}
+                      <div className="flex items-end justify-between gap-4">
+                        <div className="flex-grow">
+                          <div className="mt-2 inline-flex h-9 items-center justify-center rounded-md bg-background/50 p-1 text-muted-foreground">
+                            <Button variant={settingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('basic')} className="h-7 px-3 text-xs">Simple</Button>
+                            <Button variant={settingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
                           </div>
                         </div>
-                      </motion.div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRandomizeConfiguration}
+                          className="h-9 px-3"
+                          disabled={isPending || !preparedImageUrl}>
+                          <Shuffle className="mr-2 h-4 w-4" />
+                          Randomize
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
                 </div>
                 {/* === END REFACTORED SETTINGS UI === */}
 
@@ -474,11 +510,11 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
                   <AccordionItem value="art-direction">
                     <AccordionTrigger>
                       <div className="flex items-center gap-2">
-                         <Palette className="h-5 w-5 text-primary" /> Art Direction & Styling
+                        <Palette className="h-5 w-5 text-primary" /> Art Direction & Styling
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="pt-4">
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                         {renderSelect({ id: "fashionStyle", label: "Fashion Style", value: imageSettings.fashionStyle, options: FASHION_STYLE_OPTIONS })}
                         {renderSelect({ id: "poseStyle", label: "Pose Style", value: imageSettings.poseStyle, options: POSE_STYLE_OPTIONS })}
                         {renderSelect({ id: "modelExpression", label: "Model Expression", value: imageSettings.modelExpression, options: MODEL_EXPRESSION_OPTIONS })}
@@ -495,7 +531,7 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
                     <AccordionItem value="photography-technical">
                       <AccordionTrigger>
                         <div className="flex items-center gap-2">
-                           <Camera className="h-5 w-5 text-primary" /> Photography & Technical
+                          <Camera className="h-5 w-5 text-primary" /> Photography & Technical
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="pt-4">
@@ -516,34 +552,34 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
                     {/* Settings Management */}
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground/70">Presets:</span>
-                      <Button 
-                        variant="outline" 
-                        onClick={handleSaveDefaults} 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        onClick={handleSaveDefaults}
+                        size="sm"
                         disabled={!preparedImageUrl || isPending}
                         className="h-9 px-3 border-muted/60 hover:border-muted-foreground/40"
                       >
-                        <Save className="mr-2 h-4 w-4"/>
+                        <Save className="mr-2 h-4 w-4" />
                         Save Current
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        onClick={handleClearDefaults} 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        onClick={handleClearDefaults}
+                        size="sm"
                         disabled={!preparedImageUrl || isPending}
                         className="h-9 px-3 text-muted-foreground hover:text-foreground"
                       >
-                        <Trash2 className="mr-2 h-4 w-4"/>
+                        <Trash2 className="mr-2 h-4 w-4" />
                         Reset to Default
                       </Button>
                     </div>
-                    
+
                     {/* Prompt Preview Toggle */}
-                    <Button 
-                      variant={showPromptPreview ? "secondary" : "outline"} 
-                      onClick={() => setShowPromptPreview(!showPromptPreview)} 
-                      size="sm" 
-                      disabled={!preparedImageUrl || isPending} 
+                    <Button
+                      variant={showPromptPreview ? "secondary" : "outline"}
+                      onClick={() => setShowPromptPreview(!showPromptPreview)}
+                      size="sm"
+                      disabled={!preparedImageUrl || isPending}
                       className="h-9 px-3 border-muted/60 hover:border-muted-foreground/40"
                     >
                       <Code className="mr-2 h-4 w-4" />
@@ -554,7 +590,7 @@ export default function ImageParameters({ isPending, maxImages = 3 }: ImageParam
 
                 {/* Prompt Preview Panel */}
                 {showPromptPreview && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}

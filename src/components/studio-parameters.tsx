@@ -13,6 +13,7 @@ import { Sparkles, Loader2, Info } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { motion, AnimatePresence } from 'motion/react';
 import { COMMON_VARIANTS } from '@/lib/motion-constants';
+import { ASPECT_RATIOS } from '@/lib/prompt-builder'; // Import shared constant
 
 const NUM_IMAGES_TO_GENERATE = 3;
 
@@ -21,9 +22,9 @@ function SubmitButton({ isImageReady, maxImages }: { isImageReady: boolean; maxI
   const { pending } = useFormStatus();
   const { versions } = useImageStore();
   const isAnyVersionProcessing = Object.values(versions).some(v => v.status === 'processing');
-  
+
   const isDisabled = pending || !isImageReady || isAnyVersionProcessing;
-  
+
   return (
     <Button type="submit" disabled={isDisabled} className="w-full text-lg h-14">
       {pending ? (
@@ -45,19 +46,7 @@ interface StudioParametersProps {
   userModel?: string; // NEW
 }
 
-const ASPECT_RATIOS = [
-  { value: "auto", label: "Auto (Match Input)" },
-  { value: "1:1", label: "1:1 (Square)" },
-  { value: "9:16", label: "9:16 (Portrait/Story)" },
-  { value: "16:9", label: "16:9 (Cinematic)" },
-  { value: "3:4", label: "3:4 (Editorial)" },
-  { value: "4:3", label: "4:3 (Landscape)" },
-  { value: "2:3", label: "2:3 (Classic Portrait)" },
-  { value: "3:2", label: "3:2 (Classic Landscape)" },
-  { value: "4:5", label: "4:5 (Social Portrait)" },
-  { value: "5:4", label: "5:4 (Social Landscape)" },
-  { value: "21:9", label: "21:9 (Ultrawide)" },
-];
+
 
 export default function StudioParameters({ isPending, maxImages = 3, userModel }: StudioParametersProps) {
   // Get prepared image from store
@@ -84,7 +73,7 @@ export default function StudioParameters({ isPending, maxImages = 3, userModel }
       <input type="hidden" name="imageDataUriOrUrl" value={preparedImageUrl} />
       <input type="hidden" name="generationMode" value="studio" />
       <input type="hidden" name="studioFit" value={studioFit} />
-      {isNanoBanana && <input type="hidden" name="aspectRatio" value={studioAspectRatio} />} 
+      {isNanoBanana && <input type="hidden" name="aspectRatio" value={studioAspectRatio} />}
 
       <Card variant="glass">
         <CardHeader>
@@ -126,13 +115,13 @@ export default function StudioParameters({ isPending, maxImages = 3, userModel }
                   onValueChange={(value) => setStudioFit(value as 'slim' | 'regular' | 'relaxed')}
                   disabled={!isImageReady || isPending}
                 >
-                  <SelectTrigger id="studio-fit-select" className="w-full">
+                  <SelectTrigger id="studio-fit-select" className="w-full h-12 md:h-10">
                     <SelectValue placeholder="Select a fit..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="slim">Slim Fit</SelectItem>
-                    <SelectItem value="regular">Regular Fit</SelectItem>
-                    <SelectItem value="relaxed">Relaxed Fit</SelectItem>
+                    <SelectItem value="slim" className="py-3 md:py-2">Slim Fit</SelectItem>
+                    <SelectItem value="regular" className="py-3 md:py-2">Regular Fit</SelectItem>
+                    <SelectItem value="relaxed" className="py-3 md:py-2">Relaxed Fit</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -146,12 +135,12 @@ export default function StudioParameters({ isPending, maxImages = 3, userModel }
                     onValueChange={setStudioAspectRatio}
                     disabled={!isImageReady || isPending}
                   >
-                    <SelectTrigger id="aspect-ratio-select" className="w-full">
+                    <SelectTrigger id="aspect-ratio-select" className="w-full h-12 md:h-10">
                       <SelectValue placeholder="Select aspect ratio..." />
                     </SelectTrigger>
                     <SelectContent>
                       {ASPECT_RATIOS.map((ratio) => (
-                        <SelectItem key={ratio.value} value={ratio.value}>
+                        <SelectItem key={ratio.value} value={ratio.value} className="py-3 md:py-2">
                           {ratio.label}
                         </SelectItem>
                       ))}

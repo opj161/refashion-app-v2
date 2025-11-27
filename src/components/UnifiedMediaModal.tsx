@@ -9,24 +9,26 @@ import { cn } from '@/lib/utils';
 
 // --- Slot Components for Explicit API ---
 
+// FIX: Update MediaSlot to be flexible
 export const MediaSlot = ({ children, className }: { children: React.ReactNode, className?: string }) => (
   <div className={cn(
-      // Add w-full and h-full to make the div fill its grid cell
-      "w-full min-h-[40vh] bg-black/20 p-4 flex items-center justify-center", // [!code focus]
-      // On desktop, this slot is placed in the second row, first column
-      "lg:row-start-2 lg:col-start-1",
-      className
+    "w-full bg-black/20 p-4 flex items-center justify-center relative",
+    // Desktop: Grid positioning | Mobile: Flex grow/shrink to fit available space
+    "lg:row-start-2 lg:col-start-1 lg:h-full lg:min-h-0",
+    "flex-1 min-h-0", // Mobile specific: allow shrinking
+    className
   )}>
     {children}
   </div>
 );
 
+// FIX: Update SidebarSlot
 export const SidebarSlot = ({ children, className }: { children: React.ReactNode, className?: string }) => (
   <div className={cn(
-      "overflow-y-auto p-1", // Added p-1 for scrollbar clearance
-      // On desktop, this slot is placed in the second row, second column
-      "lg:row-start-2 lg:col-start-2",
-      className
+    "overflow-y-auto p-1 custom-scrollbar",
+    "lg:row-start-2 lg:col-start-2 lg:h-full",
+    "h-auto max-h-[35vh] lg:max-h-none", // Mobile: limit height so image stays visible
+    className
   )}>
     {children}
   </div>
@@ -47,7 +49,7 @@ interface UnifiedMediaModalProps {
 export function UnifiedMediaModal({ isOpen, onClose, title, description, footerLeft, footerRight, children, layoutId }: UnifiedMediaModalProps) {
   const isMobile = useIsMobile();
   const [isMounted, setIsMounted] = React.useState(false);
-  
+
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -57,16 +59,16 @@ export function UnifiedMediaModal({ isOpen, onClose, title, description, footerL
 
   const ModalContent = (
     <motion.div layoutId={layoutId} className="contents"> {/* `contents` prevents this from adding a DOM element */}
-      <DialogHeader className="lg:col-span-2">
+      <DialogHeader className="lg:col-span-2 shrink-0">
         {title}
         {description}
       </DialogHeader>
 
       {/* Main content area (MediaSlot and SidebarSlot) */}
       {children}
-      
-      {/* --- MODERNIZED FOOTER --- */}
-      <div className="lg:col-span-2 px-0 pt-2 pb-0"> {/* Use a div instead of DialogFooter for simpler styling */}
+
+      {/* Footer */}
+      <div className="lg:col-span-2 px-0 pt-2 pb-0 shrink-0">
         <div className="glass-card w-full p-3 rounded-xl flex items-center justify-between">
           <div>
             {footerLeft}
@@ -94,16 +96,12 @@ export function UnifiedMediaModal({ isOpen, onClose, title, description, footerL
     );
   }
 
-  // Mobile View
+  // Mobile View - FIX: Switch to Flexbox
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="bottom" className={cn(
-        "h-[92dvh] p-4 !gap-y-4",
-        // THE CORE LAYOUT LOGIC (Mobile)
-        // --- THE FIX: The image row was 'auto', causing collapse. ---
-        // We change it to a flexible unit '1.5fr' to give it proportional space.
-        // The sidebar gets '1fr', and both can shrink to zero if needed.
-        "grid grid-rows-[auto_minmax(0,1.5fr)_minmax(0,1fr)_auto]"
+        "h-[95dvh] p-4 gap-3", // 95dvh to show a bit of context behind
+        "flex flex-col" // Switch from Grid to Flex column
       )}>
         {ModalContent}
       </SheetContent>

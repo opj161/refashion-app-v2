@@ -11,12 +11,12 @@ import { useToast } from '@/hooks/use-toast';
 import { ImageResultsDisplay } from './ImageResultsDisplay';
 import { GenerationProgressIndicator } from './GenerationProgressIndicator';
 
-export function ImageGenerationWorkspace({ 
-  setCurrentTab, 
+export function ImageGenerationWorkspace({
+  setCurrentTab,
   onLoadImageUrl,
   maxImages = 3,
   userModel, // NEW
-}: { 
+}: {
   setCurrentTab?: (tab: string) => void;
   onLoadImageUrl?: (imageUrl: string) => void;
   maxImages?: number;
@@ -28,7 +28,7 @@ export function ImageGenerationWorkspace({
 
   const initialState: ImageGenerationFormState = { message: '' };
   const [formState, formAction, isPending] = useActionState(generateImageAction, initialState);
-  
+
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to results when generation starts
@@ -76,7 +76,7 @@ export function ImageGenerationWorkspace({
             exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
           >
             {generationMode === 'creative' ? (
-              <ImageParameters isPending={isPending} maxImages={maxImages} />
+              <ImageParameters isPending={isPending} maxImages={maxImages} userModel={userModel} />
             ) : (
               <StudioParameters isPending={isPending} maxImages={maxImages} userModel={userModel} />
             )}
@@ -93,9 +93,9 @@ export function ImageGenerationWorkspace({
             imageCount={3}
           />
         )}
-        <ImageResultsDisplay 
-          formState={formState} 
-          isPending={isPending} 
+        <ImageResultsDisplay
+          formState={formState}
+          isPending={isPending}
           setCurrentTab={setCurrentTab}
           onLoadImageUrl={onLoadImageUrl}
           maxImages={maxImages}
