@@ -19,8 +19,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   }
 
   return (
-    <>
-      <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-50">
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <header className="border-b border-border shrink-0 bg-background/95 backdrop-blur-sm z-50">
         <div className="container mx-auto flex justify-between items-center max-w-7xl h-16 px-4">
             <div className="flex items-center gap-2 sm:gap-4">
                 <div className="md:hidden">
@@ -44,14 +44,14 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             </div>
         </div>
       </header>
-      <div className="container mx-auto max-w-7xl flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10 py-10">
-        <aside className="fixed top-16 z-30 -ml-2 hidden h-[calc(100vh-64px)] w-full shrink-0 md:sticky md:block">
-          <div className="h-full py-6 pr-6">
+      <div className="flex-1 overflow-y-auto">
+        <div className="container mx-auto max-w-7xl items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10 py-10 px-4">
+          <aside className="hidden md:block sticky top-0 h-fit">
             <AdminNav />
-          </div>
-        </aside>
-        <main className="w-full">{children}</main>
+          </aside>
+          <main className="w-full">{children}</main>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

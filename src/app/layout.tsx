@@ -81,7 +81,7 @@ export default async function RootLayout({
         </Script>
       </head>
       <body
-        className={`antialiased bg-gradient-to-br from-background-accent to-background text-foreground flex flex-col min-h-screen ${initialTheme} ${satoshi.variable}`}
+        className={`antialiased bg-background text-foreground h-screen overflow-hidden ${initialTheme} ${satoshi.variable}`}
         style={{
           '--font-geist-sans': 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
           '--font-geist-mono': 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
