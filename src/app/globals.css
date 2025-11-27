@@ -42,8 +42,8 @@
   /* Remove existing :root and .dark color definitions and replace with these */
   :root {
     /* Best Practice: Separate variables for header height and content offset */
-    --header-height: 6rem; /* 96px - actual header height */
-    --content-offset: 0rem; /* 80px - padding to prevent content hiding under header */
+    --header-height: 64px; /* Fixed 64px header for pro-tool layout */
+    --content-offset: 0rem; /* padding to prevent content hiding under header */
 
     /* Light Theme (if you ever need it, but we'll focus on dark) */
     --background: 210 20% 98%;
@@ -71,37 +71,37 @@
   }
 
   .dark {
-    /* Main Dark Theme */
-    --background: 224 71% 4%; /* hsl(224, 71%, 4%) - Almost black, deep blue */
+    /* Deep Navy Pro Theme - Fixed viewport professional workspace */
+    --background: 224 71% 4%; /* hsl(224, 71%, 4%) - #030811 Deepest Navy */
     --background-accent: 224 40% 8%; /* hsl(224, 40%, 8%) - Slightly lighter, for depth */
     --foreground: 210 20% 92%; /* hsl(210, 20%, 92%) - Off-white with a cool tint */
 
-    --card: 224 25% 12%; /* hsl(224, 25%, 12%) - Dark blue-gray */
+    --card: 224 71% 7%; /* Slightly lighter than bg for panels */
     --card-foreground: 210 20% 95%; /* hsl(210, 20%, 95%) */
 
-    --popover: 224 71% 4%;
+    --popover: 224 71% 5%;
     --popover-foreground: 210 20% 95%;
 
-    --primary: 173 71% 42%; /* #1fab99 */
-    --primary-foreground: 224 20% 98%; /* Very light, almost white */
-    --primary-gradient-end: 237 92% 76%; /* A bit lighter and more cyan */
+    --primary: 173 80% 40%; /* Teal/Cyan Accent */
+    --primary-foreground: 224 71% 4%; /* Deep navy for text on primary */
+    --primary-gradient-end: 190 90% 50%; /* Cyan for gradient end */
 
-    --secondary: 210 15% 23%; /* hsl(210, 15%, 23%) - Muted dark blue */
+    --secondary: 215 20% 15%; /* Muted Blue-Grey */
     --secondary-foreground: 210 20% 92%;
 
-    --muted: 210 15% 18%;
-    --muted-foreground: 210 10% 65%;
+    --muted: 215 20% 12%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 177 63% 48%; /* #2abab1 */
-    --accent-foreground: 224 20% 98%;
+    --accent: 173 80% 40%; /* Same as primary for consistency */
+    --accent-foreground: 224 71% 4%;
 
-    --destructive: 12 64% 49%; /* #ef571a */
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%; /* Vibrant red */
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 210 10% 23%; /* A slightly lighter blue-gray */
-    --input: 210 15% 18%;
-    --ring: 177 63% 55%; /* Lighter teal for focus rings */
-    --radius: 0.75rem;
+    --border: 215 20% 12%; /* Very subtle borders */
+    --input: 215 20% 15%;
+    --ring: 173 80% 40%; /* Primary teal for focus rings */
+    --radius: 0.5rem;
   }
 
   /* Ensure immediate background application to prevent hydration mismatches */
@@ -238,6 +238,12 @@
   .glass-card:hover {
     @apply border-white/20 bg-card/60;
   }
+  
+  /* New glass panel for pro-tool workspace */
+  .glass-panel {
+    @apply bg-black/20 backdrop-blur-md border border-white/5;
+  }
+  
   .uploader-dropzone {
     @apply border border-white/10; /* Default border */
     position: relative;
@@ -315,6 +321,17 @@
   /* FIX: Use dvh (dynamic viewport height) for full-screen layouts */
   .min-h-screen {
     min-height: 100dvh;
+  }
+  
+  /* Fixed viewport layout utilities for pro-tool UI */
+  .h-screen-fixed {
+    height: 100dvh;
+  }
+  
+  /* Dot pattern background for canvas areas */
+  .bg-dot-pattern {
+    background-image: radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px);
+    background-size: 20px 20px;
   }
 
   /* FIX: Robust Safe Area Utilities with Fallbacks */

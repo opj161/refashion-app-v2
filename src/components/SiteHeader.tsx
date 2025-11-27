@@ -7,13 +7,19 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggleImproved } from '@/components/ui/ThemeToggleImproved';
 import { UserMenu } from './UserMenu';
 import { MobileMenu } from './MobileMenu';
-import { ShieldCheck } from 'lucide-react';
+import { SegmentedControl, SegmentedControlItem } from '@/components/ui/SegmentedControl';
+import { ShieldCheck, History, Image as ImageIcon, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGenerationSettingsStore } from '@/stores/generationSettingsStore';
 import { cn } from '@/lib/utils';
 
 export function SiteHeader() {
   const { user } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
+  
+  // Get active view state from global store
+  const activeView = useGenerationSettingsStore(state => state.activeView);
+  const setActiveView = useGenerationSettingsStore(state => state.setActiveView);
 
   // Effect for scroll-based style changes
   useEffect(() => {
@@ -32,45 +38,76 @@ export function SiteHeader() {
   return (
     <header
       className={cn(
-        'sticky top-0 z-50 w-full transition-all duration-300 ease-in-out',
+        'sticky top-0 z-50 w-full h-[var(--header-height)] shrink-0 transition-all duration-300 ease-in-out',
         isScrolled
-          ? 'border-b border-border/20 bg-background/95 backdrop-blur-md'
-          : 'border-b border-transparent bg-background/80 backdrop-blur-sm'
+          ? 'border-b border-white/10 bg-background/95 backdrop-blur-md'
+          : 'border-b border-white/5 bg-background/80 backdrop-blur-sm'
       )}
     >
-      <div className="container mx-auto flex max-w-7xl items-center justify-between px-4 h-[var(--header-height)]">
-        {/* Left Side: Branding */}
-        <Link href="/" prefetch={true} className="flex items-center gap-3 text-foreground group">
-          <Image
-            src="/refashion.svg"
-            alt="Refashion AI logo"
-            width={100}
-            height={60}
-            className="h-16 w-auto transition-transform duration-300 group-hover:scale-105"
-            priority
-          />
-            {/* <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-gradient-end bg-clip-text text-transparent">
-            Refashion AI
-            </span> */}
-        </Link>
+      <div className="w-full h-full px-4 flex items-center justify-between relative">
+        {/* LEFT: Brand */}
+        <div className="flex items-center gap-4">
+          <Link href="/" prefetch={true} className="flex items-center gap-2 group">
+            <div className="relative h-8 w-8 overflow-hidden rounded-lg">
+              <Image 
+                src="/refashion.svg" 
+                alt="Logo" 
+                fill 
+                className="object-cover"
+                priority
+              />
+            </div>
+            <span className="font-bold text-lg tracking-tight text-foreground/90 group-hover:text-foreground transition-colors hidden sm:inline">
+              Refashion<span className="text-primary">AI</span>
+            </span>
+          </Link>
+        </div>
 
-        {/* Right Side: Actions & User Menu */}
-        <div className="flex items-center gap-2">
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center gap-2">
-            {user?.role === 'admin' && (
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/admin" prefetch={true}>
-                  <ShieldCheck className="h-4 w-4" />
-                  <span className="ml-2">Admin</span>
-                </Link>
-              </Button>
-            )}
-            <ThemeToggleImproved variant="compact" />
-            <UserMenu />
+        {/* CENTER: Context Switcher (Desktop only) */}
+        <div className="absolute left-1/2 -translate-x-1/2 hidden md:block">
+          <div className="bg-black/20 p-1 rounded-lg border border-white/5">
+            <SegmentedControl 
+              value={activeView} 
+              onValueChange={(v) => setActiveView(v as 'image' | 'video')}
+              className="gap-1"
+            >
+              <SegmentedControlItem value="image" className="px-6 py-1.5 text-xs font-medium">
+                <ImageIcon className="h-3.5 w-3.5 mr-2" /> Image Mode
+              </SegmentedControlItem>
+              <SegmentedControlItem value="video" className="px-6 py-1.5 text-xs font-medium">
+                <Video className="h-3.5 w-3.5 mr-2" /> Video Mode
+              </SegmentedControlItem>
+            </SegmentedControl>
           </div>
+        </div>
 
-          {/* Mobile Menu */}
+        {/* RIGHT: Utilities */}
+        <div className="flex items-center gap-2">
+          {/* History Link */}
+          <Button asChild variant="ghost" size="sm" className="hidden sm:flex text-muted-foreground hover:text-foreground">
+            <Link href="/history">
+              <History className="h-4 w-4 mr-2" />
+              History
+            </Link>
+          </Button>
+
+          {/* Admin Link */}
+          {user?.role === 'admin' && (
+            <Button asChild variant="ghost" size="sm" className="hidden sm:flex text-muted-foreground hover:text-foreground">
+              <Link href="/admin" prefetch={true}>
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Admin
+              </Link>
+            </Button>
+          )}
+
+          <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block" />
+
+          <ThemeToggleImproved variant="compact" />
+          
+          <UserMenu />
+
+          {/* Mobile Menu Trigger (already handled in MobileMenu component) */}
           <MobileMenu />
         </div>
       </div>

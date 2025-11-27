@@ -17,6 +17,9 @@ export interface VideoParameters {
   cameraFixed: boolean;
 }
 
+// NEW: Active view type for workspace switching
+export type ActiveView = 'image' | 'video';
+
 export interface GenerationSettingsState {
   // Image parameters (ModelAttributes)
   imageSettings: ModelAttributes;
@@ -44,6 +47,13 @@ export interface GenerationSettingsState {
   backgroundRemovalEnabled: boolean;
   upscaleEnabled: boolean;
   faceDetailEnabled: boolean;
+  
+  // NEW: Active view state for workspace (image vs video mode)
+  activeView: ActiveView;
+  
+  // NEW: Current result ID being displayed/processed in the output gallery
+  // This bridges the form (submitter) and gallery (viewer)
+  currentResultId: string | null;
 }
 
 export interface GenerationSettingsActions {
@@ -76,6 +86,12 @@ export interface GenerationSettingsActions {
   
   // Load from history item - takes full HistoryItem object
   loadFromHistory: (item: HistoryItem) => void;
+  
+  // NEW: Set active view (image vs video mode)
+  setActiveView: (view: ActiveView) => void;
+  
+  // NEW: Set current result ID for output gallery
+  setCurrentResultId: (id: string | null) => void;
   
   // Reset to defaults
   reset: () => void;
@@ -130,6 +146,9 @@ const initialState: GenerationSettingsState = {
   backgroundRemovalEnabled: false,
   upscaleEnabled: false,
   faceDetailEnabled: false,
+  // NEW: Workspace state
+  activeView: 'image',
+  currentResultId: null,
 };
 
 // Create the store
@@ -217,6 +236,14 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
           
           return newState;
         }, false, 'loadFromHistory'),
+      
+      // NEW: Set active view for workspace
+      setActiveView: (view) =>
+        set({ activeView: view }, false, 'setActiveView'),
+      
+      // NEW: Set current result ID for output gallery
+      setCurrentResultId: (id) =>
+        set({ currentResultId: id }, false, 'setCurrentResultId'),
       
       reset: () => 
         set(initialState, false, 'reset'),

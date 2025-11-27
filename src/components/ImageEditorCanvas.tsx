@@ -32,20 +32,20 @@ export default function ImageEditorCanvas({
   onCropComplete,
   onImageLoad,
   ruleOfThirds = false, // Default to false
-  imageDimensions, // NEW PROP
 }: ImageEditorCanvasProps) {
   if (!image) {
     return (
-        <div className="w-full h-full flex items-center justify-center bg-muted/50 rounded-lg min-h-[300px]">
-            <p className="text-muted-foreground">No image selected.</p>
-        </div>
+      <div className="w-full h-full flex items-center justify-center bg-muted/50 rounded-lg min-h-[300px]">
+        <p className="text-muted-foreground">No image selected.</p>
+      </div>
     );
   }
 
   const imageUrlToDisplay = getDisplayableImageUrl(image.imageUrl);
 
   return (
-    <div className="w-full flex-1 flex items-center justify-center">
+    // Changed container styles to fill parent for flexible layout
+    <div className="w-full h-full flex items-center justify-center overflow-hidden">
       <ReactCrop 
         crop={crop}
         onChange={onCropChange}
@@ -54,20 +54,29 @@ export default function ImageEditorCanvas({
         disabled={disabled}
         ruleOfThirds={ruleOfThirds}
         keepSelection={true}
-        style={{ touchAction: 'none' }}
+        style={{ maxHeight: '100%', maxWidth: '100%' }}
+        className="max-h-full max-w-full"
       >
+        {/* 
+          CRITICAL: img styles for fixed viewport.
+          object-contain ensures it scales down. 
+          max-height: 100% relative to the flex container.
+        */}
         <img 
           key={image.id}
           src={imageUrlToDisplay || '/placeholder.png'} 
           alt="Image for cropping" 
           onLoad={onImageLoad} 
           style={{
-            maxHeight: '65vh',
+            display: 'block',
             maxWidth: '100%',
+            maxHeight: 'calc(100vh - 200px)', // Fallback calculation
             height: 'auto',
             width: 'auto',
-            objectFit: 'contain'
+            objectFit: 'contain',
+            touchAction: 'none'
           }}
+          className="max-h-full w-auto object-contain"
         />
       </ReactCrop>
     </div>
