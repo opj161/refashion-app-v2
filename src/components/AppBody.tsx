@@ -28,20 +28,26 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
 
   return (
     <LazyMotion features={domAnimation}>
+      {/* Aurora background - only visible on pages that use scrolling layout */}
       <div className="aurora-bg"></div>
+      
       {/* Splash screen overlay: controlled by client-side hydration state */}
       <div className={cn("splash-screen", isHydrated && "hidden")}> 
         <AnimatedLogo animationType="aurora" />
       </div>
-      {/* Main application content */}
+      
+      {/* Main application wrapper - fixed viewport height */}
       <AuthProvider initialUser={initialUser}>
         <ThemeProvider>
           <ErrorBoundary>
-            <SiteHeader />
-            {/* Use separate content offset variable to control spacing independently of header height */}
-            <main className="flex-1 flex flex-col" style={{ paddingTop: 'var(--content-offset)' }}>
-              <PageTransitionWrapper>{children}</PageTransitionWrapper>
-            </main>
+            {/* Flex container for fixed viewport layout */}
+            <div className="flex flex-col h-screen overflow-hidden">
+              <SiteHeader />
+              {/* Main content area - takes remaining height */}
+              <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <PageTransitionWrapper>{children}</PageTransitionWrapper>
+              </main>
+            </div>
             <Toaster />
           </ErrorBoundary>
         </ThemeProvider>
