@@ -1,3 +1,5 @@
+// src/stores/imageStore.ts
+
 import { create } from 'zustand';
 import { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import { toast } from '@/hooks/use-toast';
@@ -10,7 +12,6 @@ import { removeBackgroundAction } from '@/ai/actions/remove-background.action';
 import { upscaleImageAction, faceDetailerAction } from '@/ai/actions/upscale-image.action';
 
 // --- TYPES ---
-
 export interface ImageVersion {
   id: string;
   imageUrl: string;
@@ -35,6 +36,8 @@ interface ImagePreparationState {
     left: string;
     right: string;
   } | null;
+  // NEW: Add scale for canvas zoom
+  scale: number;
 }
 
 interface ImagePreparationActions {
@@ -49,8 +52,10 @@ interface ImagePreparationActions {
   setAspect: (aspect?: number) => void;
   setDimensions: (width: number, height: number) => void;
   setComparison: (comparison: { left: string; right: string } | null) => void;
+  // NEW: Action for zoom
+  setScale: (scale: number) => void;
   reset: () => void;
-  
+
   // Async Actions
   uploadOriginalImage: (file: File) => Promise<{ resized: boolean; originalWidth: number; originalHeight: number; }>;
   applyCrop: () => Promise<void>;
@@ -76,6 +81,7 @@ const initialState: ImagePreparationState = {
   aspect: undefined,
   imageDimensions: undefined,
   comparison: null,
+  scale: 1, // Default scale
 };
 
 export const useImageStore = create<ImagePreparationState & ImagePreparationActions>((set, get) => ({
@@ -95,6 +101,7 @@ export const useImageStore = create<ImagePreparationState & ImagePreparationActi
       versionHistory: ['original'],
       historyIndex: 0,
       imageDimensions: { originalWidth: width, originalHeight: height },
+      scale: 1,
     });
   },
 
@@ -113,13 +120,17 @@ export const useImageStore = create<ImagePreparationState & ImagePreparationActi
     });
   },
 
+  // UPDATED: Robust reset of crop state when switching versions
   setActiveVersion: (versionId) => set({
     activeVersionId: versionId,
     crop: undefined,
     completedCrop: undefined,
     aspect: undefined,
+    // We reset dimensions here so the Canvas component re-calculates 
+    // them correctly via onLoad for the new image source
     imageDimensions: undefined,
     comparison: null,
+    scale: 1,
   }),
 
   undo: () => set((state) => {
@@ -133,6 +144,7 @@ export const useImageStore = create<ImagePreparationState & ImagePreparationActi
       aspect: undefined,
       imageDimensions: undefined,
       comparison: null,
+      scale: 1,
     };
   }),
 
@@ -147,21 +159,22 @@ export const useImageStore = create<ImagePreparationState & ImagePreparationActi
       aspect: undefined,
       imageDimensions: undefined,
       comparison: null,
+      scale: 1,
     };
   }),
 
   setCrop: (crop) => set({ crop }),
   setCompletedCrop: (crop) => set({ completedCrop: crop }),
-  
+
   setAspect: (aspect) => set((state) => {
     if (state.imageDimensions?.originalWidth && state.imageDimensions?.originalHeight) {
       const { originalWidth: width, originalHeight: height } = state.imageDimensions;
       const newCrop = aspect
         ? centerCrop(
-            makeAspectCrop({ unit: '%', width: 90 }, aspect, width, height),
-            width,
-            height
-          )
+          makeAspectCrop({ unit: '%', width: 90 }, aspect, width, height),
+          width,
+          height
+        )
         : undefined;
       return { aspect, crop: newCrop, completedCrop: undefined };
     }
@@ -170,6 +183,7 @@ export const useImageStore = create<ImagePreparationState & ImagePreparationActi
 
   setDimensions: (width, height) => set({ imageDimensions: { originalWidth: width, originalHeight: height } }),
   setComparison: (comparison) => set({ comparison }),
+  setScale: (scale) => set({ scale }), // New action
   reset: () => set(initialState),
 
   // --- ASYNC ACTIONS ---
@@ -179,7 +193,7 @@ export const useImageStore = create<ImagePreparationState & ImagePreparationActi
     formData.append('file', file);
     const result = await prepareInitialImage(formData);
     if (!result.success) throw new Error(result.error);
-    
+
     get().setOriginal({ file, imageUrl: result.imageUrl, hash: result.hash, width: result.originalWidth, height: result.originalHeight });
     return { resized: result.resized, originalWidth: result.originalWidth, originalHeight: result.originalHeight };
   },
@@ -187,7 +201,7 @@ export const useImageStore = create<ImagePreparationState & ImagePreparationActi
   applyCrop: async () => {
     const state = get();
     const { crop, imageDimensions, activeVersionId: sourceVersionId } = state;
-    
+
     if (!crop || !sourceVersionId || !imageDimensions) {
       toast({ title: 'Cannot apply crop: Missing state.', variant: 'destructive' });
       return;
@@ -206,7 +220,6 @@ export const useImageStore = create<ImagePreparationState & ImagePreparationActi
       return;
     }
 
-    // Optimistic Update
     const tempId = `optimistic_crop_${Date.now()}`;
     set((s) => ({
       versions: {
@@ -226,8 +239,7 @@ export const useImageStore = create<ImagePreparationState & ImagePreparationActi
     try {
       const result = await cropImage(sourceImage.imageUrl, scaledCrop);
       if (!result.success) throw new Error(result.error);
-      
-      // Check consistency
+
       if (!get().versions[sourceVersionId]) return;
 
       get().addVersion({
@@ -247,11 +259,10 @@ export const useImageStore = create<ImagePreparationState & ImagePreparationActi
       console.error('Crop failed:', error);
       toast({ title: "Cropping Failed", description: (error as Error).message, variant: "destructive" });
     } finally {
-       // Cleanup optimistic version
-       set((s) => {
-         const { [tempId]: _, ...rest } = s.versions;
-         return { versions: rest };
-       });
+      set((s) => {
+        const { [tempId]: _, ...rest } = s.versions;
+        return { versions: rest };
+      });
     }
   },
 
@@ -323,7 +334,7 @@ async function performOptimisticAction(
     toast({ title: "No active image selected.", variant: "destructive" });
     return;
   }
-  
+
   const sourceImage = state.versions[activeVersionId];
   if (!sourceImage) {
     toast({ title: "Source image not found.", variant: "destructive" });
@@ -331,8 +342,7 @@ async function performOptimisticAction(
   }
 
   const tempId = `optimistic_${label.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
-  
-  // Optimistic Update
+
   set((s) => ({
     versions: {
       ...s.versions,
@@ -350,7 +360,7 @@ async function performOptimisticAction(
 
   try {
     const result = await action(sourceImage.imageUrl, sourceImage.hash);
-    
+
     if (!get().versions[activeVersionId]) return;
 
     const finalImageUrl = result.savedPath || result.imageUrl;
@@ -371,7 +381,7 @@ async function performOptimisticAction(
     if (result.originalWidth && result.originalHeight) {
       get().setDimensions(result.originalWidth, result.originalHeight);
     }
-    
+
     toast({ title: `${label} applied successfully.` });
 
   } catch (error) {

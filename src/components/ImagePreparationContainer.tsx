@@ -1,4 +1,3 @@
-// src/components/ImagePreparationContainer.tsx
 "use client";
 
 import React, { useCallback, useState } from "react";
@@ -24,7 +23,6 @@ interface ImagePreparationContainerProps {
   recentUploads?: string[];
 }
 
-// Component that uses the Zustand store
 export default function ImagePreparationContainer({
   preparationMode,
   onReset,
@@ -34,7 +32,6 @@ export default function ImagePreparationContainer({
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  // Use Zustand Store
   const {
     versions,
     activeVersionId,
@@ -44,21 +41,19 @@ export default function ImagePreparationContainer({
     applyCrop,
     reset,
     setAspect,
-    setDimensions,
+    // setDimensions, // Removed: No longer needed here
     setCrop,
   } = useImageStore();
 
   const activeImage = activeVersionId ? versions[activeVersionId] : null;
   const isAnyVersionProcessing = Object.values(versions).some(v => v.status === 'processing');
 
-  // Expose reset to parent via ref
   React.useEffect(() => {
     if (resetRef) {
       resetRef.current = reset;
     }
   }, [reset, resetRef]);
 
-  // Local UI state for managing the cropping flow
   const [isCropping, setIsCropping] = useState<boolean>(false);
 
   const handleApplyCrop = async () => {
@@ -79,41 +74,31 @@ export default function ImagePreparationContainer({
 
   const handleAspectChange = (newAspect?: number) => {
     setAspect(newAspect);
-    // An explicit aspect selection always means we are in a cropping state.
     setIsCropping(true);
   };
 
-  // --- THE CORE FIX: A robust onImageLoad handler ---
-  // This is the single source of truth for what happens when an image is loaded or re-loaded.
+  // Refactored: Only handles Aspect Ratio logic now
+  // Dimensions are handled internally by ImageEditorCanvas
   const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const { naturalWidth, naturalHeight } = e.currentTarget;
-
-    // 1. Always store the new dimensions.
-    setDimensions(naturalWidth, naturalHeight);
-
-    // 2. Check if there's a predefined aspect ratio we need to apply.
     if (aspect) {
-      // 3. Calculate and set the centered crop - the reducer will handle this
       setAspect(aspect);
     }
-  }, [setDimensions, setAspect, aspect]);
-  
+  }, [setAspect, aspect]);
+
   const handleCropChange = (pixelCrop: PixelCrop, percentCrop: Crop) => {
     setCrop(percentCrop);
-    // *** BUG FIX ***: Activate cropping UI on manual drag
     if (!isCropping && percentCrop.width > 0 && percentCrop.height > 0) {
       setIsCropping(true);
     }
   };
 
-  // Render logic remains similar, but is now driven by the global store state.
   const hubContent = (
     <EditingHubSidebar
       preparationMode={preparationMode}
       isCropping={isCropping}
       isProcessing={isAnyVersionProcessing}
       aspect={aspect}
-      onAspectChange={handleAspectChange} // *** BUG FIX ***: Wire to correct handler
+      onAspectChange={handleAspectChange}
       onConfirmCrop={handleApplyCrop}
       onCancelCrop={handleCancelCrop}
       versions={versions}
@@ -121,7 +106,6 @@ export default function ImagePreparationContainer({
     />
   );
 
-  // Define animation variants for the container switch
   const containerVariants = {
     hidden: { opacity: 0, y: 20, scale: 0.98 },
     visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.4, ease: 'easeOut' as const } },
@@ -131,7 +115,6 @@ export default function ImagePreparationContainer({
   return (
     <AnimatePresence mode="wait">
       {!activeImage ? (
-        // --- UPLOADER STATE ---
         <motion.div
           key="uploader"
           variants={containerVariants}
@@ -142,14 +125,13 @@ export default function ImagePreparationContainer({
           <ImageUploader recentUploads={recentUploads} />
         </motion.div>
       ) : (
-        // --- EDITOR STATE ---
         <motion.div
           key="editor"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
           exit="exit"
-          layout // Keep the layout prop for internal resizing animations
+          layout
           transition={{ duration: 0.5, type: 'spring', bounce: 0.2 }}
           data-testid="image-preparation-container"
         >
@@ -172,7 +154,7 @@ export default function ImagePreparationContainer({
               </div>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
-              {isMobile === false ? ( // DESKTOP VIEW
+              {isMobile === false ? (
                 <div className="grid grid-cols-1 lg:grid-cols-[2fr,1fr] gap-6">
                   <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg min-h-[70vh] shadow-lg shadow-black/10">
                     <ImageEditorCanvas
@@ -180,8 +162,8 @@ export default function ImagePreparationContainer({
                       image={activeImage}
                       crop={crop}
                       aspect={aspect}
-                      onCropChange={handleCropChange} // *** BUG FIX ***: Use new handler
-                      onCropComplete={() => {}}
+                      onCropChange={handleCropChange}
+                      onCropComplete={() => { }}
                       onImageLoad={onImageLoad}
                       disabled={isAnyVersionProcessing}
                       ruleOfThirds={true}
@@ -189,7 +171,7 @@ export default function ImagePreparationContainer({
                   </div>
                   {hubContent}
                 </div>
-              ) : ( // MOBILE VIEW
+              ) : (
                 <div className="flex flex-col h-[calc(100dvh-220px)] gap-4">
                   <div className="relative flex-1 flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg shadow-lg shadow-black/10 overflow-hidden min-h-0">
                     <ImageEditorCanvas
@@ -197,8 +179,8 @@ export default function ImagePreparationContainer({
                       image={activeImage}
                       crop={crop}
                       aspect={aspect}
-                      onCropChange={handleCropChange} // *** BUG FIX ***: Use new handler
-                      onCropComplete={() => {}}
+                      onCropChange={handleCropChange}
+                      onCropComplete={() => { }}
                       onImageLoad={onImageLoad}
                       disabled={isAnyVersionProcessing}
                       ruleOfThirds={true}
@@ -221,4 +203,3 @@ export default function ImagePreparationContainer({
     </AnimatePresence>
   );
 }
-
