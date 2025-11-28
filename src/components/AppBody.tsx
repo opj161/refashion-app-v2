@@ -11,7 +11,6 @@ import PageTransitionWrapper from '@/components/PageTransitionWrapper';
 import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { cn } from '@/lib/utils';
-
 import type { SessionUser } from '@/lib/types';
 
 interface AppBodyProps {
@@ -29,19 +28,21 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
   return (
     <LazyMotion features={domAnimation}>
       <div className="aurora-bg"></div>
-      {/* Splash screen overlay: controlled by client-side hydration state */}
-      <div className={cn("splash-screen", isHydrated && "hidden")}> 
+      <div className={cn("splash-screen", isHydrated && "hidden")}>
         <AnimatedLogo animationType="aurora" />
       </div>
-      {/* Main application content */}
+
       <AuthProvider initialUser={initialUser}>
         <ThemeProvider>
           <ErrorBoundary>
-            <SiteHeader />
-            {/* Use separate content offset variable to control spacing independently of header height */}
-            <main className="flex-1 flex flex-col" style={{ paddingTop: 'var(--content-offset)' }}>
-              <PageTransitionWrapper>{children}</PageTransitionWrapper>
-            </main>
+            {/* Use 100dvh for robust mobile support */}
+            <div className="flex flex-col h-[100dvh] w-screen overflow-hidden bg-background/50">
+              <SiteHeader />
+
+              <main className="flex-1 min-h-0 relative flex flex-col w-full">
+                <PageTransitionWrapper>{children}</PageTransitionWrapper>
+              </main>
+            </div>
             <Toaster />
           </ErrorBoundary>
         </ThemeProvider>

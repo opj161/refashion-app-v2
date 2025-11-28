@@ -1,27 +1,22 @@
 import { satoshi } from '@/lib/fonts';
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import './globals.css';
 import { getCurrentUser } from '@/actions/authActions';
 import type { SessionUser } from '@/lib/types';
-import { cookies } from 'next/headers';
 import { connection } from 'next/server';
 import { AppBody } from '@/components/AppBody';
-
-// Removed force-dynamic from root - moved to per-page basis for better performance
-// Only pages requiring auth should use force-dynamic
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false, // Prevents zooming issues on input focus on iOS
-  themeColor: '#020410',
+  userScalable: false,
+  themeColor: '#030811',
 };
 
 export const metadata: Metadata = {
   title: 'Refashion AI',
-  description: 'Edit images with the power of AI, powered by Google Gemini.',
+  description: 'Professional AI Fashion Studio',
 };
 
 export default async function RootLayout({
@@ -29,65 +24,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Force dynamic rendering by accessing connection
-  // This ensures the layout is never statically generated at build time
   await connection();
-
-  // Server-side theme detection from cookie
-  const themeCookie = (await cookies()).get('theme')?.value;
-  const initialTheme = themeCookie === 'light' || themeCookie === 'dark' ? themeCookie : 'dark';
-
-  // Fetch the initial user state on the server at request time
   const initialUser: SessionUser | null = await getCurrentUser();
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <meta name="theme-color" content="#020410" />
-        <meta name="color-scheme" content="dark" />
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            html, body { 
-              background-color: hsl(224, 71%, 4%) !important; 
-              margin: 0; 
-              padding: 0; 
-            }
-          `
-        }} />
-        <Script id="theme-init-script" strategy="beforeInteractive">
-          {`
-            (function() {
-              function setTheme() {
-                try {
-                  const theme = localStorage.getItem('theme');
-                  const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  const shouldBeDark = theme === 'dark' || (theme === 'system' && systemPrefersDark) || (!theme && true);
-                  const root = document.documentElement;
-                  
-                  root.classList.remove('light', 'dark');
-                  if (shouldBeDark) {
-                    root.classList.add('dark');
-                  } else {
-                    root.classList.add('light');
-                  }
-                } catch (e) {
-                  console.error("Error setting initial theme:", e);
-                  document.documentElement.classList.add('dark');
-                }
-              }
-              setTheme();
-            })();
-          `}
-        </Script>
-      </head>
-      <body
-        className={`antialiased bg-gradient-to-br from-background-accent to-background text-foreground flex flex-col min-h-screen ${initialTheme} ${satoshi.variable}`}
-        style={{
-          '--font-geist-sans': 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
-          '--font-geist-mono': 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-        } as React.CSSProperties}
-      >
-        {/* The entire body content is now a Client Component, receiving server data as props */}
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className={`antialiased font-sans ${satoshi.variable}`}>
+        <div className="aurora-bg" />
         <AppBody initialUser={initialUser}>{children}</AppBody>
       </body>
     </html>

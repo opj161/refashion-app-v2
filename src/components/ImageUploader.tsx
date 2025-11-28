@@ -2,15 +2,12 @@
 "use client";
 
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useImageStore } from "@/stores/imageStore";
 import { UploadCloud, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from 'motion/react';
-import { RecentAssetsPanel } from './RecentAssetsPanel';
-import { recreateStateFromImageUrl } from '@/actions/imageActions';
+import { motion } from 'motion/react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 // --- Constants ---
@@ -21,20 +18,18 @@ const ALLOWED_FILE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'
 interface ImageUploaderProps {
   recentUploads?: string[];
 }
-import { useRouter } from 'next/navigation';
 
 export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps) {
   const { toast } = useToast();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
-  
+
   // Zustand state
-  const { uploadOriginalImage, setOriginal } = useImageStore();
-  
+  const { uploadOriginalImage } = useImageStore();
+
   // Local UI state
   const [isUploading, setIsUploading] = useState(false);
-  const [isLoadingRecent, setIsLoadingRecent] = useState(false);
   const [isDraggingOverPage, setIsDraggingOverPage] = useState(false);
   const [isDraggingOverDropZone, setIsDraggingOverDropZone] = useState(false);
 
@@ -54,22 +49,22 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
   // --- File Processing ---
   const processFile = useCallback(async (file: File | null | undefined) => {
     if (!file) return;
-    
+
     // Validate file
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      toast({ 
-        title: "File Too Large", 
-        description: `File must be under ${MAX_FILE_SIZE_MB}MB.`, 
-        variant: "destructive" 
+      toast({
+        title: "File Too Large",
+        description: `File must be under ${MAX_FILE_SIZE_MB}MB.`,
+        variant: "destructive"
       });
       return;
     }
-    
+
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-      toast({ 
-        title: "Invalid File Type", 
-        description: "Please upload a valid image file (PNG, JPG, WEBP, etc.).", 
-        variant: "destructive" 
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload a valid image file (PNG, JPG, WEBP, etc.).",
+        variant: "destructive"
       });
       return;
     }
@@ -81,83 +76,42 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
       if (resized) {
         toastDescription = `Image was downscaled from ${originalWidth}x${originalHeight} and is ready for editing.`;
       }
-      toast({ 
-        title: "Image Uploaded", 
+      toast({
+        title: "Image Uploaded",
         description: toastDescription
       });
       router.refresh();
     } catch (error) {
       console.error('Error processing file:', error);
       const errorMessage = error instanceof Error ? error.message : "Failed to process the uploaded image.";
-      toast({ 
-        title: "Upload Failed", 
-        description: errorMessage, 
-        variant: "destructive" 
+      toast({
+        title: "Upload Failed",
+        description: errorMessage,
+        variant: "destructive"
       });
     } finally {
       setIsUploading(false);
     }
   }, [toast, uploadOriginalImage, router]);
 
-  // --- Recent Asset Handling ---
-  const handleRecentSelect = async (url: string) => {
-    if (isUploading || isLoadingRecent) return;
-    
-    setIsLoadingRecent(true);
-    try {
-      const result = await recreateStateFromImageUrl(url);
-      
-      if (!result.success) throw new Error(result.error);
-
-      // Manually set the original state in the store since we're bypassing the upload flow
-      // We create a dummy file object because the store expects it, but it might not be strictly necessary if we populate everything else
-      // However, looking at the store, uploadOriginalImage does a lot. 
-      // Ideally we should have a `setOriginalFromUrl` action in the store, but `setOriginal` seems to be exposed.
-      // Let's check if `setOriginal` is exposed. The user code snippet used `setOriginal`.
-      // Assuming `setOriginal` takes { file, imageUrl, hash, width, height }
-      
-      setOriginal({
-        file: new File([], 'history_image.png', { type: 'image/png' }), 
-        imageUrl: result.imageUrl,
-        hash: result.hash,
-        width: result.originalWidth,
-        height: result.originalHeight
-      });
-
-      toast({ 
-        title: "Image Loaded", 
-        description: "Restored from your recent uploads." 
-      });
-    } catch (error) {
-      console.error('Error loading recent image:', error);
-      toast({ 
-        title: "Error", 
-        description: "Could not load this image.", 
-        variant: "destructive" 
-      });
-    } finally {
-       setIsLoadingRecent(false);
-    }
-  };
-
   // --- Event Handlers ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     processFile(e.target.files?.[0]);
   };
-  
+
   const handleDragAction = useCallback((e: React.DragEvent, action: 'enter' | 'leave' | 'over' | 'drop') => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (isUploading) return;
-    
+
     if (action === 'enter') {
       dragCounter.current++;
     }
     if (action === 'leave') {
       dragCounter.current--;
     }
-    
+
     setIsDraggingOverPage(dragCounter.current > 0);
 
     if (action === 'drop' && e.dataTransfer.files.length > 0) {
@@ -175,7 +129,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
   };
 
   // --- Effects ---
-  
+
   // Handle drag and drop events on the page
   useEffect(() => {
     const enter = (e: DragEvent) => handleDragAction(e as any, 'enter');
@@ -196,16 +150,14 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
     };
   }, [handleDragAction]);
 
-  // Determine layout mode
-  const hasHistory = recentUploads.length > 0;
-  const isDisabled = isUploading || isLoadingRecent;
+  const isDisabled = isUploading;
 
   return (
     <>
       {/* Global drag overlay */}
       {isDraggingOverPage && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-none">
-          <UploadCloud 
+          <UploadCloud
             className="h-24 w-24 text-primary"
             style={{ animation: 'var(--motion-bounce-subtle) infinite' }}
           />
@@ -213,84 +165,46 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
         </div>
       )}
 
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardTitle className="text-xl flex items-center gap-2">
-            <UploadCloud className="h-6 w-6 text-primary" />
-            Upload Your Image
-          </CardTitle>
-          <CardDescription>
-            Drag and drop your clothing image, or click to browse.
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent>
-          <div className={cn(
-            "grid gap-6 transition-all duration-300 ease-in-out",
-            hasHistory ? "grid-cols-1 md:grid-cols-[1fr_240px]" : "grid-cols-1"
-          )}>
-            
-            {/* Left Side: Drop Zone */}
-            <div className="flex flex-col h-full min-h-[200px] md:min-h-[280px]">
-              <motion.div
-                animate={isDraggingOverDropZone ? "dragOver" : "idle"}
-                variants={dropZoneVariants}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className={cn(
-                  "flex-1 p-8 rounded-lg flex flex-col items-center justify-center text-center text-muted-foreground border-2 border-dashed cursor-pointer transition-opacity",
-                  isDisabled && "opacity-50 cursor-not-allowed"
-                )}
-                onClick={() => !isDisabled && fileInputRef.current?.click()}
-                onDragEnter={(e) => handleDropZoneDrag(e, 'enter')}
-                onDragLeave={(e) => handleDropZoneDrag(e, 'leave')}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => { setIsDraggingOverDropZone(false); handleDragAction(e, 'drop'); }}
-              >
-                {isUploading || isLoadingRecent ? (
-                  <>
-                    <Loader2 className="w-16 h-16 mb-4 text-primary animate-spin" />
-                    <p className="font-semibold text-foreground">
-                      {isUploading ? "Processing Upload..." : "Restoring Image..."}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <motion.div
-                      animate={{ scale: isDraggingOverDropZone ? 1.05 : 1, y: isDraggingOverDropZone ? -3 : 0 }}
-                    >
-                      <UploadCloud className="w-16 h-16 mb-4 text-muted-foreground" />
-                    </motion.div>
-                    <p className="font-semibold text-foreground">
-                      <span className="md:hidden">Tap to select image</span>
-                      <span className="hidden md:inline">Click to upload or drag & drop</span>
-                    </p>
-                    <p className="text-sm">PNG, JPG, WEBP, etc.</p>
-                  </>
-                )}
-                <Input 
-                  id="image-upload" 
-                  type="file" 
-                  className="sr-only" 
-                  ref={fileInputRef} 
-                  onChange={handleFileChange} 
-                  accept={ALLOWED_FILE_TYPES.join(',')} 
-                  disabled={isDisabled}
-                />
-              </motion.div>
-            </div>
-
-            {/* Right Side: Recent Panel */}
-            {hasHistory && (
-               <RecentAssetsPanel 
-                 images={recentUploads} 
-                 onSelect={handleRecentSelect}
-                 disabled={isDisabled} 
-               />
-            )}
+      {/* Removed Card wrapper or styled it to be transparent/borderless if inside InputStage */}
+      <div
+        className={cn(
+          "flex flex-col items-center justify-center p-10 border border-dashed border-white/10 rounded-2xl bg-white/[0.02] hover:bg-white/[0.04] hover:border-primary/30 transition-all duration-300 cursor-pointer gap-6 group",
+          isDraggingOverDropZone && "border-primary/50 bg-primary/5"
+        )}
+        onClick={() => !isDisabled && fileInputRef.current?.click()}
+        onDragEnter={(e) => handleDropZoneDrag(e, 'enter')}
+        onDragLeave={(e) => handleDropZoneDrag(e, 'leave')}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => { setIsDraggingOverDropZone(false); handleDragAction(e, 'drop'); }}
+      >
+        <motion.div animate={{ scale: isDraggingOverDropZone ? 1.1 : 1 }}>
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+            <UploadCloud className="w-10 h-10 text-primary" />
           </div>
-        </CardContent>
-      </Card>
+        </motion.div>
+
+        <div className="text-center space-y-2">
+          <h3 className="text-lg font-semibold">Upload Source Image</h3>
+          <p className="text-sm text-muted-foreground">Drag & drop or click to browse</p>
+        </div>
+
+        {isUploading && (
+          <div className="flex items-center gap-2 text-primary">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm font-medium">Processing...</span>
+          </div>
+        )}
+
+        <Input
+          id="image-upload"
+          type="file"
+          className="sr-only"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept={ALLOWED_FILE_TYPES.join(',')}
+          disabled={isDisabled}
+        />
+      </div>
     </>
   );
 }
-

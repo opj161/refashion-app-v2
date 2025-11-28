@@ -15,6 +15,7 @@ export const spacing = {
   '8': '4rem',    // 64px
   '10': '5rem',   // 80px
   '12': '6rem',   // 96px
+  'navbar': '64px',
 } as const;
 
 export const typography = {

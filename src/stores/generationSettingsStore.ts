@@ -20,63 +20,71 @@ export interface VideoParameters {
 export interface GenerationSettingsState {
   // Image parameters (ModelAttributes)
   imageSettings: ModelAttributes;
-  
+
   // Video parameters
   videoSettings: VideoParameters;
-  
+
   // Settings mode (shared between image and video potentially)
   settingsMode: 'basic' | 'advanced';
-  
+
   // Generation mode (Creative or Studio)
   generationMode: 'creative' | 'studio';
-  
+
   // Studio mode settings
   studioFit: 'slim' | 'regular' | 'relaxed';
   studioAspectRatio: string; // NEW
-  
+
   // Generation counter for triggering history refresh
   generationCount: number;
-  
+
   // History filter state
   historyFilter: 'all' | 'image' | 'video';
-  
+
   // Image preparation options (for non-destructive pipeline)
   backgroundRemovalEnabled: boolean;
   upscaleEnabled: boolean;
   faceDetailEnabled: boolean;
+
+  // NEW: Bridge State for Workspace
+  currentResultId: string | null;
+  activeView: 'image' | 'video';
 }
 
 export interface GenerationSettingsActions {
   // Update image settings
   setImageSettings: (settings: Partial<ModelAttributes>) => void;
-  
+
   // Update video settings
   setVideoSettings: (settings: Partial<VideoParameters>) => void;
-  
+
   // Update settings mode
   setSettingsMode: (mode: 'basic' | 'advanced') => void;
-  
+
   // Update generation mode
   setGenerationMode: (mode: 'creative' | 'studio') => void;
-  
+
   // Update studio fit
   setStudioFit: (fit: 'slim' | 'regular' | 'relaxed') => void;
   setStudioAspectRatio: (ratio: string) => void; // NEW
-  
+
   // Update history filter
   setHistoryFilter: (filter: 'all' | 'image' | 'video') => void;
-  
+
   // Increment generation counter to trigger history refresh
   incrementGenerationCount: () => void;
-  
+
   // Update image preparation options
   setBackgroundRemovalEnabled: (enabled: boolean) => void;
   setUpscaleEnabled: (enabled: boolean) => void;
   setFaceDetailEnabled: (enabled: boolean) => void;
-  
+
+  // NEW: Bridge Actions
+  setCurrentResultId: (id: string | null) => void;
+  setActiveView: (view: 'image' | 'video') => void;
+
   // Load from history item - takes full HistoryItem object
   loadFromHistory: (item: HistoryItem) => void;
-  
+
   // Reset to defaults
   reset: () => void;
 }
@@ -130,6 +138,8 @@ const initialState: GenerationSettingsState = {
   backgroundRemovalEnabled: false,
   upscaleEnabled: false,
   faceDetailEnabled: false,
+  currentResultId: null,
+  activeView: 'image',
 };
 
 // Create the store
@@ -137,58 +147,64 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
   devtools(
     (set) => ({
       ...initialState,
-      
-      setImageSettings: (settings) => 
+
+      setImageSettings: (settings) =>
         set((state) => ({
           imageSettings: { ...state.imageSettings, ...settings }
         }), false, 'setImageSettings'),
-      
+
       setVideoSettings: (settings) =>
         set((state) => ({
           videoSettings: { ...state.videoSettings, ...settings }
         }), false, 'setVideoSettings'),
-      
+
       setSettingsMode: (mode) =>
         set({ settingsMode: mode }, false, 'setSettingsMode'),
-      
+
       setGenerationMode: (mode) =>
         set({ generationMode: mode }, false, 'setGenerationMode'),
-      
+
       setStudioFit: (fit) =>
         set({ studioFit: fit }, false, 'setStudioFit'),
 
       setStudioAspectRatio: (ratio) => // NEW
         set({ studioAspectRatio: ratio }, false, 'setStudioAspectRatio'),
-      
+
       setHistoryFilter: (filter) =>
         set({ historyFilter: filter }, false, 'setHistoryFilter'),
-      
+
       incrementGenerationCount: () =>
         set((state) => ({ generationCount: state.generationCount + 1 }), false, 'incrementGenerationCount'),
-      
+
       setBackgroundRemovalEnabled: (enabled) =>
         set({ backgroundRemovalEnabled: enabled }, false, 'setBackgroundRemovalEnabled'),
-      
+
       setUpscaleEnabled: (enabled) =>
         set({ upscaleEnabled: enabled }, false, 'setUpscaleEnabled'),
-      
+
       setFaceDetailEnabled: (enabled) =>
         set({ faceDetailEnabled: enabled }, false, 'setFaceDetailEnabled'),
-      
+
+      setCurrentResultId: (id) =>
+        set({ currentResultId: id }, false, 'setCurrentResultId'),
+
+      setActiveView: (view) =>
+        set({ activeView: view }, false, 'setActiveView'),
+
       loadFromHistory: (item) =>
         set((state) => {
           const newState: Partial<GenerationSettingsState> = {
             imageSettings: { ...defaultImageSettings, ...item.attributes },
           };
-          
+
           // Load settings mode if present
           if (item.settingsMode) {
             newState.settingsMode = item.settingsMode;
           }
-          
+
           // Load generation mode if present (defaults to 'creative' if not specified)
           newState.generationMode = item.generation_mode || 'creative';
-          
+
           // Load studio fit from attributes if present and in Studio Mode
           if (item.generation_mode === 'studio' && (item.attributes as any).studioFit) {
             newState.studioFit = (item.attributes as any).studioFit;
@@ -198,7 +214,7 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
           if (item.generation_mode === 'studio' && (item.attributes as any).studioAspectRatio) {
             newState.studioAspectRatio = (item.attributes as any).studioAspectRatio;
           }
-          
+
           // Load video parameters if present
           if (item.videoGenerationParams) {
             newState.videoSettings = {
@@ -214,11 +230,11 @@ export const useGenerationSettingsStore = create<GenerationSettingsStore>()(
               cameraFixed: item.videoGenerationParams.cameraFixed ?? defaultVideoSettings.cameraFixed,
             };
           }
-          
+
           return newState;
         }, false, 'loadFromHistory'),
-      
-      reset: () => 
+
+      reset: () =>
         set(initialState, false, 'reset'),
     }),
     {

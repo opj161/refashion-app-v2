@@ -1,72 +1,53 @@
-// src/components/ImageEditorCanvas.tsx
 "use client";
 
 import React from "react";
-import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+import { useImageStore } from "@/stores/imageStore";
+import ReactCrop, { type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { getDisplayableImageUrl } from "@/lib/utils";
 
-interface ImageVersion {
-  id: string;
-  imageUrl: string;
-}
-
 interface ImageEditorCanvasProps {
-  image: ImageVersion | null;
-  aspect?: number;
-  disabled?: boolean;
-  crop?: Crop;
-  onCropChange: (pixelCrop: PixelCrop, percentCrop: Crop) => void; // Be explicit about params
-  onCropComplete: (crop: PixelCrop) => void;
-  onImageLoad: (e: React.SyntheticEvent<HTMLImageElement>) => void;
-  ruleOfThirds?: boolean; // New prop for enhancement
-  imageDimensions?: { width: number; height: number }; // NEW PROP
+  image: { id: string; imageUrl: string; };
 }
 
-export default function ImageEditorCanvas({ 
+export default function ImageEditorCanvas({
   image,
-  aspect, 
-  disabled = false, 
-  crop,
-  onCropChange, // Use refined prop
-  onCropComplete,
-  onImageLoad,
-  ruleOfThirds = false, // Default to false
-  imageDimensions, // NEW PROP
 }: ImageEditorCanvasProps) {
+  const { crop, setCrop, setCompletedCrop, aspect, setDimensions, scale } = useImageStore();
+
+  const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    setDimensions(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
+  };
+
   if (!image) {
-    return (
-        <div className="w-full h-full flex items-center justify-center bg-muted/50 rounded-lg min-h-[300px]">
-            <p className="text-muted-foreground">No image selected.</p>
-        </div>
-    );
+    return null;
   }
 
   const imageUrlToDisplay = getDisplayableImageUrl(image.imageUrl);
 
   return (
-    <div className="w-full flex-1 flex items-center justify-center">
-      <ReactCrop 
+    <div
+      className="relative w-full h-full flex items-center justify-center"
+      style={{ transform: `scale(${scale})`, transition: 'transform 0.2s ease-out' }}
+    >
+      <ReactCrop
         crop={crop}
-        onChange={onCropChange}
-        onComplete={(c) => onCropComplete(c)} 
-        aspect={aspect} 
-        disabled={disabled}
-        ruleOfThirds={ruleOfThirds}
+        onChange={(_, percentCrop) => setCrop(percentCrop)}
+        onComplete={(c) => setCompletedCrop(c)}
+        aspect={aspect}
+        ruleOfThirds={true}
         keepSelection={true}
-        style={{ touchAction: 'none' }}
+        className="w-full h-full flex justify-center items-center"
       >
-        <img 
-          key={image.id}
-          src={imageUrlToDisplay || '/placeholder.png'} 
-          alt="Image for cropping" 
-          onLoad={onImageLoad} 
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrlToDisplay || '/placeholder.png'}
+          alt="Editor"
+          onLoad={onImageLoad}
           style={{
-            maxHeight: '65vh',
-            maxWidth: '100%',
-            height: 'auto',
-            width: 'auto',
-            objectFit: 'contain'
+            objectFit: 'contain',
+            width: '100%',
+            height: '100%',
           }}
         />
       </ReactCrop>

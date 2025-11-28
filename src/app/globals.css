@@ -1,405 +1,157 @@
-/* globals.css - Alternative 1: Deep Ocean Elegance */
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-}
-
-/* Motion constants for optimized animations */
-:root {
-  --motion-spring-quick: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  --motion-spring-standard: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --motion-bounce-subtle: 300ms cubic-bezier(0.34, 1.2, 0.64, 1);
-  --motion-duration-fast: 100ms;
-  --motion-duration-quick: 200ms;
-  --motion-duration-standard: 300ms;
-  --motion-duration-slow: 500ms;
-  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --motion-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --motion-ease-anticipate: cubic-bezier(0.34, 1.2, 0.64, 1);
-}
-
 @layer base {
-  /* FIX: Force 16px font size on inputs for mobile to prevent iOS zoom */
-  @media (max-width: 768px) {
-    input,
-    textarea,
-    select {
-      font-size: 16px !important;
-    }
-  }
-
-  /* Remove existing :root and .dark color definitions and replace with these */
   :root {
-    /* Best Practice: Separate variables for header height and content offset */
-    --header-height: 6rem; /* 96px - actual header height */
-    --content-offset: 0rem; /* 80px - padding to prevent content hiding under header */
+    --header-height: 64px;
 
-    /* Light Theme (if you ever need it, but we'll focus on dark) */
-    --background: 210 20% 98%;
-    --background-accent: 210 20% 94%;
-    --foreground: 210 10% 23%;
-    --card: 210 20% 100%;
-    --card-foreground: 210 10% 23%;
-    --popover: 210 20% 100%;
-    --popover-foreground: 210 10% 23%;
-    --primary: 173 71% 38%; /* Darker Teal for contrast on light BG */
-    --primary-foreground: 173 50% 98%;
-    --primary-gradient-end: 175 70% 44%;
-    --secondary: 210 15% 90%;
-    --secondary-foreground: 210 10% 23%;
-    --muted: 210 15% 94%;
-    --muted-foreground: 210 10% 45%;
-    --accent: 177 63% 48%;
-    --accent-foreground: 210 10% 23%;
-    --destructive: 12 64% 49%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 210 10% 88%;
-    --input: 210 10% 92%;
-    --ring: 173 71% 42%;
-    --radius: 0.75rem;
+    /* Deep Navy Pro Theme Palette */
+    --background: 224 71% 4%;       /* #030811 - Deepest Navy */
+    --background-accent: 224 71% 8%;
+    --foreground: 210 40% 98%;      /* Off-white */
+    
+    /* Semantic Workspace Tokens */
+    --workspace-canvas: 224 71% 2%;   /* Almost black for image focus */
+    --workspace-panel: 224 71% 5%;    /* Slightly lighter for panels */
+    --workspace-border: 224 71% 12%;  /* Subtle borders */
+
+    --card: 224 71% 7%;             
+    --card-foreground: 210 40% 98%;
+    
+    --popover: 224 71% 7%;
+    --popover-foreground: 210 40% 98%;
+    
+    --primary: 173 80% 40%;         /* Teal/Cyan Accent */
+    --primary-foreground: 224 71% 4%;
+    --primary-gradient-end: 190 90% 50%;
+    
+    --secondary: 215 20% 15%;       
+    --secondary-foreground: 210 40% 98%;
+    
+    --muted: 215 20% 12%;
+    --muted-foreground: 215 20% 65%;
+    
+    --accent: 173 80% 40%;
+    --accent-foreground: 224 71% 4%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    
+    --border: 224 71% 12%;
+    --input: 224 71% 12%;
+    --ring: 173 80% 40%;
+    
+    --radius: 0.5rem;
+    --motion-spring-quick: 0.2s;
+    --motion-spring-standard: 0.3s;
+    --motion-bounce-subtle: 0.3s;
   }
 
-  .dark {
-    /* Main Dark Theme */
-    --background: 224 71% 4%; /* hsl(224, 71%, 4%) - Almost black, deep blue */
-    --background-accent: 224 40% 8%; /* hsl(224, 40%, 8%) - Slightly lighter, for depth */
-    --foreground: 210 20% 92%; /* hsl(210, 20%, 92%) - Off-white with a cool tint */
-
-    --card: 224 25% 12%; /* hsl(224, 25%, 12%) - Dark blue-gray */
-    --card-foreground: 210 20% 95%; /* hsl(210, 20%, 95%) */
-
-    --popover: 224 71% 4%;
-    --popover-foreground: 210 20% 95%;
-
-    --primary: 173 71% 42%; /* #1fab99 */
-    --primary-foreground: 224 20% 98%; /* Very light, almost white */
-    --primary-gradient-end: 237 92% 76%; /* A bit lighter and more cyan */
-
-    --secondary: 210 15% 23%; /* hsl(210, 15%, 23%) - Muted dark blue */
-    --secondary-foreground: 210 20% 92%;
-
-    --muted: 210 15% 18%;
-    --muted-foreground: 210 10% 65%;
-
-    --accent: 177 63% 48%; /* #2abab1 */
-    --accent-foreground: 224 20% 98%;
-
-    --destructive: 12 64% 49%; /* #ef571a */
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 210 10% 23%; /* A slightly lighter blue-gray */
-    --input: 210 15% 18%;
-    --ring: 177 63% 55%; /* Lighter teal for focus rings */
-    --radius: 0.75rem;
-  }
-
-  /* Ensure immediate background application to prevent hydration mismatches */
   html {
-    background-color: hsl(224, 71%, 4%); /* Default to dark theme */
-  }
-
-  body {
-    background-color: hsl(224, 71%, 4%); /* Default to dark theme */
-  }
-
-  /* Theme-specific overrides */
-  html.light {
-    background-color: hsl(210, 20%, 98%);
-  }
-
-  html.light body {
-    background-color: hsl(210, 20%, 98%);
-  }
-
-  html.dark {
-    background-color: hsl(224, 71%, 4%);
-  }
-
-  html.dark body {
-    background-color: hsl(224, 71%, 4%);
-  }
-
-  @keyframes aurora-animation {
-    0% {
-      transform: translate(-50%, -50%) rotate(0deg) scale(1.2);
-    }
-    50% {
-      transform: translate(-50%, -50%) rotate(180deg) scale(1.5);
-    }
-    100% {
-      transform: translate(-50%, -50%) rotate(360deg) scale(1.2);
-    }
-  }
-
-  .aurora-bg {
-    content: "";
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    width: 120vw;
-    height: 120vh;
-    max-width: 1400px;
-    max-height: 1400px;
-    background-image:
-      radial-gradient(circle at 20% 20%, hsl(173 71% 42% / 0.2), transparent 40%),
-      radial-gradient(circle at 80% 30%, hsl(278 48% 28% / 0.2), transparent 40%),
-      radial-gradient(circle at 60% 80%, hsl(244 62% 30% / 0.2), transparent 40%);
-    filter: blur(100px);
-    z-index: -1;
-    pointer-events: none;
-    animation: aurora-animation 45s linear infinite;
-    opacity: 0.7;
-  }
-
-  /* --- Improvement 1: Aurora Background Glow --- */
-  .dark body::before {
-    content: "";
-    position: fixed;
-    left: 50%;
-    top: 15%;
-    width: 600px;
-    height: 600px;
-    border-radius: 50%;
-    background: radial-gradient(circle, hsl(var(--primary) / 0.1), transparent 65%);
-    transform: translateX(-50%);
-    filter: blur(120px);
-    z-index: -1;
-    pointer-events: none;
-    opacity: 0.7;
-  }
-
-  /* --- Improvement 2: Enhanced Card Styling --- */
-  .dark .card {
-    position: relative;
-    background-clip: padding-box;
-    border: 1px solid transparent;
-  }
-  .dark .card::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: -1;
-    margin: -1px;
-    border-radius: inherit;
-    background: linear-gradient(145deg, hsl(var(--primary) / 0.3), hsl(var(--border) / 0.1) 80%);
-  }
-
-  /* Ensure theme transitions are smooth when hydrated */
-  html.light,
-  html.dark {
-    transition: none;
-  }
-
-  html,
-  body {
-    width: 100%;
-    overflow-x: hidden;
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
-  body {
-    font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
-    /* Disable double-tap to zoom to remove 300ms click delay on mobile */
-    touch-action: manipulation;
-    /* Prevent elastic scrolling on the body to make the app feel native */
-    overscroll-behavior-y: none;
-  }
-
-  /* --- Improvement 4: Softer Focus Rings --- */
-  .dark input:focus-visible,
-  .dark textarea:focus-visible,
-  .dark [data-radix-select-trigger]:focus-visible {
-    border-color: hsl(var(--primary) / 0.8) !important;
-    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2) !important;
-  }
-}
-
-@layer components {
-  .glass-card {
-    @apply border border-white/10 bg-card/50 shadow-2xl shadow-black/20 backdrop-blur-xl;
-    @apply transition-all duration-300;
-  }
-  .glass-card:hover {
-    @apply border-white/20 bg-card/60;
-  }
-  .uploader-dropzone {
-    @apply border border-white/10; /* Default border */
-    position: relative;
+    /* Prevent scrolling on the root element */
+    height: 100dvh; /* Use dynamic viewport height */
+    width: 100vw;
     overflow: hidden;
+    background-color: hsl(var(--background));
   }
-
-  .uploader-dropzone::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px; /* border thickness */
-    background: radial-gradient(
-      400px circle at 50% 50%,
-      hsl(var(--primary) / 0.5),
-      transparent 40%
-    );
-    -webkit-mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask:
-      linear-gradient(#fff 0 0) content-box,
-      linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
-  }
-
-  .uploader-dropzone[data-state="drag-over"]::before {
-    opacity: 1;
-  }
-}
-
-@layer components {
-  /* New Splash Screen Styles - Unified for Server & Client */
-  .splash-screen {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: hsl(var(--background)); /* Ensures it matches theme */
-    opacity: 1;
-    visibility: visible;
-    transition:
-      opacity 0.5s ease-out,
-      visibility 0.5s ease-out;
-  }
-
-  .splash-screen.hidden {
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-  }
-
-  /* Server splash screen - ensure it shows immediately */
-  #server-splash {
-    transition: none !important;
-  }
-
-  /* Prevent flash of unstyled content */
+  
   body {
-    background-color: hsl(var(--background));
-  }
-
-  /* Ensure smooth theme transitions */
-  html {
-    background-color: hsl(var(--background));
+    height: 100dvh; /* Match html height */
+    width: 100vw;
+    overflow: hidden; /* Prevent body scroll */
+    background-color: transparent;
+    display: flex;
+    flex-direction: column;
   }
 }
 
 @layer utilities {
-  /* FIX: Use dvh (dynamic viewport height) for full-screen layouts */
-  .min-h-screen {
-    min-height: 100dvh;
+  .min-h-0 { min-height: 0px; }
+  .min-w-0 { min-width: 0px; }
+  
+  /* Custom Scrollbar for internal divs */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
   }
 
-  /* FIX: Robust Safe Area Utilities with Fallbacks */
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 20px);
+  .absolute-center {
+    @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2;
   }
-  .pt-safe {
-    padding-top: env(safe-area-inset-top, 20px);
+
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+
+  /* Dot pattern for canvas background */
+  .bg-dot-pattern {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  /* Subtle grid pattern for empty canvas areas */
+  .bg-grid-pattern {
+    background-size: 40px 40px;
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  }
+
+  /* Glassmorphism utilities */
+  .glass-panel {
+    @apply bg-workspace-panel/80 backdrop-blur-md border border-white/5;
   }
   
-  /* NEW: Minimum Touch Target Utility (44x44px standard) */
-  .touch-target-min {
-    min-height: 44px;
-    min-width: 44px;
+  .glass-button {
+    @apply bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-200;
   }
+}
 
-  /* FIX: ReactCrop Touch Optimization */
-  /* Make crop handles significantly easier to grab on mobile without visual clutter */
-  @media (pointer: coarse) {
-    .ReactCrop__drag-handle {
-      width: 32px !important; /* Increased from default */
-      height: 32px !important;
-      margin-top: -16px; /* Center adjustment */
-      margin-left: -16px;
-      background-color: rgba(255, 255, 255, 0.9);
-      border: 1px solid rgba(0, 0, 0, 0.2);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    
-    /* Make the corner handles slightly larger as they are most used */
-    .ReactCrop__drag-handle.ReactCrop__drag-handle-ne,
-    .ReactCrop__drag-handle.ReactCrop__drag-handle-nw,
-    .ReactCrop__drag-handle.ReactCrop__drag-handle-se,
-    .ReactCrop__drag-handle.ReactCrop__drag-handle-sw {
-        width: 36px !important;
-        height: 36px !important;
-        margin-top: -18px;
-        margin-left: -18px;
-    }
-  }
-  /* Shimmer effect for skeleton loaders */
-  @keyframes shimmer {
-    0% {
-      transform: translateX(-100%);
-    }
-    100% {
-      transform: translateX(100%);
-    }
-  }
+/* Ensure ReactCrop handles are visible but not obtrusive */
+.ReactCrop__drag-handle {
+  width: 10px;
+  height: 10px;
+  background-color: hsl(var(--primary));
+  border: 1px solid white;
+}
 
-  .animate-shimmer {
-    animation: shimmer 2s infinite;
-  }
+/* Aurora Background */
+.aurora-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100dvh; /* Use dvh here too */
+  z-index: -1;
+  background: 
+    radial-gradient(circle at 0% 0%, rgba(27, 127, 137, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 100% 0%, rgba(76, 29, 149, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 50% 100%, rgba(29, 78, 216, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
 
-  /* Progress bar striped animation for estimating state */
-  @keyframes progress-stripes {
-    0% {
-      background-position: 40px 0;
-    }
-    100% {
-      background-position: 0 0;
-    }
+/* Loading Shimmer */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
   }
+}
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
 
-  /* Fade in up animation for stagger effects */
-  @keyframes fade-in-up {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  /* Slide in from left for list items */
-  @keyframes slide-in-left {
-    from {
-      opacity: 0;
-      transform: translateX(-20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
+/* Mobile Input Optimization */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
   }
 }
