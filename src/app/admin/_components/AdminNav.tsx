@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { href: '/admin/all-history', label: 'All History', icon: History },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
-];
+] as const;
 
 export function AdminNav() {
   const pathname = usePathname();

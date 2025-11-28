@@ -1,7 +1,10 @@
 // next.config.ts
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // Enable Statically Typed Routes
+  typedRoutes: true,
+
   // Turbopack configuration
   turbopack: {
     rules: {
@@ -77,7 +80,7 @@ const nextConfig: NextConfig = {
   },
   // Build caching configuration for faster subsequent builds
   cacheMaxMemorySize: 50 * 1024 * 1024, // 50MB - optimize build cache
-  cacheHandler: process.env.NODE_ENV === 'production' 
+  cacheHandler: process.env.NODE_ENV === 'production'
     ? undefined // Use default in production
     : undefined, // Default for development
   images: {
@@ -111,7 +114,7 @@ const nextConfig: NextConfig = {
       {
         protocol: 'http',
         hostname: '0.0.0.0',
-        port: '3000', 
+        port: '3000',
         pathname: '/**',
       },
       {

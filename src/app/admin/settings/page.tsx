@@ -5,9 +5,11 @@ import { Settings } from 'lucide-react';
 import { SettingsForm } from './_components/SettingsForm';
 import { ExportTool } from './_components/ExportTool';
 
-export const dynamic = 'force-dynamic';
+import { connection } from 'next/server';
 
 export default async function AdminSettingsPage() {
+  await connection();
+
   const initialSettings = await getAllSettings();
   const maskedApiKeys = await getGlobalApiKeysForDisplay();
   const systemPromptData = await getSystemPromptsForAdmin();

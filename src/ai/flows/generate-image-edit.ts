@@ -15,14 +15,14 @@ import { after } from 'next/server';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { Buffer } from 'buffer';
-import fetch from 'node-fetch'; // For fetching image from URL
 import fs from 'fs';
 import path from 'path';
 import { saveDataUriLocally } from '@/services/storage.service';
 import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 import mime from 'mime-types';
 import { getApiKeyForUser } from '@/services/apiKey.service';
-import { MODEL_ANGLE_OPTIONS,
+import {
+  MODEL_ANGLE_OPTIONS,
   buildAIPrompt, GENDER_OPTIONS, BODY_SHAPE_AND_SIZE_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS
 } from '@/lib/prompt-builder'; // <-- No change here, but POSE_STYLE_OPTIONS is now used below
 import { generatePromptWithAI } from '@/ai/actions/generate-prompt.action';
@@ -144,7 +144,7 @@ async function performSingleImageGeneration(
   modelId: string // Changed from generationConfigOverride
 ): Promise<SingleImageOutput> {
   const username = user.username;
-  
+
   // Use the passed modelId directly
   const modelEndpoint = modelId;
 
@@ -156,21 +156,21 @@ async function performSingleImageGeneration(
   if (!input.imageDataUriOrUrl) {
     throw new Error(`Generation requires a source image for ${flowIdentifier}`);
   }
-  
+
   logger.start({
     flowIdentifier,
     promptLength: input.prompt?.length || 0,
-    sourceType: input.imageDataUriOrUrl.startsWith('data:') ? 'dataURI' : 
-                input.imageDataUriOrUrl.startsWith('/') ? 'localFile' : 'publicURL',
+    sourceType: input.imageDataUriOrUrl.startsWith('data:') ? 'dataURI' :
+      input.imageDataUriOrUrl.startsWith('/') ? 'localFile' : 'publicURL',
   });
 
   // Convert to public URL for FAL.AI (FAL.AI requires publicly accessible URLs)
   let publicImageUrl = input.imageDataUriOrUrl;
-  
+
   // Handle Data URI or Local Path by uploading to Fal Storage
   if (input.imageDataUriOrUrl.startsWith('data:') || input.imageDataUriOrUrl.startsWith('/uploads/')) {
     logger.progress('Converting source to public URL via Fal Storage');
-    
+
     let imageBlob: Blob;
 
     if (input.imageDataUriOrUrl.startsWith('data:')) {
@@ -184,15 +184,15 @@ async function performSingleImageGeneration(
       const mimeType = mime.lookup(input.imageDataUriOrUrl) || 'image/png';
       imageBlob = new Blob([new Uint8Array(fileBuffer)], { type: mimeType });
     }
-    
+
     const { uploadToFalStorage } = await import('@/ai/actions/generate-video.action');
     publicImageUrl = await uploadToFalStorage(imageBlob, username);
     logger.progress(`Source ready: ${publicImageUrl.substring(0, 50)}...`);
   }
-  
+
   try {
     logger.progress(`Calling ${modelEndpoint}`);
-    
+
     const falResult = await generateWithFalEditModel(
       input.prompt || '',
       publicImageUrl,
@@ -201,19 +201,19 @@ async function performSingleImageGeneration(
       await getApiKeyForUser(username, 'fal'), // Inject User API Key
       { aspectRatio: input.aspectRatio } // NEW: Pass options object
     );
-    
+
     logger.progress(`Downloading generated image...`);
-    
+
     const { relativeUrl: localImageUrl } = await downloadAndSaveImageFromUrl(
       falResult.imageUrl,
       `RefashionAI_${user.image_generation_model}_${flowIdentifier}`,
       'generated_images'
     );
-    
+
     logger.success({
       localImageUrl,
     });
-    
+
     return { editedImageUrl: localImageUrl };
   } catch (falError: unknown) {
     const knownFalError = falError as Error;
@@ -253,7 +253,7 @@ export async function generateImageEdit(
   // Nano Banana Pro = 1 image
   // Gemini 2.5 = 3 images
   const imagesToGenerateCount = user.image_generation_model === 'fal_nano_banana_pro' ? 1 : 3;
-  
+
   let modelEndpoint = 'fal-ai/gemini-25-flash-image/edit';
   if (user.image_generation_model === 'fal_nano_banana_pro') {
     modelEndpoint = 'fal-ai/nano-banana-pro/edit';
@@ -264,7 +264,7 @@ export async function generateImageEdit(
 
   // 1. Create initial history item EARLY (if not existing)
   let historyId = existingHistoryId;
-  
+
   if (!historyId && input.imageDataUriOrUrl) {
     try {
       // Construct attributes for history
@@ -306,7 +306,7 @@ export async function generateImageEdit(
       // ===================================
       if (input.generationMode === 'studio') {
         console.log(`🚀 Routing to Studio Mode for user ${username}`);
-        
+
         if (!input.studioFit || !input.imageDataUriOrUrl) {
           throw new Error('Studio Mode requires a fit setting and a source image.');
         }
@@ -317,7 +317,7 @@ export async function generateImageEdit(
           input.studioFit,
           username
         );
-        
+
         console.log(`🏷️ Clothing identified as: "${classification}"`);
         console.log('📝 Studio Mode Prompt constructed with dynamic clothing description.');
 
@@ -378,10 +378,10 @@ export async function generateImageEdit(
 
       // === NON-DESTRUCTIVE PIPELINE: Apply image processing if requested ===
       let processedImageUrl = input.imageDataUriOrUrl;
-      
+
       if (input.imageDataUriOrUrl && (input.removeBackground || input.upscale || input.enhanceFace)) {
         console.log('🔧 Applying non-destructive image processing pipeline...');
-        
+
         try {
           // Step 1: Background Removal (if enabled)
           if (input.removeBackground) {
@@ -390,7 +390,7 @@ export async function generateImageEdit(
             processedImageUrl = bgResult.savedPath;
             console.log(`✅ Background removed. New path: ${processedImageUrl}`);
           }
-          
+
           // Step 2: Upscale (if enabled)
           if (input.upscale) {
             console.log('🔍 Step 2: Upscaling image...');
@@ -398,7 +398,7 @@ export async function generateImageEdit(
             processedImageUrl = upscaleResult.savedPath;
             console.log(`✅ Image upscaled. New path: ${processedImageUrl}`);
           }
-          
+
           // Step 3: Face Enhancement (if enabled)
           if (input.enhanceFace) {
             console.log('👤 Step 3: Enhancing face details...');
@@ -406,14 +406,14 @@ export async function generateImageEdit(
             processedImageUrl = faceResult.savedPath;
             console.log(`✅ Face details enhanced. New path: ${processedImageUrl}`);
           }
-          
+
           console.log('✨ Pipeline complete. Processed image ready for generation.');
         } catch (pipelineError) {
           console.error('❌ Pipeline processing error:', pipelineError);
           throw new Error(`Image processing pipeline failed: ${(pipelineError as Error).message}`);
         }
       }
-      
+
       // Update the input with the processed image URL
       const processedInput = { ...input, imageDataUriOrUrl: processedImageUrl };
 
@@ -461,7 +461,7 @@ export async function generateImageEdit(
         // The first prompt is considered the "main" one for history purposes.
         finalConstructedPromptForHistory = prompts[0] || 'Prompt generation failed.';
       }
-      
+
       // Log all received optimized prompts together
       console.log(`\n🚀 ALL AI-GENERATED PROMPTS SUMMARY:`);
       console.log('='.repeat(100));
@@ -476,19 +476,19 @@ export async function generateImageEdit(
         console.log('-'.repeat(60));
       });
       console.log('='.repeat(100));
-      
+
       console.log("Generated Prompts:", prompts);
 
       const [prompt1, prompt2, prompt3] = prompts;
 
       const generationPromises = prompts.map(async (prompt, index) => {
         if (!prompt) throw new Error(`Prompt for slot ${index + 1} was missing`);
-        
+
         try {
           const result = await performSingleImageGeneration(
-            { ...processedInput, prompt }, 
-            user, 
-            `flow${index + 1}`, 
+            { ...processedInput, prompt },
+            user,
+            `flow${index + 1}`,
             (index + 1) as 1 | 2 | 3,
             modelEndpoint
           );

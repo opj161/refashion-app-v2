@@ -4,9 +4,11 @@ import { UserManagementTable } from '@/components/admin/UserManagementTable';
 import { PageHeader } from '@/components/ui/page-header';
 import { Users } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+import { connection } from 'next/server';
 
 export default async function AdminUsersPage() {
+  await connection();
+
   const initialUsers = await getAllUsers();
   const maskedGlobalKeys = await getGlobalApiKeysForDisplay();
 

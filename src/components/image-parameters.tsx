@@ -67,17 +67,19 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
   // ... (useEffect hooks for loading/saving local storage remain identical)
 
   // Handlers (Same as main)
-  const handleParamChange = useCallback((key: keyof ModelAttributes, value: string) => {
+  // REMOVED: useCallback for handlers. Defined inline or as standard functions.
+  const handleParamChange = (key: keyof ModelAttributes, value: string) => {
     setImageSettings({ [key]: value });
     setUseRandomization(false);
-  }, [setImageSettings]);
+  };
 
-  const handleAIPromptChange = useCallback((value: boolean) => {
+  const handleAIPromptChange = (value: boolean) => {
     setUseAIPrompt(value);
     setUseRandomization(false);
-  }, []);
+  };
 
-  const currentImageGenParams = React.useMemo(() => ({ ...imageSettings, settingsMode }), [imageSettings, settingsMode]);
+  // REMOVED: useMemo for currentImageGenParams. React Compiler handles object creation.
+  const currentImageGenParams = { ...imageSettings, settingsMode };
   const { currentPrompt, isPromptManuallyEdited, handlePromptChange } = usePromptManager({
     generationType: 'image',
     generationParams: currentImageGenParams,

@@ -18,12 +18,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, Loader2, Edit } from 'lucide-react';
-import { 
-  handleCreateUser, 
-  handleUpdateUserConfiguration, 
-  deleteUser, 
+import {
+  handleCreateUser,
+  handleUpdateUserConfiguration,
+  deleteUser,
   generateApiKeyForUser,
-  type UserFormState 
+  type UserFormState
 } from '@/actions/adminActions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
@@ -83,16 +83,16 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
   // Initialize useActionState for forms
   const initialCreateUserState: UserFormState = { message: '' };
   const [createUserState, createUserAction] = useActionState(handleCreateUser, initialCreateUserState);
-  
+
   const initialUpdateUserState: UserFormState = { message: '' };
   const [updateUserState, updateUserAction] = useActionState(handleUpdateUserConfiguration, initialUpdateUserState);
-  
+
   // Handle feedback from useActionState forms
   useEffect(() => {
     if (createUserState?.success && createUserState.user) {
       toast({ title: 'Success', description: createUserState.message });
       // Use server response data instead of reading from DOM
-      setUsers(prevUsers => 
+      setUsers(prevUsers =>
         [...prevUsers, createUserState.user!].sort((a, b) => a.username.localeCompare(b.username))
       );
       setIsCreateDialogOpen(false);
@@ -100,13 +100,13 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
       toast({ title: 'Error', description: createUserState.error, variant: 'destructive' });
     }
   }, [createUserState, toast]);
-  
+
   useEffect(() => {
     if (updateUserState?.success && updateUserState.user) {
       toast({ title: 'Success', description: updateUserState.message });
       // Use server response data instead of reading from DOM
-      setUsers(prevUsers => 
-        prevUsers.map(u => 
+      setUsers(prevUsers =>
+        prevUsers.map(u =>
           u.username === updateUserState.user!.username ? updateUserState.user! : u
         )
       );
@@ -171,13 +171,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
   return (
     <>
       <div className="flex justify-end mb-4">
-        <Dialog open={isCreateDialogOpen} onOpenChange={(open) => { 
-          setIsCreateDialogOpen(open); 
-          if (!open) {
-            const form = document.querySelector('form[name="createUser"]') as HTMLFormElement | null;
-            if (form) form.reset();
-          }
-        }}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button><PlusCircle className="mr-2 h-4 w-4" /> Create User</Button>
           </DialogTrigger>
@@ -265,21 +259,21 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                 <p className="text-sm text-muted-foreground">Model: {user.image_generation_model === 'fal_gemini_2_5' ? 'Fal 2.5' : 'Banana Pro'}</p>
               </div>
               <div className="flex items-center">
-                 <Button variant="ghost" size="icon" onClick={() => setUserToEdit(user)} disabled={isSubmitting} aria-label={`Edit ${user.username}`}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={isSubmitting}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                <Button variant="ghost" size="icon" onClick={() => setUserToEdit(user)} disabled={isSubmitting} aria-label={`Edit ${user.username}`}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={isSubmitting}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
               </div>
             </CardContent>
           </Card>
         ))}
-         {users.length === 0 && (
-            <Card>
-                <CardContent className="p-6 text-center text-muted-foreground">No users found.</CardContent>
-            </Card>
-         )}
+        {users.length === 0 && (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground">No users found.</CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Edit User Dialog */}
@@ -323,7 +317,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                       <div className="space-y-2">
                         <Label htmlFor={`gemini_api_key_${i}_mode`}>Mode</Label>
                         <Select name={`gemini_api_key_${i}_mode`} value={(editedUserConfig as any)?.[`gemini_api_key_${i}_mode`] || 'global'} onValueChange={(value) => handleConfigChange(`gemini_api_key_${i}_mode` as keyof User, value)}>
-                          <SelectTrigger id={`gemini_api_key_${i}_mode`}><SelectValue/></SelectTrigger>
+                          <SelectTrigger id={`gemini_api_key_${i}_mode`}><SelectValue /></SelectTrigger>
                           <SelectContent><SelectItem value="global">Global</SelectItem><SelectItem value="user_specific">User-Specific</SelectItem></SelectContent>
                         </Select>
                       </div>
@@ -344,7 +338,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                     <div className="space-y-2">
                       <Label htmlFor="fal_api_key_mode">Mode</Label>
                       <Select name="fal_api_key_mode" value={editedUserConfig?.fal_api_key_mode || 'global'} onValueChange={(value) => handleConfigChange('fal_api_key_mode', value)}>
-                        <SelectTrigger id="fal_api_key_mode"><SelectValue/></SelectTrigger>
+                        <SelectTrigger id="fal_api_key_mode"><SelectValue /></SelectTrigger>
                         <SelectContent><SelectItem value="global">Global</SelectItem><SelectItem value="user_specific">User-Specific</SelectItem></SelectContent>
                       </Select>
                     </div>
@@ -373,7 +367,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
           </form>
         </DialogContent>
       </Dialog>
-      
+
       <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

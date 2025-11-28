@@ -31,7 +31,8 @@ interface HistoryCardProps {
 }
 
 // Memoize HistoryCard to prevent unnecessary re-renders when gallery updates
-const HistoryCard = React.memo(function HistoryCard({
+// REMOVED: React.memo wrapper.
+export default function HistoryCard({
   item,
   onViewDetails,
   onDeleteItem,
@@ -100,7 +101,8 @@ const HistoryCard = React.memo(function HistoryCard({
     }
   };
 
-  const handleDownload = useCallback((e: React.MouseEvent) => {
+  // REMOVED: useCallback
+  const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
     const triggerDownload = (url: string, filename: string) => {
       const link = document.createElement('a');
@@ -129,9 +131,10 @@ const HistoryCard = React.memo(function HistoryCard({
         toast({ title: "No images to download", variant: "destructive" });
       }
     }
-  }, [item, isVideoItem, toast]);
+  };
 
-  const handleReload = useCallback(async (e: React.MouseEvent) => {
+  // REMOVED: useCallback
+  const handleReload = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
     setIsLoadingAction('reload');
@@ -159,14 +162,16 @@ const HistoryCard = React.memo(function HistoryCard({
     } finally {
       setIsLoadingAction(null);
     }
-  }, [item, router, onLoadFromHistory, loadFromHistory, toast]);
+  };
 
-  const handleDelete = useCallback((e: React.MouseEvent) => {
+  // REMOVED: useCallback
+  const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDeleteItem(item);
-  }, [onDeleteItem, item]);
+  };
 
-  const handleSendToCreative = useCallback(async (e: React.MouseEvent) => {
+  // REMOVED: useCallback
+  const handleSendToCreative = async (e: React.MouseEvent) => {
     e.stopPropagation();
 
     // Find the first valid generated image to send
@@ -197,7 +202,7 @@ const HistoryCard = React.memo(function HistoryCard({
     } finally {
       setIsLoadingAction(null);
     }
-  }, [item, onLoadFromImageUrl, setGenerationMode, router, toast]);
+  };
 
   const triggerDownload = (url: string, filename: string) => {
     const link = document.createElement('a');
@@ -360,6 +365,4 @@ const HistoryCard = React.memo(function HistoryCard({
       </Card>
     </motion.div>
   );
-});
-
-export default HistoryCard;
+}
