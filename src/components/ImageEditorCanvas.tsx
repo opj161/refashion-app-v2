@@ -35,15 +35,17 @@ export default function ImageEditorCanvas({
   // Access store action directly
   const setDimensions = useImageStore(state => state.setDimensions);
 
+  // NEW: Subscribe to scale state
+  const scale = useImageStore(state => state.scale);
+
   // Enhanced load handler
   const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const { naturalWidth, naturalHeight } = e.currentTarget;
 
     // 1. Immediately sync dimensions to store (The Fix)
-    // This prevents crop ghosting by ensuring store has data before render cycles complete
     setDimensions(naturalWidth, naturalHeight);
 
-    // 2. Call parent handler (preserves existing Aspect Ratio application logic)
+    // 2. Call parent handler
     if (onImageLoad) onImageLoad(e);
   };
 
@@ -58,32 +60,39 @@ export default function ImageEditorCanvas({
   const imageUrlToDisplay = getDisplayableImageUrl(image.imageUrl);
 
   return (
-    <div className="w-full flex-1 flex items-center justify-center">
-      <ReactCrop
-        crop={crop}
-        onChange={onCropChange}
-        onComplete={(c) => onCropComplete(c)}
-        aspect={aspect}
-        disabled={disabled}
-        ruleOfThirds={ruleOfThirds}
-        keepSelection={true}
-        style={{ touchAction: 'none' }}
+    <div className="w-full flex-1 flex items-center justify-center overflow-hidden">
+      <div
+        style={{
+          transform: `scale(${scale})`,
+          transition: 'transform 0.2s ease-out',
+          transformOrigin: 'center center'
+        }}
       >
-        <img
-          key={image.id}
-          src={imageUrlToDisplay || '/placeholder.png'}
-          alt="Image for cropping"
-          onLoad={handleLoad} // Use local enhanced handler
-          style={{
-            // Preserve existing layout constraints
-            maxHeight: '65vh',
-            maxWidth: '100%',
-            height: 'auto',
-            width: 'auto',
-            objectFit: 'contain'
-          }}
-        />
-      </ReactCrop>
+        <ReactCrop
+          crop={crop}
+          onChange={onCropChange}
+          onComplete={(c) => onCropComplete(c)}
+          aspect={aspect}
+          disabled={disabled}
+          ruleOfThirds={ruleOfThirds}
+          keepSelection={true}
+          style={{ touchAction: 'none' }}
+        >
+          <img
+            key={image.id}
+            src={imageUrlToDisplay || '/placeholder.png'}
+            alt="Image for cropping"
+            onLoad={handleLoad}
+            style={{
+              maxHeight: '65vh', // Keeping original layout constraint
+              maxWidth: '100%',
+              height: 'auto',
+              width: 'auto',
+              objectFit: 'contain'
+            }}
+          />
+        </ReactCrop>
+      </div>
     </div>
   );
 }

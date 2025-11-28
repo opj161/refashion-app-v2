@@ -3,6 +3,8 @@ import { getAllUsersHistoryPaginatedForAdmin } from '@/actions/historyActions';
 import { HistoryGallery } from './_components/HistoryGallery';
 import { HistoryGallerySkeleton } from './_components/HistoryGallerySkeleton';
 
+export const dynamic = 'force-dynamic';
+
 // This is now an async Server Component. It renders the static shell of the page instantly.
 export default function AllHistoryPage() {
   return (

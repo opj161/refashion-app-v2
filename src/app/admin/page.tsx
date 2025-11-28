@@ -1,7 +1,9 @@
 // src/app/admin/page.tsx
 
 import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import dynamicImport from 'next/dynamic';
+
+export const dynamic = 'force-dynamic';
 import {
   GalleryVertical,
   AlertTriangle as AlertTriangleIcon,
@@ -19,7 +21,7 @@ import { ParameterInsightPanel } from './_components/dashboard/ParameterInsightP
 
 // Dynamically import the ActivityChart component to reduce initial bundle size
 // Note: ActivityChart is already a Client Component ('use client'), so it won't SSR
-const ActivityChart = dynamic(
+const ActivityChart = dynamicImport(
   () => import('./_components/dashboard/ActivityChart').then((mod) => mod.ActivityChart)
 );
 
@@ -111,8 +113,8 @@ function DashboardSkeleton() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <div className="lg:col-span-4 h-64 bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.3s' }}></div>
         <div className="lg:col-span-3 space-y-4">
-            <div className="h-[188px] bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-            <div className="h-[188px] bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+          <div className="h-[188px] bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+          <div className="h-[188px] bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.5s' }}></div>
         </div>
       </div>
     </div>

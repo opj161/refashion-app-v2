@@ -63,8 +63,10 @@ export default function VideoParameters() {
 
   // Auto-select first preset
   useEffect(() => {
-    if (PREDEFINED_PROMPTS[0] && !activePreset) handlePresetChange(PREDEFINED_PROMPTS[0].value);
-  }, []);
+    if (PREDEFINED_PROMPTS[0] && !activePreset) {
+      handlePresetChange(PREDEFINED_PROMPTS[0].value);
+    }
+  }, [activePreset, handlePresetChange]);
 
   // Prompt Manager
   const { currentPrompt, handlePromptChange, resetPromptToAuto, isManualPromptOutOfSync } = usePromptManager({

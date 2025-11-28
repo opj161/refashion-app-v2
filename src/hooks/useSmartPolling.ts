@@ -18,6 +18,12 @@ export function useSmartPolling(
     const attemptsRef = useRef(0);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Keep the latest options in a ref to avoid resetting the effect when callbacks change
+    const optionsRef = useRef(options);
+    useEffect(() => {
+        optionsRef.current = options;
+    });
+
     useEffect(() => {
         if (!url || !shouldPoll) {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -34,7 +40,7 @@ export function useSmartPolling(
 
                 // Check if job is done (completed or failed)
                 if (result.status === 'completed' || result.status === 'failed') {
-                    options.onSuccess?.(result);
+                    optionsRef.current.onSuccess?.(result);
                     return; // Stop polling
                 }
 
@@ -47,7 +53,7 @@ export function useSmartPolling(
                 } else {
                     const timeoutErr = new Error('Polling timed out');
                     setError(timeoutErr);
-                    options.onFailure?.(timeoutErr);
+                    optionsRef.current.onFailure?.(timeoutErr);
                 }
             } catch (err) {
                 console.error(err);
@@ -64,7 +70,7 @@ export function useSmartPolling(
         return () => {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
         };
-    }, [url, shouldPoll, maxAttempts, initialDelay]); // Dependencies - intentionally excluding options to avoid loops
+    }, [url, shouldPoll, maxAttempts, initialDelay]);
 
     return { data, error };
 }

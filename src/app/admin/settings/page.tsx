@@ -5,6 +5,8 @@ import { Settings } from 'lucide-react';
 import { SettingsForm } from './_components/SettingsForm';
 import { ExportTool } from './_components/ExportTool';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminSettingsPage() {
   const initialSettings = await getAllSettings();
   const maskedApiKeys = await getGlobalApiKeysForDisplay();
@@ -18,8 +20,8 @@ export default async function AdminSettingsPage() {
         description="Manage feature flags and perform system maintenance."
         className="text-left py-0"
       />
-      <SettingsForm 
-        initialSettings={initialSettings} 
+      <SettingsForm
+        initialSettings={initialSettings}
         maskedApiKeys={maskedApiKeys}
         systemPromptData={systemPromptData}
       />
