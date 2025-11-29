@@ -50,8 +50,8 @@ const SegmentedControlItem = React.forwardRef<HTMLButtonElement, SegmentedContro
         ref={ref}
         onClick={() => onValueChange(value)}
         className={cn(
-          "relative inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-          isActive ? "text-white shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+          "relative inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+          isActive ? "text-white shadow-xs" : "text-muted-foreground hover:text-foreground hover:bg-white/5",
           className
         )}
         {...props}
@@ -60,7 +60,7 @@ const SegmentedControlItem = React.forwardRef<HTMLButtonElement, SegmentedContro
         {isActive && (
           <motion.div
             layoutId="active-segment-indicator"
-            className="absolute inset-0 z-0 rounded-md bg-gradient-to-br from-primary to-primary-gradient-end shadow"
+            className="absolute inset-0 z-0 rounded-md bg-gradient-to-br from-primary to-primary-gradient-end shadow-sm"
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           />
         )}

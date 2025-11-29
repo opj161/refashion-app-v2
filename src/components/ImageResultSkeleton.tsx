@@ -21,8 +21,8 @@ export function ImageResultSkeleton() {
 
         {/* Action buttons skeleton */}
         <div className="flex gap-2">
-          <div className="h-9 bg-muted rounded flex-1" />
-          <div className="h-9 bg-muted rounded w-9" />
+          <div className="h-9 bg-muted rounded-sm flex-1" />
+          <div className="h-9 bg-muted rounded-sm w-9" />
         </div>
       </CardContent>
     </Card>

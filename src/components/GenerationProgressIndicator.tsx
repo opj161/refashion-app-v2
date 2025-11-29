@@ -102,7 +102,7 @@ export function GenerationProgressIndicator({
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
-          <Card className="border-primary/20 bg-card/50 backdrop-blur">
+          <Card className="border-primary/20 bg-card/50 backdrop-blur-sm">
             <CardContent className="space-y-4 pb-6 pt-6">
               {/* Header with icon and message */}
               <div className="flex items-center gap-3">

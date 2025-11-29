@@ -8,7 +8,7 @@ export function ParameterSection({ title, children }: { title: string; children:
     <section className="mt-4 first:mt-0">
       <h3 className="font-semibold text-sm text-foreground/90 mb-2">{title}</h3>
       <div 
-        className="bg-muted/30 border border-border/20 transition-colors duration-200 hover:bg-muted/40 backdrop-blur-sm p-4 rounded-lg"
+        className="bg-muted/30 border border-border/20 transition-colors duration-200 hover:bg-muted/40 backdrop-blur-xs p-4 rounded-lg"
       >
         {children}
       </div>

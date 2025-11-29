@@ -172,7 +172,7 @@ export function ImageResultsDisplay({
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                         sizes="(max-width: 768px) 100vw, 33vw"
                       />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-sm">
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-xs">
                         <Button size="icon" variant="secondary" onClick={() => handleImageClick(url)}><Maximize2 className="h-4 w-4" /></Button>
                         <Button size="icon" variant="secondary" onClick={() => handleDownload(url, index)}><Download className="h-4 w-4" /></Button>
                         <Button size="icon" variant="secondary" onClick={() => handleUseAsInput(url)}><RefreshCw className="h-4 w-4" /></Button>

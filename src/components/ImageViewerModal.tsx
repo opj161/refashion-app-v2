@@ -201,12 +201,12 @@ export function ImageViewerModal({
           ))}
         </ParameterSection>
       ) : isStudioMode ? (
-        <div className="p-4 bg-muted/30 rounded text-center text-sm text-muted-foreground">
+        <div className="p-4 bg-muted/30 rounded-sm text-center text-sm text-muted-foreground">
           <p className="font-medium mb-1">Studio Mode</p>
           <p className="text-xs">Custom prompt-driven generation</p>
         </div>
       ) : (
-        <div className="p-4 bg-muted/30 rounded text-center text-sm text-muted-foreground">
+        <div className="p-4 bg-muted/30 rounded-sm text-center text-sm text-muted-foreground">
           No parameters available for this item.
         </div>
       )}

@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { transitions, shadows } from "@/lib/design-tokens";
+
 import { useRouter } from 'next/navigation';
 
 
@@ -228,9 +228,7 @@ export default function HistoryCard({
         ref={cardRef}
         variant="glass"
         className={cn(
-          "h-full group overflow-hidden",
-          transitions.base,
-          shadows.md,
+          "h-full group overflow-hidden transition-all shadow-md",
           "hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40"
         )}
       >
@@ -278,7 +276,7 @@ export default function HistoryCard({
           {/* FIX: Consolidate Badges to Top Left Container */}
           <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5 items-start">
             {/* REFACTOR: h-3 w-3 -> size-3 */}
-            <Badge variant={isVideoItem ? 'default' : 'secondary'} className="text-xs shadow-sm bg-black/60 backdrop-blur-md border-white/10 text-white hover:bg-black/70">
+            <Badge variant={isVideoItem ? 'default' : 'secondary'} className="text-xs shadow-xs bg-black/60 backdrop-blur-md border-white/10 text-white hover:bg-black/70">
               {isVideoItem ? <Video className="size-3 mr-1.5" /> : <ImageIcon className="size-3 mr-1.5" />}
               {isVideoItem ? "Video" : "Image"}
             </Badge>

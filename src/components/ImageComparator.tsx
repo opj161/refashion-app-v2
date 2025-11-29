@@ -13,7 +13,7 @@ interface ImageComparatorProps {
 }
 
 const CustomHandle = () => (
-  <div className="flex items-center justify-center h-10 w-10 bg-white/80 backdrop-blur-sm rounded-full border shadow-md cursor-ew-resize opacity-75 group-hover:opacity-100 transition-opacity">
+  <div className="flex items-center justify-center h-10 w-10 bg-white/80 backdrop-blur-xs rounded-full border shadow-md cursor-ew-resize opacity-75 group-hover:opacity-100 transition-opacity">
     <ChevronsLeftRight className="h-5 w-5 text-gray-700" />
   </div>
 );

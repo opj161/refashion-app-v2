@@ -19,7 +19,7 @@ import {
 import {
   Wand2, Sparkles, UserCheck, CheckCircle, Loader2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Undo2, Redo2
 } from "lucide-react";
-import { spacing } from "@/lib/design-tokens";
+
 
 // --- Reusable Row Component for a consistent look ---
 interface ProcessingToolRowProps {
@@ -35,8 +35,7 @@ const ProcessingToolRow = ({
   icon: Icon, label, onApply, isApplied, isProcessing, isDisabled
 }: ProcessingToolRowProps) => (
   <div 
-    className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 transition-colors"
-    style={{ gap: spacing[2] }}
+    className="flex items-center justify-between p-3 rounded-lg bg-background/50 hover:bg-background/80 transition-colors gap-4"
   >
     <Label className="flex items-center gap-2 font-medium">
       <Icon className="h-4 w-4 text-muted-foreground" />
@@ -193,7 +192,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
           >
             <Undo2 className="h-3.5 w-3.5" />
             <span>Undo</span>
-            <kbd className="ml-auto text-[10px] bg-muted px-1 rounded">Ctrl+Z</kbd>
+            <kbd className="ml-auto text-[10px] bg-muted px-1 rounded-sm">Ctrl+Z</kbd>
           </Button>
           <Button 
             onClick={redo} 
@@ -204,7 +203,7 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
           >
             <Redo2 className="h-3.5 w-3.5" />
             <span>Redo</span>
-            <kbd className="ml-auto text-[10px] bg-muted px-1 rounded">Ctrl+Y</kbd>
+            <kbd className="ml-auto text-[10px] bg-muted px-1 rounded-sm">Ctrl+Y</kbd>
           </Button>
         </div>
       </div>

@@ -65,7 +65,7 @@ function AssetButton({ url, onSelect, disabled, mobile }: { url: string, onSelec
       }}
       disabled={disabled}
       className={cn(
-        "group relative overflow-hidden rounded-lg border border-white/10 bg-black/20 hover:border-primary/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95",
+        "group relative overflow-hidden rounded-lg border border-white/10 bg-black/20 hover:border-primary/50 transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95",
         // Changed aspect-square to aspect-[3/4] for better fashion framing
         mobile ? "w-24 h-32 flex-shrink-0 touch-manipulation" : "w-full aspect-[3/4]"
       )}
@@ -83,7 +83,7 @@ function AssetButton({ url, onSelect, disabled, mobile }: { url: string, onSelec
       
       {/* Hover Overlay */}
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
-        <div className="opacity-0 group-hover:opacity-100 bg-background/95 backdrop-blur-sm rounded-full p-1.5 shadow-sm transform scale-75 group-hover:scale-100 transition-all duration-200">
+        <div className="opacity-0 group-hover:opacity-100 bg-background/95 backdrop-blur-xs rounded-full p-1.5 shadow-xs transform scale-75 group-hover:scale-100 transition-all duration-200">
           <ArrowRight className="w-3 h-3 text-primary" />
         </div>
       </div>

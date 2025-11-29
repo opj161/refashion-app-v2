@@ -214,7 +214,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
     <>
       {/* Global drag overlay */}
       {isDraggingOverPage && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm pointer-events-none">
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-xs pointer-events-none">
           <UploadCloud 
             className="h-24 w-24 text-primary"
             style={{ animation: 'var(--motion-bounce-subtle) infinite' }}
@@ -223,7 +223,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
         </div>
       )}
 
-      <Card className="overflow-hidden border-white/10 bg-card/30 backdrop-blur-sm shadow-xl">
+      <Card className="overflow-hidden border-white/10 bg-card/30 backdrop-blur-xs shadow-xl">
         <CardHeader className="pb-4">
           <CardTitle className="text-xl flex items-center gap-2">
             <UploadCloud className="h-6 w-6 text-primary" />

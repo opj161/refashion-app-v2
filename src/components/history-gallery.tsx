@@ -292,7 +292,7 @@ export default function HistoryGallery({
                   {/* Modals are kept here to benefit from LayoutGroup */}
                   <AnimatePresence>
                     {detailItem && itemIsVideo(detailItem) && (
-                      <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+                      <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
                         <VideoPlaybackModal
                           item={detailItem}
                           onClose={() => setDetailItem(null)}
@@ -302,7 +302,7 @@ export default function HistoryGallery({
                   </AnimatePresence>
                   <AnimatePresence>
                     {detailItem && !itemIsVideo(detailItem) && (
-                      <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+                      <Suspense fallback={<div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
                         <ImageViewerModal
                           isOpen={!!detailItem}
                           onClose={() => setDetailItem(null)}

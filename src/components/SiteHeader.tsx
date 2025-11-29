@@ -36,7 +36,7 @@ export function SiteHeader() {
         'sticky top-0 z-50 w-full transition-all duration-300 ease-in-out',
         isScrolled
           ? 'border-b border-border/20 bg-background/95 backdrop-blur-md'
-          : 'border-b border-transparent bg-background/80 backdrop-blur-sm'
+          : 'border-b border-transparent bg-background/80 backdrop-blur-xs'
       )}
     >
       {/* 2. CENTRALIZATION: Use h-header from config */}

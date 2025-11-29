@@ -20,7 +20,7 @@ export function HistoryCardSkeleton() {
         {/* Content skeleton */}
         <div className="p-4 space-y-3">
           {/* Date skeleton */}
-          <div className="h-3 bg-muted rounded w-24" />
+          <div className="h-3 bg-muted rounded-sm w-24" />
           
           {/* Attributes skeletons */}
           <div className="flex flex-wrap gap-1.5">
@@ -31,9 +31,9 @@ export function HistoryCardSkeleton() {
 
           {/* Action buttons skeleton */}
           <div className="flex gap-2 pt-2">
-            <div className="h-8 bg-muted rounded flex-1" />
-            <div className="h-8 bg-muted rounded w-8" />
-            <div className="h-8 bg-muted rounded w-8" />
+            <div className="h-8 bg-muted rounded-sm flex-1" />
+            <div className="h-8 bg-muted rounded-sm w-8" />
+            <div className="h-8 bg-muted rounded-sm w-8" />
           </div>
         </div>
       </CardContent>

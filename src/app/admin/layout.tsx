@@ -20,7 +20,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <>
-      <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur-sm z-50">
+      <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur-xs z-50">
         <div className="container mx-auto flex justify-between items-center max-w-7xl h-16 px-4">
             <div className="flex items-center gap-2 sm:gap-4">
                 <div className="md:hidden">
