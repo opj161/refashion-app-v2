@@ -54,7 +54,8 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
     upscaleEnabled, 
     setUpscaleEnabled,
     faceDetailEnabled, 
-    setFaceDetailEnabled 
+    setFaceDetailEnabled,
+    setActiveImagePrompt // NEW
   } = useGenerationSettingsStore(
     useShallow(s => ({ 
       imageSettings: s.imageSettings,
@@ -68,7 +69,8 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
       upscaleEnabled: s.upscaleEnabled, 
       setUpscaleEnabled: s.setUpscaleEnabled,
       faceDetailEnabled: s.faceDetailEnabled, 
-      setFaceDetailEnabled: s.setFaceDetailEnabled
+      setFaceDetailEnabled: s.setFaceDetailEnabled,
+      setActiveImagePrompt: s.setActiveImagePrompt
     }))
   );
 
@@ -109,6 +111,11 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
     generationType: 'image',
     generationParams: currentImageGenParams,
   });
+
+  // NEW: Sync prompt to store for submission hook
+  useEffect(() => {
+    setActiveImagePrompt(currentPrompt);
+  }, [currentPrompt, setActiveImagePrompt]);
 
   useEffect(() => {
     isFaceDetailerAvailable().then(setIsFaceDetailerServiceAvailable);

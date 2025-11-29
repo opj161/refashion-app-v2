@@ -43,14 +43,14 @@ export function SiteHeader() {
       <div className="container mx-auto flex max-w-7xl items-center justify-between px-4 h-header">
         {/* Left Side: Branding */}
         <Link href="/" prefetch={true} className="flex items-center gap-3 text-foreground group">
-          <LogoSvg className="h-10 w-auto text-foreground transition-transform duration-300 group-hover:scale-105" />
+          <LogoSvg className="h-16 w-auto text-foreground transition-transform duration-300 group-hover:scale-105" />
           {/* <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-gradient-end bg-clip-text text-transparent">
             Refashion AI
             </span> */}
         </Link>
 
         {/* Right Side: Actions & User Menu */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-2">
             {user?.role === 'admin' && (

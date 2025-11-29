@@ -51,10 +51,10 @@
     --border: 210 27.9% 16.9%;
     --input: 210 27.9% 16.9%;
     --ring: 173 71% 42%;
-    --radius: 1.25rem;
+    --radius: 0.75rem;
 
     /* Layout variables */
-    --header-height: 4rem; /* 64px */
+    --header-height: 7rem; /* 64px */
     --content-offset: var(--header-height);
   }
 

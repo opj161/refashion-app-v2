@@ -34,7 +34,7 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "flex h-auto items-center justify-center gap-2",
+      "inline-flex h-12 items-center justify-center rounded-xl bg-muted/20 p-1 text-muted-foreground backdrop-blur-sm border border-white/5",
       className
     )}
     {...props}
@@ -58,7 +58,10 @@ const TabsTrigger = React.forwardRef<
       value={value}
       className={cn(
         // Removed strict bg-muted/40 to allow overrides via className props for better visual harmony
-        "relative flex items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-muted-foreground hover:text-foreground",
+        "relative inline-flex items-center justify-center whitespace-nowrap rounded-lg px-6 py-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+        isActive 
+          ? "text-white shadow-sm" 
+          : "text-muted-foreground hover:text-foreground hover:bg-white/5",
         className
       )}
       {...props}
@@ -67,7 +70,7 @@ const TabsTrigger = React.forwardRef<
       {isActive && (
         <motion.div
           layoutId="active-tab-indicator"
-          className="absolute inset-0 z-0 rounded-full bg-gradient-to-br from-primary to-primary-gradient-end shadow-lg shadow-primary/20"
+          className="absolute inset-0 z-0 rounded-lg bg-gradient-to-br from-primary to-primary-gradient-end shadow-lg shadow-primary/20"
           transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
         />
       )}

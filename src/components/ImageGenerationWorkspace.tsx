@@ -27,6 +27,7 @@ export function ImageGenerationWorkspace({
   // NEW: Use centralized submission logic
   const { submit, isPending } = useStoreSubmission<ImageGenerationFormState>(
     generateImageAction,
+    'image', // NEW Type
     { message: '' }
   );
 
@@ -41,8 +42,11 @@ export function ImageGenerationWorkspace({
 
   return (
     <div className="space-y-6">
-      {/* Replaced <form> with <div> as data is gathered from store */}
-      <div onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}>
+      {/* RESTORED: Form for accessibility, but intercept submit to use store logic */}
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={generationMode}
@@ -68,7 +72,7 @@ export function ImageGenerationWorkspace({
             )}
           </motion.div>
         </AnimatePresence>
-      </div>
+      </form>
 
       <div ref={resultsRef}>
         {isPending && (

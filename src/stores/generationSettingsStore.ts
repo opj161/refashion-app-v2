@@ -29,6 +29,10 @@ export interface GenerationSettingsState {
   backgroundRemovalEnabled: boolean;
   upscaleEnabled: boolean;
   faceDetailEnabled: boolean;
+  
+  // NEW: Active Prompts (Synced from UI)
+  activeImagePrompt: string;
+  activeVideoPrompt: string;
 
   // NEW: Bridge State
   // Stores the ID of the most recently started generation job
@@ -48,6 +52,10 @@ export interface GenerationSettingsActions {
   setUpscaleEnabled: (enabled: boolean) => void;
   setFaceDetailEnabled: (enabled: boolean) => void;
   loadFromHistory: (item: HistoryItem) => void;
+
+  // NEW: Prompt Setters
+  setActiveImagePrompt: (prompt: string) => void;
+  setActiveVideoPrompt: (prompt: string) => void;
 
   // NEW: Action to update the bridge state
   setCurrentResultId: (id: string | null) => void;
@@ -100,6 +108,8 @@ const initialState: GenerationSettingsState = {
   upscaleEnabled: false,
   faceDetailEnabled: false,
   // NEW: Initialize null
+  activeImagePrompt: "",
+  activeVideoPrompt: "",
   currentResultId: null,
 };
 
@@ -174,6 +184,12 @@ export const useGenerationSettingsStore = create<GenerationSettingsState & Gener
           }
           return newState;
         }, false, 'loadFromHistory'),
+
+      setActiveImagePrompt: (prompt) => 
+        set({ activeImagePrompt: prompt }, false, 'setActiveImagePrompt'),
+
+      setActiveVideoPrompt: (prompt) => 
+        set({ activeVideoPrompt: prompt }, false, 'setActiveVideoPrompt'),
 
       // NEW: Implementation
       setCurrentResultId: (id) =>

@@ -38,7 +38,7 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
         <ThemeProvider>
           <ErrorBoundary>
             <SiteHeader />
-            <main className="flex-1 flex flex-col pt-header">
+            <main className="flex-1 flex flex-col">
               <PageTransitionWrapper>{children}</PageTransitionWrapper>
             </main>
             <Toaster />

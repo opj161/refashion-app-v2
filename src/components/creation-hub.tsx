@@ -132,31 +132,31 @@ function CreationHubContent({
     <div className="space-y-8">
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
         {/* === START: INTEGRATED LAYOUT === */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col">
           {/* Main Tabs - Refactored for Floating Pill Look with Grid Layout */}
-          <TabsList className="w-full grid grid-cols-3 h-auto gap-2 bg-transparent p-0">
+          <TabsList className="w-full flex h-16 p-1 bg-muted/20 rounded-xl">
             <TabsTrigger 
               value="image" 
-              className="w-full py-3 text-sm sm:text-base shadow-none data-[state=inactive]:bg-muted/40 data-[state=inactive]:hover:bg-muted/60"
+              className="flex-1 text-base font-medium h-full rounded-lg"
             >
               🖼️ Image
             </TabsTrigger>
             <TabsTrigger 
               value="video" 
-              className="w-full py-3 text-sm sm:text-base shadow-none data-[state=inactive]:bg-muted/40 data-[state=inactive]:hover:bg-muted/60"
+              className="flex-1 text-base font-medium h-full rounded-lg"
             >
               🎥 Video
             </TabsTrigger>
             <TabsTrigger 
               value="history" 
-              className="w-full py-3 text-sm sm:text-base shadow-none data-[state=inactive]:bg-muted/40 data-[state=inactive]:hover:bg-muted/60"
+              className="flex-1 text-base font-medium h-full rounded-lg"
             >
               📃 History
             </TabsTrigger>
           </TabsList>
 
           {/* Mode Switcher Container - Refactored */}
-          <div className="relative w-full min-h-[3rem] flex">
+          <div className="relative w-full min-h-[3rem] flex mt-2">
             <AnimatePresence mode="wait">
               {currentTab === 'image' && (
                 <motion.div 
@@ -165,14 +165,14 @@ function CreationHubContent({
                   initial="hidden"
                   animate="visible"
                   exit="exit"
-                  className="w-full"
+                  className="w-full flex justify-center"
                 >
                   <SegmentedControl
                     value={generationMode}
                     onValueChange={(mode) => {
                       if (mode) setGenerationMode(mode as 'creative' | 'studio');
                     }}
-                    className="w-full p-1 bg-muted/40 rounded-full border border-white/5"
+                    className="w-auto min-w-[300px] p-1 bg-muted/30 rounded-xl border border-white/5"
                   >
                     <SegmentedControlItem value="studio" className="flex-1 py-2">
                       <Camera className="h-4 w-4 mr-2" /> Studio Mode
@@ -190,12 +190,12 @@ function CreationHubContent({
                   initial="hidden"
                   animate="visible"
                   exit="exit"
-                  className="w-full"
+                  className="w-full flex justify-center"
                 >
                   <SegmentedControl
                     value={historyFilter}
                     onValueChange={(value) => setHistoryFilter((value || 'all') as 'all' | 'image' | 'video')}
-                    className="w-full p-1 bg-muted/40 rounded-full border border-white/5"
+                    className="w-auto min-w-[300px] p-1 bg-muted/30 rounded-xl border border-white/5"
                     aria-label="Filter history items"
                   >
                     <SegmentedControlItem value="all" className="flex-1 py-2">
@@ -213,7 +213,7 @@ function CreationHubContent({
             </AnimatePresence>
           </div>
         </div>
-        {/* === END: INTEGRATED LAYOUT === */}        <TabsContent value="image" className="space-y-6 mt-5" forceMount>
+        {/* === END: INTEGRATED LAYOUT === */}        <TabsContent value="image" className="space-y-6 mt-8" forceMount>
           <ImagePreparationContainer
             preparationMode="image"
             onReset={handleReset}
@@ -229,7 +229,7 @@ function CreationHubContent({
           />
         </TabsContent>
 
-        <TabsContent value="video" className="space-y-6 mt-5" forceMount>
+        <TabsContent value="video" className="space-y-6 mt-8" forceMount>
           <ImagePreparationContainer
             preparationMode="video"
             onReset={handleReset}
@@ -238,7 +238,7 @@ function CreationHubContent({
           <VideoParameters />
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-6 mt-5" forceMount>
+        <TabsContent value="history" className="space-y-6 mt-8" forceMount>
           {enhancedChildren}
         </TabsContent>
       </Tabs>

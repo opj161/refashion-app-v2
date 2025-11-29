@@ -34,10 +34,12 @@ export default function VideoParameters() {
 
   const videoSettings = useGenerationSettingsStore(state => state.videoSettings);
   const setVideoSettings = useGenerationSettingsStore(state => state.setVideoSettings);
+  const setActiveVideoPrompt = useGenerationSettingsStore(state => state.setActiveVideoPrompt); // NEW
 
   // NEW: Use Hook
   const { submit, isPending } = useStoreSubmission<VideoGenerationFormState>(
     generateVideoAction,
+    'video', // NEW Type
     { message: '' }
   );
 
@@ -73,6 +75,11 @@ export default function VideoParameters() {
     generationType: 'video',
     generationParams: videoSettings as any,
   });
+
+  // NEW: Sync prompt to store for submission hook
+  useEffect(() => {
+    setActiveVideoPrompt(currentPrompt);
+  }, [currentPrompt, setActiveVideoPrompt]);
 
   const commonFormDisabled = isPending || !isServiceAvailable || !preparedImageUrl;
 

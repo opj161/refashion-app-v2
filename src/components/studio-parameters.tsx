@@ -51,7 +51,15 @@ export default function StudioParameters({ isPending, maxImages = 3, userModel, 
           <AnimatePresence>
             {!isImageReady && (
               <motion.div variants={COMMON_VARIANTS.slideDownAndFade} initial="hidden" animate="visible" exit="exit">
-                <Alert><Info className="h-4 w-4" /><AlertTitle>Image Required</AlertTitle><AlertDescription>Please prepare an image first.</AlertDescription></Alert>
+                <Alert className="py-2 bg-blue-500/10 border-blue-500/20 text-blue-200">
+                  <div className="flex items-center gap-3">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle className="mb-0 text-sm">Image Required</AlertTitle>
+                  </div>
+                  <AlertDescription className="text-xs mt-0 ml-7">
+                    Please prepare an image first.
+                  </AlertDescription>
+                </Alert>
               </motion.div>
             )}
           </AnimatePresence>
@@ -85,7 +93,11 @@ export default function StudioParameters({ isPending, maxImages = 3, userModel, 
         </CardContent>
         <CardFooter>
           {/* UPDATED: Button uses onClick={onSubmit} */}
-          <Button onClick={onSubmit} disabled={isPending || !isImageReady} className="w-full text-lg h-14">
+          <Button
+            onClick={onSubmit}
+            disabled={isPending || !isImageReady}
+            className="w-full text-base h-11 font-semibold"
+          >
             {isPending ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating...</> : <><Sparkles className="mr-2 h-5 w-5" /> Generate {maxImages} Image{maxImages > 1 ? 's' : ''}</>}
           </Button>
         </CardFooter>

@@ -8,6 +8,7 @@ type ActionFunction = (prevState: any, formData: FormData) => Promise<any>;
 
 export function useStoreSubmission<T extends { message: string; error?: string; newHistoryId?: string; historyItemId?: string; editedImageUrls?: (string | null)[]; errors?: (string | null)[] }>(
     serverAction: ActionFunction,
+    submissionType: 'image' | 'video',
     initialState: T
 ) {
     const { toast } = useToast();
@@ -37,6 +38,13 @@ export function useStoreSubmission<T extends { message: string; error?: string; 
             // Compatibility for different action signatures
             formData.append('imageDataUriOrUrl', activeImage.imageUrl);
             formData.append('localImagePath', activeImage.imageUrl);
+        }
+
+        // NEW: Append Prompt based on type
+        if (submissionType === 'image' && genState.generationMode === 'creative') {
+            formData.append('manualPrompt', genState.activeImagePrompt);
+        } else if (submissionType === 'video') {
+            formData.append('prompt', genState.activeVideoPrompt);
         }
 
         // 2. Append General Settings

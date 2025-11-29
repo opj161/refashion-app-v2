@@ -16,7 +16,7 @@ export function RecentAssetsPanel({ images, onSelect, disabled }: RecentAssetsPa
   if (images.length === 0) return null;
 
   return (
-    <div className="flex flex-col h-full lg:border-l border-white/10 lg:pl-6 pt-6 lg:pt-0">
+    <div className="flex flex-col h-full lg:border-l border-white/10 lg:pl-6 pt-0 lg:pt-0">
       <div className="flex items-center justify-between mb-4 px-1">
          <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
            <Clock className="w-3.5 h-3.5" />

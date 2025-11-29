@@ -43,7 +43,7 @@ export default async function CreatePage() {
   console.log(`[CreatePage] maxImages determined: ${maxImages}`);
 
   return (
-    <div className="container mx-auto max-w-7xl px-4 pt-5 pb-10 space-y-8">
+    <div className="container mx-auto max-w-7xl px-4 pb-10 space-y-8">
       {/* CreationHub now manages state entirely on the client */}
       <CreationHub maxImages={maxImages} recentUploads={recentUploads} userModel={userModel}>
         <Suspense fallback={<HistoryGallerySkeleton />}>
