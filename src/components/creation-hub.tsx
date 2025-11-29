@@ -133,30 +133,30 @@ function CreationHubContent({
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
         {/* === START: INTEGRATED LAYOUT === */}
         <div className="flex flex-col gap-6">
-          {/* Main Tabs - Refactored for Floating Pill Look */}
-          <TabsList className="w-full flex h-auto p-1 bg-muted/40 rounded-full border border-white/5 backdrop-blur-sm">
+          {/* Main Tabs - Refactored for Floating Pill Look with Grid Layout */}
+          <TabsList className="w-full grid grid-cols-3 h-auto gap-2 bg-transparent p-0">
             <TabsTrigger 
               value="image" 
-              className="flex-1 py-3 text-sm sm:text-base data-[state=active]:bg-transparent"
+              className="w-full py-3 text-sm sm:text-base shadow-none data-[state=inactive]:bg-muted/40 data-[state=inactive]:hover:bg-muted/60"
             >
               🖼️ Image
             </TabsTrigger>
             <TabsTrigger 
               value="video" 
-              className="flex-1 py-3 text-sm sm:text-base data-[state=active]:bg-transparent"
+              className="w-full py-3 text-sm sm:text-base shadow-none data-[state=inactive]:bg-muted/40 data-[state=inactive]:hover:bg-muted/60"
             >
               🎥 Video
             </TabsTrigger>
             <TabsTrigger 
               value="history" 
-              className="flex-1 py-3 text-sm sm:text-base data-[state=active]:bg-transparent"
+              className="w-full py-3 text-sm sm:text-base shadow-none data-[state=inactive]:bg-muted/40 data-[state=inactive]:hover:bg-muted/60"
             >
               📃 History
             </TabsTrigger>
           </TabsList>
 
           {/* Mode Switcher Container - Refactored */}
-          <div className="relative w-full min-h-[3rem] flex justify-center">
+          <div className="relative w-full min-h-[3rem] flex">
             <AnimatePresence mode="wait">
               {currentTab === 'image' && (
                 <motion.div 
@@ -165,7 +165,7 @@ function CreationHubContent({
                   initial="hidden"
                   animate="visible"
                   exit="exit"
-                  className="w-full max-w-md"
+                  className="w-full"
                 >
                   <SegmentedControl
                     value={generationMode}
@@ -190,7 +190,7 @@ function CreationHubContent({
                   initial="hidden"
                   animate="visible"
                   exit="exit"
-                  className="w-full max-w-md"
+                  className="w-full"
                 >
                   <SegmentedControl
                     value={historyFilter}

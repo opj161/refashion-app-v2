@@ -1,6 +1,5 @@
 import { satoshi } from '@/lib/fonts';
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import 'react-image-crop/dist/ReactCrop.css';
 import './globals.css';
 import { getCurrentUser } from '@/actions/authActions';
@@ -17,7 +16,6 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false, // Prevents zooming issues on input focus on iOS
-  themeColor: '#020410',
 };
 
 export const metadata: Metadata = {
@@ -42,53 +40,8 @@ export default async function RootLayout({
   const initialUser: SessionUser | null = await getCurrentUser();
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <meta name="theme-color" content="#020410" />
-        <meta name="color-scheme" content="dark" />
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            html, body { 
-              background-color: hsl(224, 71%, 4%) !important; 
-              margin: 0; 
-              padding: 0; 
-            }
-          `
-        }} />
-        <Script id="theme-init-script" strategy="beforeInteractive">
-          {`
-            (function() {
-              function setTheme() {
-                try {
-                  const theme = localStorage.getItem('theme');
-                  const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  const shouldBeDark = theme === 'dark' || (theme === 'system' && systemPrefersDark) || (!theme && true);
-                  const root = document.documentElement;
-                  
-                  root.classList.remove('light', 'dark');
-                  if (shouldBeDark) {
-                    root.classList.add('dark');
-                  } else {
-                    root.classList.add('light');
-                  }
-                } catch (e) {
-                  console.error("Error setting initial theme:", e);
-                  document.documentElement.classList.add('dark');
-                }
-              }
-              setTheme();
-            })();
-          `}
-        </Script>
-      </head>
-      <body
-        className={`antialiased bg-gradient-to-br from-background-accent to-background text-foreground flex flex-col min-h-screen ${initialTheme} ${satoshi.variable}`}
-        style={{
-          '--font-geist-sans': 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
-          '--font-geist-mono': 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-        } as React.CSSProperties}
-      >
-        {/* The entire body content is now a Client Component, receiving server data as props */}
+    <html lang="en" className={`${initialTheme} ${satoshi.variable}`} suppressHydrationWarning>
+      <body className="antialiased bg-gradient-to-br from-background-accent to-background text-foreground flex flex-col min-h-screen" suppressHydrationWarning>
         <AppBody initialUser={initialUser}>{children}</AppBody>
       </body>
     </html>

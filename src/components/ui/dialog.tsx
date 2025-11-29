@@ -50,8 +50,7 @@ const DialogContent = React.forwardRef<
         "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground",
         variant === 'fullscreen' && "z-[60] bg-black/20 p-2 rounded-full text-white hover:bg-black/40 hover:text-white"
       )}>
-        {/* REFACTOR: h-5 w-5 -> size-5 */}
-        <X className="size-5" />
+        <X className="size-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>

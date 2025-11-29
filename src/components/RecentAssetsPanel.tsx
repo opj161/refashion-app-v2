@@ -66,7 +66,8 @@ function AssetButton({ url, onSelect, disabled, mobile }: { url: string, onSelec
       disabled={disabled}
       className={cn(
         "group relative overflow-hidden rounded-lg border border-white/10 bg-black/20 hover:border-primary/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95",
-        mobile ? "w-24 h-24 flex-shrink-0 touch-manipulation" : "w-full aspect-square"
+        // Changed aspect-square to aspect-[3/4] for better fashion framing
+        mobile ? "w-24 h-32 flex-shrink-0 touch-manipulation" : "w-full aspect-[3/4]"
       )}
       title="Use this image"
       type="button"
@@ -75,7 +76,8 @@ function AssetButton({ url, onSelect, disabled, mobile }: { url: string, onSelec
         src={getDisplayableImageUrl(url) || ''}
         alt="Recent upload"
         fill
-        className="object-cover transition-transform duration-500 group-hover:scale-110"
+        // Changed from center default to object-top to prioritize faces/shoulders
+        className="object-cover object-top transition-transform duration-500 group-hover:scale-110"
         sizes="(max-width: 768px) 80px, 150px"
       />
       

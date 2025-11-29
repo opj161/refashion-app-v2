@@ -29,7 +29,7 @@ export function UserMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         {/* REFACTOR: h-8 w-8 -> size-8 */}
-        <Button variant="ghost" className="relative size-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-semibold">
+        <Button variant="ghost" className="relative size-8 rounded-full bg-gradient-to-r from-primary to-primary-gradient-end text-white text-sm font-semibold">
           {user.username.charAt(0).toUpperCase()}
         </Button>
       </DropdownMenuTrigger>

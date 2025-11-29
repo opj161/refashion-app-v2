@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
+import LogoSvg from '../../public/refashion.svg';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ThemeToggleImproved } from '@/components/ui/ThemeToggleImproved';
@@ -42,15 +43,7 @@ export function SiteHeader() {
       <div className="container mx-auto flex max-w-7xl items-center justify-between px-4 h-header">
         {/* Left Side: Branding */}
         <Link href="/" prefetch={true} className="flex items-center gap-3 text-foreground group">
-          <Image
-            src="/refashion.svg"
-            alt="Refashion AI logo"
-            width={100}
-            height={60}
-            // Bonus: Standardize height
-            className="h-16 w-auto transition-transform duration-300 group-hover:scale-105"
-            priority
-          />
+          <LogoSvg className="h-10 w-auto text-foreground transition-transform duration-300 group-hover:scale-105" />
           {/* <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-gradient-end bg-clip-text text-transparent">
             Refashion AI
             </span> */}

@@ -28,7 +28,7 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
 
   return (
     <LazyMotion features={domAnimation}>
-      <div className="aurora-bg"></div>
+      <div className="aurora-bg" />
       {/* Splash screen overlay: controlled by client-side hydration state */}
       <div className={cn("splash-screen", isHydrated && "hidden")}> 
         <AnimatedLogo animationType="aurora" />
@@ -38,8 +38,7 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
         <ThemeProvider>
           <ErrorBoundary>
             <SiteHeader />
-            {/* Use separate content offset variable to control spacing independently of header height */}
-            <main className="flex-1 flex flex-col" style={{ paddingTop: 'var(--content-offset)' }}>
+            <main className="flex-1 flex flex-col pt-header">
               <PageTransitionWrapper>{children}</PageTransitionWrapper>
             </main>
             <Toaster />
