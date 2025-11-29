@@ -52,6 +52,7 @@
   --animate-progress-ribbings: progress-ribbings 2s linear infinite;
   --animate-progress-pulsation: progress-pulsation 1.5s infinite;
   --animate-progress-completion: progress-completion 1s ease-in-out;
+  --animate-progress-stripes: progress-stripes 1s linear infinite;
   --animate-shimmer: shimmer 3s infinite linear;
 
   /* Missing animations from old globals.css */

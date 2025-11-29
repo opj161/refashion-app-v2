@@ -219,7 +219,7 @@ export default function HistoryCard({
       layoutId={`history-card-${item.id}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -6, transition: { duration: 0.2 } }}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 260, damping: 20 }}
       className="h-full"
@@ -228,12 +228,12 @@ export default function HistoryCard({
         ref={cardRef}
         variant="glass"
         className={cn(
-          "h-full group overflow-hidden transition-all shadow-md",
-          "hover:shadow-xl hover:shadow-primary/10 hover:border-primary/40"
+          "h-full group overflow-hidden transition-all duration-300 border-white/5 shadow-md",
+          "hover:shadow-2xl hover:shadow-primary/5 hover:border-primary/20"
         )}
       >
         <div
-          className="relative aspect-[2/3] w-full bg-muted rounded-md overflow-hidden cursor-pointer group"
+          className="relative aspect-[2/3] w-full bg-muted/20 rounded-md overflow-hidden cursor-pointer group"
           onClick={handleCardClick}
           onKeyDown={handleCardKeyDown}
           role="button"
@@ -276,14 +276,18 @@ export default function HistoryCard({
           {/* FIX: Consolidate Badges to Top Left Container */}
           <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5 items-start">
             {/* REFACTOR: h-3 w-3 -> size-3 */}
-            <Badge variant={isVideoItem ? 'default' : 'secondary'} className="text-xs shadow-xs bg-black/60 backdrop-blur-md border-white/10 text-white hover:bg-black/70">
+            <Badge variant="secondary" className="text-xs font-medium shadow-sm bg-black/60 backdrop-blur-md border border-white/10 text-white/90">
               {isVideoItem ? <Video className="size-3 mr-1.5" /> : <ImageIcon className="size-3 mr-1.5" />}
               {isVideoItem ? "Video" : "Image"}
             </Badge>
           </div>
 
           {/* Overlay Actions */}
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end">
+          <div className={cn(
+            "absolute inset-0 bg-black/40 transition-opacity duration-300 flex flex-col justify-end",
+            "opacity-0 group-hover:opacity-100",
+            "focus-within:opacity-100"
+          )}>
             <div className="w-full p-2 flex justify-end items-start gap-1 bg-gradient-to-b from-black/60 via-black/20 to-transparent pb-8">
               <TooltipProvider>
                 <Tooltip>
@@ -333,15 +337,19 @@ export default function HistoryCard({
             </div>
           </div>
 
-          {/* Bottom Metadata with stronger gradient */}
-          <div className="p-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-10 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
-            <p className="text-sm font-semibold truncate" title={item.constructedPrompt}>
-              {item.constructedPrompt}
+          {/* Bottom Metadata - Always visible gradient for readability */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 pt-12 bg-gradient-to-t from-black/80 via-black/50 to-transparent text-white">
+            <p className="text-sm font-semibold truncate tracking-tight text-white/95" title={item.constructedPrompt}>
+              {item.constructedPrompt || "Untitled Generation"}
             </p>
-            <p className="text-xs text-white/80" suppressHydrationWarning>
-              {new Date(item.timestamp).toLocaleString()}
-              {username && <span className="font-semibold"> by {username}</span>}
-            </p>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-[10px] text-white/70 font-medium" suppressHydrationWarning>
+                {new Date(item.timestamp).toLocaleDateString()}
+                {username && <span className="ml-1">by {username}</span>}
+              </p>
+              {/* Mobile-friendly indicator that this is clickable */}
+              <Eye className="size-3 text-white/50 lg:hidden" />
+            </div>
           </div>
         </div>
       </Card>
