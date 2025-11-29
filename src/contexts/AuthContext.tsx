@@ -31,10 +31,12 @@ export const AuthProvider = ({ children, initialUser }: AuthProviderProps) => {
   // 2. The only "loading" state is for manual refreshes, not initial load.
   const [loading, setLoading] = useState(false);
 
-  // 3. This effect is now only for syncing with layout re-renders, not for fetching.
+  // FIX: Prevent infinite updates by checking if data actually changed
   useEffect(() => {
-    setUser(initialUser);
-  }, [initialUser]);
+    if (JSON.stringify(user) !== JSON.stringify(initialUser)) {
+       setUser(initialUser);
+    }
+  }, [initialUser, user]);
 
   // The refreshUser function remains to allow explicit session re-fetching.
   const refreshUser = useCallback(async () => {

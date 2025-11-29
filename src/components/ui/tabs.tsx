@@ -15,7 +15,7 @@ const TabsContext = React.createContext<{
 
 // 2. Tabs component provides the active tab value to context
 const Tabs = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Root>,
+  React.ComponentRef<typeof TabsPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root>
 >(({ value, ...props }, ref) => (
   <TabsPrimitive.Root ref={ref} value={value} {...props}>
@@ -28,13 +28,13 @@ Tabs.displayName = TabsPrimitive.Root.displayName
 
 // 3. TabsList wraps children in LayoutGroup for shared layout animations
 const TabsList = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.List>,
+  React.ComponentRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
 >(({ className, children, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "relative inline-flex h-12 items-center justify-center rounded-xl bg-muted p-0",
+      "inline-flex items-center justify-center rounded-full bg-muted/50 border border-white/5 p-1 text-muted-foreground",
       className
     )}
     {...props}
@@ -46,7 +46,7 @@ TabsList.displayName = TabsPrimitive.List.displayName
 
 // 4. TabsTrigger uses context to determine if it's active and renders the indicator
 const TabsTrigger = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Trigger>,
+  React.ComponentRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
 >(({ className, children, value, ...props }, ref) => {
   const { activeTab } = React.useContext(TabsContext)
@@ -57,20 +57,20 @@ const TabsTrigger = React.forwardRef<
       ref={ref}
       value={value}
       className={cn(
-        "relative inline-flex items-center justify-center whitespace-nowrap rounded-xl px-6 py-2.5 text-base font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+        "relative inline-flex items-center justify-center whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
         isActive
-          ? "text-primary-foreground [text-shadow:0_1px_2px_theme(colors.black/60%)]"
-          : "text-muted-foreground hover:text-foreground",
+          ? "text-white"
+          : "text-muted-foreground hover:text-foreground hover:bg-white/5",
         className
       )}
       {...props}
     >
-      <span className="relative z-10">{children}</span>
+      <span className="relative z-10 flex items-center gap-2">{children}</span>
       {isActive && (
         <motion.div
           layoutId="active-tab-indicator"
-          className="absolute inset-0 z-0 rounded-xl bg-gradient-to-br from-primary to-primary-gradient-end"
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className="absolute inset-0 z-0 rounded-full bg-gradient-to-br from-primary/80 to-primary-gradient-end/80 shadow-lg shadow-primary/20"
+          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
         />
       )}
     </TabsPrimitive.Trigger>
@@ -79,7 +79,7 @@ const TabsTrigger = React.forwardRef<
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
 const TabsContent = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Content>,
+  React.ComponentRef<typeof TabsPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content

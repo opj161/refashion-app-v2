@@ -12,6 +12,7 @@ import { ImageResultSkeleton } from './ImageResultSkeleton';
 import { useGenerationSettingsStore } from '@/stores/generationSettingsStore';
 import { useImageStore } from '@/stores/imageStore';
 import { useSmartPolling } from '@/hooks/useSmartPolling';
+import { useShallow } from 'zustand/react/shallow';
 
 interface ImageResultsDisplayProps {
   // Optional: kept for backward compatibility but logic prefers store
@@ -26,7 +27,8 @@ export function ImageResultsDisplay({
   onLoadImageUrl,
   maxImages = 3
 }: ImageResultsDisplayProps) {
-  const { initializeFromUrl } = useImageStore();
+  // OPTIMIZATION: Select only needed action
+  const initializeFromUrl = useImageStore(useShallow(state => state.initializeFromUrl));
 
   // 1. Bridge Pattern: Subscribe to global ID
   const currentResultId = useGenerationSettingsStore(state => state.currentResultId);

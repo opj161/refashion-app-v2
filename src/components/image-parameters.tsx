@@ -16,6 +16,7 @@ import { usePromptManager } from '@/hooks/usePromptManager';
 import { Textarea } from '@/components/ui/textarea';
 import { useImageStore } from "@/stores/imageStore";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
+import { useShallow } from 'zustand/react/shallow';
 import {
   FASHION_STYLE_OPTIONS, GENDER_OPTIONS, AGE_RANGE_OPTIONS, ETHNICITY_OPTIONS,
   BODY_SHAPE_AND_SIZE_OPTIONS, HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS,
@@ -40,16 +41,36 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
   const activeImage = activeVersionId ? versions[activeVersionId] : null;
   const preparedImageUrl = activeImage?.imageUrl || null;
 
-  // Store Access
-  const imageSettings = useGenerationSettingsStore(state => state.imageSettings);
-  const settingsMode = useGenerationSettingsStore(state => state.settingsMode);
-  const setImageSettings = useGenerationSettingsStore(state => state.setImageSettings);
-  const setSettingsModeStore = useGenerationSettingsStore(state => state.setSettingsMode);
-  const { studioAspectRatio, setStudioAspectRatio } = useGenerationSettingsStore(state => ({ studioAspectRatio: state.studioAspectRatio, setStudioAspectRatio: state.setStudioAspectRatio }));
-
-  const { backgroundRemovalEnabled, setBackgroundRemovalEnabled } = useGenerationSettingsStore(s => ({ backgroundRemovalEnabled: s.backgroundRemovalEnabled, setBackgroundRemovalEnabled: s.setBackgroundRemovalEnabled }));
-  const { upscaleEnabled, setUpscaleEnabled } = useGenerationSettingsStore(s => ({ upscaleEnabled: s.upscaleEnabled, setUpscaleEnabled: s.setUpscaleEnabled }));
-  const { faceDetailEnabled, setFaceDetailEnabled } = useGenerationSettingsStore(s => ({ faceDetailEnabled: s.faceDetailEnabled, setFaceDetailEnabled: s.setFaceDetailEnabled }));
+  // FIX: Consolidate store selectors with useShallow to prevent infinite loops
+  const { 
+    imageSettings,
+    settingsMode,
+    setImageSettings,
+    setSettingsModeStore,
+    studioAspectRatio,
+    setStudioAspectRatio,
+    backgroundRemovalEnabled, 
+    setBackgroundRemovalEnabled,
+    upscaleEnabled, 
+    setUpscaleEnabled,
+    faceDetailEnabled, 
+    setFaceDetailEnabled 
+  } = useGenerationSettingsStore(
+    useShallow(s => ({ 
+      imageSettings: s.imageSettings,
+      settingsMode: s.settingsMode,
+      setImageSettings: s.setImageSettings,
+      setSettingsModeStore: s.setSettingsMode,
+      studioAspectRatio: s.studioAspectRatio,
+      setStudioAspectRatio: s.setStudioAspectRatio,
+      backgroundRemovalEnabled: s.backgroundRemovalEnabled, 
+      setBackgroundRemovalEnabled: s.setBackgroundRemovalEnabled,
+      upscaleEnabled: s.upscaleEnabled, 
+      setUpscaleEnabled: s.setUpscaleEnabled,
+      faceDetailEnabled: s.faceDetailEnabled, 
+      setFaceDetailEnabled: s.setFaceDetailEnabled
+    }))
+  );
 
   const isNanoBanana = userModel === 'fal_nano_banana_pro';
 
@@ -78,8 +99,12 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
     setUseRandomization(false);
   };
 
-  // REMOVED: useMemo for currentImageGenParams. React Compiler handles object creation.
-  const currentImageGenParams = { ...imageSettings, settingsMode };
+  // FIX: Memoize currentImageGenParams to prevent usePromptManager from triggering re-renders
+  const currentImageGenParams = useMemo(() => ({ 
+    ...imageSettings, 
+    settingsMode 
+  }), [imageSettings, settingsMode]);
+  
   const { currentPrompt, isPromptManuallyEdited, handlePromptChange } = usePromptManager({
     generationType: 'image',
     generationParams: currentImageGenParams,

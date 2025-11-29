@@ -6,7 +6,9 @@ function Textarea({ className, ref, ...props }: React.ComponentProps<"textarea">
   return (
     <textarea
       className={cn(
-        "flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-card/50 dark:border-white/10 dark:placeholder:text-muted-foreground/60",
+        "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+         // Consistent glass style
+        "dark:bg-white/5 dark:border-white/20 dark:placeholder:text-white/40 dark:hover:border-white/30 transition-colors",
         className
       )}
       ref={ref}

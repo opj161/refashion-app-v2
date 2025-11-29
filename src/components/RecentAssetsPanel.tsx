@@ -16,14 +16,17 @@ export function RecentAssetsPanel({ images, onSelect, disabled }: RecentAssetsPa
   if (images.length === 0) return null;
 
   return (
-    <div className="flex flex-col h-full border-t md:border-t-0 md:border-l border-border/40 md:pl-5 pt-5 md:pt-0">
-      <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
-        <Clock className="w-3.5 h-3.5" />
-        <span>Recent Uploads</span>
+    <div className="flex flex-col h-full lg:border-l border-white/10 lg:pl-6 pt-6 lg:pt-0">
+      <div className="flex items-center justify-between mb-4 px-1">
+         <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+           <Clock className="w-3.5 h-3.5" />
+           <span>Recent</span>
+         </div>
+         <span className="text-[10px] text-muted-foreground/60 bg-white/5 px-2 py-0.5 rounded-full">Last 12</span>
       </div>
 
       {/* Desktop: Vertical Grid */}
-      <div className="hidden md:grid grid-cols-2 gap-3 overflow-y-auto max-h-[320px] pr-2 custom-scrollbar">
+      <div className="hidden lg:grid grid-cols-2 gap-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
         {images.map((url, i) => (
           <AssetButton 
             key={url} 
@@ -35,7 +38,7 @@ export function RecentAssetsPanel({ images, onSelect, disabled }: RecentAssetsPa
       </div>
 
       {/* Mobile: Horizontal Scroll */}
-      <ScrollArea className="md:hidden w-full whitespace-nowrap pb-2">
+      <ScrollArea className="lg:hidden w-full whitespace-nowrap pb-2">
         <div className="flex space-x-3">
           {images.map((url, i) => (
              <AssetButton 
@@ -62,7 +65,7 @@ function AssetButton({ url, onSelect, disabled, mobile }: { url: string, onSelec
       }}
       disabled={disabled}
       className={cn(
-        "group relative overflow-hidden rounded-md border border-border/50 bg-muted/30 hover:border-primary/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95",
+        "group relative overflow-hidden rounded-lg border border-white/10 bg-black/20 hover:border-primary/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95",
         mobile ? "w-24 h-24 flex-shrink-0 touch-manipulation" : "w-full aspect-square"
       )}
       title="Use this image"

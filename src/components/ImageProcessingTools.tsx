@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useImageStore } from "@/stores/imageStore";
 import { useToast } from "@/hooks/use-toast";
+import { useShallow } from 'zustand/react/shallow';
 import {
   isBackgroundRemovalAvailable as checkBgAvailable,
 } from "@/ai/actions/remove-background.action";
@@ -63,7 +64,7 @@ interface ImageProcessingToolsProps {
 export default function ImageProcessingTools({ preparationMode, disabled = false }: ImageProcessingToolsProps) {
   const { toast } = useToast();
   
-  // Use Zustand Store
+  // OPTIMIZATION: Use useShallow for granular selection
   const {
     versions,
     activeVersionId,
@@ -78,7 +79,23 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
     flipVertical,
     undo,
     redo,
-  } = useImageStore();
+  } = useImageStore(
+    useShallow(state => ({
+      versions: state.versions,
+      activeVersionId: state.activeVersionId,
+      versionHistory: state.versionHistory,
+      historyIndex: state.historyIndex,
+      removeBackground: state.removeBackground,
+      upscaleImage: state.upscaleImage,
+      faceDetailer: state.faceDetailer,
+      rotateImageLeft: state.rotateImageLeft,
+      rotateImageRight: state.rotateImageRight,
+      flipHorizontal: state.flipHorizontal,
+      flipVertical: state.flipVertical,
+      undo: state.undo,
+      redo: state.redo,
+    }))
+  );
   
   const activeImage = activeVersionId ? versions[activeVersionId] : null;
   const canUndo = historyIndex > 0;

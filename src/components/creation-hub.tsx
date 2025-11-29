@@ -132,63 +132,80 @@ function CreationHubContent({
     <div className="space-y-8">
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
         {/* === START: INTEGRATED LAYOUT === */}
-        <div className="bg-muted/30 p-1 rounded-lg flex flex-col items-center">
-          {/* Main Tabs */}
-          <TabsList className="grid w-full grid-cols-3 gap-2 bg-transparent p-1">
-            <TabsTrigger value="image" className="w-full text-sm sm:text-base">🖼️ Image</TabsTrigger>
-            <TabsTrigger value="video" className="w-full text-sm sm:text-base">🎥 Video</TabsTrigger>
-            <TabsTrigger value="history" className="w-full text-sm sm:text-base">📃 History</TabsTrigger>
+        <div className="flex flex-col gap-6">
+          {/* Main Tabs - Refactored for Floating Pill Look */}
+          <TabsList className="w-full flex h-auto p-1 bg-muted/40 rounded-full border border-white/5 backdrop-blur-sm">
+            <TabsTrigger 
+              value="image" 
+              className="flex-1 py-3 text-sm sm:text-base data-[state=active]:bg-transparent"
+            >
+              🖼️ Image
+            </TabsTrigger>
+            <TabsTrigger 
+              value="video" 
+              className="flex-1 py-3 text-sm sm:text-base data-[state=active]:bg-transparent"
+            >
+              🎥 Video
+            </TabsTrigger>
+            <TabsTrigger 
+              value="history" 
+              className="flex-1 py-3 text-sm sm:text-base data-[state=active]:bg-transparent"
+            >
+              📃 History
+            </TabsTrigger>
           </TabsList>
 
-          {/* Mode Switcher Container - Fixed height to prevent layout shift */}
-          <div className="relative w-full h-[3rem] mt-2">
+          {/* Mode Switcher Container - Refactored */}
+          <div className="relative w-full min-h-[3rem] flex justify-center">
             <AnimatePresence mode="wait">
               {currentTab === 'image' && (
-                <motion.div
+                <motion.div 
                   key="mode-selector"
                   variants={COMMON_VARIANTS.slideDownAndFade}
                   initial="hidden"
                   animate="visible"
                   exit="exit"
-                  className="absolute inset-0 flex items-center justify-center"
+                  className="w-full max-w-md"
                 >
                   <SegmentedControl
                     value={generationMode}
                     onValueChange={(mode) => {
                       if (mode) setGenerationMode(mode as 'creative' | 'studio');
                     }}
+                    className="w-full p-1 bg-muted/40 rounded-full border border-white/5"
                   >
-                    <SegmentedControlItem value="studio">
-                      <Camera className="h-4 w-4" /> Studio Mode
+                    <SegmentedControlItem value="studio" className="flex-1 py-2">
+                      <Camera className="h-4 w-4 mr-2" /> Studio Mode
                     </SegmentedControlItem>
-                    <SegmentedControlItem value="creative">
-                      <Sparkles className="h-4 w-4" /> Creative Mode
+                    <SegmentedControlItem value="creative" className="flex-1 py-2">
+                      <Sparkles className="h-4 w-4 mr-2" /> Creative Mode
                     </SegmentedControlItem>
                   </SegmentedControl>
                 </motion.div>
               )}
               {currentTab === 'history' && (
-                <motion.div
+                <motion.div 
                   key="history-filter"
                   variants={COMMON_VARIANTS.slideDownAndFade}
                   initial="hidden"
                   animate="visible"
                   exit="exit"
-                  className="absolute inset-0 flex items-center justify-center"
+                  className="w-full max-w-md"
                 >
                   <SegmentedControl
                     value={historyFilter}
                     onValueChange={(value) => setHistoryFilter((value || 'all') as 'all' | 'image' | 'video')}
+                    className="w-full p-1 bg-muted/40 rounded-full border border-white/5"
                     aria-label="Filter history items"
                   >
-                    <SegmentedControlItem value="all">
-                      <Grid3x3 className="h-4 w-4" /> All
+                    <SegmentedControlItem value="all" className="flex-1 py-2">
+                      <Grid3x3 className="h-4 w-4 mr-2" /> All
                     </SegmentedControlItem>
-                    <SegmentedControlItem value="image">
-                      <ImageIcon className="h-4 w-4" /> Images
+                    <SegmentedControlItem value="image" className="flex-1 py-2">
+                      <ImageIcon className="h-4 w-4 mr-2" /> Images
                     </SegmentedControlItem>
-                    <SegmentedControlItem value="video">
-                      <Video className="h-4 w-4" /> Videos
+                    <SegmentedControlItem value="video" className="flex-1 py-2">
+                      <Video className="h-4 w-4 mr-2" /> Videos
                     </SegmentedControlItem>
                   </SegmentedControl>
                 </motion.div>

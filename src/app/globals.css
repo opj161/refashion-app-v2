@@ -4,7 +4,6 @@
 @tailwind components;
 @tailwind utilities;
 
-
 @layer base {
   /* FIX: Force 16px font size on inputs for mobile to prevent iOS zoom */
   @media (max-width: 768px) {
@@ -49,8 +48,8 @@
     --accent-foreground: 210 10% 23%;
     --destructive: 12 64% 49%;
     --destructive-foreground: 0 0% 98%;
-    --border: 210 10% 88%;
-    --input: 210 10% 92%;
+    --border: 210 27.9% 16.9%;
+    --input: 210 27.9% 16.9%;
     --ring: 173 71% 42%;
     --radius: 0.75rem;
   }
@@ -75,8 +74,10 @@
     --accent-foreground: 224 20% 98%;
     --destructive: 12 64% 49%;
     --destructive-foreground: 0 0% 98%;
-    --border: 210 10% 23%;
-    --input: 210 15% 18%;
+    --border: 210 27.9% 16.9%;
+    --input: 210 27.9% 16.9%;
+    --card: 224 25% 10%;
+    --muted: 215 27.9% 16.9%;
   }
 
   html {
@@ -300,7 +301,7 @@
   .pt-safe {
     padding-top: env(safe-area-inset-top, 20px);
   }
-  
+
   /* NEW: Minimum Touch Target Utility (44x44px standard) */
   .touch-target-min {
     min-height: 44px;
@@ -317,18 +318,18 @@
       margin-left: -16px;
       background-color: rgba(255, 255, 255, 0.9);
       border: 1px solid rgba(0, 0, 0, 0.2);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
-    
+
     /* Make the corner handles slightly larger as they are most used */
     .ReactCrop__drag-handle.ReactCrop__drag-handle-ne,
     .ReactCrop__drag-handle.ReactCrop__drag-handle-nw,
     .ReactCrop__drag-handle.ReactCrop__drag-handle-se,
     .ReactCrop__drag-handle.ReactCrop__drag-handle-sw {
-        width: 36px !important;
-        height: 36px !important;
-        margin-top: -18px;
-        margin-left: -18px;
+      width: 36px !important;
+      height: 36px !important;
+      margin-top: -18px;
+      margin-left: -18px;
     }
   }
   /* Shimmer effect for skeleton loaders */

@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { RecentAssetsPanel } from './RecentAssetsPanel';
 import { recreateStateFromImageUrl } from '@/actions/imageActions';
 import { cn } from '@/lib/utils';
+import { useShallow } from 'zustand/react/shallow';
 
 // --- Constants ---
 const MAX_FILE_SIZE_MB = 50;
@@ -29,8 +30,13 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
   
-  // Zustand state
-  const { uploadOriginalImage, setOriginal } = useImageStore();
+  // OPTIMIZATION: Use useShallow to prevent re-renders on unrelated store changes
+  const { uploadOriginalImage, setOriginal } = useImageStore(
+    useShallow(state => ({
+      uploadOriginalImage: state.uploadOriginalImage,
+      setOriginal: state.setOriginal
+    }))
+  );
   
   // Local UI state
   const [isUploading, setIsUploading] = useState(false);
@@ -41,13 +47,17 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
   // Define variants for the dropzone's different states - more subtle
   const dropZoneVariants = {
     idle: {
-      borderColor: 'hsl(210 10% 23%)',
-      backgroundColor: 'hsla(224 40% 8% / 0.5)'
+      borderColor: 'rgba(255, 255, 255, 0.15)',
+      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+      borderStyle: 'dashed',
+      borderWidth: '2px',
     },
     dragOver: {
-      borderColor: 'hsl(173 71% 42%)',
+      borderColor: 'hsl(var(--primary))',
       backgroundColor: 'hsla(173 71% 42% / 0.1)',
-      scale: 1.015,
+      scale: 1.01,
+      borderStyle: 'solid',
+      borderWidth: '2px',
     },
   };
 
@@ -213,11 +223,11 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
         </div>
       )}
 
-      <Card className="overflow-hidden">
-        <CardHeader>
+      <Card className="overflow-hidden border-white/10 bg-card/30 backdrop-blur-sm shadow-xl">
+        <CardHeader className="pb-4">
           <CardTitle className="text-xl flex items-center gap-2">
             <UploadCloud className="h-6 w-6 text-primary" />
-            Upload Your Image
+            Upload Source
           </CardTitle>
           <CardDescription>
             Drag and drop your clothing image, or click to browse.
@@ -227,18 +237,18 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
         <CardContent>
           <div className={cn(
             "grid gap-6 transition-all duration-300 ease-in-out",
-            hasHistory ? "grid-cols-1 md:grid-cols-[1fr_240px]" : "grid-cols-1"
+            hasHistory ? "grid-cols-1 lg:grid-cols-[1fr_280px]" : "grid-cols-1"
           )}>
             
             {/* Left Side: Drop Zone */}
-            <div className="flex flex-col h-full min-h-[200px] md:min-h-[280px]">
+            <div className="flex flex-col h-full min-h-[300px]">
               <motion.div
                 animate={isDraggingOverDropZone ? "dragOver" : "idle"}
                 variants={dropZoneVariants}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 className={cn(
-                  "flex-1 p-8 rounded-lg flex flex-col items-center justify-center text-center text-muted-foreground border-2 border-dashed cursor-pointer transition-opacity",
-                  isDisabled && "opacity-50 cursor-not-allowed"
+                  "flex-1 p-8 rounded-xl flex flex-col items-center justify-center text-center transition-all relative overflow-hidden",
+                  isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-white/5"
                 )}
                 onClick={() => !isDisabled && fileInputRef.current?.click()}
                 onDragEnter={(e) => handleDropZoneDrag(e, 'enter')}
@@ -246,27 +256,42 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { setIsDraggingOverDropZone(false); handleDragAction(e, 'drop'); }}
               >
-                {isUploading || isLoadingRecent ? (
-                  <>
-                    <Loader2 className="w-16 h-16 mb-4 text-primary animate-spin" />
-                    <p className="font-semibold text-foreground">
-                      {isUploading ? "Processing Upload..." : "Restoring Image..."}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <motion.div
-                      animate={{ scale: isDraggingOverDropZone ? 1.05 : 1, y: isDraggingOverDropZone ? -3 : 0 }}
-                    >
-                      <UploadCloud className="w-16 h-16 mb-4 text-muted-foreground" />
-                    </motion.div>
-                    <p className="font-semibold text-foreground">
-                      <span className="md:hidden">Tap to select image</span>
-                      <span className="hidden md:inline">Click to upload or drag & drop</span>
-                    </p>
-                    <p className="text-sm">PNG, JPG, WEBP, etc.</p>
-                  </>
-                )}
+                {/* Add a subtle gradient glow in the background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500" />
+                
+                <div className="relative z-10">
+                    {isUploading || isLoadingRecent ? (
+                      <>
+                        <div className="relative">
+                           <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+                           <Loader2 className="w-16 h-16 mb-4 text-primary animate-spin relative z-10" />
+                        </div>
+                        <p className="font-semibold text-foreground text-lg">
+                          {isUploading ? "Processing Upload..." : "Restoring Image..."}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <motion.div
+                          animate={{ 
+                            y: isDraggingOverDropZone ? -10 : 0,
+                            scale: isDraggingOverDropZone ? 1.1 : 1 
+                          }}
+                          className="mb-6"
+                        >
+                          <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mx-auto border border-white/10">
+                             <UploadCloud className="w-10 h-10 text-primary" />
+                          </div>
+                        </motion.div>
+                        <h3 className="text-lg font-semibold text-foreground mb-1">
+                          {isDraggingOverDropZone ? "Drop it here!" : "Click or Drag Image"}
+                        </h3>
+                        <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                          Supports high-res PNG, JPG, WEBP. Max 50MB.
+                        </p>
+                      </>
+                    )}
+                </div>
                 <Input 
                   id="image-upload" 
                   type="file" 
