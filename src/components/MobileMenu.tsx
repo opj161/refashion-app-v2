@@ -12,6 +12,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { ThemeToggleImproved } from "@/components/ui/ThemeToggleImproved";
 import { Separator } from '@/components/ui/separator';
 import { ShieldCheck, Menu, Sun, Moon, Monitor, LogOut, LogIn, User } from 'lucide-react';
 
@@ -23,59 +24,48 @@ export function MobileMenu() {
     <div className="md:hidden">
       <Sheet>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="touch-target-min">
-            <Menu className="h-6 w-6" />
+          {/* 7. TOUCH TARGET: touch-target-min -> min-h-touch min-w-touch */}
+          <Button variant="ghost" size="icon" className="min-h-touch min-w-touch">
+            <Menu className="size-6" />
             <span className="sr-only">Open menu</span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="right" className="w-[300px] sm:w-[400px] flex flex-col">
-          <SheetHeader className="text-left mb-6">
-            <SheetTitle className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <User className="h-4 w-4" />
-              </div>
-              {user?.isLoggedIn ? user.username : "Menu"}
-            </SheetTitle>
-          </SheetHeader>
-
-          <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
-            {user?.role === 'admin' && (
-              <Button asChild variant="outline" className="justify-start h-12 text-base">
-                <Link href="/admin">
-                  <ShieldCheck className="mr-3 h-5 w-5" /> Admin Console
-                </Link>
-              </Button>
-            )}
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground px-1">Theme</p>
-              <div className="grid grid-cols-3 gap-2">
-                <Button variant={theme === 'light' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('light')}>
-                  <Sun className="h-4 w-4 mr-2" /> Light
-                </Button>
-                <Button variant={theme === 'dark' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('dark')}>
-                  <Moon className="h-4 w-4 mr-2" /> Dark
-                </Button>
-                <Button variant={theme === 'system' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('system')}>
-                  <Monitor className="h-4 w-4 mr-2" /> Auto
-                </Button>
-              </div>
+        <SheetContent side="right" className="w-mobile-menu sm:w-mobile-menu-lg flex flex-col">
+          <div className="flex flex-col gap-6 py-4">
+            <div className="flex items-center gap-2 px-2">
+              <span className="font-bold text-lg">Refashion AI</span>
             </div>
-
-            <Separator className="my-2" />
+            <nav className="flex flex-col gap-2">
+              <Link
+                href="/"
+                className="flex items-center gap-2 px-2 py-2 text-lg font-medium hover:text-primary transition-colors"
+              >
+                Studio
+              </Link>
+              <Link
+                href="/history"
+                className="flex items-center gap-2 px-2 py-2 text-lg font-medium hover:text-primary transition-colors"
+              >
+                History
+              </Link>
+              <div className="px-2 py-2">
+                <ThemeToggleImproved />
+              </div>
+            </nav>
           </div>
 
-          {/* FIX: Footer area with safe area padding */}
-          <div className="mt-auto pb-safe pt-4 border-t border-border/40">
+          {/* 6. SAFE AREA: pb-safe -> pb-safe-bottom */}
+          <div className="mt-auto pb-safe-bottom pt-4 border-t border-border/40">
             {user?.isLoggedIn ? (
               <form action={logoutUser} className="w-full">
+                {/* REFACTOR: size-5 for icons */}
                 <Button type="submit" variant="destructive" className="w-full justify-start h-12 text-base">
-                  <LogOut className="mr-3 h-5 w-5" /> Logout
+                  <LogOut className="mr-3 size-5" /> Logout
                 </Button>
               </form>
             ) : (
               <Button asChild className="w-full justify-start h-12 text-base">
-                <Link href="/login"><LogIn className="mr-3 h-5 w-5" /> Login</Link>
+                <Link href="/login"><LogIn className="mr-3 size-5" /> Login</Link>
               </Button>
             )}
           </div>

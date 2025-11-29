@@ -2,7 +2,6 @@
 
 import React from "react";
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
-import 'react-image-crop/dist/ReactCrop.css';
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { useImageStore } from "@/stores/imageStore";
 
@@ -62,6 +61,10 @@ export default function ImageEditorCanvas({
   return (
     <div className="w-full flex-1 flex items-center justify-center overflow-hidden">
       <div
+        // 5. PERFORMANCE: Add will-change-transform
+        // This hints to the browser that 'transform' will change, optimizing the 
+        // composite layer for the scaling animation used below.
+        className="will-change-transform"
         style={{
           transform: `scale(${scale})`,
           transition: 'transform 0.2s ease-out',

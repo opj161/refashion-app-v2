@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { HistoryItem } from "@/lib/types";
 import { getDisplayableImageUrl } from "@/lib/utils";
-import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle, MoreVertical, Trash2, Download, Sparkles } from "lucide-react";
+import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle, MoreVertical, MoreHorizontal, Trash2, Download, Sparkles } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { motion } from 'motion/react';
 import { useToast } from "@/hooks/use-toast";
@@ -277,30 +277,22 @@ export default function HistoryCard({
 
           {/* FIX: Consolidate Badges to Top Left Container */}
           <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5 items-start">
-            {/* Type Badge */}
+            {/* REFACTOR: h-3 w-3 -> size-3 */}
             <Badge variant={isVideoItem ? 'default' : 'secondary'} className="text-xs shadow-sm bg-black/60 backdrop-blur-md border-white/10 text-white hover:bg-black/70">
-              {isVideoItem ? <Video className="h-3 w-3 mr-1.5" /> : <ImageIcon className="h-3 w-3 mr-1.5" />}
+              {isVideoItem ? <Video className="size-3 mr-1.5" /> : <ImageIcon className="size-3 mr-1.5" />}
               {isVideoItem ? "Video" : "Image"}
             </Badge>
-
-            {/* Studio Mode Badge */}
-            {item.generation_mode === 'studio' && (
-              <Badge variant="outline" className="text-xs bg-purple-500/80 border-purple-300/30 text-white backdrop-blur-md shadow-sm">
-                Studio
-              </Badge>
-            )}
           </div>
 
-          {/* FIX: Action Overlay with Top Gradient for visibility */}
-          <div className="absolute inset-0 flex flex-col justify-between opacity-100 transition-opacity duration-300 ease-in-out z-10">
-
-            {/* Top Action Bar with Gradient Background */}
+          {/* Overlay Actions */}
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end">
             <div className="w-full p-2 flex justify-end items-start gap-1 bg-gradient-to-b from-black/60 via-black/20 to-transparent pb-8">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 bg-black/40 text-white hover:bg-primary hover:text-white backdrop-blur-md rounded-full" onClick={handleDownload} aria-label="Download">
-                      <Download className="h-4 w-4" />
+                    {/* REFACTOR: h-9 w-9 -> size-9, h-4 w-4 -> size-4 */}
+                    <Button variant="ghost" size="icon" className="size-9 bg-black/40 text-white hover:bg-primary hover:text-white backdrop-blur-md rounded-full" onClick={handleDownload} aria-label="Download">
+                      <Download className="size-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Download</TooltipContent>
@@ -308,19 +300,16 @@ export default function HistoryCard({
               </TooltipProvider>
 
               <DropdownMenu>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 bg-black/40 text-white hover:bg-primary hover:text-white backdrop-blur-md rounded-full" onClick={handleActionClick} aria-label="More options">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>More</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <DropdownMenuContent align="end" onClick={handleActionClick}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-9 bg-black/40 text-white hover:bg-white hover:text-black backdrop-blur-md rounded-full" aria-label="More options">
+                    <MoreHorizontal className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onDeleteItem(item)} className="text-destructive focus:text-destructive">
+                    <Trash2 className="mr-2 size-4" /> Delete
+                  </DropdownMenuItem>
+
                   <DropdownMenuItem onClick={handleReload} disabled={!!isLoadingAction}>
                     {isLoadingAction === 'reload' ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -341,25 +330,20 @@ export default function HistoryCard({
                       <span>{isLoadingAction === 'send' ? 'Loading...' : 'Use in Creative'}</span>
                     </DropdownMenuItem>
                   )}
-
-                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDelete} disabled={!!isLoadingAction}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    <span>Delete</span>
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+          </div>
 
-            {/* Bottom Metadata with stronger gradient */}
-            <div className="p-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-10 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
-              <p className="text-sm font-semibold truncate" title={item.constructedPrompt}>
-                {item.constructedPrompt}
-              </p>
-              <p className="text-xs text-white/80" suppressHydrationWarning>
-                {new Date(item.timestamp).toLocaleString()}
-                {username && <span className="font-semibold"> by {username}</span>}
-              </p>
-            </div>
+          {/* Bottom Metadata with stronger gradient */}
+          <div className="p-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-10 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
+            <p className="text-sm font-semibold truncate" title={item.constructedPrompt}>
+              {item.constructedPrompt}
+            </p>
+            <p className="text-xs text-white/80" suppressHydrationWarning>
+              {new Date(item.timestamp).toLocaleString()}
+              {username && <span className="font-semibold"> by {username}</span>}
+            </p>
           </div>
         </div>
       </Card>

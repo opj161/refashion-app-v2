@@ -38,21 +38,21 @@ export function ThemeToggleImproved({ variant = 'button', showLabel = true }: Th
 
   const getIcon = () => {
     if (!isHydrated) {
-      return <Monitor className="h-4 w-4" />;
+      return <Monitor className="size-4" />; // Updated h-4 w-4 -> size-4
     }
 
     if (theme === 'light') {
-      return <Sun className="h-4 w-4" />;
+      return <Sun className="size-4" />;
     } else if (theme === 'dark') {
-      return <Moon className="h-4 w-4" />;
+      return <Moon className="size-4" />;
     } else {
-      return <Monitor className="h-4 w-4" />;
+      return <Monitor className="size-4" />;
     }
   };
 
   const getThemeLabel = () => {
     if (!isHydrated) return "Theme";
-    
+
     if (theme === 'light') return "Light";
     if (theme === 'dark') return "Dark";
     return "System";
@@ -111,7 +111,7 @@ export function ThemeToggleImproved({ variant = 'button', showLabel = true }: Th
           {themeOptions.map((option) => {
             const Icon = option.icon;
             const isSelected = theme === option.value;
-            
+
             return (
               <DropdownMenuItem
                 key={option.value}
@@ -164,7 +164,7 @@ export function ThemeToggleImproved({ variant = 'button', showLabel = true }: Th
         {themeOptions.map((option) => {
           const Icon = option.icon;
           const isSelected = theme === option.value;
-          
+
           return (
             <DropdownMenuItem
               key={option.value}
@@ -199,5 +199,5 @@ export function ThemeToggleImproved({ variant = 'button', showLabel = true }: Th
 // Export variants as separate components for convenience
 export const ThemeToggleIcon = () => <ThemeToggleImproved variant="icon" />;
 export const ThemeToggleCompact = () => <ThemeToggleImproved variant="compact" />;
-export const ThemeToggleButton = ({ showLabel = true }: { showLabel?: boolean }) => 
+export const ThemeToggleButton = ({ showLabel = true }: { showLabel?: boolean }) =>
   <ThemeToggleImproved variant="button" showLabel={showLabel} />;

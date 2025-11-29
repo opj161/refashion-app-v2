@@ -4,30 +4,6 @@
 @tailwind components;
 @tailwind utilities;
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-}
-
-/* Motion constants for optimized animations */
-:root {
-  --motion-spring-quick: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  --motion-spring-standard: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --motion-bounce-subtle: 300ms cubic-bezier(0.34, 1.2, 0.64, 1);
-  --motion-duration-fast: 100ms;
-  --motion-duration-quick: 200ms;
-  --motion-duration-standard: 300ms;
-  --motion-duration-slow: 500ms;
-  --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --motion-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --motion-ease-anticipate: cubic-bezier(0.34, 1.2, 0.64, 1);
-}
 
 @layer base {
   /* FIX: Force 16px font size on inputs for mobile to prevent iOS zoom */
@@ -41,11 +17,20 @@
 
   /* Remove existing :root and .dark color definitions and replace with these */
   :root {
-    /* Best Practice: Separate variables for header height and content offset */
-    --header-height: 6rem; /* 96px - actual header height */
-    --content-offset: 0rem; /* 80px - padding to prevent content hiding under header */
+    /* Motion constants */
+    --motion-spring-quick: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --motion-spring-standard: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --motion-bounce-subtle: 300ms cubic-bezier(0.34, 1.2, 0.64, 1);
+    --motion-duration-fast: 100ms;
+    --motion-duration-quick: 200ms;
+    --motion-duration-standard: 300ms;
+    --motion-duration-slow: 500ms;
+    --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --motion-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --motion-ease-anticipate: cubic-bezier(0.34, 1.2, 0.64, 1);
 
-    /* Light Theme (if you ever need it, but we'll focus on dark) */
+    /* REFACTOR: Replaced hardcoded hex with HSL for alpha support */
+    /* Light Theme */
     --background: 210 20% 98%;
     --background-accent: 210 20% 94%;
     --foreground: 210 10% 23%;
@@ -53,7 +38,7 @@
     --card-foreground: 210 10% 23%;
     --popover: 210 20% 100%;
     --popover-foreground: 210 10% 23%;
-    --primary: 173 71% 38%; /* Darker Teal for contrast on light BG */
+    --primary: 173 71% 38%;
     --primary-foreground: 173 50% 98%;
     --primary-gradient-end: 175 70% 44%;
     --secondary: 210 15% 90%;
@@ -71,40 +56,29 @@
   }
 
   .dark {
-    /* Main Dark Theme */
-    --background: 224 71% 4%; /* hsl(224, 71%, 4%) - Almost black, deep blue */
-    --background-accent: 224 40% 8%; /* hsl(224, 40%, 8%) - Slightly lighter, for depth */
-    --foreground: 210 20% 92%; /* hsl(210, 20%, 92%) - Off-white with a cool tint */
-
-    --card: 224 25% 12%; /* hsl(224, 25%, 12%) - Dark blue-gray */
-    --card-foreground: 210 20% 95%; /* hsl(210, 20%, 95%) */
-
+    /* Dark Theme */
+    --background: 224 71% 4%;
+    --background-accent: 224 40% 8%;
+    --foreground: 210 20% 92%;
+    --card: 224 25% 12%;
+    --card-foreground: 210 20% 95%;
     --popover: 224 71% 4%;
     --popover-foreground: 210 20% 95%;
-
-    --primary: 173 71% 42%; /* #1fab99 */
-    --primary-foreground: 224 20% 98%; /* Very light, almost white */
-    --primary-gradient-end: 237 92% 76%; /* A bit lighter and more cyan */
-
-    --secondary: 210 15% 23%; /* hsl(210, 15%, 23%) - Muted dark blue */
+    --primary: 173 71% 42%;
+    --primary-foreground: 224 20% 98%;
+    --primary-gradient-end: 237 92% 76%;
+    --secondary: 210 15% 23%;
     --secondary-foreground: 210 20% 92%;
-
     --muted: 210 15% 18%;
     --muted-foreground: 210 10% 65%;
-
-    --accent: 177 63% 48%; /* #2abab1 */
+    --accent: 177 63% 48%;
     --accent-foreground: 224 20% 98%;
-
-    --destructive: 12 64% 49%; /* #ef571a */
+    --destructive: 12 64% 49%;
     --destructive-foreground: 0 0% 98%;
-
-    --border: 210 10% 23%; /* A slightly lighter blue-gray */
+    --border: 210 10% 23%;
     --input: 210 15% 18%;
-    --ring: 177 63% 55%; /* Lighter teal for focus rings */
-    --radius: 0.75rem;
   }
 
-  /* Ensure immediate background application to prevent hydration mismatches */
   html {
     background-color: hsl(224, 71%, 4%); /* Default to dark theme */
   }
@@ -231,13 +205,6 @@
 }
 
 @layer components {
-  .glass-card {
-    @apply border border-white/10 bg-card/50 shadow-2xl shadow-black/20 backdrop-blur-xl;
-    @apply transition-all duration-300;
-  }
-  .glass-card:hover {
-    @apply border-white/20 bg-card/60;
-  }
   .uploader-dropzone {
     @apply border border-white/10; /* Default border */
     position: relative;
@@ -270,9 +237,7 @@
   .uploader-dropzone[data-state="drag-over"]::before {
     opacity: 1;
   }
-}
 
-@layer components {
   /* New Splash Screen Styles - Unified for Server & Client */
   .splash-screen {
     position: fixed;
@@ -315,6 +280,17 @@
   /* FIX: Use dvh (dynamic viewport height) for full-screen layouts */
   .min-h-screen {
     min-height: 100dvh;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
   }
 
   /* FIX: Robust Safe Area Utilities with Fallbacks */

@@ -12,8 +12,8 @@ function Card({ className, variant = "default", ref, ...props }: CardProps & { r
       ref={ref}
       className={cn(
         "rounded-lg text-card-foreground shadow-sm",
-        variant === "default" && "bg-card",
-        variant === "glass" && "glass-card",
+        variant === "default" && "bg-card border border-border/50",
+        variant === "glass" && "bg-card/30 border border-white/10 shadow-2xl backdrop-blur-xl",
         className
       )}
       {...props}

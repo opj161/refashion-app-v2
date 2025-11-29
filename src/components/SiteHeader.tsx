@@ -38,7 +38,8 @@ export function SiteHeader() {
           : 'border-b border-transparent bg-background/80 backdrop-blur-sm'
       )}
     >
-      <div className="container mx-auto flex max-w-7xl items-center justify-between px-4 h-[var(--header-height)]">
+      {/* 2. CENTRALIZATION: Use h-header from config */}
+      <div className="container mx-auto flex max-w-7xl items-center justify-between px-4 h-header">
         {/* Left Side: Branding */}
         <Link href="/" prefetch={true} className="flex items-center gap-3 text-foreground group">
           <Image
@@ -46,10 +47,11 @@ export function SiteHeader() {
             alt="Refashion AI logo"
             width={100}
             height={60}
+            // Bonus: Standardize height
             className="h-16 w-auto transition-transform duration-300 group-hover:scale-105"
             priority
           />
-            {/* <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-gradient-end bg-clip-text text-transparent">
+          {/* <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-gradient-end bg-clip-text text-transparent">
             Refashion AI
             </span> */}
         </Link>

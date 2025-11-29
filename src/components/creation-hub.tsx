@@ -31,10 +31,10 @@ function CreationHubContent({
 }) {
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  
+
   // Manage currentTab as local state instead of global store
   const [currentTab, setCurrentTab] = useState<string>('image');
-  
+
   // State for initialization from history
   const [initHistoryItem, setInitHistoryItem] = useState<HistoryItem | null>(null);
   const [initImageUrl, setInitImageUrl] = useState<string | null>(null);
@@ -119,7 +119,7 @@ function CreationHubContent({
       description: "You can now upload a new image to start over.",
     });
   }, [reset, toast]);
-  
+
   // Clone children to pass initialization handlers
   const enhancedChildren = React.cloneElement(children, {
     onLoadFromHistory: handleLoadFromHistory,
@@ -127,24 +127,24 @@ function CreationHubContent({
     currentTab,
     setCurrentTab,
   } as any);
-  
+
   return (
     <div className="space-y-8">
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
         {/* === START: INTEGRATED LAYOUT === */}
         <div className="bg-muted/30 p-1 rounded-lg flex flex-col items-center">
           {/* Main Tabs */}
-          <TabsList className="grid w-full grid-cols-3 bg-transparent p-0 h-14">
-            <TabsTrigger value="image" className="h-full text-sm sm:text-base data-[state=active]:bg-background/80">🖼️ Image</TabsTrigger>
-            <TabsTrigger value="video" className="h-full text-sm sm:text-base data-[state=active]:bg-background/80">🎥 Video</TabsTrigger>
-            <TabsTrigger value="history" className="h-full text-sm sm:text-base data-[state=active]:bg-background/80">📃 History</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 gap-2 bg-transparent p-1">
+            <TabsTrigger value="image" className="w-full text-sm sm:text-base">🖼️ Image</TabsTrigger>
+            <TabsTrigger value="video" className="w-full text-sm sm:text-base">🎥 Video</TabsTrigger>
+            <TabsTrigger value="history" className="w-full text-sm sm:text-base">📃 History</TabsTrigger>
           </TabsList>
 
           {/* Mode Switcher Container - Fixed height to prevent layout shift */}
           <div className="relative w-full h-[3rem] mt-2">
             <AnimatePresence mode="wait">
               {currentTab === 'image' && (
-                <motion.div 
+                <motion.div
                   key="mode-selector"
                   variants={COMMON_VARIANTS.slideDownAndFade}
                   initial="hidden"
@@ -168,7 +168,7 @@ function CreationHubContent({
                 </motion.div>
               )}
               {currentTab === 'history' && (
-                <motion.div 
+                <motion.div
                   key="history-filter"
                   variants={COMMON_VARIANTS.slideDownAndFade}
                   initial="hidden"
@@ -197,28 +197,28 @@ function CreationHubContent({
           </div>
         </div>
         {/* === END: INTEGRATED LAYOUT === */}        <TabsContent value="image" className="space-y-6 mt-5" forceMount>
-            <ImagePreparationContainer
-              preparationMode="image"
-              onReset={handleReset}
-              recentUploads={recentUploads}
-            />
-            
-            {/* Unified workspace with both modes and results display */}
-            <ImageGenerationWorkspace 
-              setCurrentTab={setCurrentTab}
-              onLoadImageUrl={handleLoadFromImageUrl}
-              maxImages={maxImages}
-              userModel={userModel} // NEW
-            />
+          <ImagePreparationContainer
+            preparationMode="image"
+            onReset={handleReset}
+            recentUploads={recentUploads}
+          />
+
+          {/* Unified workspace with both modes and results display */}
+          <ImageGenerationWorkspace
+            setCurrentTab={setCurrentTab}
+            onLoadImageUrl={handleLoadFromImageUrl}
+            maxImages={maxImages}
+            userModel={userModel} // NEW
+          />
         </TabsContent>
 
         <TabsContent value="video" className="space-y-6 mt-5" forceMount>
-            <ImagePreparationContainer
-              preparationMode="video"
-              onReset={handleReset}
-              recentUploads={recentUploads}
-            />
-            <VideoParameters />
+          <ImagePreparationContainer
+            preparationMode="video"
+            onReset={handleReset}
+            recentUploads={recentUploads}
+          />
+          <VideoParameters />
         </TabsContent>
 
         <TabsContent value="history" className="space-y-6 mt-5" forceMount>

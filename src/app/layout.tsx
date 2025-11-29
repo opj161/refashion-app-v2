@@ -1,6 +1,7 @@
 import { satoshi } from '@/lib/fonts';
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
+import 'react-image-crop/dist/ReactCrop.css';
 import './globals.css';
 import { getCurrentUser } from '@/actions/authActions';
 import type { SessionUser } from '@/lib/types';
