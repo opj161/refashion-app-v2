@@ -14,7 +14,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
+import { useImageStore } from "@/stores/imageStore";
 import { COMMON_VARIANTS } from "@/lib/motion-constants";
+import { usePathname, useSearchParams } from 'next/navigation';
 
 // Lazy load modals for better initial page load performance
 const ImageViewerModal = lazy(() => import('./ImageViewerModal').then(m => ({ default: m.ImageViewerModal })));
@@ -36,13 +38,20 @@ export default function HistoryGallery({
 }) {
   const { toast } = useToast();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   
   // Read history filter directly from Zustand store
   const historyFilter = useGenerationSettingsStore(state => state.historyFilter);
   const loadFromHistory = useGenerationSettingsStore(state => state.loadFromHistory);
   
+  // Actions from stores
+  const setActiveVideoPrompt = useGenerationSettingsStore(state => state.setActiveVideoPrompt);
+  const { initializeFromUrl } = useImageStore();
+
   const [detailItem, setDetailItem] = useState<HistoryItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<HistoryItem | null>(null);
+  const [isPreparingVideo, setIsPreparingVideo] = useState(false);
 
   // State is now initialized from server-provided props
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>(initialHistory.items);
@@ -185,6 +194,49 @@ export default function HistoryGallery({
     setItemToDelete(null); // Close dialog regardless of outcome
   };
 
+  // Handler for "Animate" button in modal
+  const handleSendToVideo = useCallback(async (imageUrl: string, prompt: string) => {
+    setIsPreparingVideo(true);
+    try {
+      if (pathname === '/') {
+        // Scenario 1: We are in the CreationHub (Home Page)
+        // We can directly manipulate the store and switch tabs for a seamless transition
+        
+        // 1. Transfer Prompt Context
+        setActiveVideoPrompt(prompt);
+        
+        // 2. Initialize the image store (Verify file exists on server)
+        await initializeFromUrl(imageUrl);
+        
+        // 3. Switch to Video Tab
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('tab', 'video');
+        // Use replace to update URL without adding to history stack (feels like UI toggle)
+        router.replace(`/?${params.toString()}`, { scroll: false });
+        
+        // 4. Close Modal
+        setDetailItem(null);
+      } else {
+        // Scenario 2: We are on /history or another page
+        // We must redirect to home and pass data via URL params
+        const params = new URLSearchParams();
+        params.set('tab', 'video');
+        params.set('init_image_url', imageUrl);
+        params.set('init_prompt', prompt);
+        router.push(`/?${params.toString()}`);
+      }
+    } catch (error) {
+      console.error("Failed to prepare video:", error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to load image for video generation.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsPreparingVideo(false);
+    }
+  }, [pathname, router, searchParams, setActiveVideoPrompt, initializeFromUrl, toast]);
+
 
   // Function to get display label for attribute values (similar to one in image-forge)
   // This might be better placed in a utils file if used in multiple places
@@ -308,6 +360,8 @@ export default function HistoryGallery({
                           onClose={() => setDetailItem(null)}
                           item={detailItem}
                           onReloadConfig={handleReloadConfig}
+                          onSendToVideo={handleSendToVideo}
+                          isPreparingVideo={isPreparingVideo}
                         />
                       </Suspense>
                     )}

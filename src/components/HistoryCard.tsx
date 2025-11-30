@@ -233,7 +233,7 @@ export default function HistoryCard({
         )}
       >
         <div
-          className="relative aspect-[2/3] w-full bg-muted/20 rounded-md overflow-hidden cursor-pointer group"
+          className="relative aspect-2/3 w-full bg-muted/20 rounded-md overflow-hidden cursor-pointer group isolate"
           onClick={handleCardClick}
           onKeyDown={handleCardKeyDown}
           role="button"
@@ -278,7 +278,7 @@ export default function HistoryCard({
           )}
 
           {/* FIX: Consolidate Badges to Top Left Container */}
-          <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5 items-start">
+          <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5 items-start">
             {/* REFACTOR: h-3 w-3 -> size-3 */}
             <Badge variant="secondary" className="text-xs font-medium shadow-sm bg-white/80 text-foreground dark:bg-black/60 dark:text-white/90 backdrop-blur-md border border-black/5 dark:border-white/10">
               {isVideoItem ? <Video className="size-3 mr-1.5" /> : <ImageIcon className="size-3 mr-1.5" />}
@@ -286,18 +286,36 @@ export default function HistoryCard({
             </Badge>
           </div>
 
-          {/* Overlay Actions */}
+          {/* Bottom Metadata (Layer 1: Text) - Moved before actions for logical stacking base */}
+          <div className="absolute bottom-0 left-0 right-0 z-10 p-4 pt-12 bg-linear-to-t from-black/80 via-black/50 to-transparent text-white pointer-events-none">
+            <p className="text-sm font-semibold truncate tracking-tight text-white/95" title={item.constructedPrompt}>
+              {item.constructedPrompt || "Untitled Generation"}
+            </p>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-[10px] text-white/70 font-medium" suppressHydrationWarning>
+                {new Date(item.timestamp).toLocaleDateString()}
+                {username && <span className="ml-1">by {username}</span>}
+              </p>
+              {/* Mobile-friendly indicator that this is clickable */}
+              <Eye className="size-3 text-white/50 lg:hidden" />
+            </div>
+          </div>
+
+          {/* Overlay Actions (Layer 2: Buttons) - Top Right Corner */}
           <div className={cn(
-            "absolute inset-0 bg-black/40 transition-opacity duration-300 flex flex-col justify-end",
+            "absolute inset-0 z-20 bg-black/40 transition-opacity duration-300 pointer-events-none",
             "opacity-0 group-hover:opacity-100",
             "focus-within:opacity-100"
           )}>
-            <div className="w-full p-2 flex justify-end items-start gap-1 bg-gradient-to-b from-black/60 via-black/20 to-transparent pb-8">
+            {/* Button Container - Top Right */}
+            <div 
+              className="absolute top-2 right-2 flex items-center gap-1"
+              onClick={handleActionClick}
+            >
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    {/* REFACTOR: h-9 w-9 -> size-9, h-4 w-4 -> size-4 */}
-                    <Button variant="ghost" size="icon" className="size-9 bg-black/40 text-white hover:bg-primary hover:text-white backdrop-blur-md rounded-full" onClick={handleDownload} aria-label="Download">
+                    <Button variant="ghost" size="icon" className="size-9 bg-black/40 text-white hover:bg-primary hover:text-white backdrop-blur-md rounded-full pointer-events-auto" onClick={handleDownload} aria-label="Download">
                       <Download className="size-4" />
                     </Button>
                   </TooltipTrigger>
@@ -307,7 +325,7 @@ export default function HistoryCard({
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-9 bg-black/40 text-white hover:bg-white hover:text-black backdrop-blur-md rounded-full" aria-label="More options">
+                  <Button variant="ghost" size="icon" className="size-9 bg-black/40 text-white hover:bg-white hover:text-black backdrop-blur-md rounded-full pointer-events-auto" aria-label="More options">
                     <MoreHorizontal className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -338,21 +356,6 @@ export default function HistoryCard({
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
-          </div>
-
-          {/* Bottom Metadata - Always visible gradient for readability */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 pt-12 bg-gradient-to-t from-black/80 via-black/50 to-transparent text-white">
-            <p className="text-sm font-semibold truncate tracking-tight text-white/95" title={item.constructedPrompt}>
-              {item.constructedPrompt || "Untitled Generation"}
-            </p>
-            <div className="flex items-center justify-between mt-1">
-              <p className="text-[10px] text-white/70 font-medium" suppressHydrationWarning>
-                {new Date(item.timestamp).toLocaleDateString()}
-                {username && <span className="ml-1">by {username}</span>}
-              </p>
-              {/* Mobile-friendly indicator that this is clickable */}
-              <Eye className="size-3 text-white/50 lg:hidden" />
             </div>
           </div>
         </div>

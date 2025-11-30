@@ -47,12 +47,19 @@ function CreationHubContent({
   const [initImageUrl, setInitImageUrl] = useState<string | null>(null);
 
   // Get generationMode and historyFilter state and actions from the store
-  const { generationMode, setGenerationMode, historyFilter, setHistoryFilter } = useGenerationSettingsStore(
+  const { 
+    generationMode, 
+    setGenerationMode, 
+    historyFilter, 
+    setHistoryFilter,
+    setActiveVideoPrompt 
+  } = useGenerationSettingsStore(
     useShallow((state) => ({
       generationMode: state.generationMode,
       setGenerationMode: state.setGenerationMode,
       historyFilter: state.historyFilter,
       setHistoryFilter: state.setHistoryFilter,
+      setActiveVideoPrompt: state.setActiveVideoPrompt,
     }))
   );
 
@@ -76,12 +83,18 @@ function CreationHubContent({
       // We do NOT clear URL anymore, we want it to persist
     } else if (imageUrl) {
       setInitImageUrl(imageUrl);
+      
+      // IMPROVEMENT: Capture prompt context for Video Generation if provided
+      const prompt = searchParams.get('init_prompt');
+      if (prompt) {
+        setActiveVideoPrompt(prompt);
+      }
       // setCurrentTab('image'); // Handled by URL if we update it
       // setGenerationMode('studio'); // Handled by URL if we update it
       
       // We do NOT clear URL anymore
     }
-  }, [searchParams, setGenerationMode]);
+  }, [searchParams, setGenerationMode, setActiveVideoPrompt]);
 
   // Handler to load from history - will be passed to HistoryCard components
   const handleLoadFromHistory = useCallback((item: HistoryItem) => {

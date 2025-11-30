@@ -26,7 +26,8 @@ interface ImageViewerModalProps {
   // Action Handlers
   onUpscale?: (index: number) => void;
   onFaceDetail?: (index: number) => void;
-  onSendToVideo?: (url: string) => void;
+  onSendToVideo?: (url: string, prompt: string) => void;
+  isPreparingVideo?: boolean;
 
   // Action States
   isUpscalingSlot?: number | null;
@@ -40,15 +41,21 @@ function ActionButtons({
   isUpscalingSlot,
   isFaceRetouchingSlot,
   isFaceDetailerAvailable,
+  isPreparingVideo,
   onUpscale,
-  onFaceDetail
+  onFaceDetail,
+  onSendToVideo,
+  item // Passed down to access prompt
 }: {
-  currentImage: { isGenerated: boolean; index: number };
+  currentImage: { isGenerated: boolean; index: number; url?: string };
   isUpscalingSlot: number | null | undefined;
   isFaceRetouchingSlot: number | null | undefined;
   isFaceDetailerAvailable: boolean;
+  isPreparingVideo?: boolean;
   onUpscale?: (index: number) => void;
   onFaceDetail?: (index: number) => void;
+  onSendToVideo?: (url: string, prompt: string) => void;
+  item: HistoryItem;
 }) {
   if (!currentImage.isGenerated) return null;
 
@@ -74,6 +81,22 @@ function ActionButtons({
           Fix Face
         </Button>
       )}
+
+      {/* Video Generation Button */}
+      {onSendToVideo && currentImage.url && (
+        <Button 
+          variant="outline"
+          className="bg-background/50 col-span-2 text-blue-500 hover:text-blue-400 hover:bg-blue-500/10 border-blue-500/20"
+          onClick={() => {
+            const promptToCarry = item.videoGenerationParams?.prompt || item.constructedPrompt || "";
+            onSendToVideo(currentImage.url!, promptToCarry);
+          }}
+          disabled={isPreparingVideo}
+        >
+          {isPreparingVideo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <VideoIcon className="mr-2 h-4 w-4" />}
+          Animate this Image
+        </Button>
+      )}
     </div>
   );
 }
@@ -87,6 +110,7 @@ export function ImageViewerModal({
   onUpscale,
   onFaceDetail,
   onSendToVideo,
+  isPreparingVideo,
   isUpscalingSlot,
   isFaceRetouchingSlot,
   isFaceDetailerAvailable = false
@@ -101,10 +125,10 @@ export function ImageViewerModal({
     // Only include generated images, not the original
     const imgs = item.editedImageUrls.map((url, i) => ({
       type: `Generated #${i + 1}`,
-      url,
+      url: url || undefined,
       isGenerated: true,
       index: i // Keep track of the real slot index for actions
-    })).filter(img => img.url); // Filter out failed generations
+    })).filter((img): img is { type: string; url: string; isGenerated: boolean; index: number } => !!img.url); // Filter out failed generations
     return imgs;
   }, [item]);
 
@@ -302,8 +326,16 @@ export function ImageViewerModal({
             {/* Mobile Bottom Controls (Floating) - Safe area optimized */}
             <div className="absolute bottom-0 left-0 right-0 p-4 pb-safe flex gap-2 lg:hidden z-20 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-16">
               {currentImage.isGenerated && onSendToVideo && currentImage.url && (
-                <Button className="flex-1 shadow-xl bg-white text-black hover:bg-white/90" onClick={() => onSendToVideo(currentImage.url!)}>
-                  <VideoIcon className="mr-2 h-4 w-4" /> Animate
+                <Button 
+                  className="flex-1 shadow-xl bg-white text-black hover:bg-white/90" 
+                  onClick={() => {
+                    const promptToCarry = item.videoGenerationParams?.prompt || item.constructedPrompt || "";
+                    onSendToVideo(currentImage.url!, promptToCarry);
+                  }}
+                  disabled={isPreparingVideo}
+                >
+                  {isPreparingVideo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <VideoIcon className="mr-2 h-4 w-4" />}
+                  Animate
                 </Button>
               )}
               <Sheet open={showMobileInfo} onOpenChange={setShowMobileInfo}>
@@ -322,8 +354,11 @@ export function ImageViewerModal({
                         isUpscalingSlot={isUpscalingSlot}
                         isFaceRetouchingSlot={isFaceRetouchingSlot}
                         isFaceDetailerAvailable={isFaceDetailerAvailable}
+                        isPreparingVideo={isPreparingVideo}
                         onUpscale={onUpscale}
                         onFaceDetail={onFaceDetail}
+                        onSendToVideo={onSendToVideo}
+                        item={item}
                       />
                       <Button className="w-full" asChild variant="secondary">
                         <a href={displayUrl || '#'} download={downloadFilename}>
@@ -352,8 +387,11 @@ export function ImageViewerModal({
                 isUpscalingSlot={isUpscalingSlot}
                 isFaceRetouchingSlot={isFaceRetouchingSlot}
                 isFaceDetailerAvailable={isFaceDetailerAvailable}
+                isPreparingVideo={isPreparingVideo}
                 onUpscale={onUpscale}
                 onFaceDetail={onFaceDetail}
+                onSendToVideo={onSendToVideo}
+                item={item}
               />
 
               <div className="flex gap-3">
@@ -362,11 +400,6 @@ export function ImageViewerModal({
                     <Download className="mr-2 h-4 w-4" /> Download
                   </a>
                 </Button>
-                {currentImage.isGenerated && onSendToVideo && currentImage.url && (
-                  <Button className="flex-1" onClick={() => onSendToVideo(currentImage.url!)}>
-                    <VideoIcon className="mr-2 h-4 w-4" /> Animate
-                  </Button>
-                )}
               </div>
             </div>
           </div>
