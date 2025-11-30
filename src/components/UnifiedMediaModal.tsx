@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useId } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Download, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -140,11 +140,11 @@ export function UnifiedMediaModal({
   );
 
   const ModalContent = (
-    <motion.div layoutId={layoutId} className="contents">
+    <m.div layoutId={layoutId} className="contents">
       {/* Main Preview Area */}
       <div className="relative w-full h-full min-h-[300px] flex items-center justify-center bg-black/40 rounded-xl overflow-hidden group">
         <AnimatePresence initial={false} custom={direction} mode="popLayout">
-          <motion.div
+          <m.div
             key={currentIndex}
             custom={direction}
             variants={{
@@ -187,7 +187,7 @@ export function UnifiedMediaModal({
                 className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
               />
             )}
-          </motion.div>
+          </m.div>
         </AnimatePresence>
 
         {/* Navigation Arrows */}
@@ -223,7 +223,7 @@ export function UnifiedMediaModal({
           </div>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 
   if (isMobile === false) {

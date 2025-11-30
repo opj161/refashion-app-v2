@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, Sparkles, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -96,7 +96,7 @@ export function GenerationProgressIndicator({
   return (
     <AnimatePresence mode="wait">
       {(isGenerating || estimatedProgress > 0) && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
@@ -136,18 +136,18 @@ export function GenerationProgressIndicator({
 
               {/* Optional detailed stage info */}
               {!isComplete && (
-                <motion.p
+                <m.p
                   className="text-xs text-muted-foreground"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.5 }}
                 >
                   This usually takes 20-30 seconds
-                </motion.p>
+                </m.p>
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

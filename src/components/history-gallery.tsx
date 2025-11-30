@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useOptimistic, startTransition, lazy, Suspense } from "react";
-import { motion, AnimatePresence, LayoutGroup } from "motion/react";
+import { m, AnimatePresence, LayoutGroup } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { getHistoryPaginated, deleteHistoryItem } from "@/actions/historyActions";
 import type { HistoryItem } from "@/lib/types";
@@ -235,14 +235,14 @@ export default function HistoryGallery({
         <AnimatePresence mode="wait">
           {/* STATE 1: Initial Loading Skeleton */}
           {isLoadingMore && historyItems.length === 0 && (
-            <motion.div key="skeleton" variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
+            <m.div key="skeleton" variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
               <HistoryGallerySkeleton count={9} />
-            </motion.div>
+            </m.div>
           )}
 
           {/* STATE 2: Empty State Card */}
           {!isLoadingMore && optimisticHistory.length === 0 && (
-            <motion.div key="empty" variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
+            <m.div key="empty" variants={fadeVariant} initial="hidden" animate="visible" exit="exit">
               <Card variant="glass" className="mt-8">
                 <CardContent className="py-16 flex flex-col items-center justify-center text-center">
                   <ImageIcon className="h-16 w-16 text-muted-foreground/50 mb-4" />
@@ -250,12 +250,12 @@ export default function HistoryGallery({
                   <p className="text-muted-foreground mt-1">Creations for this filter will appear here.</p>
                 </CardContent>
               </Card>
-            </motion.div>
+            </m.div>
           )}
 
           {/* STATE 3: Content Grid */}
           {optimisticHistory.length > 0 && (
-            <motion.div
+            <m.div
               key="content"
               variants={fadeVariant}
               initial="hidden"
@@ -264,7 +264,7 @@ export default function HistoryGallery({
             >
               <LayoutGroup>
                 <div className="relative">
-                  <motion.div
+                  <m.div
                     className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"
                     layout
                     variants={COMMON_VARIANTS.staggeredListContainer}
@@ -273,7 +273,7 @@ export default function HistoryGallery({
                   >
                     <AnimatePresence>
                       {optimisticHistory.map((item) => (
-                        <motion.div 
+                        <m.div 
                           key={item.id} 
                           variants={COMMON_VARIANTS.staggeredListItem}
                           exit="exit"
@@ -284,10 +284,10 @@ export default function HistoryGallery({
                             onViewDetails={handleViewDetails}
                             onDeleteItem={handleDeleteRequest}
                           />
-                        </motion.div>
+                        </m.div>
                       ))}
                     </AnimatePresence>
-                  </motion.div>
+                  </m.div>
 
                   {/* Modals are kept here to benefit from LayoutGroup */}
                   <AnimatePresence>
@@ -314,7 +314,7 @@ export default function HistoryGallery({
                   </AnimatePresence>
                 </div>
               </LayoutGroup>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>

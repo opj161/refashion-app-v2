@@ -14,7 +14,7 @@ import type { HistoryItem } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { ParameterSection, ParameterRow } from "./ParameterDisplay";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { motion, AnimatePresence } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 
 interface ImageViewerModalProps {
   item: HistoryItem | null;
@@ -226,7 +226,7 @@ export function ImageViewerModal({
             {/* Image Display */}
             <div className="relative w-full h-full p-4 lg:p-12 flex items-center justify-center">
               <AnimatePresence mode="wait">
-                <motion.div
+                <m.div
                   key={currentImage.url}
                   initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -242,7 +242,7 @@ export function ImageViewerModal({
                     priority
                     quality={90}
                   />
-                </motion.div>
+                </m.div>
               </AnimatePresence>
             </div>
 

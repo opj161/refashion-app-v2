@@ -11,7 +11,7 @@ import {
   X,
   Check,
 } from "lucide-react";
-import { motion, AnimatePresence } from 'motion/react';
+import { m, AnimatePresence } from 'motion/react';
 
 import AspectRatioSelector from "./AspectRatioSelector";
 import ImageProcessingTools from "./ImageProcessingTools";
@@ -58,7 +58,7 @@ export default function EditingHubSidebar({
             />
             <AnimatePresence>
               {isCropping && (
-                <motion.div
+                <m.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -70,7 +70,7 @@ export default function EditingHubSidebar({
                   <Button size="sm" className="flex-1" onClick={onConfirmCrop} disabled={isProcessing}>
                     <Check className="mr-2 h-4 w-4" /> Apply Crop
                   </Button>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
           </AccordionContent>

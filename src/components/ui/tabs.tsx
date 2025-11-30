@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { motion, LayoutGroup } from "motion/react"
+import { m, LayoutGroup } from "motion/react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
 
 import { cn } from "@/lib/utils"
@@ -68,7 +68,7 @@ const TabsTrigger = React.forwardRef<
     >
       <span className="relative z-10 flex items-center gap-2">{children}</span>
       {isActive && (
-        <motion.div
+        <m.div
           layoutId="active-tab-indicator"
           className="absolute inset-0 z-0 rounded-lg bg-gradient-to-br from-primary to-primary-gradient-end shadow-lg shadow-primary/20"
           transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}

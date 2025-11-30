@@ -5,7 +5,7 @@ import React, { useCallback, useState, useEffect, Suspense } from "react";
 import { useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/SegmentedControl";
-import { motion, AnimatePresence } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import ImagePreparationContainer from "./ImagePreparationContainer";
 import { ImageGenerationWorkspace } from "./ImageGenerationWorkspace";
 import VideoParameters from "./video-parameters";
@@ -159,7 +159,7 @@ function CreationHubContent({
           <div className="relative w-full min-h-[3rem] flex mt-2">
             <AnimatePresence mode="wait">
               {currentTab === 'image' && (
-                <motion.div 
+                <m.div 
                   key="mode-selector"
                   variants={COMMON_VARIANTS.slideDownAndFade}
                   initial="hidden"
@@ -181,10 +181,10 @@ function CreationHubContent({
                       <Sparkles className="h-4 w-4 mr-2" /> Creative Mode
                     </SegmentedControlItem>
                   </SegmentedControl>
-                </motion.div>
+                </m.div>
               )}
               {currentTab === 'history' && (
-                <motion.div 
+                <m.div 
                   key="history-filter"
                   variants={COMMON_VARIANTS.slideDownAndFade}
                   initial="hidden"
@@ -208,7 +208,7 @@ function CreationHubContent({
                       <Video className="h-4 w-4 mr-2" /> Videos
                     </SegmentedControlItem>
                   </SegmentedControl>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
           </div>

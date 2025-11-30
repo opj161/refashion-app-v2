@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Palette, Maximize2, Download, RefreshCw, AlertCircle, Video } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { m, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
 import { getDisplayableImageUrl } from '@/lib/utils';
 import { ImageViewerModal } from './ImageViewerModal';

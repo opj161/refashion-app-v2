@@ -64,7 +64,7 @@ export default function ImageEditorCanvas({
         // 5. PERFORMANCE: Add will-change-transform
         // This hints to the browser that 'transform' will change, optimizing the 
         // composite layer for the scaling animation used below.
-        className="will-change-transform"
+        // REMOVED: Motion handles this automatically.
         style={{
           transform: `scale(${scale})`,
           transition: 'transform 0.2s ease-out',

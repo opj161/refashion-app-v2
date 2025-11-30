@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { type PixelCrop, type Crop } from 'react-image-crop';
-import { motion, AnimatePresence } from 'motion/react';
+import { m, AnimatePresence } from 'motion/react';
 import { useImageStore } from "@/stores/imageStore";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -115,7 +115,7 @@ export default function ImagePreparationContainer({
   return (
     <AnimatePresence mode="wait">
       {!activeImage ? (
-        <motion.div
+        <m.div
           key="uploader"
           variants={containerVariants}
           initial="hidden"
@@ -123,9 +123,9 @@ export default function ImagePreparationContainer({
           exit="exit"
         >
           <ImageUploader recentUploads={recentUploads} />
-        </motion.div>
+        </m.div>
       ) : (
-        <motion.div
+        <m.div
           key="editor"
           variants={containerVariants}
           initial="hidden"
@@ -198,7 +198,7 @@ export default function ImagePreparationContainer({
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

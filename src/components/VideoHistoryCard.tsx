@@ -9,7 +9,7 @@ import { Eye, PlayCircle, Clock, AlertCircle, CheckCircle } from "lucide-react";
 import { getDisplayableImageUrl, cn } from "@/lib/utils";
 import { VideoPlaybackModal } from "@/components/VideoPlaybackModal";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { motion, AnimatePresence } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 
 interface VideoHistoryCardProps {
   item: HistoryItem;
@@ -99,14 +99,14 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
   const canPlayVideo = status === "completed" && videoUrl;
 
   return (
-    <motion.div layout>
+    <m.div layout>
       <Card
         ref={cardRef}
         className="group cursor-pointer overflow-hidden transition-all hover:border-primary/50 hover:shadow-lg"
         onClick={() => canPlayVideo && setIsModalOpen(true)}
       >
         <CardContent className="p-0">
-          <motion.div
+          <m.div
             layoutId={`video-card-${item.id}`}
             className="relative aspect-[9/16] w-full bg-muted"
           >
@@ -166,7 +166,7 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
                 </div>
               </div>
             )}
-          </motion.div>
+          </m.div>
         </CardContent>
         <CardFooter className="flex-col items-start bg-card-foreground/5 p-3">
           <div className="flex w-full items-center gap-2">
@@ -196,6 +196,6 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
       <AnimatePresence>
         {isModalOpen && <VideoPlaybackModal item={item} onClose={() => setIsModalOpen(false)} />}
       </AnimatePresence>
-    </motion.div>
+    </m.div>
   );
 }

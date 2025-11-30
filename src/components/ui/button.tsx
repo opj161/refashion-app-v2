@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
-import { motion } from "motion/react"
+import { m } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
@@ -59,7 +59,7 @@ function Button({ className, variant, size, asChild = false, ref, ...props }: Bu
   // Remove onDrag from props to avoid type conflict with motion.button
   const { onDrag, ...rest } = props as any
   return (
-    <motion.button
+    <m.button
       className={cn(buttonVariants({ variant, size, className }))}
       ref={ref}
       whileHover={{ scale: 1.015 }}

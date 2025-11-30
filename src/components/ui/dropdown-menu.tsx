@@ -3,7 +3,7 @@
 import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
 import { Check, ChevronRight, Circle } from "lucide-react"
-import { motion } from "motion/react"
+import { m } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
@@ -82,7 +82,7 @@ const DropdownMenuItem = React.forwardRef<
   }
 >(({ className, inset, ...props }, ref) => {
   return (
-    <motion.div
+    <m.div
       whileHover={{ x: 2 }}
       style={{ display: 'contents' }}
     >
@@ -95,7 +95,7 @@ const DropdownMenuItem = React.forwardRef<
         )}
         {...props}
       />
-    </motion.div>
+    </m.div>
   );
 })
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName

@@ -10,7 +10,7 @@ import { HistoryItem } from "@/lib/types";
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { Eye, RefreshCw, Video, Image as ImageIcon, AlertTriangle, Loader2, PlayCircle, MoreVertical, MoreHorizontal, Trash2, Download, Sparkles } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { useToast } from "@/hooks/use-toast";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -214,7 +214,7 @@ export default function HistoryCard({
   };
 
   return (
-    <motion.div
+    <m.div
       layout
       layoutId={`history-card-${item.id}`}
       initial={{ opacity: 0, y: 20 }}
@@ -243,14 +243,16 @@ export default function HistoryCard({
           {/* Media Content */}
           {isVideoItem && videoUrl ? (
             <>
-              <Image
-                src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
-                alt="Video thumbnail"
-                fill
-                sizes="(max-width: 640px) 95vw, (max-width: 1024px) 45vw, 30vw"
-                decoding="async"
-                className={cn(`object-cover object-top transition-opacity duration-300`, isInView ? 'opacity-0' : 'opacity-100')}
-              />
+              <m.div layout className="relative w-full h-full">
+                <Image
+                  src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
+                  alt="Video thumbnail"
+                  fill
+                  sizes="(max-width: 640px) 95vw, (max-width: 1024px) 45vw, 30vw"
+                  decoding="async"
+                  className={cn(`object-cover object-top transition-opacity duration-300`, isInView ? 'opacity-0' : 'opacity-100')}
+                />
+              </m.div>
               <video
                 ref={videoRef}
                 src={getDisplayableImageUrl(videoUrl) || undefined}
@@ -259,13 +261,15 @@ export default function HistoryCard({
               />
             </>
           ) : primaryImageUrl ? (
-            <Image
-              src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
-              alt={item.constructedPrompt || "Generated image"}
-              fill
-              sizes="(max-width: 640px) 95vw, (max-width: 1024px) 45vw, 30vw"
-              className="object-cover object-top transition-transform duration-300 ease-in-out group-hover:scale-105"
-            />
+            <m.div layout className="relative w-full h-full">
+              <Image
+                src={getDisplayableImageUrl(primaryImageUrl) || '/placeholder.png'}
+                alt={item.constructedPrompt || "Generated image"}
+                fill
+                sizes="(max-width: 640px) 95vw, (max-width: 1024px) 45vw, 30vw"
+                className="object-cover object-top transition-transform duration-300 ease-in-out group-hover:scale-105"
+              />
+            </m.div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground bg-muted/30">
               <ImageIcon size={40} />
@@ -353,6 +357,6 @@ export default function HistoryCard({
           </div>
         </div>
       </Card>
-    </motion.div>
+    </m.div>
   );
 }

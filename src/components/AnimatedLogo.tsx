@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { motion, useReducedMotion, Variants, Transition } from 'motion/react';
+import { m, useReducedMotion, Variants, Transition } from 'motion/react';
 import LogoSvg from '../../public/refashion.svg'; // Used for the reduced-motion fallback
 
 // --- Path data from the refashion.svg (remains unchanged) ---
@@ -33,9 +33,9 @@ const Gradients = () => (
 const LogoPaths = ({ pathVariants, pathTransition }: { pathVariants: Variants, pathTransition?: Transition }) => (
   <>
     <Gradients />
-    <motion.path custom={2} variants={pathVariants} transition={pathTransition} fill="url(#linear-gradient)" d={paths.main} />
-    <motion.path custom={1} variants={pathVariants} transition={pathTransition} fill="url(#linear-gradient1)" d={paths.middle} />
-    <motion.path custom={0} variants={pathVariants} transition={pathTransition} fill="url(#linear-gradient2)" d={paths.inner} />
+    <m.path custom={2} variants={pathVariants} transition={pathTransition} fill="url(#linear-gradient)" d={paths.main} />
+    <m.path custom={1} variants={pathVariants} transition={pathTransition} fill="url(#linear-gradient1)" d={paths.middle} />
+    <m.path custom={0} variants={pathVariants} transition={pathTransition} fill="url(#linear-gradient2)" d={paths.inner} />
   </>
 );
 
@@ -86,19 +86,19 @@ const LiquidWeaveAnimation = ({ transitionConfig }: AnimationComponentProps) => 
     }
   };
   return (
-    <motion.svg {...svgProps} variants={{ visible: { transition: { staggerChildren: stagger } } }}>
+    <m.svg {...svgProps} variants={{ visible: { transition: { staggerChildren: stagger } } }}>
       <LogoPaths pathVariants={pathVariants} />
-    </motion.svg>
+    </m.svg>
   );
 };
 
 const GradientBloomAnimation = ({ transitionConfig }: AnimationComponentProps) => {
   const { duration } = transitionConfig;
   return (
-    <motion.svg {...svgProps}>
+    <m.svg {...svgProps}>
       <defs>
         <mask id="bloom-mask">
-          <motion.circle
+          <m.circle
             cx="256" cy="388" fill="white"
             initial={{ r: 0 }}
             animate={{ r: 600 }}
@@ -106,39 +106,39 @@ const GradientBloomAnimation = ({ transitionConfig }: AnimationComponentProps) =
           />
         </mask>
       </defs>
-      <motion.g mask="url(#bloom-mask)">
+      <m.g mask="url(#bloom-mask)">
         <LogoPaths pathVariants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} />
-      </motion.g>
-    </motion.svg>
+      </m.g>
+    </m.svg>
   );
 };
 
 const FragmentAssemblyAnimation = ({ transitionConfig }: AnimationComponentProps) => {
   const { duration, stagger } = transitionConfig;
   return (
-    <motion.svg {...svgProps}>
+    <m.svg {...svgProps}>
       <defs>
         <clipPath id="assembly-clip">
-          <motion.rect initial={{ x: -512 }} animate={{ x: 0 }} transition={{ duration: duration * 0.7, ease: [0.76, 0, 0.24, 1], delay: stagger * 0 }} width="512" height="259" />
-          <motion.rect y="259" initial={{ x: 512 }} animate={{ x: 0 }} transition={{ duration: duration * 0.7, ease: [0.76, 0, 0.24, 1], delay: stagger * 1 }} width="512" height="258" />
-          <motion.rect y="517" initial={{ y: 776 }} animate={{ y: 517 }} transition={{ duration: duration * 0.7, ease: [0.76, 0, 0.24, 1], delay: stagger * 2 }} width="512" height="259" />
+          <m.rect initial={{ x: -512 }} animate={{ x: 0 }} transition={{ duration: duration * 0.7, ease: [0.76, 0, 0.24, 1], delay: stagger * 0 }} width="512" height="259" />
+          <m.rect y="259" initial={{ x: 512 }} animate={{ x: 0 }} transition={{ duration: duration * 0.7, ease: [0.76, 0, 0.24, 1], delay: stagger * 1 }} width="512" height="258" />
+          <m.rect y="517" initial={{ y: 776 }} animate={{ y: 517 }} transition={{ duration: duration * 0.7, ease: [0.76, 0, 0.24, 1], delay: stagger * 2 }} width="512" height="259" />
         </clipPath>
       </defs>
-      <motion.g clipPath="url(#assembly-clip)" initial={{ scale: 1.1 }} animate={{ scale: 1 }} transition={{ duration, ease: 'easeOut' }}>
+      <m.g clipPath="url(#assembly-clip)" initial={{ scale: 1.1 }} animate={{ scale: 1 }} transition={{ duration, ease: 'easeOut' }}>
         <LogoPaths pathVariants={{ visible: { opacity: 1 } }} />
-      </motion.g>
-    </motion.svg>
+      </m.g>
+    </m.svg>
   );
 };
 
 const AuroraFlowAnimation = ({ transitionConfig }: AnimationComponentProps) => {
   const { duration } = transitionConfig;
   return (
-    <motion.svg {...svgProps}>
+    <m.svg {...svgProps}>
       <defs>
         {/* FIX: Added x1, y1, x2, y2, and gradientUnits to match the static gradients */}
         {/* This ensures the final state (rotate(0)) is visually correct. */}
-        <motion.linearGradient
+        <m.linearGradient
           id="aurora-flow-0"
           x1="64.36" y1="451.57" x2="323.11" y2="3.4" gradientUnits="userSpaceOnUse"
           initial={{ gradientTransform: "rotate(-150 256 388)" }}
@@ -146,9 +146,9 @@ const AuroraFlowAnimation = ({ transitionConfig }: AnimationComponentProps) => {
           transition={{ duration: duration * 1.2, ease: "easeInOut" }}
         >
           <stop offset="0" stopColor="#f5370e"/><stop offset=".2" stopColor="#eb3c15"/><stop offset=".51" stopColor="#886759"/><stop offset=".75" stopColor="#40878b"/><stop offset=".86" stopColor="#25949f"/>
-        </motion.linearGradient>
+        </m.linearGradient>
         
-        <motion.linearGradient
+        <m.linearGradient
           id="aurora-flow-1"
           x1="89.7" y1="513.77" x2="255.94" y2="225.84" gradientUnits="userSpaceOnUse"
           initial={{ gradientTransform: "rotate(120 256 388)" }}
@@ -156,9 +156,9 @@ const AuroraFlowAnimation = ({ transitionConfig }: AnimationComponentProps) => {
           transition={{ duration: duration * 1.3, ease: "easeInOut" }}
         >
           <stop offset="0" stopColor="#1b113d"/><stop offset=".69" stopColor="#46758f"/><stop offset="1" stopColor="#599fb1"/>
-        </motion.linearGradient>
+        </m.linearGradient>
         
-        <motion.linearGradient
+        <m.linearGradient
           id="aurora-flow-2"
           x1="445.22" y1="323.23" x2="175.33" y2="790.69" gradientUnits="userSpaceOnUse"
           initial={{ gradientTransform: "rotate(180 256 388)" }}
@@ -166,21 +166,21 @@ const AuroraFlowAnimation = ({ transitionConfig }: AnimationComponentProps) => {
           transition={{ duration: duration * 1.4, ease: "easeInOut" }}
         >
           <stop offset="0" stopColor="#1b7f89"/><stop offset=".09" stopColor="#387275"/><stop offset=".28" stopColor="#845142"/><stop offset=".48" stopColor="#dd2c07"/><stop offset=".52" stopColor="#c9270f"/><stop offset=".64" stopColor="#901928"/><stop offset=".76" stopColor="#630e3c"/><stop offset=".86" stopColor="#43064a"/><stop offset=".94" stopColor="#300152"/><stop offset="1" stopColor="#290056"/>
-        </motion.linearGradient>
+        </m.linearGradient>
       </defs>
-      <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration, ease: "easeOut" }}>
+      <m.g initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration, ease: "easeOut" }}>
         <path fill="url(#aurora-flow-0)" d={paths.main} />
         <path fill="url(#aurora-flow-1)" d={paths.middle} />
         <path fill="url(#aurora-flow-2)" d={paths.inner} />
-      </motion.g>
-    </motion.svg>
+      </m.g>
+    </m.svg>
   );
 };
 
 const ThreeDFlipAnimation = ({ transitionConfig }: AnimationComponentProps) => (
-  <motion.svg {...svgProps} variants={{ hidden: { opacity: 0, rotateY: -90 }, visible: { opacity: 1, rotateY: 0, transition: { duration: transitionConfig.duration, ease: [0.34, 1.56, 0.64, 1] } } }} style={{ transformPerspective: '800px' }}>
+  <m.svg {...svgProps} variants={{ hidden: { opacity: 0, rotateY: -90 }, visible: { opacity: 1, rotateY: 0, transition: { duration: transitionConfig.duration, ease: [0.34, 1.56, 0.64, 1] } } }} style={{ transformPerspective: '800px' }}>
     <LogoPaths pathVariants={{}} />
-  </motion.svg>
+  </m.svg>
 );
 
 // IMPROVEMENT 4: Performant Glitch Animation
@@ -206,9 +206,9 @@ const GlitchSettleAnimation = ({ transitionConfig }: AnimationComponentProps) =>
   };
   
   return (
-    <motion.svg {...svgProps} variants={variants}>
+    <m.svg {...svgProps} variants={variants}>
       <LogoPaths pathVariants={{}} />
-    </motion.svg>
+    </m.svg>
   );
 };
 
@@ -244,9 +244,9 @@ export function AnimatedLogo({
 
   if (shouldReduceMotion) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
         <LogoSvg className="h-48 w-48" />
-      </motion.div>
+      </m.div>
     );
   }
 
@@ -265,7 +265,7 @@ export function AnimatedLogo({
   };
 
   return (
-    <motion.div
+    <m.div
       variants={wrapperVariants}
       initial="initial"
       animate={state}
@@ -277,6 +277,6 @@ export function AnimatedLogo({
       }}
     >
       {renderAnimation()}
-    </motion.div>
+    </m.div>
   );
 }

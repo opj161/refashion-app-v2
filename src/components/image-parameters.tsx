@@ -24,7 +24,7 @@ import {
   LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, LENS_EFFECT_OPTIONS,
   DEPTH_OF_FIELD_OPTIONS, OptionWithPromptSegment, ASPECT_RATIOS
 } from '@/lib/prompt-builder';
-import { motion, AnimatePresence } from 'motion/react';
+import { m, AnimatePresence } from 'motion/react';
 import { MOTION_TRANSITIONS } from '@/lib/motion-constants';
 
 // Updated interface

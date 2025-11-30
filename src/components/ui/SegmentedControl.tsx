@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { motion, LayoutGroup } from "motion/react";
+import { m, LayoutGroup } from "motion/react";
 import { cn } from "@/lib/utils";
 
 // 1. Context to provide the active value to child items
@@ -46,7 +46,7 @@ const SegmentedControlItem = React.forwardRef<HTMLButtonElement, SegmentedContro
     const isActive = activeValue === value;
 
     return (
-      <motion.button
+      <m.button
         ref={ref}
         onClick={() => onValueChange(value)}
         className={cn(
@@ -58,13 +58,13 @@ const SegmentedControlItem = React.forwardRef<HTMLButtonElement, SegmentedContro
       >
         <span className="relative z-10 flex items-center gap-2">{children}</span>
         {isActive && (
-          <motion.div
+          <m.div
             layoutId="active-segment-indicator"
             className="absolute inset-0 z-0 rounded-md bg-gradient-to-br from-primary to-primary-gradient-end shadow-sm"
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           />
         )}
-      </motion.button>
+      </m.button>
     );
   }
 );

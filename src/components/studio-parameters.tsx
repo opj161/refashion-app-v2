@@ -9,7 +9,7 @@ import { useImageStore } from '@/stores/imageStore';
 import { useGenerationSettingsStore } from '@/stores/generationSettingsStore';
 import { Sparkles, Loader2, Info } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
-import { motion, AnimatePresence } from 'motion/react';
+import { m, AnimatePresence } from 'motion/react';
 import { COMMON_VARIANTS } from '@/lib/motion-constants';
 import { ASPECT_RATIOS } from '@/lib/prompt-builder';
 
@@ -50,7 +50,7 @@ export default function StudioParameters({ isPending, maxImages = 3, userModel, 
         <CardContent className="space-y-6">
           <AnimatePresence>
             {!isImageReady && (
-              <motion.div variants={COMMON_VARIANTS.slideDownAndFade} initial="hidden" animate="visible" exit="exit">
+              <m.div variants={COMMON_VARIANTS.slideDownAndFade} initial="hidden" animate="visible" exit="exit">
                 <Alert className="py-2 bg-blue-500/10 border-blue-500/20 text-blue-200">
                   <div className="flex items-center gap-3">
                     <Info className="h-4 w-4" />
@@ -60,7 +60,7 @@ export default function StudioParameters({ isPending, maxImages = 3, userModel, 
                     Please prepare an image first.
                   </AlertDescription>
                 </Alert>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
 

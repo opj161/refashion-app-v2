@@ -19,7 +19,7 @@ import { AlertTriangle, Info, Loader2, PaletteIcon, Settings2, Shuffle, Video } 
 import { usePromptManager } from "@/hooks/usePromptManager";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { calculateVideoCost, formatPrice, VideoResolution, VideoDuration } from "@/lib/pricing";
-import { motion, AnimatePresence } from 'motion/react';
+import { m, AnimatePresence } from 'motion/react';
 import { COMMON_VARIANTS } from '@/lib/motion-constants';
 import { ImageResultsDisplay } from './ImageResultsDisplay'; // UNIFIED COMPONENT
 import { useStoreSubmission } from "@/hooks/useStoreSubmission"; // NEW HOOK
@@ -98,9 +98,9 @@ export default function VideoParameters() {
             {/* Alerts */}
             <AnimatePresence>
               {!preparedImageUrl && (
-                <motion.div variants={COMMON_VARIANTS.slideDownAndFade} initial="hidden" animate="visible" exit="exit">
+                <m.div variants={COMMON_VARIANTS.slideDownAndFade} initial="hidden" animate="visible" exit="exit">
                   <Alert><Info className="h-4 w-4" /><AlertTitle>Start with an Image</AlertTitle><AlertDescription>Upload an image first.</AlertDescription></Alert>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
 

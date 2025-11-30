@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { COMMON_VARIANTS, MOTION_TRANSITIONS } from '@/lib/motion-constants';
@@ -24,7 +24,7 @@ const PageTransitionWrapper = ({ children }: { children: ReactNode }) => {
   }, [pathname]);
 
   return (
-    <motion.div
+    <m.div
       key={pathname} // Add key for AnimatePresence to work on route changes
       variants={shouldReduceMotion ? reducedMotionVariant : COMMON_VARIANTS.pageTransition}
       initial="hidden"
@@ -34,7 +34,7 @@ const PageTransitionWrapper = ({ children }: { children: ReactNode }) => {
       className="flex-1 flex flex-col"
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 };
 

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useImageStore } from "@/stores/imageStore";
 import { UploadCloud, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from 'motion/react';
+import { m, AnimatePresence } from 'motion/react';
 import { RecentAssetsPanel } from './RecentAssetsPanel';
 import { recreateStateFromImageUrl } from '@/actions/imageActions';
 import { cn } from '@/lib/utils';
@@ -242,7 +242,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
             
             {/* Left Side: Drop Zone */}
             <div className="flex flex-col h-full min-h-[300px]">
-              <motion.div
+              <m.div
                 animate={isDraggingOverDropZone ? "dragOver" : "idle"}
                 variants={dropZoneVariants}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -272,7 +272,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
                       </>
                     ) : (
                       <>
-                        <motion.div
+                        <m.div
                           animate={{ 
                             y: isDraggingOverDropZone ? -10 : 0,
                             scale: isDraggingOverDropZone ? 1.1 : 1 
@@ -282,7 +282,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
                           <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mx-auto border border-white/10">
                              <UploadCloud className="w-10 h-10 text-primary" />
                           </div>
-                        </motion.div>
+                        </m.div>
                         <h3 className="text-lg font-semibold text-foreground mb-1">
                           {isDraggingOverDropZone ? "Drop it here!" : "Click or Drag Image"}
                         </h3>
@@ -301,7 +301,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
                   accept={ALLOWED_FILE_TYPES.join(',')} 
                   disabled={isDisabled}
                 />
-              </motion.div>
+              </m.div>
             </div>
 
             {/* Right Side: Recent Panel */}
