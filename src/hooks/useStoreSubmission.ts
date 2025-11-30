@@ -59,7 +59,12 @@ export function useStoreSubmission<T extends { message: string; error?: string; 
         // 4. Append Studio Specifics
         if (genState.generationMode === 'studio') {
             formData.append('studioFit', genState.studioFit);
-            if (genState.studioAspectRatio) formData.append('aspectRatio', genState.studioAspectRatio);
+        }
+
+        // FIX 3: Move aspectRatio check OUTSIDE the studio check
+        // Nano Banana uses this in both Creative and Studio modes
+        if (genState.studioAspectRatio) {
+            formData.append('aspectRatio', genState.studioAspectRatio);
         }
 
         // 5. Append Video Settings
@@ -107,9 +112,12 @@ export function useStoreSubmission<T extends { message: string; error?: string; 
             } else if (hasError) {
                 // Only show error toast if we didn't get a success ID
                 if (!newId) {
+                    // FIX 1: Check for state.errors[0] if state.error is missing
+                    const errorMessage = state.error || (state.errors && state.errors[0]) || 'Please check settings.';
+                    
                     toast({
                         title: 'Generation Failed',
-                        description: state.error || 'Please check settings.',
+                        description: errorMessage,
                         variant: 'destructive',
                     });
                 }

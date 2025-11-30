@@ -9,6 +9,7 @@ import * as videoService from '@/services/fal-api/video.service'; // Use the ser
 import { getDisplayableImageUrl } from '@/lib/utils';
 import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 import { createApiLogger } from '@/lib/api-logger';
+import { getApiKeyForUser } from '@/services/apiKey.service';
 
 // Ensure FAL_KEY is available, otherwise Fal.ai calls will fail
 if (!process.env.FAL_KEY) {
@@ -75,6 +76,14 @@ export async function uploadToFalStorage(file: File | Blob, username: string): P
   try {
     logger.progress('Uploading to Fal Storage');
     
+    // FIX: Retrieve the key dynamically
+    const apiKey = await getApiKeyForUser(username, 'fal');
+    
+    // FIX: Configure fal client temporarily for this request
+    fal.config({
+      credentials: apiKey
+    });
+
     const url = await fal.storage.upload(file);
     
     logger.success({
