@@ -182,28 +182,33 @@
     --motion-ease-anticipate: cubic-bezier(0.34, 1.2, 0.64, 1);
 
     /* Colors (HSL) */
-    --background: 210 20% 98%;
-    --background-accent: 210 20% 94%;
-    --foreground: 210 10% 23%;
-    --card: 210 20% 100%;
-    --card-foreground: 210 10% 23%;
-    --popover: 210 20% 100%;
-    --popover-foreground: 210 10% 23%;
+    --background: 0 0% 100%;
+    --background-accent: 210 40% 96.1%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
     --primary: 173 71% 38%;
-    --primary-foreground: 173 50% 98%;
+    --primary-foreground: 210 40% 98%;
     --primary-gradient-end: 175 70% 44%;
-    --secondary: 210 15% 90%;
-    --secondary-foreground: 210 10% 23%;
-    --muted: 210 15% 94%;
-    --muted-foreground: 210 10% 45%;
-    --accent: 177 63% 48%;
-    --accent-foreground: 210 10% 23%;
-    --destructive: 12 64% 49%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 210 27.9% 16.9%;
-    --input: 210 27.9% 16.9%;
-    --ring: 173 71% 42%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 173 71% 38%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 173 71% 38%;
     --radius: 0.75rem;
+
+    /* Aurora gradient colors */
+    --aurora-1: 173 71% 42%;
+    --aurora-2: 278 48% 40%;
+    --aurora-3: 244 62% 40%;
 
     /* Layout */
     --header-height: 7rem;
@@ -231,6 +236,11 @@
     --destructive-foreground: 0 0% 98%;
     --border: 210 27.9% 16.9%;
     --input: 210 27.9% 16.9%;
+
+    /* Aurora gradient colors */
+    --aurora-1: 173 71% 42%;
+    --aurora-2: 278 48% 28%;
+    --aurora-3: 244 62% 30%;
   }
 
   /* Mobile Input Fix */
@@ -265,9 +275,9 @@
     max-width: 1400px;
     max-height: 1400px;
     background-image:
-      radial-gradient(circle at 20% 20%, hsl(173 71% 42% / 0.2), transparent 40%),
-      radial-gradient(circle at 80% 30%, hsl(278 48% 28% / 0.2), transparent 40%),
-      radial-gradient(circle at 60% 80%, hsl(244 62% 30% / 0.2), transparent 40%);
+      radial-gradient(circle at 20% 20%, hsl(var(--aurora-1) / 0.15), transparent 40%),
+      radial-gradient(circle at 80% 30%, hsl(var(--aurora-2) / 0.15), transparent 40%),
+      radial-gradient(circle at 60% 80%, hsl(var(--aurora-3) / 0.15), transparent 40%);
     filter: blur(100px);
     z-index: -1;
     pointer-events: none;

@@ -276,7 +276,7 @@ export default function HistoryCard({
           {/* FIX: Consolidate Badges to Top Left Container */}
           <div className="absolute top-2 left-2 z-20 flex flex-col gap-1.5 items-start">
             {/* REFACTOR: h-3 w-3 -> size-3 */}
-            <Badge variant="secondary" className="text-xs font-medium shadow-sm bg-black/60 backdrop-blur-md border border-white/10 text-white/90">
+            <Badge variant="secondary" className="text-xs font-medium shadow-sm bg-white/80 text-foreground dark:bg-black/60 dark:text-white/90 backdrop-blur-md border border-black/5 dark:border-white/10">
               {isVideoItem ? <Video className="size-3 mr-1.5" /> : <ImageIcon className="size-3 mr-1.5" />}
               {isVideoItem ? "Video" : "Image"}
             </Badge>

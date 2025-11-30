@@ -29,7 +29,7 @@ interface SegmentedControlProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const SegmentedControl = ({ value, onValueChange, children, className, ...props }: SegmentedControlProps) => (
   <SegmentedControlContext.Provider value={{ activeValue: value, onValueChange }}>
-    <div className={cn("relative flex items-center justify-center rounded-lg p-1 bg-muted/40 border border-white/5", className)} {...props}>
+    <div className={cn("relative flex items-center justify-center rounded-lg p-1 bg-gray-100/80 border-gray-200 dark:bg-muted/40 dark:border-white/5 border", className)} {...props}>
       <LayoutGroup id={React.useId()}>{children}</LayoutGroup>
     </div>
   </SegmentedControlContext.Provider>
