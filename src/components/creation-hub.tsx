@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useCallback, useState, useEffect, Suspense } from "react";
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/SegmentedControl";
 import { m, AnimatePresence } from "motion/react";
@@ -32,8 +32,15 @@ function CreationHubContent({
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
-  // Manage currentTab as local state instead of global store
-  const [currentTab, setCurrentTab] = useState<string>('image');
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // DERIVED STATE (Single Source of Truth)
+  // Default to 'image' if param is missing
+  const currentTab = searchParams.get('tab') || 'image';
+  
+  // Sync Store with URL
+  const modeFromUrl = searchParams.get('mode');
 
   // State for initialization from history
   const [initHistoryItem, setInitHistoryItem] = useState<HistoryItem | null>(null);
@@ -49,27 +56,30 @@ function CreationHubContent({
     }))
   );
 
+  useEffect(() => {
+    if (modeFromUrl === 'studio' || modeFromUrl === 'creative') {
+      setGenerationMode(modeFromUrl);
+    }
+  }, [modeFromUrl, setGenerationMode]);
+
   // Effect to read query params on initial load
   useEffect(() => {
     const historyId = searchParams.get('init_history_id');
     const imageUrl = searchParams.get('init_image_url');
-    const tab = searchParams.get('target_tab');
+    // const tab = searchParams.get('target_tab'); // Handled by derived state now
 
     if (historyId) {
       // We pass a "fake" history item with just the ID to the context
       setInitHistoryItem({ id: historyId } as HistoryItem);
-      if (tab) setCurrentTab(tab);
-      // Clear the URL to avoid re-triggering on refresh
-      if (typeof window !== 'undefined') {
-        window.history.replaceState(null, '', '/');
-      }
+      // if (tab) setCurrentTab(tab); // Handled by URL
+      
+      // We do NOT clear URL anymore, we want it to persist
     } else if (imageUrl) {
       setInitImageUrl(imageUrl);
-      setCurrentTab('image');
-      setGenerationMode('studio');
-      if (typeof window !== 'undefined') {
-        window.history.replaceState(null, '', '/');
-      }
+      // setCurrentTab('image'); // Handled by URL if we update it
+      // setGenerationMode('studio'); // Handled by URL if we update it
+      
+      // We do NOT clear URL anymore
     }
   }, [searchParams, setGenerationMode]);
 
@@ -77,15 +87,21 @@ function CreationHubContent({
   const handleLoadFromHistory = useCallback((item: HistoryItem) => {
     setInitHistoryItem(item);
     const targetTab = item.videoGenerationParams ? 'video' : 'image';
-    setCurrentTab(targetTab);
-  }, []);
+    // Update URL
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', targetTab);
+    router.replace(`${pathname}?${params.toString()}` as any, { scroll: false });
+  }, [pathname, router, searchParams]);
 
   // Handler to load from image URL - will be passed to components that need it
   const handleLoadFromImageUrl = useCallback((imageUrl: string) => {
     setInitImageUrl(imageUrl);
-    setGenerationMode('studio');
-    setCurrentTab('image');
-  }, [setGenerationMode]);
+    // Update URL
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', 'image');
+    params.set('mode', 'studio');
+    router.replace(`${pathname}?${params.toString()}` as any, { scroll: false });
+  }, [pathname, router, searchParams]);
 
   // Reset initialization state after it's consumed
   const handleInitializationComplete = useCallback(() => {
@@ -120,17 +136,24 @@ function CreationHubContent({
     });
   }, [reset, toast]);
 
+  // Helper to update URL without reloading
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', value);
+    router.replace(`${pathname}?${params.toString()}` as any, { scroll: false });
+  };
+
   // Clone children to pass initialization handlers
   const enhancedChildren = React.cloneElement(children, {
     onLoadFromHistory: handleLoadFromHistory,
     onLoadFromImageUrl: handleLoadFromImageUrl,
     currentTab,
-    setCurrentTab,
+    setCurrentTab: handleTabChange,
   } as any);
 
   return (
     <div className="space-y-8">
-      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
         {/* === START: INTEGRATED LAYOUT === */}
         <div className="flex flex-col">
           {/* Main Tabs - Refactored for Floating Pill Look with Grid Layout */}
@@ -170,7 +193,11 @@ function CreationHubContent({
                   <SegmentedControl
                     value={generationMode}
                     onValueChange={(mode) => {
-                      if (mode) setGenerationMode(mode as 'creative' | 'studio');
+                      if (mode) {
+                        const params = new URLSearchParams(searchParams.toString());
+                        params.set('mode', mode);
+                        router.replace(`${pathname}?${params.toString()}` as any, { scroll: false });
+                      }
                     }}
                     className="w-auto min-w-[300px] p-1 bg-muted/30 rounded-xl border border-white/5"
                   >
@@ -222,7 +249,7 @@ function CreationHubContent({
 
           {/* Unified workspace with both modes and results display */}
           <ImageGenerationWorkspace
-            setCurrentTab={setCurrentTab}
+            setCurrentTab={handleTabChange}
             onLoadImageUrl={handleLoadFromImageUrl}
             maxImages={maxImages}
             userModel={userModel} // NEW

@@ -12,8 +12,11 @@ import { findUserByUsername } from '@/services/database.service';
 import { connection } from 'next/server';
 
 // Simplified Server Component - no more searchParams handling
-export default async function CreatePage() {
+export default async function CreatePage(props: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   await connection();
+  await props.searchParams; // Await params in Next.js 15
   
   const sessionUser = await getCurrentUser();
   let maxImages = 3; // Default to 3
@@ -72,7 +75,7 @@ function HistoryGallerySkeleton() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4">
       {Array.from({ length: 9 }).map((_, i) => (
-        <Skeleton key={i} className="aspect-[2/3] rounded-lg" />
+        <Skeleton key={i} className="aspect-2/3 rounded-lg" />
       ))}
     </div>
   );

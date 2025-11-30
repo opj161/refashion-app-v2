@@ -6,7 +6,7 @@ import { getHistoryPaginated } from '@/actions/historyActions';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Force dynamic rendering for user-specific content
-// export const dynamic = 'force-dynamic';
+
 
 import { connection } from 'next/server';
 
@@ -43,7 +43,7 @@ function HistoryGallerySkeleton() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4">
       {Array.from({ length: 9 }).map((_, i) => (
-        <Skeleton key={i} className="aspect-[2/3] rounded-lg" />
+        <Skeleton key={i} className="aspect-2/3 rounded-lg" />
       ))}
     </div>
   );

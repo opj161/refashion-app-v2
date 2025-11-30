@@ -42,7 +42,7 @@ export default function EditingHubSidebar({
 }: EditingHubSidebarProps) {
   return (
     <div className="flex flex-col h-full">
-      <Accordion type="multiple" defaultValue={['crop', 'enhancements', 'history']} className="w-full flex-grow flex flex-col">
+      <Accordion type="multiple" defaultValue={['history']} className="w-full grow flex flex-col">
         {/* --- CROP SECTION --- */}
         <AccordionItem value="crop">
           <AccordionTrigger className="text-base font-semibold">
@@ -92,12 +92,12 @@ export default function EditingHubSidebar({
         
         {/* --- VERSION HISTORY SECTION --- */}
         {Object.keys(versions).length > 1 && (
-          <AccordionItem value="history" className="flex-grow flex flex-col">
+          <AccordionItem value="history" className="grow flex flex-col">
             <AccordionTrigger className="text-base font-semibold">
               <Clock className="mr-2 h-5 w-5 text-primary" />
               Version History
             </AccordionTrigger>
-            <AccordionContent className="flex-grow">
+            <AccordionContent className="grow">
                <ImageVersionStack
                   versions={versions}
                   activeVersionId={activeVersionId}

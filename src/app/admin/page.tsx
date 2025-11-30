@@ -2,8 +2,8 @@
 
 import { Suspense } from 'react';
 import dynamicImport from 'next/dynamic';
+import { connection } from 'next/server';
 
-export const dynamic = 'force-dynamic';
 import {
   GalleryVertical,
   AlertTriangle as AlertTriangleIcon,
@@ -12,109 +12,143 @@ import {
   Palette,
   Image as ImageIcon
 } from 'lucide-react';
-import { getDashboardAnalytics } from '@/actions/adminActions';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+// Import granular service functions directly
+import { 
+  getDashboardKpis, 
+  getTotalMediaStorage, 
+  getGenerationActivity, 
+  getUserActivity, 
+  getTopParameterUsage 
+} from '@/services/analytics.service';
 
 import { KpiCard } from './_components/dashboard/KpiCard';
 import { UserActivityTable } from './_components/dashboard/UserActivityTable';
 import { ParameterInsightPanel } from './_components/dashboard/ParameterInsightPanel';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Dynamically import the ActivityChart component to reduce initial bundle size
-// Note: ActivityChart is already a Client Component ('use client'), so it won't SSR
+// Dynamically import the ActivityChart component
 const ActivityChart = dynamicImport(
   () => import('./_components/dashboard/ActivityChart').then((mod) => mod.ActivityChart)
 );
 
-import { connection } from 'next/server';
+// --- Granular Data Fetching Components ---
 
-// Main Dashboard Data Fetching and Layout Component
-async function DashboardData() {
-  await connection();
-  const result = await getDashboardAnalytics();
-
-  if (!result.success || !result.data) {
-    return (
-      <Alert variant="destructive">
-        <AlertTriangleIcon className="h-4 w-4" />
-        <AlertTitle>Error Loading Dashboard</AlertTitle>
-        <AlertDescription>
-          {result.error || "An unexpected error occurred while fetching analytics data."}
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  const { kpis, activity, userStats, topStyles, topBackgrounds } = result.data;
+async function KpiSection() {
+  // Parallel data fetching for KPIs
+  const [kpis, totalStorageUsed] = await Promise.all([
+    getDashboardKpis(),
+    getTotalMediaStorage()
+  ]);
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          title="Generations (24h)"
-          value={kpis.generations24h}
-          description="Total images & videos created."
-          Icon={GalleryVertical}
-        />
-        <KpiCard
-          title="Failed Jobs (24h)"
-          value={kpis.failedJobs24h}
-          description="Jobs that resulted in an error."
-          Icon={AlertTriangleIcon}
-        />
-        <KpiCard
-          title="Active Users (24h)"
-          value={kpis.activeUsers24h}
-          description="Unique users with generations."
-          Icon={Users}
-        />
-        <KpiCard
-          title="Storage Used"
-          value={kpis.totalStorageUsed}
-          description="Total size of all media files."
-          Icon={HardDrive}
-        />
-      </div>
-
-      <ActivityChart initialData={activity} />
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="lg:col-span-4">
-          <UserActivityTable userStats={userStats} />
-        </div>
-        <div className="lg:col-span-3 space-y-4">
-          <ParameterInsightPanel title="Most Popular Styles" data={topStyles} Icon={Palette} />
-          <ParameterInsightPanel title="Most Popular Backgrounds" data={topBackgrounds} Icon={ImageIcon} />
-        </div>
-      </div>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <KpiCard
+        title="Generations (24h)"
+        value={kpis.generations24h}
+        description="Total images & videos created."
+        Icon={GalleryVertical}
+      />
+      <KpiCard
+        title="Failed Jobs (24h)"
+        value={kpis.failedJobs24h}
+        description="Jobs that resulted in an error."
+        Icon={AlertTriangleIcon}
+      />
+      <KpiCard
+        title="Active Users (24h)"
+        value={kpis.activeUsers24h}
+        description="Unique users with generations."
+        Icon={Users}
+      />
+      <KpiCard
+        title="Storage Used"
+        value={totalStorageUsed}
+        description="Total size of all media files."
+        Icon={HardDrive}
+      />
     </div>
   );
 }
 
-// The main export for the page
-export default function AdminDashboardPage() {
+async function ActivitySection() {
+  const activity = await getGenerationActivity(7);
+  return <ActivityChart initialData={activity} />;
+}
+
+async function UserStatsSection() {
+  const userStats = await getUserActivity();
+  return <UserActivityTable userStats={userStats} />;
+}
+
+async function InsightsSection() {
+  const [topStyles, topBackgrounds] = await Promise.all([
+    getTopParameterUsage('fashionStyle'),
+    getTopParameterUsage('background')
+  ]);
+
   return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardData />
-    </Suspense>
+    <div className="space-y-4">
+      <ParameterInsightPanel title="Most Popular Styles" data={topStyles} Icon={Palette} />
+      <ParameterInsightPanel title="Most Popular Backgrounds" data={topBackgrounds} Icon={ImageIcon} />
+    </div>
   );
 }
 
-// A simple skeleton loader for the entire dashboard
-function DashboardSkeleton() {
+// --- Skeletons ---
+
+function KpiSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="h-28 bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: `${i * 0.1}s` }}></div>
+      ))}
+    </div>
+  );
+}
+
+function ChartSkeleton() {
+  return <div className="h-[426px] bg-muted/50 rounded-lg animate-pulse"></div>;
+}
+
+function TableSkeleton() {
+  return <div className="h-64 bg-muted/50 rounded-lg animate-pulse"></div>;
+}
+
+function InsightsSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="h-[188px] bg-muted/50 rounded-lg animate-pulse"></div>
+      <div className="h-[188px] bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.1s' }}></div>
+    </div>
+  );
+}
+
+// --- Main Page Component ---
+
+export default async function AdminDashboardPage() {
+  await connection();
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="h-28 bg-muted/50 rounded-lg animate-pulse"></div>
-        <div className="h-28 bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.1s' }}></div>
-        <div className="h-28 bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-        <div className="h-28 bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.3s' }}></div>
-      </div>
-      <div className="h-[426px] bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+      <Suspense fallback={<KpiSkeleton />}>
+        <KpiSection />
+      </Suspense>
+
+      <Suspense fallback={<ChartSkeleton />}>
+        <ActivitySection />
+      </Suspense>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="lg:col-span-4 h-64 bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.3s' }}></div>
-        <div className="lg:col-span-3 space-y-4">
-          <div className="h-[188px] bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-          <div className="h-[188px] bg-muted/50 rounded-lg animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+        <div className="lg:col-span-4">
+          <Suspense fallback={<TableSkeleton />}>
+            <UserStatsSection />
+          </Suspense>
+        </div>
+        <div className="lg:col-span-3">
+          <Suspense fallback={<InsightsSkeleton />}>
+            <InsightsSection />
+          </Suspense>
         </div>
       </div>
     </div>
