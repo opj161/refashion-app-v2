@@ -3,28 +3,25 @@
 import 'server-only';
 
 /**
- * @fileOverview Fal.ai API service for video processing operations
- * 
- * This service handles low-level communication with Fal.ai APIs for video-related tasks:
- * - Video generation using Seedance image-to-video model
- * 
- * These functions interact directly with Fal.ai and return task IDs or raw results.
- * They do not handle local storage or history management.
- */
+// FIX: Use factory function instead of global singleton
+import { createFalClient } from '@fal-ai/client';
 
-import { fal } from '@/lib/fal-client';
-import { getSetting, getBooleanSetting } from '../settings.service';
 import { createApiLogger } from '@/lib/api-logger';
+import { getApiKeyForUser } from '@/services/apiKey.service';
+
+// Strict adherence to the documentation provided
+const FAL_MODEL_ID = 'fal-ai/bytedance/seedance/v1/pro/fast/image-to-video';
 
 export interface VideoGenerationInput {
   prompt: string;
   image_url: string;
-  videoModel?: 'lite' | 'pro';
+  // videoModel removed from active logic, optionally kept in type for compatibility if needed
   resolution?: '480p' | '720p' | '1080p';
-  duration?: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
+  duration?: '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
   camera_fixed?: boolean;
   seed?: number;
-  end_image_url?: string;
+  // aspect_ratio is supported by the model ("auto" default), added here if UI sends it later
+  aspect_ratio?: "21:9" | "16:9" | "4:3" | "1:1" | "3:4" | "9:16" | "auto";
 }
 
 export interface VideoGenerationResult {
@@ -35,89 +32,14 @@ export interface VideoGenerationResult {
 }
 
 /**
- * Starts a video generation task using Fal.ai's Seedance service
- * @param input The video generation parameters
- * @returns Promise<string> The task ID for tracking the video generation
- */
-export async function startVideoGeneration(input: VideoGenerationInput): Promise<string> {
-  try {
-    console.log('Starting video generation with Fal.ai Seedance...');
-    
-    // Prepare the input for Fal.ai, only including defined values
-    const falInput: any = {
-      prompt: input.prompt,
-      image_url: input.image_url,
-    };
-    
-    // Add optional parameters only if they have values
-    if (input.resolution) {
-      falInput.resolution = input.resolution;
-    }
-    if (input.duration) {
-      falInput.duration = input.duration;
-    }
-    if (typeof input.camera_fixed === 'boolean') {
-      falInput.camera_fixed = input.camera_fixed;
-    }
-    if (typeof input.seed === 'number' && input.seed !== undefined) {
-      falInput.seed = input.seed;
-    }
-    if (input.end_image_url) {
-      falInput.end_image_url = input.end_image_url;
-    }
-    
-    console.log('Fal.ai input parameters:', JSON.stringify(falInput, null, 2));
-    
-    // Submit the task to Fal.ai queue
-    const { request_id } = await fal.queue.submit('fal-ai/bytedance/seedance/v1/lite/image-to-video', {
-      input: falInput,
-    });
-    
-    console.log(`Video generation task started. Task ID: ${request_id}`);
-    return request_id;
-    
-  } catch (error) {
-    console.error('Error starting video generation:', error);
-    throw new Error(`Failed to start video generation: ${(error as Error).message}`);
-  }
-}
-
-/**
- * Gets the status and result of a video generation task
- * @param taskId The task ID returned from startVideoGeneration
- * @returns Promise<VideoGenerationResult | null> The result if completed, null if still processing
- */
-export async function getVideoGenerationResult(taskId: string): Promise<VideoGenerationResult | null> {
-  try {
-    console.log(`Checking status of video generation task: ${taskId}`);
-    
-    const result = await fal.queue.status('fal-ai/bytedance/seedance/v1/lite/image-to-video', {
-      requestId: taskId,
-      logs: process.env.NODE_ENV === 'development'
-    });
-    
-    if (result.status === 'COMPLETED') {
-      console.log('Video generation completed successfully');
-      return (result as any).responseBody as VideoGenerationResult;
-    } else {
-      console.log(`Video generation still in progress. Status: ${result.status}`);
-      return null; // Still processing
-    }
-    
-  } catch (error) {
-    console.error('Error checking video generation status:', error);
-    throw new Error(`Failed to check video generation status: ${(error as Error).message}`);
-  }
-}
-
-/**
  * Starts a video generation task using a webhook for completion notification
- * @param input The video generation parameters
- * @param webhookUrl The URL that fal.ai will call upon completion
- * @param username The username for fetching the API key
- * @returns Promise<string> The request ID for the submitted job
+ * Enforces use of Seedance Pro Fast model.
  */
-export async function startVideoGenerationWithWebhook(input: VideoGenerationInput, webhookUrl: string, username: string): Promise<string> {
+export async function startVideoGenerationWithWebhook(
+  input: VideoGenerationInput, 
+  webhookUrl: string, 
+  username: string
+): Promise<string> {
   const logger = createApiLogger('FAL_VIDEO', 'Video Generation (Webhook)', {
     username,
     model: input.videoModel === 'pro' ? 'seedance-pro' : 'seedance-lite',

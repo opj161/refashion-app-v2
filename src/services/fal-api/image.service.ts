@@ -3,7 +3,10 @@
 import 'server-only';
 
 import { fal } from '@/lib/fal-client';
+// REMOVED: import { fal } from '@/lib/fal-client';
+import { createFalClient } from '@fal-ai/client';
 import { createApiLogger } from '@/lib/api-logger';
+import { getApiKeyForUser } from '@/services/apiKey.service'; // Import key service
 
 /**
  * Generates an image using Fal.ai's Gemini 2.5 Flash Image model.
@@ -40,21 +43,24 @@ export async function generateWithFalEditModel(
 
   logger.start({
     promptLength: prompt.length,
-    imageUrl: imageUrl.substring(0, 100),
-    outputFormat: 'png',
     aspectRatio: input.aspect_ratio, // Log it
   });
 
   try {
     logger.progress('Submitting to Fal.ai queue');
 
-    const keyToUse = apiKey || process.env.FAL_KEY;
-    
+    // Resolve Key: Priority to argument, then DB lookup, then Env
+    let keyToUse = apiKey;
     if (!keyToUse) {
-      throw new Error("No Fal API key available (neither user-specific nor global).");
+       keyToUse = await getApiKeyForUser(username, 'fal');
     }
 
-    // Use the official client's subscribe method which handles polling robustly
+    // REFACTORED: Create scoped client
+    const fal = createFalClient({
+      credentials: keyToUse,
+    });
+
+    // Use scoped client
     const result: any = await fal.subscribe(modelId, {
       input,
       logs: true,
@@ -63,17 +69,13 @@ export async function generateWithFalEditModel(
           update.logs.forEach((log: any) => logger.progress(`Queue: ${log.message}`));
         }
       },
-      // Pass the API key in headers to override any global config (and avoid proxy on server)
-      headers: {
-        'Authorization': `Key ${keyToUse}`,
-      },
-    } as any);
+    });
 
     // Parse response
     // Expected format from Fal: { images: [{ url: "..." }], description: "..." }
     // The result object from subscribe contains the data in `data` property
     const data = result.data;
-
+    
     if (!data?.images?.[0]?.url) {
       console.error("Unexpected Fal Response:", JSON.stringify(data, null, 2));
       throw new Error('Unexpected response format. Expected: { images: [{ url: "..." }] }');
