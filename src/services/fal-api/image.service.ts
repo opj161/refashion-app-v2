@@ -2,7 +2,6 @@
 
 import 'server-only';
 
-import { fal } from '@/lib/fal-client';
 // REMOVED: import { fal } from '@/lib/fal-client';
 import { createFalClient } from '@fal-ai/client';
 import { createApiLogger } from '@/lib/api-logger';
@@ -148,8 +147,17 @@ async function runFalImageWorkflow(modelId: string, input: any, taskName: string
   });
 
   try {
+    // 1. Get the user's specific key
+    const apiKey = await getApiKeyForUser(username, 'fal');
+
+    // 2. Create scoped client
+    const fal = createFalClient({
+      credentials: apiKey,
+    });
+
     logger.progress('Submitting to Fal.ai queue');
 
+    // 3. Use scoped client
     const result: any = await fal.subscribe(modelId, {
       input,
       logs: process.env.NODE_ENV === 'development',
