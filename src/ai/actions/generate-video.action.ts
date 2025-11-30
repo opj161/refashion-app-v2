@@ -1,8 +1,9 @@
+// src/ai/actions/generate-video.action.ts
 'use server';
 
 import 'server-only';
 
-// FIX: Use factory function
+// FIX: Use factory function to prevent singleton race conditions
 import { createFalClient } from '@fal-ai/client';
 
 import { getCurrentUser } from '@/actions/authActions';
@@ -179,7 +180,6 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
   }
 }
 
-// ... [generateVideoAction remains largely the same, it just passes data through] ...
 export async function generateVideoAction(
   previousState: VideoGenerationFormState | null,
   formData: FormData
@@ -237,5 +237,9 @@ export async function generateVideoAction(
 
   } catch (error) {
     console.error('Error in generateVideoAction:', error);
+    return { 
+      message: 'An unexpected error occurred.', 
+      error: error instanceof Error ? error.message : String(error) 
+    };
   }
 }
