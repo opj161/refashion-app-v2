@@ -1,9 +1,13 @@
-# Refashion AI
+<div align="center">
+  <img src="public/refashion.webp" alt="Refashion AI Logo" width="200" />
+  <h1>Refashion AI</h1>
+  <p>
+    <strong>A specialized Creative Studio for fashion visualization.</strong><br>
+    Transform static garment photos into professional model photography and cinematic videos.
+  </p>
+</div>
 
-![Refashion AI Banner](/public/refashion.webp)
-
-**Refashion AI** is a specialized Creative Studio for fashion visualization. It leverages a multimodal AI pipeline to transform static garment photos into professional model photography and cinematic videos.
-
+---
 Built on **Next.js 15** and **React 19**, it orchestrates complex workflows between **Google Gemini (Vision/Text)** and **Fal.ai (Image/Video Generation)**, wrapping them in a secure, production-ready application with local asset management.
 
 ---
