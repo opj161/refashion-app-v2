@@ -113,7 +113,7 @@ export function ImageResultsDisplay({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="relative aspect-[9/16] w-full bg-black rounded-lg overflow-hidden shadow-lg">
+          <div className="relative aspect-[9/16] w-full md:max-w-sm mx-auto bg-black rounded-lg overflow-hidden shadow-lg">
             {videoUrl ? (
               <video
                 src={getDisplayableImageUrl(videoUrl)!}
