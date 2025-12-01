@@ -22,6 +22,7 @@ import { calculateVideoCost, formatPrice, VideoDuration, VideoResolution } from 
 import { m, AnimatePresence } from 'motion/react';
 import { COMMON_VARIANTS } from '@/lib/motion-constants';
 import { ImageResultsDisplay } from './ImageResultsDisplay';
+import { GenerationProgressIndicator } from './GenerationProgressIndicator';
 import { useStoreSubmission } from "@/hooks/useStoreSubmission";
 import { generateVideoAction, type VideoGenerationFormState } from '@/ai/actions/generate-video.action';
 import { isFalVideoGenerationAvailable } from '@/ai/actions/generate-video.action';
@@ -341,6 +342,14 @@ export default function VideoParameters() {
 
       {/* Unified Result Display */}
       <div ref={resultsRef}>
+        {isPending && (
+          <GenerationProgressIndicator
+            isGenerating={isPending}
+            stage="processing"
+            message="Generating video animation..."
+            imageCount={1}
+          />
+        )}
         <ImageResultsDisplay maxImages={1} />
       </div>
     </div>

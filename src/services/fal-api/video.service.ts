@@ -58,6 +58,7 @@ export async function startVideoGenerationWithWebhook(
   const falInput: any = {
     prompt: input.prompt,
     image_url: input.image_url,
+    enable_safety_checker: false, // Disable NSFW/Concept safety filter
   };
 
   // Add optional parameters only if defined
