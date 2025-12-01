@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -27,12 +27,11 @@ import {
 import { m, AnimatePresence } from 'motion/react';
 import { MOTION_TRANSITIONS } from '@/lib/motion-constants';
 
-// Updated interface
 interface ImageParametersProps {
   isPending: boolean;
   maxImages?: number;
   userModel?: string;
-  onSubmit: () => void; // NEW
+  onSubmit: () => void;
 }
 
 export default function ImageParameters({ isPending, maxImages = 3, userModel, onSubmit }: ImageParametersProps) {
@@ -41,7 +40,7 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
   const activeImage = activeVersionId ? versions[activeVersionId] : null;
   const preparedImageUrl = activeImage?.imageUrl || null;
 
-  // FIX: Consolidate store selectors with useShallow to prevent infinite loops
+  // Consolidate store selectors with useShallow to prevent infinite loops
   const { 
     imageSettings,
     settingsMode,
@@ -55,7 +54,7 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
     setUpscaleEnabled,
     faceDetailEnabled, 
     setFaceDetailEnabled,
-    setActiveImagePrompt // NEW
+    setActiveImagePrompt
   } = useGenerationSettingsStore(
     useShallow(s => ({ 
       imageSettings: s.imageSettings,
@@ -86,11 +85,70 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
   const [isBackgroundRemovalServiceAvailable, setIsBackgroundRemovalServiceAvailable] = useState<boolean>(false);
   const [isUpscaleServiceAvailableState, setIsUpscaleServiceAvailableState] = useState<boolean>(false);
 
-  // Load defaults (Same as main)
-  // ... (useEffect hooks for loading/saving local storage remain identical)
+  // Config for randomization (Memoized to prevent recreation)
+  const PARAMETER_CONFIG = useMemo(() => ({
+    gender: { options: GENDER_OPTIONS, defaultVal: GENDER_OPTIONS[0].value },
+    bodyShapeAndSize: { options: BODY_SHAPE_AND_SIZE_OPTIONS, defaultVal: BODY_SHAPE_AND_SIZE_OPTIONS[0].value },
+    ageRange: { options: AGE_RANGE_OPTIONS, defaultVal: AGE_RANGE_OPTIONS[0].value },
+    ethnicity: { options: ETHNICITY_OPTIONS, defaultVal: ETHNICITY_OPTIONS[0].value },
+    poseStyle: { options: POSE_STYLE_OPTIONS, defaultVal: POSE_STYLE_OPTIONS[0].value },
+    background: { options: BACKGROUND_OPTIONS, defaultVal: BACKGROUND_OPTIONS.find(o => o.value === "outdoor_nature_elements")?.value || BACKGROUND_OPTIONS[0].value },
+    fashionStyle: { options: FASHION_STYLE_OPTIONS, defaultVal: FASHION_STYLE_OPTIONS[0].value },
+    hairStyle: { options: HAIR_STYLE_OPTIONS, defaultVal: HAIR_STYLE_OPTIONS[0].value },
+    modelExpression: { options: MODEL_EXPRESSION_OPTIONS, defaultVal: MODEL_EXPRESSION_OPTIONS[0].value },
+    lightingType: { options: LIGHTING_TYPE_OPTIONS, defaultVal: LIGHTING_TYPE_OPTIONS[0].value },
+    lightQuality: { options: LIGHT_QUALITY_OPTIONS, defaultVal: LIGHT_QUALITY_OPTIONS[0].value },
+    modelAngle: { options: MODEL_ANGLE_OPTIONS, defaultVal: MODEL_ANGLE_OPTIONS[0].value },
+    lensEffect: { options: LENS_EFFECT_OPTIONS, defaultVal: LENS_EFFECT_OPTIONS[0].value },
+    depthOfField: { options: DEPTH_OF_FIELD_OPTIONS, defaultVal: DEPTH_OF_FIELD_OPTIONS[0].value },
+    timeOfDay: { options: TIME_OF_DAY_OPTIONS, defaultVal: TIME_OF_DAY_OPTIONS[0].value },
+    overallMood: { options: OVERALL_MOOD_OPTIONS, defaultVal: OVERALL_MOOD_OPTIONS[0].value },
+  }), []);
 
-  // Handlers (Same as main)
-  // REMOVED: useCallback for handlers. Defined inline or as standard functions.
+  // Load/Save local storage settings
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedMode = window.localStorage.getItem('imageForgeSettingsMode');
+      if (storedMode === 'basic' || storedMode === 'advanced') {
+        setSettingsModeStore(storedMode);
+      }
+
+      const savedDefaultsString = window.localStorage.getItem('imageForgeDefaults');
+      if (savedDefaultsString) {
+        try {
+          const savedDefaults = JSON.parse(savedDefaultsString) as ModelAttributes;
+          setImageSettings(savedDefaults);
+        } catch (e) { console.error("Failed to parse imageForgeDefaults", e); }
+      }
+
+      const storedPromptPreview = window.localStorage.getItem('imageForgeShowPromptPreview');
+      if (storedPromptPreview === 'true') {
+        setShowPromptPreview(true);
+      }
+    }
+  }, [setImageSettings, setSettingsModeStore]);
+
+  // Persist UI preferences
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('imageForgeShowPromptPreview', showPromptPreview.toString());
+    }
+  }, [showPromptPreview]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('imageForgeSettingsMode', settingsMode);
+    }
+  }, [settingsMode]);
+
+  // Service Availability
+  useEffect(() => {
+    isFaceDetailerAvailable().then(setIsFaceDetailerServiceAvailable);
+    isBackgroundRemovalAvailable().then(setIsBackgroundRemovalServiceAvailable);
+    isUpscaleServiceAvailable().then(setIsUpscaleServiceAvailableState);
+  }, []);
+
+  // Handlers (Plain functions, relying on React Compiler for memoization)
   const handleParamChange = (key: keyof ModelAttributes, value: string) => {
     setImageSettings({ [key]: value });
     setUseRandomization(false);
@@ -101,30 +159,67 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
     setUseRandomization(false);
   };
 
-  // FIX: Memoize currentImageGenParams to prevent usePromptManager from triggering re-renders
+  const handleSettingsModeChange = (value: 'basic' | 'advanced') => {
+    setSettingsModeStore(value);
+    setUseRandomization(false);
+  };
+
+  const handleRandomizeConfiguration = () => {    
+    const pickRandom = (options: OptionWithPromptSegment[]) => options[Math.floor(Math.random() * options.length)].value;
+    const randomized: Partial<ModelAttributes> = {};
+    Object.entries(PARAMETER_CONFIG).forEach(([key, config]) => {
+      randomized[key as keyof ModelAttributes] = pickRandom(config.options);
+    });
+    setImageSettings(randomized);
+    setUseRandomization(false);
+    toast({ title: "Configuration Randomized", description: "New random style parameters applied." });
+  };
+
+  const handleSaveDefaults = () => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('imageForgeDefaults', JSON.stringify(imageSettings));
+    toast({ 
+      title: "Defaults Saved",
+      description: "Your current settings have been saved for future sessions."
+    });
+  };
+
+  const resetAllParametersToAppDefaults = () => {
+    const defaults: Partial<ModelAttributes> = {};
+    Object.entries(PARAMETER_CONFIG).forEach(([key, config]) => {
+      defaults[key as keyof ModelAttributes] = config.defaultVal;
+    });
+    setImageSettings(defaults);
+  };
+
+  const handleClearDefaults = () => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem('imageForgeDefaults');
+    resetAllParametersToAppDefaults();
+    toast({ 
+      title: "Defaults Cleared",
+      description: "Settings reset to application defaults."
+    });
+  };
+
+  // Prompt Management
   const currentImageGenParams = useMemo(() => ({ 
     ...imageSettings, 
     settingsMode 
   }), [imageSettings, settingsMode]);
   
-  const { currentPrompt, isPromptManuallyEdited, handlePromptChange } = usePromptManager({
+  const { currentPrompt, isPromptManuallyEdited } = usePromptManager({
     generationType: 'image',
     generationParams: currentImageGenParams,
   });
 
-  // NEW: Sync prompt to store for submission hook
+  // Sync prompt to store
   useEffect(() => {
     setActiveImagePrompt(currentPrompt);
   }, [currentPrompt, setActiveImagePrompt]);
 
-  useEffect(() => {
-    isFaceDetailerAvailable().then(setIsFaceDetailerServiceAvailable);
-    isBackgroundRemovalAvailable().then(setIsBackgroundRemovalServiceAvailable);
-    isUpscaleServiceAvailable().then(setIsUpscaleServiceAvailableState);
-  }, []);
-
-  // Helper for Selects
-  const renderSelect = ({ id, label, value, options }: any) => (
+  // UI Helper - Strictly Typed
+  const renderSelect = ({ id, label, value, options }: { id: keyof ModelAttributes; label: string; value: string; options: OptionWithPromptSegment[] }) => (
     <div className="space-y-2">
       <Label htmlFor={id} className="text-sm font-medium text-foreground/80">{label}</Label>
       <Select value={value} onValueChange={(v) => handleParamChange(id, v)} disabled={isPending}>
@@ -132,7 +227,7 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
           <SelectValue placeholder={`Select ${label.toLowerCase()}`} />
         </SelectTrigger>
         <SelectContent className="max-h-[300px]">
-          {options.map((option: any) => (
+          {options.map((option: OptionWithPromptSegment) => (
             <SelectItem key={option.value} value={option.value} className="text-sm py-3 md:py-2">
               {option.displayLabel}
             </SelectItem>
@@ -142,14 +237,9 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
     </div>
   );
 
-  // Define Randomize handlers... (same as main)
-
   return (
     <>
-      {/* REMOVED: Hidden inputs. Data is now gathered directly from store by useStoreSubmission */}
-
       <Card variant="glass">
-        {/* ... Header ... */}
         <CardHeader>
           <div>
             <CardTitle className="text-xl flex items-center gap-2">
@@ -161,7 +251,6 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
         </CardHeader>
 
         <CardContent>
-          {/* UPDATED: Button uses onClick={onSubmit} instead of type="submit" */}
           <Button
             onClick={onSubmit}
             disabled={isPending || !preparedImageUrl}
@@ -174,7 +263,7 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
             )}
           </Button>
 
-          {/* ... Rest of UI (Aspect Ratio, Toggles) remains exactly the same ... */}
+          {/* Aspect Ratio - Only for Nano Banana */}
           {isNanoBanana && (
             <div className="mt-4 p-4 rounded-lg bg-muted/30 border border-muted/30">
               <Label htmlFor="creative-aspect-ratio" className="mb-2 block text-sm font-medium">Aspect Ratio</Label>
@@ -187,20 +276,36 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
             </div>
           )}
 
-          {/* ... Toggles for pipeline ... */}
+          {/* Processing Pipeline Options */}
           <div className="mt-6 p-4 rounded-lg bg-muted/30 border border-muted/30 space-y-3">
-            {/* ... (Use existing toggle code with isPending check) ... */}
+            <div className="flex items-center gap-2 mb-2">
+              <Wand2 className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Image Processing Options</h3>
+            </div>
+            
             {isBackgroundRemovalServiceAvailable && (
               <div className="flex items-center justify-between py-2">
                 <Label htmlFor="bg-removal-switch" className="text-sm font-medium cursor-pointer">Remove Background</Label>
                 <Switch id="bg-removal-switch" checked={backgroundRemovalEnabled} onCheckedChange={setBackgroundRemovalEnabled} disabled={isPending} />
               </div>
             )}
-            {/* ... Upscale and Face Detail toggles ... */}
+            
+            {isUpscaleServiceAvailableState && (
+              <div className="flex items-center justify-between py-2">
+                <Label htmlFor="upscale-switch" className="text-sm font-medium cursor-pointer">Upscale Image</Label>
+                <Switch id="upscale-switch" checked={upscaleEnabled} onCheckedChange={setUpscaleEnabled} disabled={isPending} />
+              </div>
+            )}
+            
+            {isFaceDetailerServiceAvailable && (
+              <div className="flex items-center justify-between py-2">
+                <Label htmlFor="face-detail-switch" className="text-sm font-medium cursor-pointer">Enhance Face Details</Label>
+                <Switch id="face-detail-switch" checked={faceDetailEnabled} onCheckedChange={setFaceDetailEnabled} disabled={isPending} />
+              </div>
+            )}
           </div>
         </CardContent>
 
-        {/* ... Accordions for parameters ... */}
         <CardFooter className="flex-col items-stretch !pt-0">
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="customize" className="border-b-0">
@@ -208,9 +313,117 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
                 <Settings2 className="mr-2 h-4 w-4 transition-transform group-data-[state=open]:rotate-90" /> Customize Settings
               </AccordionTrigger>
               <AccordionContent className="pt-6 space-y-6">
-                {/* ... Randomization Switches ... */}
-                {/* ... Parameter Dropdowns using renderSelect ... */}
-                {/* ... Prompt Preview ... */}
+                
+                {/* Settings Controls */}
+                <div className="p-3 rounded-lg bg-muted/40 border border-border/20 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="randomization-switch" className="text-sm font-medium flex flex-col cursor-pointer">
+                      Randomize Style
+                      <span className="font-normal text-xs text-muted-foreground">
+                        {useRandomization ? "ON: Different styles for each image." : "OFF: Use your exact manual settings."}
+                      </span>
+                    </Label>
+                    <Switch id="randomization-switch" checked={useRandomization} onCheckedChange={setUseRandomization} />
+                  </div>
+
+                  <m.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="overflow-hidden">
+                    <div className="pt-4 border-t border-border/20 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="ai-prompt-switch" className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
+                          <BrainCircuit className="h-4 w-4 text-primary"/> AI Prompt Enhancement
+                        </Label>
+                        <Switch id="ai-prompt-switch" checked={useAIPrompt} onCheckedChange={handleAIPromptChange} />
+                      </div>
+
+                      <div className="flex items-end justify-between gap-4">
+                        <div className="flex-grow">
+                          <div className="mt-2 inline-flex h-9 items-center justify-center rounded-md bg-background/50 p-1 text-muted-foreground">
+                            <Button variant={settingsMode === 'basic' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('basic')} className="h-7 px-3 text-xs">Simple</Button>
+                            <Button variant={settingsMode === 'advanced' ? 'secondary' : 'ghost'} size="sm" onClick={() => handleSettingsModeChange('advanced')} className="h-7 px-3 text-xs">Detailed</Button>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={handleRandomizeConfiguration} className="h-9 px-3" disabled={isPending || !preparedImageUrl}>
+                          <Shuffle className="mr-2 h-4 w-4"/> Randomize
+                        </Button>
+                      </div>
+                    </div>
+                  </m.div>
+                </div>
+
+                {/* Parameters Accordion */}
+                <Accordion type="multiple" defaultValue={['model-attributes']} className="w-full">
+                  <AccordionItem value="model-attributes">
+                    <AccordionTrigger><div className="flex items-center gap-2"><PersonStanding className="h-5 w-5 text-primary" /> Model Attributes</div></AccordionTrigger>
+                    <AccordionContent className="pt-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        {renderSelect({ id: "gender", label: "Gender", value: imageSettings.gender, options: GENDER_OPTIONS })}
+                        {renderSelect({ id: "bodyShapeAndSize", label: "Body Shape & Size", value: imageSettings.bodyShapeAndSize, options: BODY_SHAPE_AND_SIZE_OPTIONS })}
+                        {renderSelect({ id: "ageRange", label: "Age Range", value: imageSettings.ageRange, options: AGE_RANGE_OPTIONS })}
+                        {renderSelect({ id: "ethnicity", label: "Ethnicity", value: imageSettings.ethnicity, options: ETHNICITY_OPTIONS })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="art-direction">
+                    <AccordionTrigger><div className="flex items-center gap-2"><Palette className="h-5 w-5 text-primary" /> Art Direction & Styling</div></AccordionTrigger>
+                    <AccordionContent className="pt-4">
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        {renderSelect({ id: "fashionStyle", label: "Fashion Style", value: imageSettings.fashionStyle, options: FASHION_STYLE_OPTIONS })}
+                        {renderSelect({ id: "poseStyle", label: "Pose Style", value: imageSettings.poseStyle, options: POSE_STYLE_OPTIONS })}
+                        {renderSelect({ id: "modelExpression", label: "Model Expression", value: imageSettings.modelExpression, options: MODEL_EXPRESSION_OPTIONS })}
+                        {renderSelect({ id: "modelAngle", label: "Model Angle", value: imageSettings.modelAngle, options: MODEL_ANGLE_OPTIONS })}
+                        {renderSelect({ id: "hairStyle", label: "Hair Style", value: imageSettings.hairStyle, options: HAIR_STYLE_OPTIONS })}
+                        {renderSelect({ id: "background", label: "Background Setting", value: imageSettings.background, options: BACKGROUND_OPTIONS })}
+                        {settingsMode === 'advanced' && renderSelect({ id: "timeOfDay", label: "Time of Day", value: imageSettings.timeOfDay, options: TIME_OF_DAY_OPTIONS })}
+                        {settingsMode === 'advanced' && renderSelect({ id: "overallMood", label: "Overall Mood", value: imageSettings.overallMood, options: OVERALL_MOOD_OPTIONS })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {settingsMode === 'advanced' && (
+                    <AccordionItem value="photography-technical">
+                      <AccordionTrigger><div className="flex items-center gap-2"><Camera className="h-5 w-5 text-primary" /> Photography & Technical</div></AccordionTrigger>
+                      <AccordionContent className="pt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                          {renderSelect({ id: "lightingType", label: "Lighting Type", value: imageSettings.lightingType, options: LIGHTING_TYPE_OPTIONS })}
+                          {renderSelect({ id: "lightQuality", label: "Light Quality", value: imageSettings.lightQuality, options: LIGHT_QUALITY_OPTIONS })}
+                          {renderSelect({ id: "lensEffect", label: "Lens Effect", value: imageSettings.lensEffect, options: LENS_EFFECT_OPTIONS })}
+                          {renderSelect({ id: "depthOfField", label: "Depth of Field", value: imageSettings.depthOfField, options: DEPTH_OF_FIELD_OPTIONS })}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+                </Accordion>
+
+                {/* Utility Actions */}
+                <div className="bg-muted/20 rounded-lg p-4 border border-muted/30">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground/70">Presets:</span>
+                      <Button variant="outline" onClick={handleSaveDefaults} size="sm" disabled={!preparedImageUrl || isPending} className="h-9 px-3 border-muted/60 hover:border-muted-foreground/40">
+                        <Save className="mr-2 h-4 w-4"/> Save Current
+                      </Button>
+                      <Button variant="ghost" onClick={handleClearDefaults} size="sm" disabled={!preparedImageUrl || isPending} className="h-9 px-3 text-muted-foreground hover:text-foreground">
+                        <Trash2 className="mr-2 h-4 w-4"/> Reset
+                      </Button>
+                    </div>
+                    
+                    <Button variant={showPromptPreview ? "secondary" : "outline"} onClick={() => setShowPromptPreview(!showPromptPreview)} size="sm" disabled={!preparedImageUrl || isPending} className="h-9 px-3 border-muted/60 hover:border-muted-foreground/40">
+                      <Code className="mr-2 h-4 w-4" /> {showPromptPreview ? "Hide" : "View"} Prompt
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Prompt Preview */}
+                {showPromptPreview && (
+                  <m.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={MOTION_TRANSITIONS.tween.standard} className="overflow-hidden">
+                    <div className="bg-muted/30 rounded-lg p-4 border border-muted/30 space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground"><FileText className="h-4 w-4" /> Generated Prompt Preview</div>
+                      <Textarea value={currentPrompt} readOnly placeholder="Your prompt will appear here..." className="min-h-[120px] resize-none bg-background/50 border-muted/40 text-sm leading-relaxed" />
+                    </div>
+                  </m.div>
+                )}
+
               </AccordionContent>
             </AccordionItem>
           </Accordion>
