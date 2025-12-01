@@ -33,6 +33,7 @@ export interface GenerateVideoInput {
   fabricMotion?: string;
   cameraAction?: string;
   aestheticVibe?: string;
+  aspect_ratio?: "21:9" | "16:9" | "4:3" | "1:1" | "3:4" | "9:16" | "auto";
 }
 
 export interface GenerateVideoOutput {
@@ -143,6 +144,7 @@ export async function startVideoGenerationAndCreateHistory(input: GenerateVideoI
       duration: input.duration as any, // Cast string to expected union type
       camera_fixed: input.camera_fixed,
       seed: input.seed,
+      aspect_ratio: input.aspect_ratio,
       // Note: videoModel is intentionally omitted here as the service hardcodes it
     };
 
@@ -203,6 +205,9 @@ export async function generateVideoAction(
     const cameraAction = formData.get('cameraAction') as string || '';
     const aestheticVibe = formData.get('aestheticVibe') as string || '';
 
+    // FIX: Extract aspect_ratio parameter (checking both snake_case and camelCase)
+    const aspectRatio = (formData.get('aspect_ratio') || formData.get('aspectRatio')) as string;
+
     if (!imageUrl || !prompt || !prompt.trim()) {
       return { message: 'Missing required fields', error: 'Image and prompt are required' };
     }
@@ -221,6 +226,7 @@ export async function generateVideoAction(
       fabricMotion,
       cameraAction,
       aestheticVibe,
+      aspect_ratio: aspectRatio as any,
     };
 
     const result = await startVideoGenerationAndCreateHistory(videoInput);
