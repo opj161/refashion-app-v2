@@ -73,11 +73,23 @@ export function useStoreSubmission<T extends { message: string; error?: string; 
         });
 
         // 6. Append Flags
-        formData.append('useRandomization', String(false)); // Usually disabled on manual submit
-        formData.append('useAIPrompt', String(false));
-        formData.append('removeBackground', String(genState.backgroundRemovalEnabled));
-        formData.append('upscale', String(genState.upscaleEnabled));
-        formData.append('enhanceFace', String(genState.faceDetailEnabled));
+        // FIX: Only append checkbox fields if true. zfd.checkbox() interprets missing keys as false.
+        // Sending "false" string causes Zod validation errors ("Invalid input").
+        
+        // useRandomization and useAIPrompt are disabled on manual submit
+        // so we simply do not append them (defaults to false).
+        
+        if (genState.backgroundRemovalEnabled) {
+            formData.append('removeBackground', 'true');
+        }
+        
+        if (genState.upscaleEnabled) {
+            formData.append('upscale', 'true');
+        }
+        
+        if (genState.faceDetailEnabled) {
+            formData.append('enhanceFace', 'true');
+        }
 
         // Execute
         startTransition(() => {
