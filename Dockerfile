@@ -1,33 +1,51 @@
 # Dockerfile (The Final, Simple, Standard Practice Version)
 
-# Stage 1: Base image with dependencies
+#+#+#+#+############################################
+# Stage 1: Runtime base image (keep this slim)
+###################################################
 FROM node:24-alpine AS base
-RUN apk add --no-cache vips-dev build-base su-exec libc6-compat wget
 
-# Install MEGAcmd from Alpine's community repository
-RUN apk add --no-cache megacmd
+# Runtime deps only. Avoid globally-installed libvips (vips/vips-dev),
+# otherwise sharp will detect it and force a source build.
+RUN apk add --no-cache \
+    ca-certificates \
+    su-exec \
+    libc6-compat \
+    wget \
+    megacmd
 
-# Stage 2: Install all dependencies
-FROM base AS deps
+###################################################
+# Stage 2: Build base (toolchain for native deps)
+###################################################
+FROM base AS build-base
+RUN apk add --no-cache \
+    build-base \
+    python3
+
+# Extra guard: even if libvips is added later, don't force sharp source builds.
+ENV SHARP_IGNORE_GLOBAL_LIBVIPS=1
+
+# Stage 3: Install all dependencies
+FROM build-base AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-# Stage 3: Install only production dependencies
-FROM base AS prod-deps
+# Stage 4: Install only production dependencies
+FROM build-base AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Stage 4: Build the application
-FROM base AS builder
+# Stage 5: Build the application
+FROM build-base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# Stage 5: Final production image
+# Stage 6: Final production image
 FROM base AS runner
 WORKDIR /app
 
