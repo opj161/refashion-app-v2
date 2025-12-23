@@ -1,21 +1,57 @@
-'use server';
+// SECURITY FIX: Removed 'use server' directive
+// This file is now a pure utility library and cannot be called directly from the client.
+// It should only be imported by Server Actions or other server-side code.
 
 import 'server-only';
 
 /**
  * @fileOverview Centralized storage service for handling file downloads and local storage
- * 
+ *
  * This service provides a unified way to download files from URLs and save them locally
  * with proper permissions and naming conventions. It eliminates code duplication across
  * different actions that need to save files.
+ *
+ * SECURITY: All filename inputs are sanitized to prevent path traversal and command injection.
  */
 
 import { promises as fs } from 'fs';
-import path, { parse } from 'path';
+import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import { triggerMegaBackup } from './megaBackup.service';
-import mime from 'mime-types';
+
+/**
+ * SECURITY: Sanitizes a filename/prefix to prevent path traversal and command injection.
+ * Allows only alphanumeric characters, hyphens, and underscores.
+ * @param name The name to sanitize
+ * @returns The sanitized name
+ */
+function sanitizeFilename(name: string): string {
+  if (!name || typeof name !== 'string') {
+    return 'file';
+  }
+  // Allow only alphanumeric characters, hyphens, and underscores
+  const sanitized = name.replace(/[^a-zA-Z0-9_-]/g, '');
+  // Ensure we have a valid name (not empty after sanitization)
+  return sanitized || 'file';
+}
+
+/**
+ * SECURITY: Validates that a path is within the uploads directory.
+ * @param targetPath The path to validate
+ * @returns The validated absolute path
+ * @throws Error if path attempts directory traversal
+ */
+function validateUploadPath(targetPath: string): string {
+  const uploadsBase = path.resolve(process.cwd(), 'uploads');
+  const absolutePath = path.resolve(targetPath);
+
+  if (!absolutePath.startsWith(uploadsBase + path.sep) && absolutePath !== uploadsBase) {
+    throw new Error('Security: Attempted to access path outside uploads directory');
+  }
+
+  return absolutePath;
+}
 
 /**
  * Downloads a file from a URL and saves it locally with proper permissions
@@ -26,12 +62,17 @@ import mime from 'mime-types';
  * @returns Promise<string> The relative URL path to the saved file
  */
 export async function saveFileFromUrl(
-  sourceUrl: string, 
-  fileNamePrefix: string, 
+  sourceUrl: string,
+  fileNamePrefix: string,
   subfolder: string,
   extension: string = 'png'
 ): Promise<{ relativeUrl: string; hash: string }> {
-  console.log(`Downloading from ${sourceUrl} to save in /uploads/${subfolder}`);
+  // SECURITY: Sanitize inputs
+  const safePrefix = sanitizeFilename(fileNamePrefix);
+  const safeSubfolder = sanitizeFilename(subfolder);
+  const safeExtension = sanitizeFilename(extension) || 'png';
+
+  console.log(`Downloading from ${sourceUrl} to save in /uploads/${safeSubfolder}`);
   try {
     // If sourceUrl points at a local uploads path, read it directly and return it (no HTTP fetch).
     const uploadsPrefix = '/uploads/';
@@ -45,10 +86,10 @@ export async function saveFileFromUrl(
 
       const trimmed = uploadsPath.replace(/^\/+/, '');
       const abs = path.resolve(process.cwd(), trimmed);
-      const uploadsBase = path.resolve(process.cwd(), 'uploads');
-      if (!abs.startsWith(uploadsBase + path.sep) && abs !== uploadsBase) {
-        throw new Error('Attempted to access a file outside of uploads directory.');
-      }
+
+      // SECURITY: Validate the path is within uploads
+      validateUploadPath(abs);
+
       const buffer = await fs.readFile(abs);
       const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
       // Return the existing relative URL (no copy). If you prefer to copy into subfolder,
@@ -64,11 +105,18 @@ export async function saveFileFromUrl(
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const safeSubfolder = subfolder.replace(/[^a-zA-Z0-9_\-./]/g, '_');
     const destFolder = path.join(process.cwd(), 'uploads', safeSubfolder);
+
+    // SECURITY: Validate destination is within uploads
+    validateUploadPath(destFolder);
+
     await fs.mkdir(destFolder, { recursive: true });
-    const fileName = `${fileNamePrefix}-${uuidv4()}.${extension}`;
+    const fileName = `${safePrefix}-${uuidv4()}.${safeExtension}`;
     const destPath = path.join(destFolder, fileName);
+
+    // SECURITY: Final validation of complete path
+    validateUploadPath(destPath);
+
     await fs.writeFile(destPath, buffer);
     const relativeUrl = `/uploads/${safeSubfolder}/${fileName}`;
     const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
@@ -95,15 +143,27 @@ export async function saveFileFromBuffer(
   subfolder: string,
   extension: string
 ): Promise<{ relativeUrl: string; hash: string }> {
-  console.log(`Saving buffer to /uploads/${subfolder}`);
+  // SECURITY: Sanitize inputs
+  const safePrefix = sanitizeFilename(fileNamePrefix);
+  const safeSubfolder = sanitizeFilename(subfolder);
+  const safeExtension = sanitizeFilename(extension) || 'png';
+
+  console.log(`Saving buffer to /uploads/${safeSubfolder}`);
   try {
     const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
-    const uniqueFileName = `${fileNamePrefix}_${uuidv4()}.${extension}`;
-    const uploadDir = path.join(process.cwd(), 'uploads', subfolder);
+    const uniqueFileName = `${safePrefix}_${uuidv4()}.${safeExtension}`;
+    const uploadDir = path.join(process.cwd(), 'uploads', safeSubfolder);
+
+    // SECURITY: Validate path is within uploads
+    validateUploadPath(uploadDir);
 
     await fs.mkdir(uploadDir, { recursive: true });
 
     const filePath = path.join(uploadDir, uniqueFileName);
+
+    // SECURITY: Final validation of complete path
+    validateUploadPath(filePath);
+
     await fs.writeFile(filePath, buffer);
 
     try {
@@ -124,11 +184,11 @@ export async function saveFileFromBuffer(
       }
     }
 
-    const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
+    const relativeUrl = `/uploads/${safeSubfolder}/${uniqueFileName}`;
     console.log(`Buffer saved to: ${filePath}, accessible at: ${relativeUrl}`);
-  // Trigger MEGA backup after successful save
-  triggerMegaBackup(relativeUrl);
-  return { relativeUrl, hash: fileHash };
+    // Trigger MEGA backup after successful save
+    triggerMegaBackup(relativeUrl);
+    return { relativeUrl, hash: fileHash };
   } catch (error) {
     console.error(`Error saving buffer:`, error);
     throw new Error(`Failed to save buffer: ${(error as Error).message}`);
@@ -147,7 +207,11 @@ export async function saveDataUriLocally(
   fileNamePrefix: string,
   subfolder: string
 ): Promise<{ relativeUrl: string; hash: string }> {
-  console.log(`Saving data URI to /uploads/${subfolder}`);
+  // SECURITY: Sanitize inputs
+  const safePrefix = sanitizeFilename(fileNamePrefix);
+  const safeSubfolder = sanitizeFilename(subfolder);
+
+  console.log(`Saving data URI to /uploads/${safeSubfolder}`);
   try {
     // Parse data URI
     const match = dataUri.match(/^data:(image\/\w+);base64,(.+)$/);
@@ -157,20 +221,27 @@ export async function saveDataUriLocally(
     const mimeType = match[1];
     const base64Data = match[2];
     const buffer = Buffer.from(base64Data, 'base64');
-    const extension = mimeType.split('/')[1] || 'png';
+    const extension = sanitizeFilename(mimeType.split('/')[1]) || 'png';
     // Calculate hash
     const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
     // Generate unique filename
-    const uniqueFileName = `${fileNamePrefix}_${uuidv4()}.${extension}`;
-    
+    const uniqueFileName = `${safePrefix}_${uuidv4()}.${extension}`;
+
     // Create upload directory path
-    const uploadDir = path.join(process.cwd(), 'uploads', subfolder);
-    
+    const uploadDir = path.join(process.cwd(), 'uploads', safeSubfolder);
+
+    // SECURITY: Validate path is within uploads
+    validateUploadPath(uploadDir);
+
     // Ensure directory exists
     await fs.mkdir(uploadDir, { recursive: true });
-    
+
     // Write file
     const filePath = path.join(uploadDir, uniqueFileName);
+
+    // SECURITY: Final validation of complete path
+    validateUploadPath(filePath);
+
     await fs.writeFile(filePath, buffer);
 
     // Set proper permissions and ownership
@@ -192,11 +263,11 @@ export async function saveDataUriLocally(
       }
     }
     // Return relative URL
-    const relativeUrl = `/uploads/${subfolder}/${uniqueFileName}`;
+    const relativeUrl = `/uploads/${safeSubfolder}/${uniqueFileName}`;
     console.log(`Data URI saved to: ${filePath}, accessible at: ${relativeUrl}`);
-  // Trigger MEGA backup after successful save
-  triggerMegaBackup(relativeUrl);
-  return { relativeUrl, hash: fileHash };
+    // Trigger MEGA backup after successful save
+    triggerMegaBackup(relativeUrl);
+    return { relativeUrl, hash: fileHash };
   } catch (error) {
     console.error(`Error saving data URI:`, error);
     throw new Error(`Failed to save data URI: ${(error as Error).message}`);
@@ -216,16 +287,19 @@ export async function downloadAndSaveImageFromUrl(
   fileNamePrefix: string,
   subfolder: string
 ): Promise<{ relativeUrl: string; hash: string }> {
-  console.log(`Downloading FAL.AI image from ${sourceUrl} to save in /uploads/${subfolder}`);
-  
+  // SECURITY: Sanitize inputs (also done in saveFileFromUrl, but defense in depth)
+  const safePrefix = sanitizeFilename(fileNamePrefix);
+  const safeSubfolder = sanitizeFilename(subfolder);
+
+  console.log(`Downloading FAL.AI image from ${sourceUrl} to save in /uploads/${safeSubfolder}`);
+
   try {
     // Use the existing saveFileFromUrl function which handles URL downloads and local storage
     // This maintains consistency with the existing codebase
-    const result = await saveFileFromUrl(sourceUrl, fileNamePrefix, subfolder, 'png');
-    
+    const result = await saveFileFromUrl(sourceUrl, safePrefix, safeSubfolder, 'png');
+
     console.log(`Successfully downloaded and saved FAL.AI image: ${result.relativeUrl}`);
     return result;
-    
   } catch (error) {
     console.error(`Error downloading FAL.AI image from ${sourceUrl}:`, error);
     throw new Error(`Failed to download and save FAL.AI image: ${(error as Error).message}`);

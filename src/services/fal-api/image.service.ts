@@ -1,4 +1,5 @@
-'use server';
+// SECURITY FIX: Removed 'use server' directive.
+// This service makes API calls using user credentials and should only be callable by server-side code.
 
 import 'server-only';
 

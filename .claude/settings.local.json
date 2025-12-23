@@ -14,7 +14,9 @@
       "Bash(move ActivityChart.tsx dashboard )",
       "Bash(move UserActivityTable.tsx dashboard )",
       "Bash(move:*)",
-      "Bash(move SystemStatusWidget.tsx dashboard)"
+      "Bash(move SystemStatusWidget.tsx dashboard)",
+      "Bash(set ESLINT_USE_FLAT_CONFIG=false)",
+      "Bash(npx next lint)"
     ],
     "deny": []
   }

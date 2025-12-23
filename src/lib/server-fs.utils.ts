@@ -1,4 +1,5 @@
-'use server';
+// SECURITY FIX: Removed 'use server' directive.
+// This utility handles file system operations and should only be callable by server-side code.
 
 import 'server-only';
 

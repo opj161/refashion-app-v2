@@ -1,5 +1,6 @@
 // src/services/apiKey.service.ts
-'use server';
+// SECURITY FIX: Removed 'use server' directive to prevent direct client access.
+// This service handles decrypted API keys and must only be called by server-side code.
 
 import 'server-only';
 
