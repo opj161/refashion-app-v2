@@ -68,13 +68,13 @@
     "mime": "^4.0.7",
     "mime-types": "^3.0.1",
     "motion": "^12.23.9",
-    "next": "^15.5.2",
+    "next": "^15.5.9",
     "node-fetch": "^3.3.2",
     "postcss": "^8.5.6",
-    "react": "19.1.0",
+    "react": "^19.1.0",
     "react-compare-image": "^3.5.6",
     "react-day-picker": "^9.8.1",
-    "react-dom": "19.1.0",
+    "react-dom": "^19.1.0",
     "react-hook-form": "^7.61.1",
     "react-image-crop": "^11.0.10",
     "recharts": "^3.1.0",
@@ -128,7 +128,7 @@
     "abab": false,
     "domexception": false,
     "node-domexception": false,
-    "@types/react": "19.1.8",
-    "@types/react-dom": "19.1.6"
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6"
   }
 }

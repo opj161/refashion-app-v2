@@ -30,8 +30,21 @@ export function ImageResultsDisplay({
   // OPTIMIZATION: Select only needed action
   const initializeFromUrl = useImageStore(useShallow(state => state.initializeFromUrl));
 
-  // 1. Bridge Pattern: Subscribe to global ID
-  const currentResultId = useGenerationSettingsStore(state => state.currentResultId);
+  // 1. Bridge Pattern: Subscribe to global ID and aspect ratio
+  const { currentResultId, studioAspectRatio } = useGenerationSettingsStore(
+    useShallow(state => ({ currentResultId: state.currentResultId, studioAspectRatio: state.studioAspectRatio }))
+  );
+
+  // Dynamic aspect ratio class based on user selection
+  const aspectClass = {
+    '1:1': 'aspect-square',
+    '9:16': 'aspect-[9/16]',
+    '3:4': 'aspect-[3/4]',
+    '4:3': 'aspect-[4/3]',
+    '16:9': 'aspect-video',
+    '2:3': 'aspect-[2/3]',
+    '4:5': 'aspect-[4/5]',
+  }[studioAspectRatio] || 'aspect-[2/3]';
 
   // Local State
   const [resultData, setResultData] = useState<any>(null);
@@ -155,7 +168,7 @@ export function ImageResultsDisplay({
               if (pollingStatus === 'completed' && !url && !isError) return null;
 
               return (
-                <div key={index} className="relative aspect-[2/3] min-h-[280px] max-h-[500px] bg-muted/30 rounded-lg overflow-hidden group border border-white/5 flex items-center justify-center">
+                <div key={index} className={`relative ${aspectClass} min-h-[200px] max-h-[600px] bg-muted/30 rounded-lg overflow-hidden group border border-white/5 flex items-center justify-center`}>
                   {isLoading && <div className="absolute inset-0 z-10"><ImageResultSkeleton /></div>}
 
                   {isError && (
