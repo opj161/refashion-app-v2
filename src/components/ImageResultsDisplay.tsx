@@ -155,7 +155,7 @@ export function ImageResultsDisplay({
               if (pollingStatus === 'completed' && !url && !isError) return null;
 
               return (
-                <div key={index} className="relative aspect-[3/4] bg-muted/30 rounded-lg overflow-hidden group border border-white/5">
+                <div key={index} className="relative aspect-[2/3] min-h-[280px] max-h-[500px] bg-muted/30 rounded-lg overflow-hidden group border border-white/5 flex items-center justify-center">
                   {isLoading && <div className="absolute inset-0 z-10"><ImageResultSkeleton /></div>}
 
                   {isError && (
@@ -169,7 +169,7 @@ export function ImageResultsDisplay({
                     <>
                       <Image
                         src={getDisplayableImageUrl(url)!} alt="Result" fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="object-contain transition-transform duration-500 group-hover:scale-105"
                         sizes="(max-width: 768px) 100vw, 33vw"
                       />
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-xs">
