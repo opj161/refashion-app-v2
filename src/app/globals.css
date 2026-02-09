@@ -347,7 +347,7 @@
   body {
     font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
     touch-action: manipulation;
-    overscroll-behavior-y: none;
+    /* overscroll-behavior-y: none; -- REMOVED: was preventing mouse wheel scrolling on desktop */
   }
 
   /* Softer Focus Rings */

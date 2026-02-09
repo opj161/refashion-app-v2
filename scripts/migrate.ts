@@ -51,6 +51,11 @@ function runMigrations() {
 
   // Create tables
   db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS history (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL,

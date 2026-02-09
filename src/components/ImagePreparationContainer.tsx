@@ -172,8 +172,9 @@ export default function ImagePreparationContainer({
                   {hubContent}
                 </div>
               ) : (
-                <div className="flex flex-col h-[calc(100dvh-220px)] gap-4">
-                  <div className="relative flex-1 flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg shadow-lg shadow-black/10 overflow-hidden min-h-0">
+                <div className="flex flex-col gap-4">
+                  {/* Mobile editor: limited height to leave scrollable space above/below */}
+                  <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg shadow-lg shadow-black/10 max-h-[50vh] aspect-[3/4]">
                     <ImageEditorCanvas
                       key={activeImage.id}
                       image={activeImage}
