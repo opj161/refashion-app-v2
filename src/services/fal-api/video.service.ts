@@ -103,11 +103,25 @@ export async function startVideoGenerationWithWebhook(
 /**
  * Gets the status and result of a video generation task
  */
-export async function getVideoGenerationResult(taskId: string): Promise<VideoGenerationResult | null> {
-  // NOTE: For status checks, we use the global environment key as fallback 
-  // since this is often a polling operation where user context might be looser,
-  // but ideally, we should pass the user context here too.
-  const fal = createFalClient({ credentials: process.env.FAL_KEY }); 
+export async function getVideoGenerationResult(taskId: string, username?: string): Promise<VideoGenerationResult | null> {
+  // Use user-scoped key if username is provided, otherwise fall back to global env key
+  let credentials: string | undefined;
+  if (username) {
+    try {
+      credentials = await getApiKeyForUser(username, 'fal');
+    } catch {
+      // Fall back to global key if user key retrieval fails
+      credentials = process.env.FAL_KEY;
+    }
+  } else {
+    credentials = process.env.FAL_KEY;
+  }
+
+  if (!credentials) {
+    throw new Error('No FAL API key available for video status check. Configure a global FAL_KEY or per-user key.');
+  }
+
+  const fal = createFalClient({ credentials });
   
   try {
     console.log(`Checking status of video generation task: ${taskId}`);
@@ -119,7 +133,11 @@ export async function getVideoGenerationResult(taskId: string): Promise<VideoGen
     
     if (result.status === 'COMPLETED') {
       console.log('Video generation completed successfully');
-      return (result as any).responseBody as VideoGenerationResult;
+      const responseBody = (result as any).responseBody;
+      if (!responseBody) {
+        throw new Error('Video generation completed but response body is missing');
+      }
+      return responseBody as VideoGenerationResult;
     } else {
       console.log(`Video generation still in progress. Status: ${result.status}`);
       return null; 

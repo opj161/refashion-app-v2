@@ -207,6 +207,11 @@ export async function deleteHistoryItem(historyItemId: string): Promise<{ succes
     const deleteStmt = db.prepare('DELETE FROM history WHERE id = ?');
     deleteStmt.run(historyItemId);
 
+    // Revalidate pages that display history
+    const { revalidatePath } = await import('next/cache');
+    revalidatePath('/history');
+    revalidatePath('/admin');
+
     return { success: true };
   } catch (error) {
     console.error(`Error deleting history item ${historyItemId} for user ${user.username}:`, error);
@@ -309,7 +314,7 @@ export async function getHistoryItemById(historyItemId: string): Promise<{ succe
   if (!item) {
     return { success: false, error: 'History item not found' };
   }
-  if (item.username !== user.username) {
+  if (item.username !== user.username && user.role !== 'admin') {
     return { success: false, error: 'Unauthorized access to history item' };
   }
   return { success: true, item };

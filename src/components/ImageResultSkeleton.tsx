@@ -2,30 +2,24 @@
 "use client";
 
 import React from 'react';
-import { Card, CardContent } from "@/components/ui/card";
 
 /**
- * Skeleton loader for image generation results
- * Matches the structure of the image result cards in image-parameters
+ * Skeleton loader for image generation results.
+ * Designed to fill its parent container (rendered inside an `absolute inset-0` wrapper).
+ * Uses a subtle shimmer effect with no extra Card chrome.
  */
 export function ImageResultSkeleton() {
   return (
-    <Card className="overflow-hidden animate-pulse">
-      <CardContent className="p-4 space-y-4">
-        {/* Image skeleton */}
-        <div className="relative aspect-square bg-muted rounded-lg overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-muted via-muted-foreground/5 to-muted" />
-          {/* Shimmer effect */}
-          <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        </div>
-
-        {/* Action buttons skeleton */}
-        <div className="flex gap-2">
-          <div className="h-9 bg-muted rounded-sm flex-1" />
-          <div className="h-9 bg-muted rounded-sm w-9" />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="w-full h-full bg-muted/40 rounded-lg overflow-hidden animate-pulse flex flex-col items-center justify-center gap-3">
+      {/* Shimmer overlay */}
+      <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" />
+      {/* Centered icon placeholder */}
+      <div className="relative z-[1] flex flex-col items-center gap-3">
+        <div className="h-10 w-10 rounded-full bg-muted-foreground/10" />
+        <div className="h-3 w-24 rounded-full bg-muted-foreground/10" />
+        <div className="h-2 w-16 rounded-full bg-muted-foreground/[0.06]" />
+      </div>
+    </div>
   );
 }
 
@@ -37,7 +31,9 @@ export function ImageResultsSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {Array.from({ length: count }).map((_, i) => (
-        <ImageResultSkeleton key={i} />
+        <div key={i} className="relative aspect-[2/3] bg-muted/30 rounded-lg overflow-hidden">
+          <ImageResultSkeleton />
+        </div>
       ))}
     </div>
   );

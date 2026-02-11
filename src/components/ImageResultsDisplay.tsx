@@ -148,6 +148,50 @@ export function ImageResultsDisplay({
   // === IMAGE MODE RENDER ===
   const urls = resultData?.editedImageUrls || [];
   const displayCount = urls.length > 0 ? urls.length : maxImages;
+  const isSingleImage = displayCount === 1;
+
+  // Build the image cell for a given index
+  const renderImageCell = (index: number) => {
+    const url = urls[index];
+    const isLoading = pollingStatus === 'processing' && !url;
+    const isError = pollingStatus === 'failed';
+
+    if (pollingStatus === 'completed' && !url && !isError) return null;
+
+    return (
+      <m.div
+        key={index}
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4, delay: index * 0.08 }}
+        className={`relative ${aspectClass} ${isSingleImage ? 'w-full max-w-sm' : 'w-full'} bg-muted/30 rounded-lg overflow-hidden group border border-white/5`}
+      >
+        {isLoading && <div className="absolute inset-0 z-10"><ImageResultSkeleton /></div>}
+
+        {isError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-destructive/10 text-destructive">
+            <AlertCircle className="h-8 w-8 mb-2" />
+            <span className="text-xs">Failed</span>
+          </div>
+        )}
+
+        {url && (
+          <>
+            <Image
+              src={getDisplayableImageUrl(url)!} alt="Result" fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes={isSingleImage ? '(max-width: 640px) 100vw, 384px' : '(max-width: 768px) 100vw, 33vw'}
+            />
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-xs">
+              <Button size="icon" variant="secondary" onClick={() => handleImageClick(url)}><Maximize2 className="h-4 w-4" /></Button>
+              <Button size="icon" variant="secondary" onClick={() => handleDownload(url, index)}><Download className="h-4 w-4" /></Button>
+              <Button size="icon" variant="secondary" onClick={() => handleUseAsInput(url)}><RefreshCw className="h-4 w-4" /></Button>
+            </div>
+          </>
+        )}
+      </m.div>
+    );
+  };
 
   return (
     <>
@@ -159,43 +203,17 @@ export function ImageResultsDisplay({
           <CardDescription>Your AI-generated fashion model images.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className={`grid grid-cols-1 ${maxImages > 1 ? 'sm:grid-cols-2 lg:grid-cols-3' : 'max-w-md mx-auto'} gap-4`}>
-            {Array.from({ length: displayCount }).map((_, index) => {
-              const url = urls[index];
-              const isLoading = pollingStatus === 'processing' && !url;
-              const isError = pollingStatus === 'failed';
-
-              if (pollingStatus === 'completed' && !url && !isError) return null;
-
-              return (
-                <div key={index} className={`relative ${aspectClass} min-h-[200px] max-h-[600px] bg-muted/30 rounded-lg overflow-hidden group border border-white/5 flex items-center justify-center`}>
-                  {isLoading && <div className="absolute inset-0 z-10"><ImageResultSkeleton /></div>}
-
-                  {isError && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-destructive/10 text-destructive">
-                      <AlertCircle className="h-8 w-8 mb-2" />
-                      <span className="text-xs">Failed</span>
-                    </div>
-                  )}
-
-                  {url && (
-                    <>
-                      <Image
-                        src={getDisplayableImageUrl(url)!} alt="Result" fill
-                        className="object-contain transition-transform duration-500 group-hover:scale-105"
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                      />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-xs">
-                        <Button size="icon" variant="secondary" onClick={() => handleImageClick(url)}><Maximize2 className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="secondary" onClick={() => handleDownload(url, index)}><Download className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="secondary" onClick={() => handleUseAsInput(url)}><RefreshCw className="h-4 w-4" /></Button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          {isSingleImage ? (
+            /* Single image: flex-center the cell — no grid, no auto-margin asymmetry */
+            <div className="flex justify-center">
+              {renderImageCell(0)}
+            </div>
+          ) : (
+            /* Multiple images: responsive grid */
+            <div className={`grid grid-cols-1 ${displayCount === 2 ? 'sm:grid-cols-2 max-w-2xl mx-auto' : 'sm:grid-cols-2 lg:grid-cols-3'} gap-4`}>
+              {Array.from({ length: displayCount }).map((_, index) => renderImageCell(index))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

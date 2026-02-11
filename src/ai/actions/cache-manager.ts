@@ -4,59 +4,49 @@ import 'server-only';
 
 import fs from 'fs/promises';
 import path from 'path';
-
-const cacheFilePath = path.join(process.cwd(), '.cache', 'image-processing-cache.json');
+import { getDb } from '@/services/database.service';
 
 type CacheEntry = {
   path: string;
   hash: string;
 };
-type CacheData = {
-  [key: string]: {
-    bgRemoved?: CacheEntry;
-    upscaled?: CacheEntry;
-    faceDetailed?: CacheEntry;
-    timestamp?: number;
-  };
-};
 
-async function readCache(): Promise<CacheData> {
-  try {
-    await fs.mkdir(path.dirname(cacheFilePath), { recursive: true });
-    const data = await fs.readFile(cacheFilePath, 'utf-8');
-    return JSON.parse(data);
-  } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      return {}; // Cache file doesn't exist, return empty object
-    }
-    console.error('Error reading cache:', error);
-    return {};
-  }
-}
-
-async function writeCache(data: CacheData): Promise<void> {
-  try {
-    await fs.mkdir(path.dirname(cacheFilePath), { recursive: true });
-    await fs.writeFile(cacheFilePath, JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error('Error writing cache:', error);
-  }
+/**
+ * Ensures the image_processing_cache table exists.
+ * Uses a module-level flag to avoid re-running on every call.
+ */
+let tableInitialized = false;
+function ensureCacheTable(): void {
+  if (tableInitialized) return;
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS image_processing_cache (
+      source_hash TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('bgRemoved', 'upscaled', 'faceDetailed')),
+      path TEXT NOT NULL,
+      output_hash TEXT NOT NULL,
+      timestamp INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+      PRIMARY KEY (source_hash, type)
+    )
+  `);
+  tableInitialized = true;
 }
 
 export async function getCachedImage(hash: string, type: 'bgRemoved' | 'upscaled' | 'faceDetailed'): Promise<CacheEntry | null> {
-  const cache = await readCache();
-  const cachedEntry = cache[hash]?.[type];
-  if (cachedEntry) {
+  ensureCacheTable();
+  const db = getDb();
+  const row = db.prepare(
+    'SELECT path, output_hash as hash FROM image_processing_cache WHERE source_hash = ? AND type = ?'
+  ).get(hash, type) as CacheEntry | undefined;
+
+  if (row) {
     try {
-      const fullPath = path.join(process.cwd(), cachedEntry.path);
+      const fullPath = path.join(process.cwd(), row.path);
       await fs.access(fullPath);
-      return cachedEntry;
+      return row;
     } catch {
-      delete cache[hash]?.[type];
-      if (cache[hash] && Object.keys(cache[hash]).length === 0) {
-        delete cache[hash];
-      }
-      await writeCache(cache);
+      // File no longer exists on disk — remove stale cache entry
+      db.prepare('DELETE FROM image_processing_cache WHERE source_hash = ? AND type = ?').run(hash, type);
       return null;
     }
   }
@@ -64,28 +54,18 @@ export async function getCachedImage(hash: string, type: 'bgRemoved' | 'upscaled
 }
 
 export async function setCachedImage(hash: string, type: 'bgRemoved' | 'upscaled' | 'faceDetailed', imagePath: string, outputHash: string): Promise<void> {
-  const cache = await readCache();
-  if (!cache[hash]) {
-    cache[hash] = {};
-  }
-  cache[hash][type] = { path: imagePath, hash: outputHash };
-  cache[hash].timestamp = Date.now();
-  await writeCache(cache);
+  ensureCacheTable();
+  const db = getDb();
+  db.prepare(
+    `INSERT OR REPLACE INTO image_processing_cache (source_hash, type, path, output_hash, timestamp)
+     VALUES (?, ?, ?, ?, ?)`
+  ).run(hash, type, imagePath, outputHash, Date.now());
 }
 
-export async function cleanupOldCacheEntries(maxAgeMs: number = 30 * 24 * 60 * 60 * 1000): Promise<void> {
-  const cache = await readCache();
-  const now = Date.now();
-  let hasChanges = false;
-
-  for (const [hash, entry] of Object.entries(cache)) {
-    if (entry.timestamp && (now - entry.timestamp) > maxAgeMs) {
-      delete cache[hash];
-      hasChanges = true;
-    }
-  }
-
-  if (hasChanges) {
-    await writeCache(cache);
-  }
+export async function cleanupOldCacheEntries(maxAgeMs: number = 30 * 24 * 60 * 60 * 1000): Promise<number> {
+  ensureCacheTable();
+  const db = getDb();
+  const cutoff = Date.now() - maxAgeMs;
+  const result = db.prepare('DELETE FROM image_processing_cache WHERE timestamp < ?').run(cutoff);
+  return result.changes;
 }

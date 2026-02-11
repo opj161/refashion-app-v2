@@ -182,7 +182,7 @@ export async function constructStudioPrompt(
     studioPrompt = studioPrompt.replace('{clothingItem}', classification);
   } else {
     // Fallback for legacy templates in DB that might still use the literal string
-    studioPrompt = studioPrompt.replace("clothing item", classification);
+    studioPrompt = studioPrompt.replaceAll("clothing item", classification);
   }
   
   return { classification, finalPrompt: studioPrompt };

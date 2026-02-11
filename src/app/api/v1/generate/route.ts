@@ -1,5 +1,6 @@
 // src/app/api/v1/generate/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { createApiJob, processApiGenerationJob } from '@/actions/apiActions';
 import { findHistoryItemById } from '@/services/database.service';
@@ -74,13 +75,13 @@ export async function POST(request: NextRequest) {
       webhookUrl: validatedData.webhookUrl,
     });
 
-    // Start processing in background (don't await)
-    processApiGenerationJob(jobId, {
+    // Start processing in background using after() to ensure it survives response completion
+    after(() => processApiGenerationJob(jobId, {
       imageDataUri: imageDataSource,
       parameters: validatedData.parameters,
       settingsMode: validatedData.settingsMode,
       webhookUrl: validatedData.webhookUrl,
-    }, user.username).catch(console.error);
+    }, user.username).catch(console.error));
 
     // Return immediately with job ID
     return NextResponse.json({

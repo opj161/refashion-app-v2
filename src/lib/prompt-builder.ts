@@ -359,9 +359,6 @@ export const LIGHT_QUALITY_OPTIONS: OptionWithPromptSegment[] = [
   { value: "hard_direct_graphic_shadows", displayLabel: "Hard, Direct, Graphic Shadows", promptSegment: "The light is hard and direct, creating crisp, well-defined, graphic shadows." },
   { value: "glowing_radiant_luminous", displayLabel: "Glowing, Radiant, Luminous", promptSegment: "The light appears glowing, radiant, or luminous, perhaps with a slight bloom effect." },
 ];
-export const CAMERA_ANGLE_OPTIONS: OptionWithPromptSegment[] = [
-  // This is deprecated and will be replaced by MODEL_ANGLE_OPTIONS
-];
 export const LENS_EFFECT_OPTIONS: OptionWithPromptSegment[] = [
   { value: "default", displayLabel: "Default (Standard Perspective)", promptSegment: "Photographed with a standard lens perspective, offering a natural field of view." },
   { value: "portrait_lens_85mm_f1_8_bokeh", displayLabel: "Portrait Lens (85mm f/1.8 Style)", promptSegment: "Shot as if with an 85mm f/1.8 lens, creating a classic portrait compression and beautiful subject separation with creamy bokeh." },
@@ -544,7 +541,7 @@ export function buildAIPrompt({ type, params }: BuildAIPromptArgs): string {
       if (backgroundOpt && backgroundOpt.value !== "default" && backgroundOpt.promptSegment) {
         settingDescription += backgroundOpt.promptSegment;
       } else if (params.fashionStyle === "ecommerce_product") {
-        settingDescription += getSelectedOption(BACKGROUND_OPTIONS, "studio_white_seamless_minimalist")!.promptSegment;
+        settingDescription += getSelectedOption(BACKGROUND_OPTIONS, "studio_white")?.promptSegment ?? '';
       }
 
       if (timeOfDayOpt && timeOfDayOpt.value !== "default" && timeOfDayOpt.promptSegment) {

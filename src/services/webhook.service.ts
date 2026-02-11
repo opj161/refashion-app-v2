@@ -60,4 +60,5 @@ export async function sendWebhook(url: string, payload: WebhookPayload): Promise
   }
 
   console.error(`[Webhook] Final attempt failed. Giving up on sending webhook to ${url}.`);
+  throw new Error(`Webhook delivery failed after 3 attempts to ${url}`);
 }

@@ -17,6 +17,7 @@ export function useSmartPolling(
     const [error, setError] = useState<Error | null>(null);
     const attemptsRef = useRef(0);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     // Keep the latest options in a ref to avoid resetting the effect when callbacks change
     const optionsRef = useRef(options);
@@ -27,20 +28,38 @@ export function useSmartPolling(
     useEffect(() => {
         if (!url || !shouldPoll) {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            abortControllerRef.current?.abort();
             return;
         }
 
+        let cancelled = false;
+
         const poll = async () => {
+            // Abort any previous in-flight request
+            abortControllerRef.current?.abort();
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+
             try {
-                const res = await fetch(url, { cache: 'no-store' });
+                const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+                if (cancelled) return;
                 if (!res.ok) throw new Error(`Polling error: ${res.status}`);
 
                 const result = await res.json();
+                if (cancelled) return;
                 setData(result);
 
-                // Check if job is done (completed or failed)
-                if (result.status === 'completed' || result.status === 'failed') {
+                // Check if job completed successfully
+                if (result.status === 'completed') {
                     optionsRef.current.onSuccess?.(result);
+                    return; // Stop polling
+                }
+
+                // Check if job failed
+                if (result.status === 'failed') {
+                    const failErr = new Error(result.error || 'Job failed');
+                    setError(failErr);
+                    optionsRef.current.onFailure?.(result);
                     return; // Stop polling
                 }
 
@@ -56,9 +75,16 @@ export function useSmartPolling(
                     optionsRef.current.onFailure?.(timeoutErr);
                 }
             } catch (err) {
+                if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
                 console.error(err);
-                // Retry on network error, but count it
+                // Retry on network error, but check max attempts
                 attemptsRef.current++;
+                if (attemptsRef.current >= maxAttempts) {
+                    const timeoutErr = new Error('Polling timed out after network errors');
+                    setError(timeoutErr);
+                    optionsRef.current.onFailure?.(timeoutErr);
+                    return;
+                }
                 timeoutRef.current = setTimeout(poll, 5000);
             }
         };
@@ -68,7 +94,9 @@ export function useSmartPolling(
         poll();
 
         return () => {
+            cancelled = true;
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            abortControllerRef.current?.abort();
         };
     }, [url, shouldPoll, maxAttempts, initialDelay]);
 

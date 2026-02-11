@@ -41,6 +41,8 @@ export async function getApiKeyForUser(username: string, service: ApiService, in
         console.log(`Using user-specific ${service} key (index: ${index || 'N/A'}) for user '${username}'.`);
         return decryptedKey;
       }
+      // Decryption failed for a non-empty encrypted value — log a warning
+      console.warn(`User '${username}' has a ${service} key (index: ${index || 'N/A'}) stored but decryption failed. Possibly corrupt or ENCRYPTION_SECRET rotated. Falling back to global key.`);
     }
   }
 

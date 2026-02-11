@@ -28,6 +28,14 @@ export async function GET(
       const parts = rangeHeader.replace(/bytes=/, '').split('-');
       start = parseInt(parts[0], 10);
       end = parts[1] ? parseInt(parts[1], 10) : undefined;
+      
+      // Validate parsed values — malformed Range headers produce NaN
+      if (isNaN(start)) {
+        return new NextResponse('Invalid Range header', { status: 400 });
+      }
+      if (end !== undefined && isNaN(end)) {
+        return new NextResponse('Invalid Range header', { status: 400 });
+      }
     }
 
     const { stream, size, contentType } = await getFileStream(uploadsPath, { start, end });

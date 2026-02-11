@@ -240,9 +240,24 @@ export async function detailFaces(imageUrlOrDataUri: string, username: string): 
 
 /**
  * Checks if the Fal.ai services are configured and available.
+ * Checks both the environment variable and DB-configured global key.
  * @returns {Promise<boolean>} True if the service is available, otherwise false.
  */
 export async function isServiceAvailable(): Promise<boolean> {
-  // Check if FAL_KEY environment variable is set (used by the proxy)
-  return !!process.env.FAL_KEY;
+  // Check environment variable first
+  if (process.env.FAL_KEY) return true;
+  
+  // Also check if a global key is configured in the database
+  try {
+    const { getSetting } = await import('@/services/settings.service');
+    const { decrypt } = await import('@/services/encryption.service');
+    const encryptedKey = getSetting('global_fal_api_key');
+    if (encryptedKey) {
+      const decrypted = decrypt(encryptedKey);
+      return !!decrypted;
+    }
+  } catch {
+    // Fall through to false
+  }
+  return false;
 }

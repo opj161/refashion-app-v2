@@ -78,11 +78,15 @@ export async function processApiGenerationJob(jobId: string, payload: Omit<ApiJo
       const absoluteImageUrls = result.editedImageUrls
         .map(url => url ? (url.startsWith('http') ? url : `${baseUrl}${getDisplayableImageUrl(url)}`) : null);
 
-      await sendWebhook(webhookUrl, {
-        status: 'completed',
-        generatedImageUrls: absoluteImageUrls,
-        historyId: jobId,
-      });
+      try {
+        await sendWebhook(webhookUrl, {
+          status: 'completed',
+          generatedImageUrls: absoluteImageUrls,
+          historyId: jobId,
+        });
+      } catch (webhookErr) {
+        console.error(`Failed to send success webhook for job ${jobId}:`, webhookErr);
+      }
     }
 
   } catch (e) {
@@ -91,11 +95,15 @@ export async function processApiGenerationJob(jobId: string, payload: Omit<ApiJo
     await updateHistoryItem(jobId, { status: 'failed', error: (e as Error).message }, username);
 
     if (webhookUrl) {
-      await sendWebhook(webhookUrl, {
-        status: 'failed',
-        error: (e as Error).message,
-        historyId: jobId,
-      });
+      try {
+        await sendWebhook(webhookUrl, {
+          status: 'failed',
+          error: (e as Error).message,
+          historyId: jobId,
+        });
+      } catch (webhookErr) {
+        console.error(`Failed to send error webhook for job ${jobId}:`, webhookErr);
+      }
     }
   }
 }

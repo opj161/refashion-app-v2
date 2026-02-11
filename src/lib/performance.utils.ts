@@ -123,7 +123,9 @@ export function debounce<T extends (...args: any[]) => any>(
 }
 
 /**
- * Throttle function to limit execution frequency
+ * Throttle function to limit execution frequency.
+ * Executes on the leading edge and schedules a trailing call
+ * so the last invocation is never silently dropped.
  * @param fn Function to throttle
  * @param limit Time limit in milliseconds
  * @returns Throttled function
@@ -133,6 +135,8 @@ export function throttle<T extends (...args: any[]) => any>(
   limit: number
 ): (...args: Parameters<T>) => void {
   let inThrottle = false;
+  let trailingArgs: Parameters<T> | null = null;
+  let trailingThis: any = null;
   
   return function (this: any, ...args: Parameters<T>) {
     if (!inThrottle) {
@@ -140,20 +144,32 @@ export function throttle<T extends (...args: any[]) => any>(
       inThrottle = true;
       setTimeout(() => {
         inThrottle = false;
+        if (trailingArgs) {
+          fn.apply(trailingThis, trailingArgs);
+          trailingArgs = null;
+          trailingThis = null;
+          inThrottle = true;
+          setTimeout(() => { inThrottle = false; }, limit);
+        }
       }, limit);
+    } else {
+      trailingArgs = args;
+      trailingThis = this;
     }
   };
 }
 
 /**
- * Memoize expensive function results
+ * Memoize expensive function results with optional LRU eviction.
  * @param fn Function to memoize
  * @param keyFn Optional function to generate cache key
+ * @param maxSize Maximum number of entries to keep (default: 100). Oldest entries are evicted when exceeded.
  * @returns Memoized function
  */
 export function memoize<T extends (...args: any[]) => any>(
   fn: T,
-  keyFn?: (...args: Parameters<T>) => string
+  keyFn?: (...args: Parameters<T>) => string,
+  maxSize: number = 100
 ): T {
   const cache = new Map<string, ReturnType<T>>();
   
@@ -161,11 +177,22 @@ export function memoize<T extends (...args: any[]) => any>(
     const key = keyFn ? keyFn(...args) : JSON.stringify(args);
     
     if (cache.has(key)) {
-      return cache.get(key);
+      // Move to end (most recently used)
+      const value = cache.get(key)!;
+      cache.delete(key);
+      cache.set(key, value);
+      return value;
     }
     
     const result = fn(...args);
     cache.set(key, result);
+    
+    // Evict oldest entries if over maxSize
+    if (cache.size > maxSize) {
+      const firstKey = cache.keys().next().value;
+      if (firstKey !== undefined) cache.delete(firstKey);
+    }
+    
     return result;
   }) as T;
 }

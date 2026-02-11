@@ -12,6 +12,8 @@ import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 import { getHistoryItem } from './historyActions';
 import { trackUserUpload } from '@/services/database.service';
 import { getCurrentUser } from '@/actions/authActions';
+import { z } from 'zod';
+import { zfd } from 'zod-form-data';
 
 const MAX_DIMENSION = 2048;
 
@@ -411,9 +413,6 @@ export type ImageGenerationFormState = {
   errors?: (string | null)[];
   newHistoryId?: string;
 };
-
-import { z } from 'zod';
-import { zfd } from 'zod-form-data';
 
 // Define the schema for image generation
 const imageGenerationSchema = zfd.formData({

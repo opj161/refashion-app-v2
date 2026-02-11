@@ -67,7 +67,7 @@ async function getDirectorySize(dirPath: string): Promise<number> {
 
 // --- Core Analytics Functions ---
 
-export async function getDashboardKpis(): Promise<Omit<KpiData, 'totalStorageUsed'>> {
+export function getDashboardKpis(): Omit<KpiData, 'totalStorageUsed'> {
   const db = getDb();
   const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
 
@@ -88,7 +88,7 @@ export async function getTotalMediaStorage(): Promise<string> {
     return formatBytes(totalSize);
 }
 
-export async function getGenerationActivity(days: 7 | 30): Promise<GenerationActivityData[]> {
+export function getGenerationActivity(days: 7 | 30): GenerationActivityData[] {
   const db = getDb();
   const sinceTimestamp = Date.now() - days * 24 * 60 * 60 * 1000;
   
@@ -106,7 +106,7 @@ export async function getGenerationActivity(days: 7 | 30): Promise<GenerationAct
   return stmt.all(sinceTimestamp) as GenerationActivityData[];
 }
 
-export async function getTopParameterUsage(parameter: 'fashionStyle' | 'background', limit: number = 5): Promise<TopParameterUsageData[]> {
+export function getTopParameterUsage(parameter: 'fashionStyle' | 'background', limit: number = 5): TopParameterUsageData[] {
   // Security: Validate the parameter against an allowlist to prevent SQL injection.
   const allowedParameters = ['fashionStyle', 'background', 'poseStyle', 'gender'];
   if (!allowedParameters.includes(parameter)) {
@@ -129,7 +129,7 @@ export async function getTopParameterUsage(parameter: 'fashionStyle' | 'backgrou
   return stmt.all(limit) as TopParameterUsageData[];
 }
 
-export async function getUserActivity(): Promise<UserActivityData[]> {
+export function getUserActivity(): UserActivityData[] {
   const db = getDb();
   const stmt = db.prepare(`
     SELECT

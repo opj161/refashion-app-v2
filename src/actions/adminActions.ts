@@ -129,36 +129,12 @@ export async function updateSetting(key: settingsService.SettingKey, value: bool
 export async function triggerCacheCleanup() {
   await verifyAdmin();
   try {
-    const cacheFilePath = path.join(process.cwd(), '.cache', 'image-processing-cache.json');
-    const maxAgeMs = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-    let cache: Record<string, any> = {};
-    try {
-      const data = await fs.readFile(cacheFilePath, 'utf-8');
-      cache = JSON.parse(data);
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
-        return { success: true, message: 'Cache file does not exist. Nothing to clean up.' };
-      }
-      throw error;
-    }
-
-    const now = Date.now();
-    let removedCount = 0;
-    const initialCount = Object.keys(cache).length;
-
-    for (const [hash, entry] of Object.entries(cache)) {
-      if (entry.timestamp && (now - entry.timestamp) > maxAgeMs) {
-        delete cache[hash];
-        removedCount++;
-      }
-    }
-
+    const { cleanupOldCacheEntries } = await import('@/ai/actions/cache-manager');
+    const removedCount = await cleanupOldCacheEntries();
     if (removedCount > 0) {
-      await fs.writeFile(cacheFilePath, JSON.stringify(cache, null, 2));
-      return { success: true, message: `Cache cleanup complete. Removed ${removedCount} of ${initialCount} entries.` };
+      return { success: true, message: `Cache cleanup complete. Removed ${removedCount} stale entries.` };
     } else {
-      return { success: true, message: `Cache is clean. No entries were old enough to remove (${initialCount} entries remain).` };
+      return { success: true, message: 'Cache is clean. No entries were old enough to remove.' };
     }
   } catch (error) {
     console.error('Error during cache cleanup from admin panel:', error);
@@ -200,8 +176,14 @@ export async function updateUserConfiguration(formData: FormData) {
     
     // The key exists in the form data, meaning the input was enabled.
     if (key_value !== null) {
-      setClauses.push(`${keyName} = ?`);
-      params.push(encrypt(key_value as string));
+      if ((key_value as string).trim() === '') {
+        // Empty string means "clear the key" — store null instead of encrypting empty
+        setClauses.push(`${keyName} = ?`);
+        params.push(null);
+      } else {
+        setClauses.push(`${keyName} = ?`);
+        params.push(encrypt(key_value as string));
+      }
     }
   };
 
@@ -244,6 +226,7 @@ export async function updateEncryptedSetting(key: settingsService.SettingKey, va
 }
 
 export async function getGlobalApiKeysForDisplay() {
+  await verifyAdmin();
   const settings = settingsService.getAllSettings();
   const { decrypt } = await import('@/services/encryption.service');
   const mask = (key: string) => key ? `••••••••••••${key.slice(-4)}` : 'Not Set';
@@ -386,6 +369,23 @@ export async function exportAllData(): Promise<{ success: boolean; downloadUrl?:
     });
 
     const downloadUrl = `/api/admin/download-export?file=${zipFileName}`;
+    
+    // Schedule cleanup of the temp file after 1 hour
+    const { after: afterFn } = await import('next/server');
+    afterFn(() => {
+      setTimeout(async () => {
+        try {
+          const fsSync = await import('fs');
+          if (fsSync.existsSync(zipFilePath)) {
+            fsSync.unlinkSync(zipFilePath);
+            console.log(`[Export] Cleaned up temp file: ${zipFileName}`);
+          }
+        } catch (cleanupErr) {
+          console.error('[Export] Failed to clean up temp file:', cleanupErr);
+        }
+      }, 60 * 60 * 1000); // 1 hour
+    });
+    
     return { success: true, downloadUrl };
 
   } catch (error) {
@@ -667,49 +667,13 @@ export async function handleCacheCleanup(
   previousState: CacheCleanupFormState | null,
   formData: FormData
 ): Promise<CacheCleanupFormState> {
-  await verifyAdmin();
-  
   try {
-    const cacheFilePath = path.join(process.cwd(), '.cache', 'image-processing-cache.json');
-    const maxAgeMs = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-    let cache: Record<string, any> = {};
-    try {
-      const data = await fs.readFile(cacheFilePath, 'utf-8');
-      cache = JSON.parse(data);
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
-        return { 
-          success: true, 
-          message: 'Cache file does not exist. Nothing to clean up.' 
-        };
-      }
-      throw error;
-    }
-
-    const now = Date.now();
-    let removedCount = 0;
-    const initialCount = Object.keys(cache).length;
-
-    for (const [hash, entry] of Object.entries(cache)) {
-      if (entry.timestamp && (now - entry.timestamp) > maxAgeMs) {
-        delete cache[hash];
-        removedCount++;
-      }
-    }
-
-    if (removedCount > 0) {
-      await fs.writeFile(cacheFilePath, JSON.stringify(cache, null, 2));
-      return { 
-        success: true, 
-        message: `Cache cleanup complete. Removed ${removedCount} of ${initialCount} entries.` 
-      };
-    } else {
-      return { 
-        success: true, 
-        message: `Cache is clean. No entries were old enough to remove (${initialCount} entries remain).` 
-      };
-    }
+    const result = await triggerCacheCleanup();
+    return {
+      success: result.success,
+      message: result.message || result.error || 'Cache cleanup completed.',
+      error: result.error,
+    };
   } catch (error) {
     console.error('Error during cache cleanup from admin panel:', error);
     return { 

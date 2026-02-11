@@ -260,7 +260,6 @@ export async function generateImageEdit(
   }
 
   console.log(`[generateImageEdit] User: ${username}, Model: ${user.image_generation_model}, Count: ${imagesToGenerateCount}`);
-  const initialImageArray = Array(3).fill(null); // Always keep DB array size 3 for consistency in UI
 
   // 1. Create initial history item EARLY (if not existing)
   let historyId = existingHistoryId;
@@ -360,11 +359,17 @@ export async function generateImageEdit(
 
         // Update History
         if (historyId) {
+          const allFailed = errorsResult.every(e => e);
+          const someFailed = errorsResult.some(e => e);
           dbService.updateHistoryItem(historyId, {
             constructedPrompt: studioPrompt,
             editedImageUrls: editedImageUrlsResult,
-            status: errorsResult.every(e => e) ? 'failed' : 'completed',
-            error: errorsResult.find(e => e) || undefined
+            status: allFailed ? 'failed' : 'completed',
+            error: allFailed
+              ? errorsResult.filter(Boolean).join('; ')
+              : someFailed
+                ? `Partial failure: ${errorsResult.filter(Boolean).join('; ')}`
+                : undefined
           });
           console.log(`✅ Studio Mode: History updated for ${historyId}`);
         }
@@ -433,8 +438,11 @@ export async function generateImageEdit(
         let parameterSetsForSlots: ModelAttributes[];
 
         if (processedInput.useRandomization) {
+          if (!processedInput.parameters) {
+            throw new Error('Parameters are required when randomization is enabled.');
+          }
           console.log(`🎲 Randomization enabled. Generating ${imagesToGenerateCount} different parameter sets.`);
-          parameterSetsForSlots = Array.from({ length: imagesToGenerateCount }, () => generateRandomBasicParameters(processedInput.parameters!));
+          parameterSetsForSlots = Array.from({ length: imagesToGenerateCount }, () => generateRandomBasicParameters(processedInput.parameters));
         } else {
           console.log(`⚙️ Using fixed parameters for all ${imagesToGenerateCount} slots.`);
           parameterSetsForSlots = Array(imagesToGenerateCount).fill(processedInput.parameters);
@@ -479,8 +487,6 @@ export async function generateImageEdit(
 
       console.log("Generated Prompts:", prompts);
 
-      const [prompt1, prompt2, prompt3] = prompts;
-
       const generationPromises = prompts.map(async (prompt, index) => {
         if (!prompt) throw new Error(`Prompt for slot ${index + 1} was missing`);
 
@@ -521,11 +527,17 @@ export async function generateImageEdit(
 
       // Update History
       if (historyId) {
+        const allFailed = errorsResult.every(e => e);
+        const someFailed = errorsResult.some(e => e);
         dbService.updateHistoryItem(historyId, {
           constructedPrompt: finalConstructedPromptForHistory,
           editedImageUrls: editedImageUrlsResult,
-          status: errorsResult.every(e => e) ? 'failed' : 'completed',
-          error: errorsResult.find(e => e) || undefined
+          status: allFailed ? 'failed' : 'completed',
+          error: allFailed
+            ? errorsResult.filter(Boolean).join('; ')
+            : someFailed
+              ? `Partial failure: ${errorsResult.filter(Boolean).join('; ')}`
+              : undefined
         });
         console.log(`✅ Creative Mode: History updated for ${historyId}`);
       }

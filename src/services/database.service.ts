@@ -78,7 +78,6 @@ let preparedStatements: {
   insertHistory?: Database.Statement;
   insertImage?: Database.Statement;
   findHistoryById?: Database.Statement;
-  updateHistory?: Database.Statement;
   deleteImagesByHistoryId?: Database.Statement;
   findHistoryByUsername?: Database.Statement;
   countHistoryByUsername?: Database.Statement;
@@ -112,13 +111,6 @@ function getPreparedStatements() {
              (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
       FROM history h
       WHERE h.id = ?
-    `);
-    
-    preparedStatements.updateHistory = db.prepare(`
-      UPDATE history 
-      SET constructedPrompt = COALESCE(?, constructedPrompt),
-          videoGenerationParams = COALESCE(?, videoGenerationParams)
-      WHERE id = ?
     `);
     
     preparedStatements.deleteImagesByHistoryId = db.prepare(`
@@ -426,7 +418,6 @@ export const getAllUsersHistoryPaginated = cache((page: number = 1, limit: numbe
            (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
            (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
     FROM history h
-    GROUP BY h.id
     ORDER BY h.timestamp DESC
     LIMIT ? OFFSET ?
   `).all(limit, offset) as any[];
@@ -555,6 +546,9 @@ export const findUserByApiKey = cache((apiKey: string): FullUser | null => {
 
 // Cleanup function for graceful shutdown
 export function closeDb(): void {
+  if (globalForDb.db) {
+    globalForDb.db.close();
+  }
   if (db) {
     db.close();
   }

@@ -59,22 +59,19 @@ export async function logoutUser() {
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
   try {
-    // Added logging to see what getCurrentUser sees
-    console.log("[getCurrentUser] Attempting to fetch current user session.");
-    
     // Ensure we have access to cookies (this forces dynamic rendering)
     const cookieStore = await cookies();
     const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
     
     if (session.user?.isLoggedIn) {
-      console.log("[getCurrentUser] User found in session:", session.user.username);
       return session.user;
     }
-    console.log("[getCurrentUser] No logged-in user found in session.");
     return null;
   } catch (error) {
     // Handle cases where cookies might not be available (e.g., during build)
-    console.warn("[getCurrentUser] Failed to access session:", error instanceof Error ? error.message : String(error));
+    if (process.env.NODE_ENV === 'development') {
+      console.warn("[getCurrentUser] Failed to access session:", error instanceof Error ? error.message : String(error));
+    }
     return null;
   }
 }

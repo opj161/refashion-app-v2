@@ -44,11 +44,21 @@ async function uploadFileToMega(localFilePath: string, remoteMegaPath: string): 
 
     let stderrData = '';
 
+    // Consume stdout to prevent pipe buffer deadlock
+    child.stdout.on('data', () => { /* drain */ });
+
     child.stderr.on('data', (data) => {
       stderrData += data.toString();
     });
 
+    // Kill child process after 5 minutes to prevent hangs
+    const timeoutId = setTimeout(() => {
+      child.kill('SIGTERM');
+      reject(new Error(`[MegaBackup] Upload of ${fileName} timed out after 5 minutes`));
+    }, 5 * 60 * 1000);
+
     child.on('close', (code) => {
+      clearTimeout(timeoutId);
       if (code === 0) {
         console.log(`[MegaBackup] Successfully uploaded ${fileName}.`);
         resolve();
@@ -60,6 +70,7 @@ async function uploadFileToMega(localFilePath: string, remoteMegaPath: string): 
     });
 
     child.on('error', (err) => {
+      clearTimeout(timeoutId);
       console.error(`[MegaBackup] Failed to spawn process for ${fileName}.`, err);
       reject(err);
     });

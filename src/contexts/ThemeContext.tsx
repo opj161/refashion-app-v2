@@ -50,7 +50,8 @@ export function ThemeProvider({
     } catch (e) {
       console.warn(`Failed to read theme from localStorage (key: "${storageKey}"):`, e);
     }
-  }, [storageKey, theme]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
   // Effect for applying theme and listening to system changes
   useEffect(() => {
     if (typeof window === 'undefined' || !isHydrated) return;
