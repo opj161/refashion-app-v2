@@ -1,0 +1,17 @@
+---
+description: Server Actions — mutation entry points with auth, Zod validation, and service calls
+globs:
+  - src/actions/**
+---
+
+Server Actions follow a strict pattern:
+1. Import `server-only` at the top
+2. Use `'use server'` directive
+3. Authenticate via session (`getIronSession`)
+4. Validate input with Zod
+5. Call Service layer — never query DB directly
+6. Return `{ success: boolean, message?: string, errors?: ... }`
+7. Use `revalidatePath`/`revalidateTag` for cache invalidation
+8. Use `after()` for fire-and-forget background work
+
+Exemplar: `src/actions/imageActions.ts`

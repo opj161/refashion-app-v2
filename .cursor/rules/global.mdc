@@ -1,0 +1,15 @@
+---
+description: Global project rules — always active
+alwaysApply: true
+---
+
+Read `AGENTS.md` at the repo root for all project conventions.
+
+Key invariants:
+- Service-Repository pattern: Actions → Services → DB. No DB queries in components.
+- Files in `/uploads/`, served via `getDisplayableImageUrl()`.
+- `params`, `searchParams`, `cookies()`, `headers()` are async — always `await`.
+- Every `fetch()` needs explicit `cache:` option.
+- Import `server-only` in all Service and Action files.
+- `useActionState` for forms, `useOptimistic` for immediate UI feedback.
+- Zustand for client state, not React Context.

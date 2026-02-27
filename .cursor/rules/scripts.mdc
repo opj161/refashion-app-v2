@@ -1,0 +1,13 @@
+---
+description: Database migrations and admin scripts
+globs:
+  - scripts/**
+---
+
+Migration conventions:
+- `scripts/migrate.ts` — manual SQL migrations using `better-sqlite3`
+- Schema version tracked via `PRAGMA user_version`
+- Run: `npm run migrate`
+- Encryption logic is inlined in migration scripts (matches `encryption.service.ts`)
+- Always use prepared statements
+- Run scripts via `npm run script <file>`

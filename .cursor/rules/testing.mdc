@@ -1,0 +1,15 @@
+---
+description: Tests — Jest unit and integration tests
+globs:
+  - src/**/*.test.*
+  - src/**/*.spec.*
+  - src/**/__tests__/**
+  - src/**/__test__/**
+---
+
+Testing conventions:
+- Jest with `ts-jest` and `@testing-library/react`
+- Run: `npm test` or `npm test -- --watch`
+- Mock `server-only` in test setup (see `jest.setup.js`)
+- Tests live alongside source files or in `__tests__/` directories
+- Focus on Services and utility functions

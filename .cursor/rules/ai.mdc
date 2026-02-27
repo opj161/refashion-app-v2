@@ -1,0 +1,18 @@
+---
+description: AI layer — prompt engineering, image/video generation, and AI orchestration
+globs:
+  - src/ai/**
+---
+
+AI code is organized into:
+- `actions/` — single AI operations (prompt gen, background removal, upscale, face detailer)
+- `domain/` — pure prompt construction logic (studio-prompt.ts)
+- `flows/` — multi-step orchestration (generate-image-edit.ts chains: garment analysis → prompt gen → image gen → post-processing)
+- `prompts/` — system prompt templates
+
+Key patterns:
+- Fal.ai via `@fal-ai/client` through proxy `/api/fal/proxy`
+- Gemini via `@google/genai` with retry logic (`src/lib/api-retry.ts`)
+- Three Gemini API keys rotate per user via `apiKey.service.ts`
+- Use `after()` for background tasks (MEGA backup, cleanup)
+- Prompt construction: `src/lib/prompt-builder.ts` builds from `ModelAttributes`

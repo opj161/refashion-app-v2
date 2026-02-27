@@ -1,0 +1,15 @@
+---
+description: Service layer — business logic and database access
+globs:
+  - src/services/**
+---
+
+Services contain all business logic and DB queries.
+- Import `server-only` at the top
+- Use `db.prepare().run/get/all()` — never raw string concatenation
+- API keys are encrypted in DB — use `getApiKeyForUser()` from `apiKey.service.ts`
+- Database is `better-sqlite3` in WAL mode at `user_data/history/history.db`
+- Settings use key-value store in `settings.service.ts` with typed `DEFAULTS`
+- File storage goes to `/uploads/` via `storage.service.ts` — sanitize all filenames
+
+Exemplar: `src/services/database.service.ts`

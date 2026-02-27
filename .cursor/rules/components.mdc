@@ -1,0 +1,18 @@
+---
+description: React components — UI layer with client/server component patterns
+globs:
+  - src/components/**
+  - src/app/**/page.tsx
+  - src/app/**/layout.tsx
+---
+
+Component conventions:
+- Client Components must use `'use client'` directive
+- Use `useActionState` for form submissions to Server Actions
+- Use `useOptimistic` for immediate UI feedback (see `history-gallery.tsx`)
+- Zustand stores for client state (`src/stores/`) — not React Context
+- CSS: Tailwind 4 utilities with `cn()` from `@/lib/utils` for conditionals
+- Icons: `lucide-react`
+- UI primitives: Radix UI via shadcn/ui in `src/components/ui/`
+- Images: use `getDisplayableImageUrl()` — never hardcode `/uploads/` paths
+- `params` and `searchParams` are async in page/layout components — always `await`
