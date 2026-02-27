@@ -172,4 +172,5 @@ fal_docs_combined.md
 improvements.md
 nano-banana-pro.md
 
-docs/*
+docs/*lint.log
+typecheck.log
