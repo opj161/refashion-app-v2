@@ -10,7 +10,7 @@ if (!sessionSecret) {
 }
 if (sessionSecret.length < SESSION_SECRET_MIN_LENGTH) {
   throw new Error(
-    `SESSION_SECRET must be at least ${SESSION_SECRET_MIN_LENGTH} characters long (got ${sessionSecret.length}). iron-session requires a sufficiently long password for secure encryption.`
+    `SESSION_SECRET must be at least ${SESSION_SECRET_MIN_LENGTH} characters long. iron-session requires a sufficiently long password for secure encryption.`
   );
 }
 

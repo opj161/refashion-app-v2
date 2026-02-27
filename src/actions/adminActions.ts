@@ -286,6 +286,8 @@ export async function generateApiKeyForUser(username: string): Promise<{ success
 
   try {
     const db = dbService.getDb();
+    // The plaintext key is returned to the caller exactly once.
+    // Only the SHA-256 hash is stored — the key cannot be retrieved later.
     const apiKey = `rf_${crypto.randomBytes(24).toString('hex')}`;
     const hashedKey = dbService.hashApiKey(apiKey);
     
