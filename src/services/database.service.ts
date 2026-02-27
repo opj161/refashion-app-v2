@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { cache } from 'react';
+import crypto from 'crypto';
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
@@ -519,10 +520,16 @@ export const findUserByUsername = cache((username: string): FullUser | null => {
   };
 });
 
+/** Hash an API key with SHA-256 for secure storage and comparison. */
+export function hashApiKey(apiKey: string): string {
+  return crypto.createHash('sha256').update(apiKey).digest('hex');
+}
+
 export const findUserByApiKey = cache((apiKey: string): FullUser | null => {
   const db = getDb();
+  const hashedKey = hashApiKey(apiKey);
   const stmt = db.prepare('SELECT * FROM users WHERE app_api_key = ?');
-  const row: any = stmt.get(apiKey);
+  const row: any = stmt.get(hashedKey);
 
   if (!row) {
     return null;
@@ -554,10 +561,14 @@ export function closeDb(): void {
   }
 }
 
-// Handle process termination
-process.on('exit', closeDb);
-process.on('SIGINT', closeDb);
-process.on('SIGTERM', closeDb);
+// Handle process termination — guard against duplicate registration during HMR
+const SHUTDOWN_REGISTERED = '__db_shutdown_handlers_registered__' as const;
+if (!(globalThis as Record<string, unknown>)[SHUTDOWN_REGISTERED]) {
+  (globalThis as Record<string, unknown>)[SHUTDOWN_REGISTERED] = true;
+  process.on('exit', closeDb);
+  process.on('SIGINT', closeDb);
+  process.on('SIGTERM', closeDb);
+}
 
 /**
  * Retrieves the most recent unique source images uploaded by a specific user.

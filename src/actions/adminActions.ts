@@ -287,9 +287,10 @@ export async function generateApiKeyForUser(username: string): Promise<{ success
   try {
     const db = dbService.getDb();
     const apiKey = `rf_${crypto.randomBytes(24).toString('hex')}`;
+    const hashedKey = dbService.hashApiKey(apiKey);
     
     const stmt = db.prepare('UPDATE users SET app_api_key = ? WHERE username = ?');
-    const result = stmt.run(apiKey, username);
+    const result = stmt.run(hashedKey, username);
 
     if (result.changes === 0) {
       return { success: false, error: 'User not found.' };
@@ -667,6 +668,8 @@ export async function handleCacheCleanup(
   previousState: CacheCleanupFormState | null,
   formData: FormData
 ): Promise<CacheCleanupFormState> {
+  await verifyAdmin();
+
   try {
     const result = await triggerCacheCleanup();
     return {
