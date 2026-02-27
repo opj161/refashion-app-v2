@@ -8,7 +8,7 @@
 </div>
 
 ---
-Built on **Next.js 15** and **React 19**, it orchestrates complex workflows between **Google Gemini (Vision/Text)** and **Fal.ai (Image/Video Generation)**, wrapping them in a secure, production-ready application with local asset management.
+Built on **Next.js 16** and **React 19**, it orchestrates complex workflows between **Google Gemini (Vision/Text)** and **Fal.ai (Image/Video Generation)**, wrapping them in a secure, production-ready application with local asset management.
 
 ---
 
@@ -38,7 +38,7 @@ Built on **Next.js 15** and **React 19**, it orchestrates complex workflows betw
 
 ## 🏗️ Architecture & Tech Stack
 
-*   **Framework:** [Next.js 15](https://nextjs.org/) (App Router, Server Actions, Typed Routes).
+*   **Framework:** [Next.js 16](https://nextjs.org/) (App Router, Server Actions, Typed Routes).
 *   **UI Library:** [React 19](https://react.dev/), Tailwind CSS v4, Shadcn/UI, Framer Motion.
 *   **State Management:** Zustand (Client), Iron Session (Encrypted Cookies).
 *   **Database:** SQLite (`better-sqlite3`) running in WAL mode for high concurrency.
@@ -120,7 +120,7 @@ docker-compose up -d --build
 1.  **API Key Encryption:** User-provided API keys are stored in the database encrypted using AES-256-GCM (`src/services/encryption.service.ts`).
 2.  **Webhook Verification:** The application uses `libsodium` to cryptographically verify the signature headers of incoming webhooks from Fal.ai, preventing spoofing attacks (`src/lib/webhook-verification.ts`).
 3.  **Path Traversal Protection:** The filesystem utility (`src/lib/server-fs.utils.ts`) enforces strict checks to ensure files can only be read from or written to the isolated `/uploads` directory.
-4.  **Fetch Caching Rules:** A custom ESLint rule (`eslint-local-rules.js`) enforces explicit caching strategies on all `fetch` calls to prevent accidental data leakage or stale data in Next.js 15.
+4.  **Fetch Caching Rules:** A custom ESLint rule (`eslint-local-rules.js`) enforces explicit caching strategies on all `fetch` calls to prevent accidental data leakage or stale data in Next.js 16.
 
 ---
 

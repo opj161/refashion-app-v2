@@ -1,9 +1,8 @@
 import { Suspense } from 'react';
+import { connection } from 'next/server';
 import { getAllUsersHistoryPaginatedForAdmin } from '@/actions/historyActions';
 import { HistoryGallery } from './_components/HistoryGallery';
 import { HistoryGallerySkeleton } from './_components/HistoryGallerySkeleton';
-
-export const dynamic = 'force-dynamic';
 
 // This is now an async Server Component. It renders the static shell of the page instantly.
 export default function AllHistoryPage() {
@@ -21,6 +20,7 @@ export default function AllHistoryPage() {
 // This separate async component fetches the data. This allows the main page
 // component to render its static parts immediately without waiting for the data fetch.
 async function HistoryLoader() {
+  await connection();
   try {
     const initialHistory = await getAllUsersHistoryPaginatedForAdmin(1, 9);
     if (!initialHistory || initialHistory.items.length === 0) {

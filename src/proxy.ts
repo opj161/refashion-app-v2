@@ -29,6 +29,31 @@ export async function proxy(request: NextRequest) {
   }
 
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions);
+
+  // --- DEV AUTO-LOGIN ---
+  // Automatically create an admin session in development when DEV_AUTO_LOGIN=true.
+  // Double-gated: requires both NODE_ENV=development and DEV_AUTO_LOGIN=true.
+  if (
+    process.env.NODE_ENV === 'development' &&
+    process.env.DEV_AUTO_LOGIN === 'true' &&
+    !session.user?.isLoggedIn
+  ) {
+    const { findUserByUsername } = await import('@/services/database.service');
+    const adminUser = findUserByUsername('admin');
+    if (adminUser) {
+      session.user = {
+        username: adminUser.username,
+        role: adminUser.role,
+        isLoggedIn: true,
+      };
+      await session.save();
+      console.log('[DEV] Auto-login: session created for user "admin"');
+    } else {
+      console.warn('[DEV] Auto-login failed: "admin" user not found in database');
+    }
+  }
+  // --- END DEV AUTO-LOGIN ---
+
   const { user } = session;
 
   const { pathname } = request.nextUrl;

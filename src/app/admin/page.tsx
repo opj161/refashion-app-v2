@@ -1,7 +1,6 @@
 // src/app/admin/page.tsx
 
 import { Suspense } from 'react';
-import dynamicImport from 'next/dynamic';
 import { connection } from 'next/server';
 
 import {
@@ -26,11 +25,7 @@ import { KpiCard } from './_components/dashboard/KpiCard';
 import { UserActivityTable } from './_components/dashboard/UserActivityTable';
 import { ParameterInsightPanel } from './_components/dashboard/ParameterInsightPanel';
 import { Skeleton } from '@/components/ui/skeleton';
-
-// Dynamically import the ActivityChart component
-const ActivityChart = dynamicImport(
-  () => import('./_components/dashboard/ActivityChart').then((mod) => mod.ActivityChart)
-);
+import { ActivityChart } from './_components/dashboard/ActivityChart';
 
 // --- Granular Data Fetching Components ---
 

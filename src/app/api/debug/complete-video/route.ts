@@ -3,6 +3,10 @@ import { updateVideoHistoryItem } from '@/actions/historyActions';
 import { getCurrentUser } from '@/actions/authActions';
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return new Response('Not Found', { status: 404 });
+  }
+
   try {
     const user = await getCurrentUser();
     if (!user) {

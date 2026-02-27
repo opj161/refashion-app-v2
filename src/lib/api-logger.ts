@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 export type ApiCategory = 'GEMINI_TEXT' | 'GEMINI_IMAGE' | 'FAL_IMAGE' | 'FAL_VIDEO' | 'STORAGE';
@@ -63,7 +63,7 @@ class ApiLogger {
     requestId?: string;
   } = {}) {
     this.context = {
-      requestId: options.requestId || uuidv4().slice(0, 8),
+      requestId: options.requestId || crypto.randomUUID().slice(0, 8),
       category,
       operation,
       username: options.username,

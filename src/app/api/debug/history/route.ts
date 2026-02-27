@@ -3,6 +3,10 @@ import { getCurrentUser } from '@/actions/authActions';
 import { getUserHistory, getVideoHistoryPaginated } from '@/actions/historyActions';
 
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return new Response('Not Found', { status: 404 });
+  }
+
   try {
     const user = await getCurrentUser();
     if (!user) {

@@ -2,7 +2,6 @@
 // src/contexts/AuthContext.tsx
 "use client";
 
-import type ReactType from 'react';
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser, logoutUser } from '@/actions/authActions';

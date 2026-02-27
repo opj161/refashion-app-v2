@@ -6,9 +6,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { getCurrentUser } from '@/actions/authActions';
 import { findUserByUsername } from '@/services/database.service';
 
-// Force dynamic rendering for user-specific content
-// export const dynamic = 'force-dynamic';
-
 import { connection } from 'next/server';
 
 // Simplified Server Component - no more searchParams handling

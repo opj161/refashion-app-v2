@@ -16,7 +16,6 @@ import 'server-only';
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import { triggerMegaBackup } from './megaBackup.service';
 
@@ -111,7 +110,7 @@ export async function saveFileFromUrl(
     validateUploadPath(destFolder);
 
     await fs.mkdir(destFolder, { recursive: true });
-    const fileName = `${safePrefix}-${uuidv4()}.${safeExtension}`;
+    const fileName = `${safePrefix}-${crypto.randomUUID()}.${safeExtension}`;
     const destPath = path.join(destFolder, fileName);
 
     // SECURITY: Final validation of complete path
@@ -151,7 +150,7 @@ export async function saveFileFromBuffer(
   console.log(`Saving buffer to /uploads/${safeSubfolder}`);
   try {
     const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
-    const uniqueFileName = `${safePrefix}_${uuidv4()}.${safeExtension}`;
+    const uniqueFileName = `${safePrefix}_${crypto.randomUUID()}.${safeExtension}`;
     const uploadDir = path.join(process.cwd(), 'uploads', safeSubfolder);
 
     // SECURITY: Validate path is within uploads
@@ -225,7 +224,7 @@ export async function saveDataUriLocally(
     // Calculate hash
     const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
     // Generate unique filename
-    const uniqueFileName = `${safePrefix}_${uuidv4()}.${extension}`;
+    const uniqueFileName = `${safePrefix}_${crypto.randomUUID()}.${extension}`;
 
     // Create upload directory path
     const uploadDir = path.join(process.cwd(), 'uploads', safeSubfolder);

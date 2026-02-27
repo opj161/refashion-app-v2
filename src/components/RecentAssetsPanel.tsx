@@ -66,12 +66,15 @@ function AssetButton({ url, onSelect, disabled, mobile }: { url: string, onSelec
       disabled={disabled}
       className={cn(
         "group relative overflow-hidden rounded-lg border border-white/10 bg-black/20 hover:border-primary/50 transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95",
-        // Changed aspect-square to aspect-[3/4] for better fashion framing
-        mobile ? "w-24 h-32 flex-shrink-0 touch-manipulation" : "w-full aspect-[3/4]"
+        mobile ? "w-24 h-32 flex-shrink-0 touch-manipulation" : "w-full"
       )}
       title="Use this image"
       type="button"
     >
+      {/* Spacer: aspect-ratio doesn't work reliably on <button> elements in Chrome/Firefox,
+          so a flow-level <div> establishes the 3:4 height for the desktop grid layout. */}
+      {!mobile && <div className="w-full aspect-[3/4]" />}
+
       <Image
         src={getDisplayableImageUrl(url) || ''}
         alt="Recent upload"
