@@ -13,8 +13,8 @@ import { useImageStore } from "@/stores/imageStore";
 import { useGenerationSettingsStore, type VideoParameters as VideoParamsType } from "@/stores/generationSettingsStore";
 import {
   PREDEFINED_PROMPTS, MODEL_MOVEMENT_OPTIONS, FABRIC_MOTION_OPTIONS_VIDEO,
-  CAMERA_ACTION_OPTIONS, AESTHETIC_VIBE_OPTIONS
-} from "@/lib/prompt-builder";
+  CAMERA_ACTION_OPTIONS, AESTHETIC_VIBE_OPTIONS,
+} from "@/lib/prompt-options";
 import { AlertTriangle, Info, Loader2, PaletteIcon, Shuffle, Video, MonitorPlay } from "lucide-react";
 import { usePromptManager } from "@/hooks/usePromptManager";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -102,7 +102,7 @@ export default function VideoParameters() {
     label: string, 
     value: string, 
     onChange: (val: string) => void, 
-    options: { value: string; displayLabel: string }[]
+    options: readonly { value: string; displayLabel: string }[]
   ) => (
     <div>
       <Label className="text-sm font-medium mb-1.5 block">{label}</Label>

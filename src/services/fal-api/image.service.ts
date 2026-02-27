@@ -3,7 +3,6 @@
 
 import 'server-only';
 
-// REMOVED: import { fal } from '@/lib/fal-client';
 import { createFalClient } from '@fal-ai/client';
 import { createApiLogger } from '@/lib/api-logger';
 import { getApiKeyForUser } from '@/services/apiKey.service'; // Import key service

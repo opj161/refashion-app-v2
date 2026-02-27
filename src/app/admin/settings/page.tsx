@@ -1,5 +1,5 @@
 // src/app/admin/settings/page.tsx
-import { getAllSettings, getGlobalApiKeysForDisplay, getSystemPromptsForAdmin } from '@/actions/adminActions';
+import { getAllSettings, getGlobalApiKeysForDisplay, getSystemPromptsForAdmin } from '@/actions/adminSettingsActions';
 import { PageHeader } from '@/components/ui/page-header';
 import { Settings } from 'lucide-react';
 import { SettingsForm } from './_components/SettingsForm';

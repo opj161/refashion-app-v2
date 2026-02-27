@@ -3,8 +3,10 @@ import type {
   ApiKeysFormState, 
   SystemPromptsFormState, 
   CacheCleanupFormState, 
+} from '../adminSettingsActions';
+import type {
   UserFormState 
-} from '../adminActions';
+} from '../adminUserActions';
 
 describe('Admin Form State Types', () => {
   it('should have correctly typed ApiKeysFormState', () => {

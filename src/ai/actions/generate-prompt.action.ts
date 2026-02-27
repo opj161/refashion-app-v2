@@ -12,8 +12,8 @@ import {
   HAIR_STYLE_OPTIONS, MODEL_EXPRESSION_OPTIONS, POSE_STYLE_OPTIONS, BACKGROUND_OPTIONS,
   TIME_OF_DAY_OPTIONS, LIGHTING_TYPE_OPTIONS, LIGHT_QUALITY_OPTIONS, MODEL_ANGLE_OPTIONS,
   LENS_EFFECT_OPTIONS, DEPTH_OF_FIELD_OPTIONS, OVERALL_MOOD_OPTIONS,
-  FASHION_STYLE_OPTIONS, type OptionWithPromptSegment
-} from '@/lib/prompt-builder';
+  FASHION_STYLE_OPTIONS, type OptionWithPromptSegment,
+} from '@/lib/prompt-options';
 import { withGeminiRetry, AIGenerationError } from '@/lib/api-retry';
 import { getSystemPrompt } from '@/services/systemPrompt.service';
 import { createApiLogger } from '@/lib/api-logger';
@@ -24,7 +24,7 @@ import { imageToGenerativePart } from '@/lib/ai-utils';
 // Uses the actual option values and prompt segments from prompt-builder.ts
 function formatParametersForAI(params: ModelAttributes): string {
   // Helper function to get natural language from option values
-  const getOptionText = (options: OptionWithPromptSegment[], value: string): string => {
+  const getOptionText = (options: readonly OptionWithPromptSegment[], value: string): string => {
     const option = options.find(opt => opt.value === value);
     if (option && option.value !== 'default' && option.promptSegment) {
       return option.promptSegment;

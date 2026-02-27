@@ -7,9 +7,9 @@ import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { sessionOptions } from '@/lib/session';
+import { sessionOptions } from '@/lib/session-config';
 import type { SessionUser, SessionData } from '@/lib/types';
-import * as dbService from '@/services/database.service';
+import * as dbService from '@/services/db';
 import bcrypt from 'bcrypt';
 // ... other imports
 

@@ -3,7 +3,7 @@
 import 'server-only'; // Ensures this module is never included in client bundles
 import path from 'path';
 import { promises as fs } from 'fs';
-import { getDb } from './database.service';
+import { getDb } from './db';
 
 // --- Type Definitions for Analytics Data ---
 

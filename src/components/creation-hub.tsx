@@ -24,7 +24,7 @@ function CreationHubContent({
   recentUploads = [],
   userModel, // NEW
 }: {
-  children: React.ReactElement;
+  children: React.ReactNode;
   maxImages?: number;
   recentUploads?: string[];
   userModel?: string; // NEW
@@ -96,16 +96,6 @@ function CreationHubContent({
     }
   }, [searchParams, setGenerationMode, setActiveVideoPrompt]);
 
-  // Handler to load from history - will be passed to HistoryCard components
-  const handleLoadFromHistory = useCallback((item: HistoryItem) => {
-    setInitHistoryItem(item);
-    const targetTab = item.videoGenerationParams ? 'video' : 'image';
-    // Update URL
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('tab', targetTab);
-    router.replace(`${pathname}?${params.toString()}` as any, { scroll: false });
-  }, [pathname, router, searchParams]);
-
   // Handler to load from image URL - will be passed to components that need it
   const handleLoadFromImageUrl = useCallback((imageUrl: string) => {
     setInitImageUrl(imageUrl);
@@ -155,14 +145,6 @@ function CreationHubContent({
     params.set('tab', value);
     router.replace(`${pathname}?${params.toString()}` as any, { scroll: false });
   };
-
-  // Clone children to pass initialization handlers
-  const enhancedChildren = React.cloneElement(children, {
-    onLoadFromHistory: handleLoadFromHistory,
-    onLoadFromImageUrl: handleLoadFromImageUrl,
-    currentTab,
-    setCurrentTab: handleTabChange,
-  } as any);
 
   return (
     <div className="space-y-8">
@@ -279,7 +261,7 @@ function CreationHubContent({
         </TabsContent>
 
         <TabsContent value="history" className="space-y-6 mt-8" forceMount>
-          {enhancedChildren}
+          {children}
         </TabsContent>
       </Tabs>
     </div>
@@ -287,7 +269,7 @@ function CreationHubContent({
 }
 
 // The main export now wraps the content in Suspense
-export default function CreationHub(props: { children: React.ReactElement; maxImages?: number; recentUploads?: string[]; userModel?: string }) {
+export default function CreationHub(props: { children: React.ReactNode; maxImages?: number; recentUploads?: string[]; userModel?: string }) {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <CreationHubContent {...props} />

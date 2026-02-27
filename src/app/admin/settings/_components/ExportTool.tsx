@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { exportAllData } from '@/actions/adminActions';
+import { exportAllData } from '@/actions/adminAnalyticsActions';
 import { HardDriveDownload, Loader2 } from 'lucide-react';
 
 export function ExportTool() {

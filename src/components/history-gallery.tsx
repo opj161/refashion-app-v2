@@ -145,13 +145,6 @@ export default function HistoryGallery({
   }, [hasMore, isLoadingMore, currentPage, historyFilter, toast]);
 
 
-  // handleFilterChange is no longer needed - filtering is controlled by the store
-  // This function is now dead code and can be removed
-  const handleFilterChange = (newFilter: string | null) => {
-    // This was used when the filter UI was in this component
-    // Now the SegmentedControl in creation-hub.tsx writes directly to the store
-  };
-
   // React Compiler auto-memoizes this function
   const handleViewDetails = (item: HistoryItem) => {
     setDetailItem(item);
@@ -359,9 +352,13 @@ export default function HistoryGallery({
                           isOpen={!!detailItem}
                           onClose={() => setDetailItem(null)}
                           item={detailItem}
-                          onReloadConfig={handleReloadConfig}
-                          onSendToVideo={handleSendToVideo}
-                          isPreparingVideo={isPreparingVideo}
+                          actions={{
+                            onReloadConfig: handleReloadConfig,
+                            onSendToVideo: handleSendToVideo,
+                          }}
+                          processingState={{
+                            isPreparingVideo,
+                          }}
                         />
                       </Suspense>
                     )}

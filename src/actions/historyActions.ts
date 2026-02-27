@@ -4,7 +4,7 @@ import 'server-only';
 
 import { getCurrentUser } from './authActions';
 import type { HistoryItem, ModelAttributes } from '@/lib/types';
-import * as dbService from '@/services/database.service';
+import * as dbService from '@/services/db';
 
 export async function updateHistoryItem(
   historyItemId: string,
@@ -67,19 +67,35 @@ export async function getUserHistoryPaginated(
   );
 }
 
-export async function addHistoryItem(
-  attributes: ModelAttributes,
-  constructedPrompt: string,
-  originalClothingUrl: string,
-  editedImageUrls: (string | null)[],
-  settingsMode: 'basic' | 'advanced',
-  imageGenerationModel: 'fal_nano_banana_pro' | 'fal_gemini_2_5',
-  status: 'processing' | 'completed' | 'failed' = 'completed',
-  error?: string,
-  username?: string, // NEW optional username parameter for API context
-  webhookUrl?: string, // NEW optional webhookUrl
-  generation_mode?: 'creative' | 'studio' // NEW optional generation mode
-): Promise<string> {
+export interface AddHistoryItemOptions {
+  attributes: ModelAttributes;
+  constructedPrompt: string;
+  originalClothingUrl: string;
+  editedImageUrls: (string | null)[];
+  settingsMode: 'basic' | 'advanced';
+  imageGenerationModel: 'fal_nano_banana_pro' | 'fal_gemini_2_5';
+  status?: 'processing' | 'completed' | 'failed';
+  error?: string;
+  username?: string;
+  webhookUrl?: string;
+  generationMode?: 'creative' | 'studio';
+}
+
+export async function addHistoryItem(options: AddHistoryItemOptions): Promise<string> {
+  const {
+    attributes,
+    constructedPrompt,
+    originalClothingUrl,
+    editedImageUrls,
+    settingsMode,
+    imageGenerationModel,
+    status = 'completed',
+    error,
+    username,
+    webhookUrl,
+    generationMode,
+  } = options;
+
   const user = username ? { username } : await getCurrentUser();
   if (!user || !user.username) {
     throw new Error('User not authenticated or username not provided.');
@@ -94,11 +110,11 @@ export async function addHistoryItem(
     editedImageUrls,
     username: user.username,
     settingsMode,
-    imageGenerationModel, // This line remains unchanged
+    imageGenerationModel,
     status,
     error,
     webhookUrl,
-    generation_mode, // ADD THIS
+    generation_mode: generationMode,
   };
   
   dbService.insertHistoryItem(newItem);
@@ -203,9 +219,7 @@ export async function deleteHistoryItem(historyItemId: string): Promise<{ succes
     }
 
     // Delete the item (CASCADE will handle related images)
-    const db = dbService.getDb();
-    const deleteStmt = db.prepare('DELETE FROM history WHERE id = ?');
-    deleteStmt.run(historyItemId);
+    dbService.deleteHistoryItemById(historyItemId);
 
     // Revalidate pages that display history
     const { revalidatePath } = await import('next/cache');

@@ -10,7 +10,7 @@ import crypto from 'crypto';
 import mime from 'mime-types';
 import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 import { getHistoryItem } from './historyActions';
-import { trackUserUpload } from '@/services/database.service';
+import { trackUserUpload } from '@/services/db';
 import { getCurrentUser } from '@/actions/authActions';
 import { z } from 'zod';
 import { zfd } from 'zod-form-data';

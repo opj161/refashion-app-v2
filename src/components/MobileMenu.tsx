@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
 import { logoutUser } from '@/actions/authActions';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { ShieldCheck, Menu, Sun, Moon, Monitor, LogOut, LogIn, User } from 'lucide-react';
 
 export function MobileMenu() {
-  const { user } = useAuth();
+  const user = useAuthStore((s) => s.user);
   const { setTheme, theme } = useTheme();
 
   return (

@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { after } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { createApiJob, processApiGenerationJob } from '@/actions/apiActions';
-import { findHistoryItemById } from '@/services/database.service';
+import { findHistoryItemById } from '@/services/db';
+import type { ModelAttributes } from '@/lib/types';
 import { z } from 'zod';
 
 const ModelAttributesSchema = z.object({
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     const jobId = await createApiJob({
       username: user.username,
       imageDataUri: imageDataSource,
-      parameters: validatedData.parameters,
+      parameters: validatedData.parameters as ModelAttributes,
       settingsMode: validatedData.settingsMode,
       webhookUrl: validatedData.webhookUrl,
     });
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
     // Start processing in background using after() to ensure it survives response completion
     after(() => processApiGenerationJob(jobId, {
       imageDataUri: imageDataSource,
-      parameters: validatedData.parameters,
+      parameters: validatedData.parameters as ModelAttributes,
       settingsMode: validatedData.settingsMode,
       webhookUrl: validatedData.webhookUrl,
     }, user.username).catch(console.error));

@@ -1,3 +1,11 @@
+import type {
+  GenderValue, BodyShapeAndSizeValue, AgeRangeValue, EthnicityValue,
+  PoseStyleValue, FashionStyleValue, HairStyleValue, ModelExpressionValue,
+  LightingTypeValue, LightQualityValue, ModelAngleValue, LensEffectValue,
+  DepthOfFieldValue, TimeOfDayValue, OverallMoodValue, StudioFitValue,
+  AspectRatioValue,
+} from './prompt-options';
+
 export interface SessionUser {
   username: string;
   role: 'admin' | 'user';
@@ -43,25 +51,25 @@ export interface HistoryItem {
 }
 
 export interface ModelAttributes {
-  gender: string;
-  bodyShapeAndSize: string;
-  ageRange: string;
-  ethnicity: string;
-  poseStyle: string;
-  background: string;
-  fashionStyle: string;
-  hairStyle: string;
-  modelExpression: string;
-  lightingType: string;
-  lightQuality: string;
-  modelAngle: string;
-  lensEffect: string;
-  depthOfField: string;
-  timeOfDay: string;
-  overallMood: string;
+  gender: GenderValue;
+  bodyShapeAndSize: BodyShapeAndSizeValue;
+  ageRange: AgeRangeValue;
+  ethnicity: EthnicityValue;
+  poseStyle: PoseStyleValue;
+  background: string; // Kept as string — store default 'outdoor_nature_elements' is not in BACKGROUND_OPTIONS
+  fashionStyle: FashionStyleValue;
+  hairStyle: HairStyleValue;
+  modelExpression: ModelExpressionValue;
+  lightingType: LightingTypeValue;
+  lightQuality: LightQualityValue;
+  modelAngle: ModelAngleValue;
+  lensEffect: LensEffectValue;
+  depthOfField: DepthOfFieldValue;
+  timeOfDay: TimeOfDayValue;
+  overallMood: OverallMoodValue;
   // Studio Mode Attributes
-  studioFit?: string;
-  aspectRatio?: string;
+  studioFit?: StudioFitValue;
+  aspectRatio?: AspectRatioValue;
 }
 
 export interface PixelCrop {

@@ -13,33 +13,6 @@ import { Download, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 // This ensures visual consistency with the Card variant defined in step 3
 const GLASS_STYLES = "border border-white/10 bg-card/50 shadow-2xl shadow-black/20 backdrop-blur-xl";
 
-// --- Slot Components for Explicit API ---
-
-// FIX: Update MediaSlot to be flexible
-export const MediaSlot = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={cn(
-    "w-full bg-black/20 p-4 flex items-center justify-center relative",
-    // Desktop: Grid positioning | Mobile: Flex grow/shrink to fit available space
-    "lg:row-start-2 lg:col-start-1 lg:h-full lg:min-h-0",
-    "flex-1 min-h-0", // Mobile specific: allow shrinking
-    className
-  )}>
-    {children}
-  </div>
-);
-
-// FIX: Update SidebarSlot
-export const SidebarSlot = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <div className={cn(
-    "overflow-y-auto p-1 custom-scrollbar",
-    "lg:row-start-2 lg:col-start-2 lg:h-full",
-    "h-auto max-h-[35vh] lg:max-h-none", // Mobile: limit height so image stays visible
-    className
-  )}>
-    {children}
-  </div>
-);
-
 // --- Main Unified Modal Component ---
 
 interface UnifiedMediaModalItem {

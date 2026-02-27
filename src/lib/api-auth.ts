@@ -2,7 +2,7 @@
 import 'server-only';
 
 import { NextRequest } from 'next/server';
-import { findUserByApiKey } from '@/services/database.service';
+import { findUserByApiKey } from '@/services/db';
 import type { SessionUser } from '@/lib/types';
 
 export async function authenticateApiRequest(request: NextRequest): Promise<SessionUser | null> {

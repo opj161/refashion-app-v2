@@ -1,7 +1,7 @@
 // src/services/settings.service.ts
 import 'server-only';
 
-import * as dbService from '@/services/database.service';
+import * as dbService from '@/services/db';
 
 const STUDIO_MODE_PROMPT_TEMPLATE = `Create a high-quality fashion photograph featuring a realistic female model wearing this {clothingItem} in the provided image with a {fitDescription}. The model should have a modern, approachable look and stand in a relaxed, candid pose with a natural expression and subtle smile. Ensure the fabric weight, drape, and texture interact realistically with the model's body geometry and pose. The setting is a bright, daylight studio with a textured, neutral wall background that provides soft, complementary contrast. Use diffused natural lighting to highlight the material details of the clothing without harsh shadows. Frame the image as a full-body shot using a 50mm lens perspective for a natural, photorealistic result.`;
 

@@ -38,7 +38,7 @@ export async function proxy(request: NextRequest) {
     process.env.DEV_AUTO_LOGIN === 'true' &&
     !session.user?.isLoggedIn
   ) {
-    const { findUserByUsername } = await import('@/services/database.service');
+    const { findUserByUsername } = await import('@/services/db');
     const adminUser = findUserByUsername('admin');
     if (adminUser) {
       session.user = {

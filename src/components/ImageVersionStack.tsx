@@ -10,21 +10,6 @@ import { Camera, Crop as CropIcon, Wand2, Sparkles, UserCheck, Clock, Loader2 } 
 import { useImageStore } from "@/stores/imageStore";
 import { cn } from "@/lib/utils";
 
-interface ImageVersion {
-  id: string;
-  imageUrl: string; // Changed from dataUri
-  label: string;
-  sourceVersionId: string;
-  createdAt: number;
-  status?: 'processing' | 'complete';
-}
-
-interface ImageVersionStackProps {
-  versions: Record<string, ImageVersion>;
-  activeVersionId: string | null;
-  isProcessing: boolean;
-}
-
 const getVersionIcon = (label: string) => {
   if (label.includes("Original")) return <Camera className="h-4 w-4" />;
   if (label.includes("Cropped")) return <CropIcon className="h-4 w-4" />;
@@ -49,12 +34,9 @@ const formatTime = (timestamp: number) => {
   return `${hours} hours ago`;
 };
 
-export default function ImageVersionStack({
-  versions,
-  activeVersionId,
-  isProcessing,
-}: ImageVersionStackProps) {
-  const { setActiveVersion } = useImageStore();
+export default function ImageVersionStack() {
+  const { versions, activeVersionId, setActiveVersion } = useImageStore();
+  const isProcessing = Object.values(versions).some(v => v.status === 'processing');
   
   // Sort versions by creation time, with original first
   const sortedVersions = Object.values(versions).sort((a, b) => {

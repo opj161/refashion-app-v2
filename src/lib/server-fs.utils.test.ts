@@ -1,3 +1,6 @@
+// Mock server-only before any imports that use it
+jest.mock('server-only', () => {});
+
 import { getBufferFromLocalPath } from './server-fs.utils';
 import fs from 'fs/promises';
 import path from 'path';

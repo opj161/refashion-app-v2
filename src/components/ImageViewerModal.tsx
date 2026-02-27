@@ -16,23 +16,27 @@ import { ParameterSection, ParameterRow } from "./ParameterDisplay";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { m, AnimatePresence } from "motion/react";
 
+export interface ImageProcessingActions {
+  onUpscale?: (index: number) => void;
+  onFaceDetail?: (index: number) => void;
+  onSendToVideo?: (url: string, prompt: string) => void;
+  onReloadConfig?: (item: HistoryItem) => void;
+}
+
+export interface ImageProcessingState {
+  isUpscalingSlot?: number | null;
+  isFaceRetouchingSlot?: number | null;
+  isPreparingVideo?: boolean;
+  isFaceDetailerAvailable?: boolean;
+}
+
 interface ImageViewerModalProps {
   item: HistoryItem | null;
   isOpen: boolean;
   onClose: () => void;
   initialImageUrl?: string | null;
-  onReloadConfig?: (item: HistoryItem) => void;
-
-  // Action Handlers
-  onUpscale?: (index: number) => void;
-  onFaceDetail?: (index: number) => void;
-  onSendToVideo?: (url: string, prompt: string) => void;
-  isPreparingVideo?: boolean;
-
-  // Action States
-  isUpscalingSlot?: number | null;
-  isFaceRetouchingSlot?: number | null;
-  isFaceDetailerAvailable?: boolean;
+  actions?: ImageProcessingActions;
+  processingState?: ImageProcessingState;
 }
 
 // Helper component for action buttons (shared between desktop and mobile)
@@ -106,15 +110,16 @@ export function ImageViewerModal({
   isOpen,
   onClose,
   initialImageUrl,
-  onReloadConfig,
-  onUpscale,
-  onFaceDetail,
-  onSendToVideo,
-  isPreparingVideo,
-  isUpscalingSlot,
-  isFaceRetouchingSlot,
-  isFaceDetailerAvailable = false
+  actions,
+  processingState,
 }: ImageViewerModalProps) {
+  const { onReloadConfig, onUpscale, onFaceDetail, onSendToVideo } = actions ?? {};
+  const {
+    isUpscalingSlot,
+    isFaceRetouchingSlot,
+    isPreparingVideo,
+    isFaceDetailerAvailable = false,
+  } = processingState ?? {};
   const { toast } = useToast();
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [showMobileInfo, setShowMobileInfo] = useState(false);

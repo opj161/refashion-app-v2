@@ -4,7 +4,7 @@ import HistoryGallery from '@/components/history-gallery';
 import { getHistoryPaginated } from '@/actions/historyActions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getCurrentUser } from '@/actions/authActions';
-import { findUserByUsername } from '@/services/database.service';
+import { findUserByUsername } from '@/services/db';
 
 import { connection } from 'next/server';
 

@@ -96,13 +96,10 @@ export default function ImagePreparationContainer({
     <EditingHubSidebar
       preparationMode={preparationMode}
       isCropping={isCropping}
-      isProcessing={isAnyVersionProcessing}
       aspect={aspect}
       onAspectChange={handleAspectChange}
       onConfirmCrop={handleApplyCrop}
       onCancelCrop={handleCancelCrop}
-      versions={versions}
-      activeVersionId={activeVersionId}
     />
   );
 
@@ -159,7 +156,6 @@ export default function ImagePreparationContainer({
                   <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg min-h-[70vh] shadow-lg shadow-black/10">
                     <ImageEditorCanvas
                       key={activeImage.id}
-                      image={activeImage}
                       crop={crop}
                       aspect={aspect}
                       onCropChange={handleCropChange}
@@ -177,7 +173,6 @@ export default function ImagePreparationContainer({
                   <div className="relative flex flex-col items-center justify-center bg-muted/20 p-2 rounded-lg shadow-lg shadow-black/10 max-h-[50vh] aspect-[3/4]">
                     <ImageEditorCanvas
                       key={activeImage.id}
-                      image={activeImage}
                       crop={crop}
                       aspect={aspect}
                       onCropChange={handleCropChange}

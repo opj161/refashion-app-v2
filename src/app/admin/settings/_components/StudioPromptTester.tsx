@@ -18,7 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Beaker, Loader2, UploadCloud, AlertCircle, ScanEye } from 'lucide-react';
-import { testStudioPrompt } from '@/actions/adminActions';
+import { testStudioPrompt } from '@/actions/adminSettingsActions';
 import Image from 'next/image';
 
 interface StudioPromptTesterProps {

@@ -13,11 +13,6 @@ import { getBufferFromLocalPath } from '@/lib/server-fs.utils';
 import { createApiLogger } from '@/lib/api-logger';
 import { getApiKeyForUser } from '@/services/apiKey.service';
 
-// Ensure FAL_KEY is available
-if (!process.env.FAL_KEY) {
-  console.warn('FAL_KEY environment variable is not set.');
-}
-
 export interface GenerateVideoInput {
   prompt: string;
   image_url: string;

@@ -1,7 +1,7 @@
 // src/components/ImageProcessingTools.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useEffect, useCallback } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,13 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { useImageStore } from "@/stores/imageStore";
 import { useToast } from "@/hooks/use-toast";
 import { useShallow } from 'zustand/react/shallow';
-import {
-  isBackgroundRemovalAvailable as checkBgAvailable,
-} from "@/ai/actions/remove-background.action";
-import {
-  isUpscaleServiceAvailable as checkUpscaleAvailable,
-  isFaceDetailerAvailable as checkFaceDetailerAvailable
-} from "@/ai/actions/upscale-image.action";
+import { useServiceAvailability } from '@/hooks/useServiceAvailability';
 import {
   Wand2, Sparkles, UserCheck, CheckCircle, Loader2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Undo2, Redo2
 } from "lucide-react";
@@ -100,18 +94,12 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < versionHistory.length - 1;
 
-  // Service availability state
-  const [isBgRemovalAvailable, setIsBgRemovalAvailable] = useState(false);
-  const [isUpscalingAvailable, setIsUpscalingAvailable] = useState(false);
-  const [isFaceDetailerAvailable, setIsFaceDetailerAvailable] = useState(false);
-
-  // --- Effects ---
-  useEffect(() => {
-    // Check service availability on mount
-    checkBgAvailable().then(setIsBgRemovalAvailable);
-    checkUpscaleAvailable().then(setIsUpscalingAvailable);
-    checkFaceDetailerAvailable().then(setIsFaceDetailerAvailable);
-  }, []);
+  // Service availability
+  const {
+    isBgRemovalAvailable,
+    isUpscaleAvailable: isUpscalingAvailable,
+    isFaceDetailerAvailable,
+  } = useServiceAvailability();
 
   // Keyboard shortcuts for undo/redo
   useEffect(() => {

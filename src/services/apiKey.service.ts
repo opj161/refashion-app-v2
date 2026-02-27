@@ -4,7 +4,7 @@
 
 import 'server-only';
 
-import * as dbService from './database.service';
+import * as dbService from './db';
 import * as settingsService from './settings.service';
 import { decrypt } from './encryption.service';
 

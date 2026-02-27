@@ -16,7 +16,7 @@ import {
   type ApiKeysFormState,
   type SystemPromptsFormState,
   type CacheCleanupFormState
-} from '@/actions/adminActions';
+} from '@/actions/adminSettingsActions';
 import { Loader2, Video, Wand2, Sparkles, UserCheck, Trash2, KeyRound, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';

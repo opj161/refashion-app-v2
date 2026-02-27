@@ -2,7 +2,7 @@ import 'server-only';
 
 import fs from 'fs/promises';
 import path from 'path';
-import { getDb } from '@/services/database.service';
+import { getDb } from '@/services/db';
 
 type CacheEntry = {
   path: string;

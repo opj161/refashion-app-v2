@@ -5,13 +5,7 @@ import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import { getDisplayableImageUrl } from "@/lib/utils";
 import { useImageStore } from "@/stores/imageStore";
 
-interface ImageVersion {
-  id: string;
-  imageUrl: string;
-}
-
 interface ImageEditorCanvasProps {
-  image: ImageVersion | null;
   aspect?: number;
   disabled?: boolean;
   crop?: Crop;
@@ -22,7 +16,6 @@ interface ImageEditorCanvasProps {
 }
 
 export default function ImageEditorCanvas({
-  image,
   aspect,
   disabled = false,
   crop,
@@ -31,6 +24,12 @@ export default function ImageEditorCanvas({
   onImageLoad,
   ruleOfThirds = false,
 }: ImageEditorCanvasProps) {
+  // Read the active image directly from the store
+  const image = useImageStore(state => {
+    const { versions, activeVersionId } = state;
+    return activeVersionId ? versions[activeVersionId] ?? null : null;
+  });
+
   // Access store action directly
   const setDimensions = useImageStore(state => state.setDimensions);
 

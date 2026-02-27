@@ -9,11 +9,11 @@ import { ThemeToggleImproved } from '@/components/ui/ThemeToggleImproved';
 import { UserMenu } from './UserMenu';
 import { MobileMenu } from './MobileMenu';
 import { ShieldCheck } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 
 export function SiteHeader() {
-  const { user } = useAuth();
+  const user = useAuthStore((s) => s.user);
   const [isScrolled, setIsScrolled] = useState(false);
 
   // Effect for scroll-based style changes

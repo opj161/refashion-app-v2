@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
 import { logoutUser } from '@/actions/authActions';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +15,7 @@ import { LogOut } from 'lucide-react';
 import Link from 'next/link';
 
 export function UserMenu() {
-  const { user } = useAuth();
+  const user = useAuthStore((s) => s.user);
 
   if (!user?.isLoggedIn) {
     return (

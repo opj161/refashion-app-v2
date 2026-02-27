@@ -11,7 +11,7 @@ import { Sparkles, Loader2, Info } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { m, AnimatePresence } from 'motion/react';
 import { COMMON_VARIANTS } from '@/lib/motion-constants';
-import { ASPECT_RATIOS } from '@/lib/prompt-builder';
+import { ASPECT_RATIOS } from '@/lib/prompt-options';
 
 interface StudioParametersProps {
   isPending: boolean;

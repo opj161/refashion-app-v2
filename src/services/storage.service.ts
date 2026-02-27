@@ -20,6 +20,32 @@ import crypto from 'crypto';
 import { triggerMegaBackup } from './megaBackup.service';
 
 /**
+ * Sets file permissions (chmod 664) and ownership (PUID:PGID) on a saved file.
+ * Extracted helper to avoid duplication across save functions.
+ * Permissions and ownership failures are logged as warnings, not thrown,
+ * since they are non-critical on most development environments.
+ */
+async function setFilePermissions(filePath: string): Promise<void> {
+  try {
+    await fs.chmod(filePath, 0o664);
+    console.log(`Set file permissions to 664 for: ${filePath}`);
+  } catch (chmodError) {
+    console.warn(`Warning: Could not set file permissions for ${filePath}:`, chmodError);
+  }
+
+  const puid = process.env.PUID;
+  const pgid = process.env.PGID;
+  if (puid && pgid) {
+    try {
+      await fs.chown(filePath, parseInt(puid, 10), parseInt(pgid, 10));
+      console.log(`Set file ownership to ${puid}:${pgid} for: ${filePath}`);
+    } catch (chownError) {
+      console.warn(`Warning: Could not set file ownership for ${filePath}:`, chownError);
+    }
+  }
+}
+
+/**
  * SECURITY: Sanitizes a filename/prefix to prevent path traversal and command injection.
  * Allows only alphanumeric characters, hyphens, and underscores.
  * @param name The name to sanitize
@@ -164,24 +190,7 @@ export async function saveFileFromBuffer(
     validateUploadPath(filePath);
 
     await fs.writeFile(filePath, buffer);
-
-    try {
-      await fs.chmod(filePath, 0o664);
-      console.log(`Set file permissions to 664 for: ${filePath}`);
-    } catch (chmodError) {
-      console.warn(`Warning: Could not set file permissions for ${filePath}:`, chmodError);
-    }
-
-    const puid = process.env.PUID;
-    const pgid = process.env.PGID;
-    if (puid && pgid) {
-      try {
-        await fs.chown(filePath, parseInt(puid, 10), parseInt(pgid, 10));
-        console.log(`Set file ownership to ${puid}:${pgid} for: ${filePath}`);
-      } catch (chownError) {
-        console.warn(`Warning: Could not set file ownership for ${filePath}:`, chownError);
-      }
-    }
+    await setFilePermissions(filePath);
 
     const relativeUrl = `/uploads/${safeSubfolder}/${uniqueFileName}`;
     console.log(`Buffer saved to: ${filePath}, accessible at: ${relativeUrl}`);
@@ -242,25 +251,8 @@ export async function saveDataUriLocally(
     validateUploadPath(filePath);
 
     await fs.writeFile(filePath, buffer);
+    await setFilePermissions(filePath);
 
-    // Set proper permissions and ownership
-    try {
-      await fs.chmod(filePath, 0o664);
-      console.log(`Set file permissions to 664 for: ${filePath}`);
-    } catch (chmodError) {
-      console.warn(`Warning: Could not set file permissions for ${filePath}:`, chmodError);
-    }
-
-    const puid = process.env.PUID;
-    const pgid = process.env.PGID;
-    if (puid && pgid) {
-      try {
-        await fs.chown(filePath, parseInt(puid, 10), parseInt(pgid, 10));
-        console.log(`Set file ownership to ${puid}:${pgid} for: ${filePath}`);
-      } catch (chownError) {
-        console.warn(`Warning: Could not set file ownership for ${filePath}:`, chownError);
-      }
-    }
     // Return relative URL
     const relativeUrl = `/uploads/${safeSubfolder}/${uniqueFileName}`;
     console.log(`Data URI saved to: ${filePath}, accessible at: ${relativeUrl}`);

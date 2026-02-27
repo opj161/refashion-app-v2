@@ -6,7 +6,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } fro
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { GenerationActivityData } from '@/services/analytics.service';
-import { getGenerationActivityAction } from '@/actions/adminActions';
+import { getGenerationActivityAction } from '@/actions/adminAnalyticsActions';
 import { Loader2, Activity } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 

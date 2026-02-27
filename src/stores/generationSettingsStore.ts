@@ -1,7 +1,7 @@
 // src/stores/generationSettingsStore.ts
 
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 import type { ModelAttributes, HistoryItem } from '@/lib/types';
 
 export interface VideoParameters {
@@ -30,11 +30,14 @@ export interface GenerationSettingsState {
   upscaleEnabled: boolean;
   faceDetailEnabled: boolean;
   
-  // NEW: Active Prompts (Synced from UI)
+  // UI preference
+  showPromptPreview: boolean;
+
+  // Active Prompts (Synced from UI)
   activeImagePrompt: string;
   activeVideoPrompt: string;
 
-  // NEW: Bridge State
+  // Bridge State
   // Stores the ID of the most recently started generation job
   currentResultId: string | null;
 }
@@ -53,11 +56,13 @@ export interface GenerationSettingsActions {
   setFaceDetailEnabled: (enabled: boolean) => void;
   loadFromHistory: (item: HistoryItem) => void;
 
-  // NEW: Prompt Setters
+  setShowPromptPreview: (show: boolean) => void;
+
+  // Prompt Setters
   setActiveImagePrompt: (prompt: string) => void;
   setActiveVideoPrompt: (prompt: string) => void;
 
-  // NEW: Action to update the bridge state
+  // Action to update the bridge state
   setCurrentResultId: (id: string | null) => void;
 
   reset: () => void;
@@ -107,7 +112,7 @@ const initialState: GenerationSettingsState = {
   backgroundRemovalEnabled: false,
   upscaleEnabled: false,
   faceDetailEnabled: false,
-  // NEW: Initialize null
+  showPromptPreview: false,
   activeImagePrompt: "",
   activeVideoPrompt: "",
   currentResultId: null,
@@ -115,6 +120,7 @@ const initialState: GenerationSettingsState = {
 
 export const useGenerationSettingsStore = create<GenerationSettingsState & GenerationSettingsActions>()(
   devtools(
+    persist(
     (set) => ({
       ...initialState,
 
@@ -185,19 +191,70 @@ export const useGenerationSettingsStore = create<GenerationSettingsState & Gener
           return newState;
         }, false, 'loadFromHistory'),
 
+      setShowPromptPreview: (show) =>
+        set({ showPromptPreview: show }, false, 'setShowPromptPreview'),
+
       setActiveImagePrompt: (prompt) => 
         set({ activeImagePrompt: prompt }, false, 'setActiveImagePrompt'),
 
       setActiveVideoPrompt: (prompt) => 
         set({ activeVideoPrompt: prompt }, false, 'setActiveVideoPrompt'),
 
-      // NEW: Implementation
       setCurrentResultId: (id) =>
         set({ currentResultId: id }, false, 'setCurrentResultId'),
 
       reset: () =>
         set(initialState, false, 'reset'),
     }),
+    {
+      name: 'refashion-generation-settings',
+      version: 1,
+      partialize: (state) => ({
+        imageSettings: state.imageSettings,
+        videoSettings: state.videoSettings,
+        settingsMode: state.settingsMode,
+        generationMode: state.generationMode,
+        studioFit: state.studioFit,
+        studioAspectRatio: state.studioAspectRatio,
+        historyFilter: state.historyFilter,
+        backgroundRemovalEnabled: state.backgroundRemovalEnabled,
+        upscaleEnabled: state.upscaleEnabled,
+        faceDetailEnabled: state.faceDetailEnabled,
+        showPromptPreview: state.showPromptPreview,
+      }),
+      merge: (persistedState, currentState) => {
+        const merged = { ...currentState, ...(persistedState as object) };
+
+        // One-time migration from legacy localStorage keys
+        if (typeof window !== 'undefined') {
+          const oldMode = window.localStorage.getItem('imageForgeSettingsMode');
+          const oldDefaults = window.localStorage.getItem('imageForgeDefaults');
+          const oldPromptPreview = window.localStorage.getItem('imageForgeShowPromptPreview');
+
+          if (oldMode || oldDefaults || oldPromptPreview) {
+            if (oldMode === 'basic' || oldMode === 'advanced') {
+              merged.settingsMode = oldMode;
+            }
+            if (oldDefaults) {
+              try {
+                merged.imageSettings = { ...defaultImageSettings, ...JSON.parse(oldDefaults) };
+              } catch { /* ignore malformed data */ }
+            }
+            if (oldPromptPreview === 'true') {
+              merged.showPromptPreview = true;
+            }
+
+            // Clean up legacy keys
+            window.localStorage.removeItem('imageForgeSettingsMode');
+            window.localStorage.removeItem('imageForgeDefaults');
+            window.localStorage.removeItem('imageForgeShowPromptPreview');
+          }
+        }
+
+        return merged as GenerationSettingsState & GenerationSettingsActions;
+      },
+    },
+    ),
     {
       name: 'generation-settings-store',
     }

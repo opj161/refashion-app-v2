@@ -1,7 +1,7 @@
 // src/app/api/v1/status/[jobId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
-import { findHistoryItemById } from '@/services/database.service';
+import { findHistoryItemById } from '@/services/db';
 import { getDisplayableImageUrl } from '@/lib/utils';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {

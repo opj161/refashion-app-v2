@@ -1,7 +1,7 @@
 // src/app/api/history/[itemId]/status/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getHistoryItemStatus } from '@/services/database.service';
+import { getHistoryItemStatus } from '@/services/db';
 import { getCurrentUser } from '@/actions/authActions';
 
 export async function GET(

@@ -1,5 +1,6 @@
 // src/app/admin/users/page.tsx
-import { getAllUsers, getGlobalApiKeysForDisplay } from '@/actions/adminActions';
+import { getAllUsers } from '@/actions/adminUserActions';
+import { getGlobalApiKeysForDisplay } from '@/actions/adminSettingsActions';
 import { UserManagementTable } from '@/components/admin/UserManagementTable';
 import { PageHeader } from '@/components/ui/page-header';
 import { Users } from 'lucide-react';

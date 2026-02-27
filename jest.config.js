@@ -15,5 +15,11 @@ module.exports = {
   },
   transformIgnorePatterns: [
     "/node_modules/(?!lucide-react|recharts|d3-.*|internmap|delaunator|robust-predicates|@babel/runtime)/"
+  ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/dist/',
+    '/.next/',
+    '/e2e/'
   ]
 };

@@ -93,32 +93,41 @@ const nextConfig: NextConfig = {
         hostname: 'v3.fal.media',
         pathname: '/**',
       },
-      {
-        protocol: 'http',
-        hostname: '192.168.1.9',
-        port: '3000',
-        pathname: '/**',
-      },
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '3000',
-        pathname: '/**',
-      },
-      {
-        protocol: 'http',
-        hostname: '0.0.0.0',
-        port: '3000',
-        pathname: '/**',
-      },
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '9002',
-        pathname: '/**',
-      },
+      // Dev-only patterns — excluded from production builds
+      ...(process.env.NODE_ENV !== 'production'
+        ? [
+            {
+              protocol: 'http' as const,
+              hostname: '192.168.1.9',
+              port: '3000',
+              pathname: '/**',
+            },
+            {
+              protocol: 'http' as const,
+              hostname: 'localhost',
+              port: '3000',
+              pathname: '/**',
+            },
+            {
+              protocol: 'http' as const,
+              hostname: '0.0.0.0',
+              port: '3000',
+              pathname: '/**',
+            },
+            {
+              protocol: 'http' as const,
+              hostname: 'localhost',
+              port: '9002',
+              pathname: '/**',
+            },
+          ]
+        : []),
     ],
-    // Allow the Image Optimizer to process images from our own API routes
+    // SECURITY: dangerouslyAllowSVG allows SVG images through the Next.js Image Optimizer.
+    // This is required because our /api/images/* proxy serves user-uploaded images that may
+    // include SVG content from external AI services (e.g. Fal.ai placeholder/preview images).
+    // The contentDispositionType: 'attachment' mitigates XSS risk by forcing downloads
+    // instead of inline rendering when SVGs are accessed directly.
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
   },

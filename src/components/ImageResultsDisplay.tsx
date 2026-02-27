@@ -15,9 +15,6 @@ import { useSmartPolling } from '@/hooks/useSmartPolling';
 import { useShallow } from 'zustand/react/shallow';
 
 interface ImageResultsDisplayProps {
-  // Optional: kept for backward compatibility but logic prefers store
-  formState?: any;
-  isPending?: boolean;
   setCurrentTab?: (tab: string) => void;
   onLoadImageUrl?: (imageUrl: string) => void;
   maxImages?: number;

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { LazyMotion, domMax } from 'motion/react';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthStoreInitializer } from '@/stores/AuthStoreInitializer';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { SiteHeader } from '@/components/SiteHeader';
@@ -32,17 +32,16 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
         <AnimatedLogo animationType="aurora" />
       </div>
       {/* Main application content */}
-      <AuthProvider initialUser={initialUser}>
-        <ThemeProvider>
-          <ErrorBoundary>
-            <SiteHeader />
-            <main className="flex-1 flex flex-col">
-              {children}
-            </main>
-            <Toaster />
-          </ErrorBoundary>
-        </ThemeProvider>
-      </AuthProvider>
+      <AuthStoreInitializer initialUser={initialUser} />
+      <ThemeProvider>
+        <ErrorBoundary>
+          <SiteHeader />
+          <main className="flex-1 flex flex-col">
+            {children}
+          </main>
+          <Toaster />
+        </ErrorBoundary>
+      </ThemeProvider>
     </LazyMotion>
   );
 }

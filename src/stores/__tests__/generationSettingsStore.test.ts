@@ -52,9 +52,9 @@ describe('GenerationSettingsStore', () => {
       expect(state.settingsMode).toBe('basic');
     });
 
-    it('should have creative generation mode by default', () => {
+    it('should have studio generation mode by default', () => {
       const state = useGenerationSettingsStore.getState();
-      expect(state.generationMode).toBe('creative');
+      expect(state.generationMode).toBe('studio');
     });
 
     it('should have regular studio fit by default', () => {
@@ -97,11 +97,11 @@ describe('GenerationSettingsStore', () => {
       });
 
       act(() => {
-        result.current.setImageSettings({ background: 'studio_plain' });
+        result.current.setImageSettings({ gender: 'male', background: 'studio_white' });
       });
 
       expect(result.current.imageSettings.gender).toBe('male');
-      expect(result.current.imageSettings.background).toBe('studio_plain');
+      expect(result.current.imageSettings.background).toBe('studio_white');
     });
   });
 
@@ -146,18 +146,18 @@ describe('GenerationSettingsStore', () => {
         bodyShapeAndSize: 'athletic',
         ageRange: 'late_20s',
         ethnicity: 'white',
-        poseStyle: 'standing_confident',
-        background: 'studio_plain',
+        poseStyle: 'confident_stance',
+        background: 'studio_white',
         fashionStyle: 'high_fashion_editorial',
-        hairStyle: 'short_styled',
-        modelExpression: 'serious',
-        lightingType: 'dramatic',
-        lightQuality: 'hard',
+        hairStyle: 'short_textured_pixie',
+        modelExpression: 'neutral_professional',
+        lightingType: 'low_key_lighting_dark_dramatic',
+        lightQuality: 'hard_direct_graphic_shadows',
         modelAngle: 'three_quarter',
-        lensEffect: 'portrait_85mm',
-        depthOfField: 'shallow',
-        timeOfDay: 'golden_hour',
-        overallMood: 'confident',
+        lensEffect: 'portrait_lens_85mm_f1_8_bokeh',
+        depthOfField: 'shallow_dof_creamy_bokeh_f1_8_style',
+        timeOfDay: 'golden_hour_warm_glow',
+        overallMood: 'powerful_confident_assertive_strong',
       };
 
       const historyItem = createHistoryItem(historyAttributes);
@@ -184,7 +184,7 @@ describe('GenerationSettingsStore', () => {
         modelExpression: 'default',
         lightingType: 'default',
         lightQuality: 'default',
-        modelAngle: 'default',
+        modelAngle: 'front_facing',
         lensEffect: 'default',
         depthOfField: 'default',
         timeOfDay: 'default',
@@ -233,7 +233,7 @@ describe('GenerationSettingsStore', () => {
         modelExpression: 'default',
         lightingType: 'default',
         lightQuality: 'default',
-        modelAngle: 'default',
+        modelAngle: 'front_facing',
         lensEffect: 'default',
         depthOfField: 'default',
         timeOfDay: 'default',
@@ -442,7 +442,7 @@ describe('GenerationSettingsStore', () => {
       it('should load studio mode and fit from history', () => {
         const { result } = renderHook(() => useGenerationSettingsStore());
 
-        const historyAttributes: ModelAttributes & { studioFit?: 'slim' | 'regular' | 'relaxed' } = {
+        const historyAttributes: ModelAttributes = {
           gender: 'female',
           bodyShapeAndSize: 'default',
           ageRange: 'default',
@@ -454,7 +454,7 @@ describe('GenerationSettingsStore', () => {
           modelExpression: 'default',
           lightingType: 'default',
           lightQuality: 'default',
-          modelAngle: 'default',
+          modelAngle: 'front_facing',
           lensEffect: 'default',
           depthOfField: 'default',
           timeOfDay: 'default',
@@ -490,7 +490,7 @@ describe('GenerationSettingsStore', () => {
           modelExpression: 'default',
           lightingType: 'default',
           lightQuality: 'default',
-          modelAngle: 'default',
+          modelAngle: 'front_facing',
           lensEffect: 'default',
           depthOfField: 'default',
           timeOfDay: 'default',
@@ -528,7 +528,7 @@ describe('GenerationSettingsStore', () => {
         });
 
         // Should be back to initial state
-        expect(result.current.generationMode).toBe('creative');
+        expect(result.current.generationMode).toBe('studio');
         expect(result.current.studioFit).toBe('regular');
       });
     });

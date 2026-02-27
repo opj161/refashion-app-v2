@@ -16,30 +16,27 @@ import { m, AnimatePresence } from 'motion/react';
 import AspectRatioSelector from "./AspectRatioSelector";
 import ImageProcessingTools from "./ImageProcessingTools";
 import ImageVersionStack from "./ImageVersionStack";
+import { useImageStore } from "@/stores/imageStore";
 
 interface EditingHubSidebarProps {
   preparationMode: 'image' | 'video';
   isCropping: boolean;
-  isProcessing: boolean;
   aspect: number | undefined;
   onAspectChange: (aspect?: number) => void;
   onConfirmCrop: () => void;
   onCancelCrop: () => void;
-  versions: Record<string, any>; // Simplified for props, context has full type
-  activeVersionId: string | null;
 }
 
 export default function EditingHubSidebar({
   preparationMode,
   isCropping,
-  isProcessing,
   aspect,
   onAspectChange,
   onConfirmCrop,
   onCancelCrop,
-  versions,
-  activeVersionId,
 }: EditingHubSidebarProps) {
+  const versions = useImageStore(state => state.versions);
+  const isProcessing = Object.values(versions).some(v => v.status === 'processing');
   return (
     <div className="flex flex-col h-full">
       <Accordion type="multiple" defaultValue={['history']} className="w-full grow flex flex-col">
@@ -98,11 +95,7 @@ export default function EditingHubSidebar({
               Version History
             </AccordionTrigger>
             <AccordionContent className="grow">
-               <ImageVersionStack
-                  versions={versions}
-                  activeVersionId={activeVersionId}
-                  isProcessing={isProcessing}
-                />
+               <ImageVersionStack />
             </AccordionContent>
           </AccordionItem>
         )}

@@ -24,7 +24,7 @@ import {
   deleteUser,
   generateApiKeyForUser,
   type UserFormState
-} from '@/actions/adminActions';
+} from '@/actions/adminUserActions';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
 
