@@ -2,7 +2,10 @@
 import 'server-only';
 
 import crypto from 'crypto';
-import sodium from 'libsodium-wrappers';
+
+// DER prefix for Ed25519 SPKI public keys (12 bytes) — used to wrap raw 32-byte keys
+// for Node.js crypto.createPublicKey().
+const ED25519_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 
 const JWKS_URL = 'https://rest.alpha.fal.ai/.well-known/jwks.json';
 const JWKS_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
@@ -42,8 +45,6 @@ export async function verifyWebhookSignature(
     console.error('Missing required headers for webhook verification');
     return false;
   }
-
-  await sodium.ready;
 
   // Validate timestamp (within ±5 minutes)
   try {
@@ -100,12 +101,14 @@ export async function verifyWebhookSignature(
         // Decode base64url to bytes
         const publicKeyBytes = Buffer.from(publicKeyB64url, 'base64url');
         
-        // Verify using libsodium
-        const isValid = sodium.crypto_sign_verify_detached(
-          signatureBytes,
-          messageBytes,
-          publicKeyBytes
-        );
+        // Verify using Node.js built-in Ed25519 support
+        const spkiKey = Buffer.concat([ED25519_SPKI_PREFIX, publicKeyBytes]);
+        const publicKey = crypto.createPublicKey({
+          key: spkiKey,
+          format: 'der',
+          type: 'spki',
+        });
+        const isValid = crypto.verify(null, messageBytes, publicKey, signatureBytes);
         
         if (isValid) {
           console.log('Webhook signature verified successfully');

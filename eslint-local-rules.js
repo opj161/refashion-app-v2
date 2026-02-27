@@ -10,7 +10,7 @@ module.exports = {
     meta: {
       type: 'problem',
       docs: {
-        description: 'Enforce explicit cache option on all fetch() calls for Next.js 15',
+        description: 'Enforce explicit cache option on all fetch() calls for Next.js 16',
         category: 'Best Practices',
         recommended: true,
       },

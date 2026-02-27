@@ -8,6 +8,6 @@ API route conventions:
 - Image proxy: `src/app/api/images/[...filePath]/route.ts` — stream files with `createReadStream`
 - Fal proxy: `/api/fal/proxy` — proxies requests to Fal.ai
 - Video webhook: `/api/video/webhook/route.ts` — verify signatures via `src/lib/webhook-verification.ts`
-- V1 API: `/api/v1/` — external API with CORS headers (see `middleware.ts`)
+- V1 API: `/api/v1/` — external API with CORS headers (see `proxy.ts`)
 - `cookies()` and `headers()` are async — always `await`
 - Every `fetch()` needs explicit `cache:` option

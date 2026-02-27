@@ -10,7 +10,7 @@ const ALLOWED_ORIGINS = [
   'https://demo.marcodirenzo.ch',
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const origin = request.headers.get('origin');
   const isApiV1Route = request.nextUrl.pathname.startsWith('/api/v1/');
 
@@ -76,7 +76,7 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
-// Define which paths the middleware should run on
+// Define which paths the proxy should run on
 export const config = {
   matcher: [
     // Match all paths except for static files and image optimization

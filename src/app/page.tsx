@@ -16,7 +16,7 @@ export default async function CreatePage(props: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   await connection();
-  await props.searchParams; // Await params in Next.js 15
+  await props.searchParams; // Await params in Next.js 16
   
   const sessionUser = await getCurrentUser();
   let maxImages = 3; // Default to 3

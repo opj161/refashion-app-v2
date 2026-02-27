@@ -44,14 +44,13 @@ const nextConfig: NextConfig = {
     return config
   },
   output: 'standalone',
+  reactCompiler: true,
   experimental: {
-    reactCompiler: true,
     serverActions: {
       bodySizeLimit: '50mb', // Increase limit for image uploads
     },
     // Optimize package imports to reduce bundle size
     optimizePackageImports: [
-      'lucide-react',
       '@radix-ui/react-accordion',
       '@radix-ui/react-alert-dialog',
       '@radix-ui/react-avatar',
@@ -78,11 +77,6 @@ const nextConfig: NextConfig = {
       fullUrl: true,
     },
   },
-  // Build caching configuration for faster subsequent builds
-  cacheMaxMemorySize: 50 * 1024 * 1024, // 50MB - optimize build cache
-  cacheHandler: process.env.NODE_ENV === 'production'
-    ? undefined // Use default in production
-    : undefined, // Default for development
   images: {
     remotePatterns: [
       {

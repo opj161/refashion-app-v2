@@ -5,7 +5,7 @@ Fashion AI photography app: upload a garment image → Gemini analyzes it → Fa
 ## Stack
 
 - **TypeScript 5.9** — all source code
-- **Next.js 15 (App Router)** — full-stack framework with Turbopack
+- **Next.js 16 (App Router)** — full-stack framework with Turbopack
 - **React 19** — UI with `useActionState`, `useOptimistic`, React Compiler
 - **better-sqlite3** — SQLite in WAL mode (no ORM)
 - **Tailwind CSS 4 + Radix UI** — styling and primitives
@@ -77,7 +77,7 @@ Logic is strictly separated — never write DB queries or business logic in comp
 
 2. **Streaming large files:** Use `createReadStream` for images/videos in API routes to prevent OOM.
 
-3. **Async request APIs:** `params`, `searchParams`, `cookies()`, `headers()` are async in Next.js 15 — always `await` them.
+3. **Async request APIs:** `params`, `searchParams`, `cookies()`, `headers()` are async in Next.js 16 — always `await` them.
 
 4. **Fetch caching:** Every `fetch()` must have an explicit `cache:` or `next: { revalidate: N }`. Enforced by custom ESLint rule in `eslint-local-rules.js`.
 

@@ -1,7 +1,7 @@
 ---
 name: 'QA'
 description: 'Meticulous QA subagent for test planning, bug hunting, edge-case analysis, and implementation verification.'
-tools: ['vscode', 'execute', 'read', 'agent', 'edit', 'search', 'web', 'todo']
+tools: [vscode/getProjectSetupInfo, vscode/installExtension, vscode/newWorkspace, vscode/openSimpleBrowser, vscode/runCommand, vscode/askQuestions, vscode/vscodeAPI, vscode/extensions, execute/runNotebookCell, execute/testFailure, execute/getTerminalOutput, execute/awaitTerminal, execute/killTerminal, execute/createAndRunTask, execute/runInTerminal, execute/runTests, read/getNotebookSummary, read/problems, read/readFile, read/readNotebookCellOutput, read/terminalSelection, read/terminalLastCommand, agent/runSubagent, edit/createDirectory, edit/createFile, edit/createJupyterNotebook, edit/editFiles, edit/editNotebook, search/changes, search/codebase, search/fileSearch, search/listDirectory, search/searchResults, search/textSearch, search/usages, web/fetch, web/githubRepo, context7/query-docs, context7/resolve-library-id, next-devtools/browser_eval, next-devtools/enable_cache_components, next-devtools/init, next-devtools/nextjs_call, next-devtools/nextjs_docs, next-devtools/nextjs_index, next-devtools/upgrade_nextjs_16, todo]
 ---
 
 ## Identity

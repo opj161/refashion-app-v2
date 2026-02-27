@@ -295,7 +295,7 @@ export async function generateImageEdit(
     }
   }
 
-  // 2. Schedule background work using Next.js 15 after()
+  // 2. Schedule background work using Next.js 16 after()
   after(async () => {
     try {
       console.log(`🔄 Starting background generation for ${historyId}`);
