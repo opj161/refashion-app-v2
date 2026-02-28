@@ -49,7 +49,6 @@
   /* -- Animations -- */
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
-  --animate-progress-ribbings: progress-ribbings 2s linear infinite;
   --animate-progress-pulsation: progress-pulsation 1.5s infinite;
   --animate-progress-completion: progress-completion 1s ease-in-out;
   --animate-progress-stripes: progress-stripes 1s linear infinite;
@@ -79,9 +78,6 @@
     to {
       height: 0;
     }
-  }
-  @keyframes progress-ribbings {
-    /* Add specific keyframes if needed, or rely on utility classes */
   }
   @keyframes progress-completion {
     0% {
@@ -283,6 +279,12 @@
     pointer-events: none;
     animation: aurora-animation 45s linear infinite;
     opacity: 0.7;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .aurora-bg {
+      animation: none;
+    }
   }
 
   /* Theme Overrides */

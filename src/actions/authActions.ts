@@ -46,8 +46,11 @@ export async function loginUser(previousState: LoginFormState | null, formData: 
   await session.save();
   revalidatePath('/', 'layout');
   
-  // The redirect call is now safe and won't be caught by our logic.
-  redirect('/');
+  // Redirect to the intended destination if provided, otherwise home
+  const redirectTo = formData.get('redirect_to') as string | null;
+  const isValidRedirect = redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//');
+  const destination = isValidRedirect ? redirectTo : '/';
+  redirect(destination as '/');
 }
 
 export async function logoutUser() {

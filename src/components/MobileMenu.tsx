@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { logoutUser } from '@/actions/authActions';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
@@ -15,9 +17,11 @@ import {
 import { ThemeToggleImproved } from "@/components/ui/ThemeToggleImproved";
 import { Separator } from '@/components/ui/separator';
 import { Menu, LogOut, LogIn } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function MobileMenu() {
   const user = useAuthStore((s) => s.user);
+  const pathname = usePathname();
   const { setTheme, theme } = useTheme();
 
   return (
@@ -36,18 +40,28 @@ export function MobileMenu() {
               <span className="font-bold text-lg">Refashion AI</span>
             </div>
             <nav className="flex flex-col gap-2">
-              <Link
-                href="/"
-                className="flex items-center gap-2 px-2 py-2 text-lg font-medium hover:text-primary transition-colors"
-              >
-                Studio
-              </Link>
-              <Link
-                href="/history"
-                className="flex items-center gap-2 px-2 py-2 text-lg font-medium hover:text-primary transition-colors"
-              >
-                History
-              </Link>
+              <SheetClose asChild>
+                <Link
+                  href="/"
+                  className={cn(
+                    'flex items-center gap-2 px-2 py-2 text-lg font-medium hover:text-primary transition-colors',
+                    pathname === '/' ? 'text-primary font-semibold' : 'text-muted-foreground'
+                  )}
+                >
+                  Studio
+                </Link>
+              </SheetClose>
+              <SheetClose asChild>
+                <Link
+                  href="/history"
+                  className={cn(
+                    'flex items-center gap-2 px-2 py-2 text-lg font-medium hover:text-primary transition-colors',
+                    pathname.startsWith('/history') ? 'text-primary font-semibold' : 'text-muted-foreground'
+                  )}
+                >
+                  History
+                </Link>
+              </SheetClose>
               <div className="px-2 py-2">
                 <ThemeToggleImproved />
               </div>

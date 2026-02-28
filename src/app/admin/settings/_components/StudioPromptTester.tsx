@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useRef } from 'react';
+import { useState, useTransition, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -47,7 +47,15 @@ export function StudioPromptTester({ currentTemplate }: StudioPromptTesterProps)
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Revoke blob URL on unmount or when previewUrl changes
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
   const handleFileSelect = (selectedFile: File) => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setFile(selectedFile);
     setPreviewUrl(URL.createObjectURL(selectedFile));
     setResult(null);
@@ -129,6 +137,7 @@ export function StudioPromptTester({ currentTemplate }: StudioPromptTesterProps)
   };
 
   const resetState = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setFile(null);
     setPreviewUrl(null);
     setResult(null);

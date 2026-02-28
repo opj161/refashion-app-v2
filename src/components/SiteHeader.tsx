@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import LogoSvg from '../../public/refashion.svg';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils';
 
 export function SiteHeader() {
   const user = useAuthStore((s) => s.user);
+  const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
 
   // Effect for scroll-based style changes
@@ -33,7 +35,7 @@ export function SiteHeader() {
   return (
     <header
       className={cn(
-        'sticky top-0 z-50 w-full transition-all duration-300 ease-in-out',
+        'sticky top-0 z-50 w-full transition-[background-color,border-color,backdrop-filter] duration-300 ease-in-out',
         isScrolled
           ? 'border-b border-border/20 bg-background/95 backdrop-blur-md'
           : 'border-b border-transparent bg-background/80 backdrop-blur-xs'
@@ -54,7 +56,9 @@ export function SiteHeader() {
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-2">
             {user?.role === 'admin' && (
-              <Button asChild variant="ghost" size="sm">
+              <Button asChild variant="ghost" size="sm" className={cn(
+                pathname.startsWith('/admin') && 'text-primary font-semibold'
+              )}>
                 <Link href="/admin" prefetch={true}>
                   <ShieldCheck className="h-4 w-4" />
                   <span className="ml-2">Admin</span>

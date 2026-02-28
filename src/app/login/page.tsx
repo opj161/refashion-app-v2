@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,6 +22,8 @@ function SubmitButton() {
 
 export default function LoginPage() {
   // useActionState manages the error state based on the action's return value
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect_to');
   const initialState: LoginFormState = { error: null };
   const [state, formAction] = useActionState(loginUser, initialState);
 
@@ -28,6 +31,7 @@ export default function LoginPage() {
     <div className="flex justify-center items-center min-h-[calc(100vh-var(--content-offset,80px))] p-4 bg-gradient-to-br from-background-accent to-background">
       <Card variant="glass" className="w-full max-w-md shadow-2xl">
         <form action={formAction}>
+          {redirectTo && <input type="hidden" name="redirect_to" value={redirectTo} />}
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
               <LogIn className="h-8 w-8 text-primary" />

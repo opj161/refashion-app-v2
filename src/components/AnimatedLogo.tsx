@@ -47,7 +47,7 @@ const wrapperVariants: Variants = {
   initial: { opacity: 0, scale: 0.8 },
   enter: {
     opacity: 1,
-    scale: 2, // Changed from 2 to 1 for a more standard entry
+    scale: 2, // 2x scale entry for dramatic splash screen effect
     transition: {
       scale: { type: 'spring', stiffness: 200, damping: 20 },
       opacity: { duration: 0.8, ease: 'easeOut' },

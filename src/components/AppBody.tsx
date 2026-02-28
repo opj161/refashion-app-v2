@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { LazyMotion, domMax } from 'motion/react';
+import { LazyMotion, domMax, MotionConfig } from 'motion/react';
 import { AuthStoreInitializer } from '@/stores/AuthStoreInitializer';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -26,6 +26,7 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
 
   return (
     <LazyMotion features={domMax}>
+    <MotionConfig reducedMotion="user">
       <div className="aurora-bg" />
       {/* Splash screen overlay: controlled by client-side hydration state */}
       <div className={cn("splash-screen", isHydrated && "hidden")}> 
@@ -42,6 +43,7 @@ export function AppBody({ children, initialUser }: AppBodyProps) {
           <Toaster />
         </ErrorBoundary>
       </ThemeProvider>
+    </MotionConfig>
     </LazyMotion>
   );
 }

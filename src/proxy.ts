@@ -78,11 +78,11 @@ export async function proxy(request: NextRequest) {
   if (!user?.isLoggedIn) {
     // Redirect to login page, preserving the intended destination
     const loginUrl = new URL('/login', request.url);
-    // loginUrl.searchParams.set('redirect_to', pathname); // Optional: redirect back after login
+    loginUrl.searchParams.set('redirect_to', pathname);
     return NextResponse.redirect(loginUrl);
   }
   // Check admin-only routes
-  if (pathname.startsWith('/admin/')) {
+  if (pathname.startsWith('/admin')) {
     if (user.role !== 'admin') {
       // Redirect non-admin users to home page or show 403
       return NextResponse.redirect(new URL('/', request.url));

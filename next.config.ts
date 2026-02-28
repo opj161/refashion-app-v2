@@ -69,6 +69,7 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-tabs',
       '@radix-ui/react-toast',
       '@radix-ui/react-tooltip',
+      'lucide-react',
     ],
   },
   // Enable fetch logging for debugging polling in development

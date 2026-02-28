@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, Home } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
@@ -30,13 +31,21 @@ export default function RootError({
               Error ID: {error.digest}
             </p>
           )}
-          <Button
-            variant="outline"
-            onClick={() => reset()}
-            className="w-fit border-destructive/50 hover:bg-destructive/10"
-          >
-            Try again
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => reset()}
+              className="w-fit border-destructive/50 hover:bg-destructive/10"
+            >
+              Try again
+            </Button>
+            <Button asChild variant="ghost" className="w-fit">
+              <Link href="/">
+                <Home className="mr-2 h-4 w-4" />
+                Go to Home
+              </Link>
+            </Button>
+          </div>
         </AlertDescription>
       </Alert>
     </div>

@@ -269,6 +269,7 @@ export function ImageViewerModal({
                     src={displayUrl || '/placeholder.png'}
                     alt={currentImage.type}
                     fill
+                    sizes="(max-width: 768px) 100vw, 70vw"
                     className="object-contain"
                     priority
                     quality={90}
