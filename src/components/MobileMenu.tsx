@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/sheet';
 import { ThemeToggleImproved } from "@/components/ui/ThemeToggleImproved";
 import { Separator } from '@/components/ui/separator';
-import { ShieldCheck, Menu, Sun, Moon, Monitor, LogOut, LogIn, User } from 'lucide-react';
+import { Menu, LogOut, LogIn } from 'lucide-react';
 
 export function MobileMenu() {
   const user = useAuthStore((s) => s.user);

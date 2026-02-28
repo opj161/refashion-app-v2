@@ -26,9 +26,15 @@ export default function AdminError({
           <p>
             An error occurred while loading the dashboard. This might be due to a temporary connection issue.
           </p>
-          <div className="bg-background/10 p-2 rounded text-xs font-mono break-all">
-            {error.message || 'Unknown error'}
-          </div>
+          {process.env.NODE_ENV === 'development' ? (
+            <div className="bg-background/10 p-2 rounded text-xs font-mono break-all">
+              {error.message || 'Unknown error'}
+            </div>
+          ) : error.digest ? (
+            <div className="bg-background/10 p-2 rounded text-xs font-mono break-all">
+              Error ID: {error.digest}
+            </div>
+          ) : null}
           <Button 
             variant="outline" 
             onClick={() => reset()}

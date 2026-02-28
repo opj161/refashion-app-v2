@@ -15,6 +15,5 @@ function Textarea({ className, ref, ...props }: React.ComponentProps<"textarea">
     />
   )
 }
-Textarea.displayName = "Textarea";
 
 export { Textarea };

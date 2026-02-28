@@ -1,19 +1,21 @@
+'use client'
+
 import { useState, useEffect, useRef } from 'react';
 
-interface UseSmartPollingOptions {
-    onSuccess?: (data: any) => void;
-    onFailure?: (error: any) => void;
+interface UseSmartPollingOptions<T> {
+    onSuccess?: (data: T) => void;
+    onFailure?: (error: Error) => void;
     maxAttempts?: number;
     initialDelay?: number;
 }
 
-export function useSmartPolling(
+export function useSmartPolling<T>(
     url: string | null,
     shouldPoll: boolean,
-    options: UseSmartPollingOptions = {}
+    options: UseSmartPollingOptions<T> = {}
 ) {
     const { maxAttempts = 60, initialDelay = 1000 } = options;
-    const [data, setData] = useState<any>(null);
+    const [data, setData] = useState<T | null>(null);
     const [error, setError] = useState<Error | null>(null);
     const attemptsRef = useRef(0);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -45,21 +47,21 @@ export function useSmartPolling(
                 if (cancelled) return;
                 if (!res.ok) throw new Error(`Polling error: ${res.status}`);
 
-                const result = await res.json();
+                const result = await res.json() as T;
                 if (cancelled) return;
                 setData(result);
 
                 // Check if job completed successfully
-                if (result.status === 'completed') {
+                if ((result as Record<string, unknown>).status === 'completed') {
                     optionsRef.current.onSuccess?.(result);
                     return; // Stop polling
                 }
 
                 // Check if job failed
-                if (result.status === 'failed') {
-                    const failErr = new Error(result.error || 'Job failed');
+                if ((result as Record<string, unknown>).status === 'failed') {
+                    const failErr = new Error(((result as Record<string, unknown>).error as string) || 'Job failed');
                     setError(failErr);
-                    optionsRef.current.onFailure?.(result);
+                    optionsRef.current.onFailure?.(failErr);
                     return; // Stop polling
                 }
 

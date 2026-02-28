@@ -1,12 +1,10 @@
 // src/components/HistoryCardSkeleton.tsx
-"use client";
-
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 
 export function HistoryCardSkeleton() {
   return (
-    <Card className="group overflow-hidden border border-white/5 bg-card/30">
+    <Card className="group overflow-hidden border border-white/5 bg-card/30" role="status" aria-label="Loading history item">
       <CardContent className="p-0">
         {/* Image skeleton with shimmer */}
         <div className="relative aspect-2/3 bg-muted overflow-hidden">

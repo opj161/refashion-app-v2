@@ -19,6 +19,8 @@ const svgProps = {
   xmlns: "http://www.w3.org/2000/svg",
   initial: "hidden",
   animate: "visible",
+  role: "img" as const,
+  "aria-label": "Refashion AI logo",
 };
 
 const Gradients = () => (
@@ -245,7 +247,7 @@ export function AnimatedLogo({
   if (shouldReduceMotion) {
     return (
       <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-        <LogoSvg className="h-48 w-48" />
+        <LogoSvg className="h-48 w-48" role="img" aria-label="Refashion AI logo" />
       </m.div>
     );
   }

@@ -38,11 +38,11 @@ export default function LoginPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
-              <Input id="username" name="username" type="text" placeholder="admin" required />
+              <Input id="username" name="username" type="text" placeholder="admin" required autoComplete="username" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required />
+              <Input id="password" name="password" type="password" required autoComplete="current-password" />
             </div>
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           </CardContent>

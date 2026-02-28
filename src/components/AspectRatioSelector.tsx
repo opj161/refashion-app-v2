@@ -1,7 +1,7 @@
 // src/components/AspectRatioSelector.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,28 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import {
   Crop as CropIcon, Square, RectangleVertical, RectangleHorizontal, Monitor, Film, Smartphone, Camera
 } from "lucide-react";
+
+const ASPECT_RATIO_OPTIONS = [
+  // Freeform
+  { name: "Free", tooltip: "Free Crop", value: undefined, icon: <CropIcon className="h-4 w-4" />, category: "basic" },
+  
+  // Social Media & Common
+  { name: "1:1", tooltip: "Square - Instagram Post", value: 1, icon: <Square className="h-4 w-4" />, category: "social" },
+  { name: "4:5", tooltip: "Portrait - Instagram", value: 4 / 5, icon: <Smartphone className="h-4 w-4" />, category: "social" },
+  { name: "9:16", tooltip: "Stories/Reels - Vertical", value: 9 / 16, icon: <RectangleVertical className="h-4 w-4" />, category: "social" },
+  
+  // Photography Standards
+  { name: "3:4", tooltip: "Portrait Photography", value: 3 / 4, icon: <Camera className="h-4 w-4" />, category: "photo" },
+  { name: "2:3", tooltip: "Classic 35mm Film", value: 2 / 3, icon: <Camera className="h-4 w-4" />, category: "photo" },
+  { name: "4:3", tooltip: "Standard Photography", value: 4 / 3, icon: <RectangleHorizontal className="h-4 w-4" />, category: "photo" },
+  { name: "5:4", tooltip: "Large Format", value: 5 / 4, icon: <RectangleHorizontal className="h-4 w-4" />, category: "photo" },
+  
+  // Video/Cinema
+  { name: "16:9", tooltip: "HD Video/YouTube", value: 16 / 9, icon: <Monitor className="h-4 w-4" />, category: "video" },
+  { name: "21:9", tooltip: "Ultrawide Cinema", value: 21 / 9, icon: <Monitor className="h-4 w-4" />, category: "video" },
+  { name: "1.91:1", tooltip: "Classic Film", value: 1.91, icon: <Film className="h-4 w-4" />, category: "video" },
+  { name: "2.39:1", tooltip: "Anamorphic Widescreen", value: 2.39, icon: <Film className="h-4 w-4" />, category: "video" },
+];
 
 interface AspectRatioSelectorProps {
   preparationMode: 'image' | 'video';
@@ -28,30 +50,6 @@ export default function AspectRatioSelector({
   const [customHeight, setCustomHeight] = useState<string>("9");
   const [showCustomInput, setShowCustomInput] = useState(false);
 
-  const aspectRatios = useMemo(() => {
-    return [
-      // Freeform
-      { name: "Free", tooltip: "Free Crop", value: undefined, icon: <CropIcon className="h-4 w-4" />, category: "basic" },
-      
-      // Social Media & Common
-      { name: "1:1", tooltip: "Square - Instagram Post", value: 1, icon: <Square className="h-4 w-4" />, category: "social" },
-      { name: "4:5", tooltip: "Portrait - Instagram", value: 4 / 5, icon: <Smartphone className="h-4 w-4" />, category: "social" },
-      { name: "9:16", tooltip: "Stories/Reels - Vertical", value: 9 / 16, icon: <RectangleVertical className="h-4 w-4" />, category: "social" },
-      
-      // Photography Standards
-      { name: "3:4", tooltip: "Portrait Photography", value: 3 / 4, icon: <Camera className="h-4 w-4" />, category: "photo" },
-      { name: "2:3", tooltip: "Classic 35mm Film", value: 2 / 3, icon: <Camera className="h-4 w-4" />, category: "photo" },
-      { name: "4:3", tooltip: "Standard Photography", value: 4 / 3, icon: <RectangleHorizontal className="h-4 w-4" />, category: "photo" },
-      { name: "5:4", tooltip: "Large Format", value: 5 / 4, icon: <RectangleHorizontal className="h-4 w-4" />, category: "photo" },
-      
-      // Video/Cinema
-      { name: "16:9", tooltip: "HD Video/YouTube", value: 16 / 9, icon: <Monitor className="h-4 w-4" />, category: "video" },
-      { name: "21:9", tooltip: "Ultrawide Cinema", value: 21 / 9, icon: <Monitor className="h-4 w-4" />, category: "video" },
-      { name: "1.91:1", tooltip: "Classic Film", value: 1.91, icon: <Film className="h-4 w-4" />, category: "video" },
-      { name: "2.39:1", tooltip: "Anamorphic Widescreen", value: 2.39, icon: <Film className="h-4 w-4" />, category: "video" },
-    ];
-  }, []);
-
   const handleCustomRatio = () => {
     const width = parseFloat(customWidth);
     const height = parseFloat(customHeight);
@@ -68,7 +66,7 @@ export default function AspectRatioSelector({
   // Helper to check if current aspect matches any preset (with tolerance for floating point)
   const getActivePreset = () => {
     if (!aspect) return undefined;
-    return aspectRatios.find(ar => ar.value && Math.abs(ar.value - aspect) < 0.001);
+    return ASPECT_RATIO_OPTIONS.find(ar => ar.value && Math.abs(ar.value - aspect) < 0.001);
   };
 
   const activePreset = getActivePreset();
@@ -88,7 +86,7 @@ export default function AspectRatioSelector({
           <AccordionContent className="pt-3 pb-1 px-1">
             {/* Compact grid layout */}
             <div className="grid grid-cols-4 gap-2 mb-3">
-              {aspectRatios.map(ar => {
+              {ASPECT_RATIO_OPTIONS.map(ar => {
                 const isActive = ar.value === aspect || (activePreset?.name === ar.name);
                 return (
                   <TooltipProvider key={ar.name}>

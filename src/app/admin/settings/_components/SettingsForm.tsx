@@ -118,13 +118,15 @@ export function SettingsForm({ initialSettings, maskedApiKeys, systemPromptData 
   
   // Studio Prompt controlled state for testing
   const [studioPrompt, setStudioPrompt] = useState(systemPromptData?.prompts?.studio || '');
+  const [prevStudioProp, setPrevStudioProp] = useState(systemPromptData?.prompts?.studio);
   
-  // Update studio prompt state when props change
-  useEffect(() => {
+  // Adjust state during render when props change (React recommended pattern)
+  if (systemPromptData?.prompts?.studio !== prevStudioProp) {
+    setPrevStudioProp(systemPromptData?.prompts?.studio);
     if (systemPromptData?.prompts?.studio) {
       setStudioPrompt(systemPromptData.prompts.studio);
     }
-  }, [systemPromptData?.prompts?.studio]);
+  }
   
   // Handle feedback from useActionState forms
   useEffect(() => {

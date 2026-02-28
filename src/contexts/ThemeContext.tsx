@@ -40,8 +40,6 @@ export function ThemeProvider({
   useEffect(() => {
     setIsHydrated(true);
     
-    if (typeof window === 'undefined') return;
-    
     try {
       const storedTheme = window.localStorage.getItem(storageKey) as Theme | null;
       if (storedTheme && storedTheme !== theme) {
@@ -54,7 +52,7 @@ export function ThemeProvider({
   }, [storageKey]);
   // Effect for applying theme and listening to system changes
   useEffect(() => {
-    if (typeof window === 'undefined' || !isHydrated) return;
+    if (!isHydrated) return;
 
     const root = window.document.documentElement;
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
@@ -109,9 +107,9 @@ export function ThemeProvider({
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, isHydrated }}>
+    <ThemeContext value={{ theme, setTheme, isHydrated }}>
       {children}
-    </ThemeContext.Provider>
+    </ThemeContext>
   );
 }
 

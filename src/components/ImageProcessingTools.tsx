@@ -1,7 +1,7 @@
 // src/components/ImageProcessingTools.tsx
 "use client";
 
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,13 @@ import { useServiceAvailability } from '@/hooks/useServiceAvailability';
 import {
   Wand2, Sparkles, UserCheck, CheckCircle, Loader2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Undo2, Redo2
 } from "lucide-react";
+
+/** String constants for version label matching — keep in sync with imageStore labels */
+const PROCESSING_LABELS = {
+  BG_REMOVED: 'Background Removed',
+  UPSCALED: 'Upscaled',
+  FACE_ENHANCED: 'Face Enhanced',
+} as const;
 
 
 // --- Reusable Row Component for a consistent look ---
@@ -123,10 +130,10 @@ export default function ImageProcessingTools({ preparationMode, disabled = false
     return null;
   }
 
-  // Computed states based on version labels
-  const isBgRemoved = activeImage.label.includes('Background Removed');
-  const isUpscaled = activeImage.label.includes('Upscaled');
-  const isFaceDetailed = activeImage.label.includes('Face Enhanced');
+  // Computed states based on version labels (constants defined at module scope)
+  const isBgRemoved = activeImage.label.includes(PROCESSING_LABELS.BG_REMOVED);
+  const isUpscaled = activeImage.label.includes(PROCESSING_LABELS.UPSCALED);
+  const isFaceDetailed = activeImage.label.includes(PROCESSING_LABELS.FACE_ENHANCED);
 
   // --- Event Handlers ---
   const handleApplyBackgroundRemoval = async () => {

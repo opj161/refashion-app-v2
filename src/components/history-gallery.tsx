@@ -85,12 +85,9 @@ export default function HistoryGallery({
   // Listen for generation count changes and refresh history
   useEffect(() => {
     if (generationCount > 0) {
-      // Use router.refresh() for Next.js App Router to re-fetch server component data
-      router.refresh();
-      // Also refresh local state
       refreshHistory();
     }
-  }, [generationCount, router, refreshHistory]);
+  }, [generationCount, refreshHistory]);
 
   const isInitialRender = useRef(true);
 

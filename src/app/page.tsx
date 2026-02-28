@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import CreationHub from '@/components/creation-hub';
 import HistoryGallery from '@/components/history-gallery';
-import { getHistoryPaginated } from '@/actions/historyActions';
+import { getHistoryPaginated, getRecentUploadsAction } from '@/actions/historyActions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getCurrentUser } from '@/actions/authActions';
 import { findUserByUsername } from '@/services/db';
@@ -22,7 +22,6 @@ export default async function CreatePage(props: {
 
   if (sessionUser?.username) {
     const fullUser = findUserByUsername(sessionUser.username);
-    console.log(`[CreatePage] User: ${sessionUser.username}, Model: ${fullUser?.image_generation_model}`);
     
     if (fullUser?.image_generation_model) { // NEW: Capture model
       userModel = fullUser.image_generation_model;
@@ -34,13 +33,11 @@ export default async function CreatePage(props: {
 
     // Fetch recent uploads
     try {
-      const { getRecentUploadsAction } = await import('@/actions/historyActions');
       recentUploads = await getRecentUploadsAction();
     } catch (e) {
       console.error("Failed to fetch recent uploads:", e);
     }
   }
-  console.log(`[CreatePage] maxImages determined: ${maxImages}`);
 
   return (
     <div className="container mx-auto max-w-7xl px-4 pb-10 space-y-8">
@@ -55,17 +52,14 @@ export default async function CreatePage(props: {
 }
 
 async function UserHistory() {
+  let initialHistory;
   try {
-    // Fetch initial history data on the server for the logged-in user
-    const initialHistory = await getHistoryPaginated(1, 9, 'all');
-    return <HistoryGallery initialHistory={initialHistory} />;
+    initialHistory = await getHistoryPaginated(1, 9, 'all');
   } catch (error) {
-    // Handle cases where there's no user session (e.g., during build time)
     console.warn('[UserHistory] Unable to fetch history:', error instanceof Error ? error.message : String(error));
-    // Return empty state when no user is available
-    const emptyHistory = { items: [], totalCount: 0, hasMore: false, currentPage: 1 };
-    return <HistoryGallery initialHistory={emptyHistory} />;
+    initialHistory = { items: [], totalCount: 0, hasMore: false, currentPage: 1 };
   }
+  return <HistoryGallery initialHistory={initialHistory} />;
 }
 
 function HistoryGallerySkeleton() {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
 } from "@/lib/prompt-options";
 import { AlertTriangle, Info, Loader2, PaletteIcon, Shuffle, Video, MonitorPlay } from "lucide-react";
 import { usePromptManager } from "@/hooks/usePromptManager";
+import type { BaseGenerationParams } from "@/lib/prompt-builder";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { calculateVideoCost, formatPrice, VideoDuration, VideoResolution } from "@/lib/pricing";
 import { m, AnimatePresence } from 'motion/react';
@@ -72,10 +73,11 @@ export default function VideoParameters() {
   }, [isPending]);
 
   // Handle Preset Changes (e.g., "Walks Toward", "Zoom In")
-  const handlePresetChange = useCallback((presetValue: string) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler auto-memoizes this function
+  function handlePresetChange(presetValue: string) {
     setActivePreset(presetValue);
     setVideoSettings({ selectedPredefinedPrompt: presetValue });
-  }, [setVideoSettings]);
+  }
 
   // Auto-select first preset on load if none selected
   useEffect(() => {
@@ -87,7 +89,7 @@ export default function VideoParameters() {
   // Prompt Manager Hook
   const { currentPrompt, handlePromptChange, resetPromptToAuto, isManualPromptOutOfSync } = usePromptManager({
     generationType: 'video',
-    generationParams: videoSettings as any,
+    generationParams: videoSettings as BaseGenerationParams,
   });
 
   // Sync computed prompt to global store for submission
@@ -231,8 +233,8 @@ export default function VideoParameters() {
                       <Label className="text-sm font-medium mb-1.5 block">Aspect Ratio</Label>
                       <Select 
                         // Note: Using 'any' cast as store type update is pending, but JS works fine
-                        value={(videoSettings as any).aspect_ratio || "9:16"} 
-                        onValueChange={(v) => setVideoSettings({ aspect_ratio: v } as any)}
+                        value={videoSettings.aspect_ratio || "9:16"} 
+                        onValueChange={(v) => setVideoSettings({ aspect_ratio: v })}
                         disabled={commonFormDisabled}
                       >
                         <SelectTrigger className="bg-background/50 h-9 text-sm"><SelectValue placeholder="Select ratio" /></SelectTrigger>

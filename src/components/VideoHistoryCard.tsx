@@ -102,8 +102,17 @@ export function VideoHistoryCard({ item }: VideoHistoryCardProps) {
     <m.div layout>
       <Card
         ref={cardRef}
+        role="button"
+        tabIndex={canPlayVideo ? 0 : -1}
+        aria-label={`Play video: ${item.constructedPrompt || 'Video'}`}
         className="group cursor-pointer overflow-hidden transition-all hover:border-primary/50 hover:shadow-lg"
         onClick={() => canPlayVideo && setIsModalOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (canPlayVideo) setIsModalOpen(true);
+          }
+        }}
       >
         <CardContent className="p-0">
           <m.div

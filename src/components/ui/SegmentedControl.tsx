@@ -28,11 +28,11 @@ interface SegmentedControlProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const SegmentedControl = ({ value, onValueChange, children, className, ...props }: SegmentedControlProps) => (
-  <SegmentedControlContext.Provider value={{ activeValue: value, onValueChange }}>
+  <SegmentedControlContext value={{ activeValue: value, onValueChange }}>
     <div className={cn("relative flex items-center justify-center rounded-lg p-1 bg-gray-100/80 border-gray-200 dark:bg-muted/40 dark:border-white/5 border", className)} {...props}>
       <LayoutGroup id={React.useId()}>{children}</LayoutGroup>
     </div>
-  </SegmentedControlContext.Provider>
+  </SegmentedControlContext>
 );
 
 // 3. The Item component (the clickable button)
@@ -40,34 +40,39 @@ interface SegmentedControlItemProps extends Omit<React.ButtonHTMLAttributes<HTML
   value: string;
 }
 
-const SegmentedControlItem = React.forwardRef<HTMLButtonElement, SegmentedControlItemProps>(
-  ({ className, children, value, ...props }, ref) => {
-    const { activeValue, onValueChange } = useSegmentedControl();
-    const isActive = activeValue === value;
+function SegmentedControlItem({
+  className,
+  children,
+  value,
+  ref,
+  ...props
+}: SegmentedControlItemProps & {
+  ref?: React.Ref<HTMLButtonElement>
+}) {
+  const { activeValue, onValueChange } = useSegmentedControl();
+  const isActive = activeValue === value;
 
-    return (
-      <m.button
-        ref={ref}
-        onClick={() => onValueChange(value)}
-        className={cn(
-          "relative inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-          isActive ? "text-white shadow-xs" : "text-muted-foreground hover:text-foreground hover:bg-white/5",
-          className
-        )}
-        {...props}
-      >
-        <span className="relative z-10 flex items-center gap-2">{children}</span>
-        {isActive && (
-          <m.div
-            layoutId="active-segment-indicator"
-            className="absolute inset-0 z-0 rounded-md bg-gradient-to-br from-primary to-primary-gradient-end shadow-sm"
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          />
-        )}
-      </m.button>
-    );
-  }
-);
-SegmentedControlItem.displayName = "SegmentedControlItem";
+  return (
+    <m.button
+      ref={ref}
+      onClick={() => onValueChange(value)}
+      className={cn(
+        "relative inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-1.5 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+        isActive ? "text-white shadow-xs" : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+        className
+      )}
+      {...props}
+    >
+      <span className="relative z-10 flex items-center gap-2">{children}</span>
+      {isActive && (
+        <m.div
+          layoutId="active-segment-indicator"
+          className="absolute inset-0 z-0 rounded-md bg-gradient-to-br from-primary to-primary-gradient-end shadow-sm"
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        />
+      )}
+    </m.button>
+  );
+}
 
 export { SegmentedControl, SegmentedControlItem };

@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function HomeLoading() {
   return (
-    <div className="container mx-auto max-w-7xl px-4 pb-10 space-y-8">
+    <div className="container mx-auto max-w-7xl px-4 pb-10 space-y-8" role="status" aria-label="Loading">
       {/* Creation hub skeleton */}
       <div className="space-y-6 pt-6">
         {/* Upload area skeleton */}

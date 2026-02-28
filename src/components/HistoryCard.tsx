@@ -26,8 +26,6 @@ interface HistoryCardProps {
   username?: string;
   onLoadFromHistory?: (item: HistoryItem) => void;
   onLoadFromImageUrl?: (imageUrl: string) => void;
-  currentTab?: string;
-  setCurrentTab?: (tab: string) => void;
 }
 
 // Memoize HistoryCard to prevent unnecessary re-renders when gallery updates
@@ -39,8 +37,6 @@ export default function HistoryCard({
   username,
   onLoadFromHistory,
   onLoadFromImageUrl,
-  currentTab,
-  setCurrentTab
 }: HistoryCardProps) {
   const { toast } = useToast();
   const router = useRouter();
@@ -202,15 +198,6 @@ export default function HistoryCard({
     } finally {
       setIsLoadingAction(null);
     }
-  };
-
-  const triggerDownload = (url: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,25 @@ import { m } from 'motion/react';
 import { MOTION_TRANSITIONS } from '@/lib/motion-constants';
 import { ProcessingPipelineSection } from '@/components/ProcessingPipelineSection';
 import { ParameterAccordionSections } from '@/components/ParameterAccordionSections';
+
+const PARAMETER_CONFIG = {
+  gender: { options: GENDER_OPTIONS, defaultVal: GENDER_OPTIONS[0].value },
+  bodyShapeAndSize: { options: BODY_SHAPE_AND_SIZE_OPTIONS, defaultVal: BODY_SHAPE_AND_SIZE_OPTIONS[0].value },
+  ageRange: { options: AGE_RANGE_OPTIONS, defaultVal: AGE_RANGE_OPTIONS[0].value },
+  ethnicity: { options: ETHNICITY_OPTIONS, defaultVal: ETHNICITY_OPTIONS[0].value },
+  poseStyle: { options: POSE_STYLE_OPTIONS, defaultVal: POSE_STYLE_OPTIONS[0].value },
+  background: { options: BACKGROUND_OPTIONS, defaultVal: BACKGROUND_OPTIONS[0].value },
+  fashionStyle: { options: FASHION_STYLE_OPTIONS, defaultVal: FASHION_STYLE_OPTIONS[0].value },
+  hairStyle: { options: HAIR_STYLE_OPTIONS, defaultVal: HAIR_STYLE_OPTIONS[0].value },
+  modelExpression: { options: MODEL_EXPRESSION_OPTIONS, defaultVal: MODEL_EXPRESSION_OPTIONS[0].value },
+  lightingType: { options: LIGHTING_TYPE_OPTIONS, defaultVal: LIGHTING_TYPE_OPTIONS[0].value },
+  lightQuality: { options: LIGHT_QUALITY_OPTIONS, defaultVal: LIGHT_QUALITY_OPTIONS[0].value },
+  modelAngle: { options: MODEL_ANGLE_OPTIONS, defaultVal: MODEL_ANGLE_OPTIONS[0].value },
+  lensEffect: { options: LENS_EFFECT_OPTIONS, defaultVal: LENS_EFFECT_OPTIONS[0].value },
+  depthOfField: { options: DEPTH_OF_FIELD_OPTIONS, defaultVal: DEPTH_OF_FIELD_OPTIONS[0].value },
+  timeOfDay: { options: TIME_OF_DAY_OPTIONS, defaultVal: TIME_OF_DAY_OPTIONS[0].value },
+  overallMood: { options: OVERALL_MOOD_OPTIONS, defaultVal: OVERALL_MOOD_OPTIONS[0].value },
+};
 
 interface ImageParametersProps {
   isPending: boolean;
@@ -91,28 +110,6 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
     isFaceDetailerAvailable: isFaceDetailerServiceAvailable,
   } = useServiceAvailability();
 
-  // Config for randomization (Memoized to prevent recreation)
-  const PARAMETER_CONFIG = useMemo(() => ({
-    gender: { options: GENDER_OPTIONS, defaultVal: GENDER_OPTIONS[0].value },
-    bodyShapeAndSize: { options: BODY_SHAPE_AND_SIZE_OPTIONS, defaultVal: BODY_SHAPE_AND_SIZE_OPTIONS[0].value },
-    ageRange: { options: AGE_RANGE_OPTIONS, defaultVal: AGE_RANGE_OPTIONS[0].value },
-    ethnicity: { options: ETHNICITY_OPTIONS, defaultVal: ETHNICITY_OPTIONS[0].value },
-    poseStyle: { options: POSE_STYLE_OPTIONS, defaultVal: POSE_STYLE_OPTIONS[0].value },
-    background: { options: BACKGROUND_OPTIONS, defaultVal: BACKGROUND_OPTIONS[0].value },
-    fashionStyle: { options: FASHION_STYLE_OPTIONS, defaultVal: FASHION_STYLE_OPTIONS[0].value },
-    hairStyle: { options: HAIR_STYLE_OPTIONS, defaultVal: HAIR_STYLE_OPTIONS[0].value },
-    modelExpression: { options: MODEL_EXPRESSION_OPTIONS, defaultVal: MODEL_EXPRESSION_OPTIONS[0].value },
-    lightingType: { options: LIGHTING_TYPE_OPTIONS, defaultVal: LIGHTING_TYPE_OPTIONS[0].value },
-    lightQuality: { options: LIGHT_QUALITY_OPTIONS, defaultVal: LIGHT_QUALITY_OPTIONS[0].value },
-    modelAngle: { options: MODEL_ANGLE_OPTIONS, defaultVal: MODEL_ANGLE_OPTIONS[0].value },
-    lensEffect: { options: LENS_EFFECT_OPTIONS, defaultVal: LENS_EFFECT_OPTIONS[0].value },
-    depthOfField: { options: DEPTH_OF_FIELD_OPTIONS, defaultVal: DEPTH_OF_FIELD_OPTIONS[0].value },
-    timeOfDay: { options: TIME_OF_DAY_OPTIONS, defaultVal: TIME_OF_DAY_OPTIONS[0].value },
-    overallMood: { options: OVERALL_MOOD_OPTIONS, defaultVal: OVERALL_MOOD_OPTIONS[0].value },
-  }), []);
-
-
-
   // Handlers (Plain functions, relying on React Compiler for memoization)
   const handleParamChange = (key: keyof ModelAttributes, value: string) => {
     setImageSettings({ [key]: value } as Partial<ModelAttributes>);
@@ -140,13 +137,6 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
     toast({ title: "Configuration Randomized", description: "New random style parameters applied." });
   };
 
-  const handleSaveDefaults = () => {
-    toast({ 
-      title: "Defaults Saved",
-      description: "Your current settings have been saved for future sessions."
-    });
-  };
-
   const resetAllParametersToAppDefaults = () => {
     const defaults: Record<string, string> = {};
     Object.entries(PARAMETER_CONFIG).forEach(([key, config]) => {
@@ -164,10 +154,10 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
   };
 
   // Prompt Management
-  const currentImageGenParams = useMemo(() => ({ 
+  const currentImageGenParams = { 
     ...imageSettings, 
     settingsMode 
-  }), [imageSettings, settingsMode]);
+  };
   
   const { currentPrompt, isPromptManuallyEdited } = usePromptManager({
     generationType: 'image',
@@ -290,7 +280,7 @@ export default function ImageParameters({ isPending, maxImages = 3, userModel, o
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground/70">Presets:</span>
-                      <Button variant="outline" onClick={handleSaveDefaults} size="sm" disabled={!preparedImageUrl || isPending} className="h-9 px-3 border-muted/60 hover:border-muted-foreground/40">
+                      <Button variant="outline" size="sm" disabled title="Coming soon" className="h-9 px-3 border-muted/60 hover:border-muted-foreground/40">
                         <Save className="mr-2 h-4 w-4"/> Save Current
                       </Button>
                       <Button variant="ghost" onClick={handleClearDefaults} size="sm" disabled={!preparedImageUrl || isPending} className="h-9 px-3 text-muted-foreground hover:text-foreground">

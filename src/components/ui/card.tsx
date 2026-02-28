@@ -20,7 +20,6 @@ function Card({ className, variant = "default", ref, ...props }: CardProps & { r
     />
   )
 }
-Card.displayName = "Card"
 
 function CardHeader({ className, ref, ...props }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.Ref<HTMLDivElement> }) {
   return (
@@ -31,7 +30,6 @@ function CardHeader({ className, ref, ...props }: React.HTMLAttributes<HTMLDivEl
     />
   )
 }
-CardHeader.displayName = "CardHeader"
 
 function CardTitle({ className, ref, ...props }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.Ref<HTMLDivElement> }) {
   return (
@@ -45,7 +43,6 @@ function CardTitle({ className, ref, ...props }: React.HTMLAttributes<HTMLDivEle
     />
   )
 }
-CardTitle.displayName = "CardTitle"
 
 function CardDescription({ className, ref, ...props }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.Ref<HTMLDivElement> }) {
   return (
@@ -56,14 +53,12 @@ function CardDescription({ className, ref, ...props }: React.HTMLAttributes<HTML
     />
   )
 }
-CardDescription.displayName = "CardDescription"
 
 function CardContent({ className, ref, ...props }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.Ref<HTMLDivElement> }) {
   return (
     <div ref={ref} className={cn("p-6 md:p-8 pt-0", className)} {...props} />
   )
 }
-CardContent.displayName = "CardContent"
 
 function CardFooter({ className, ref, ...props }: React.HTMLAttributes<HTMLDivElement> & { ref?: React.Ref<HTMLDivElement> }) {
   return (
@@ -74,6 +69,5 @@ function CardFooter({ className, ref, ...props }: React.HTMLAttributes<HTMLDivEl
     />
   )
 }
-CardFooter.displayName = "CardFooter"
 
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }

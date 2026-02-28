@@ -14,41 +14,34 @@ const TabsContext = React.createContext<{
 })
 
 // 2. Tabs component provides the active tab value to context
-const Tabs = React.forwardRef<
-  React.ComponentRef<typeof TabsPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root>
->(({ value, ...props }, ref) => (
-  <TabsPrimitive.Root ref={ref} value={value} {...props}>
-    <TabsContext.Provider value={{ activeTab: value || "" }}>
-      {props.children}
-    </TabsContext.Provider>
-  </TabsPrimitive.Root>
-))
-Tabs.displayName = TabsPrimitive.Root.displayName
+function Tabs({ value, ref, ...props }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root> & { ref?: React.Ref<React.ComponentRef<typeof TabsPrimitive.Root>> }) {
+  return (
+    <TabsPrimitive.Root ref={ref} value={value} {...props}>
+      <TabsContext value={{ activeTab: value || "" }}>
+        {props.children}
+      </TabsContext>
+    </TabsPrimitive.Root>
+  )
+}
 
 // 3. TabsList wraps children in LayoutGroup for shared layout animations
-const TabsList = React.forwardRef<
-  React.ComponentRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, children, ...props }, ref) => (
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      "inline-flex h-12 items-center justify-center rounded-xl bg-muted/20 p-1 text-muted-foreground backdrop-blur-xs border border-white/5",
-      className
-    )}
-    {...props}
-  >
-    <LayoutGroup id={React.useId()}>{children}</LayoutGroup>
-  </TabsPrimitive.List>
-))
-TabsList.displayName = TabsPrimitive.List.displayName
+function TabsList({ className, children, ref, ...props }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> & { ref?: React.Ref<React.ComponentRef<typeof TabsPrimitive.List>> }) {
+  return (
+    <TabsPrimitive.List
+      ref={ref}
+      className={cn(
+        "inline-flex h-12 items-center justify-center rounded-xl bg-muted/20 p-1 text-muted-foreground backdrop-blur-xs border border-white/5",
+        className
+      )}
+      {...props}
+    >
+      <LayoutGroup id={React.useId()}>{children}</LayoutGroup>
+    </TabsPrimitive.List>
+  )
+}
 
 // 4. TabsTrigger uses context to determine if it's active and renders the indicator
-const TabsTrigger = React.forwardRef<
-  React.ComponentRef<typeof TabsPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, children, value, ...props }, ref) => {
+function TabsTrigger({ className, children, value, ref, ...props }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> & { ref?: React.Ref<React.ComponentRef<typeof TabsPrimitive.Trigger>> }) {
   const { activeTab } = React.useContext(TabsContext)
   const isActive = activeTab === value
 
@@ -76,23 +69,20 @@ const TabsTrigger = React.forwardRef<
       )}
     </TabsPrimitive.Trigger>
   )
-})
-TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
+}
 
-const TabsContent = React.forwardRef<
-  React.ComponentRef<typeof TabsPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Content
-    ref={ref}
-    className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-      "data-[state=inactive]:hidden",
-      className
-    )}
-    {...props}
-  />
-))
-TabsContent.displayName = TabsPrimitive.Content.displayName
+function TabsContent({ className, ref, ...props }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content> & { ref?: React.Ref<React.ComponentRef<typeof TabsPrimitive.Content>> }) {
+  return (
+    <TabsPrimitive.Content
+      ref={ref}
+      className={cn(
+        "mt-2 ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "data-[state=inactive]:hidden",
+        className
+      )}
+      {...props}
+    />
+  )
+}
 
 export { Tabs, TabsList, TabsTrigger, TabsContent }

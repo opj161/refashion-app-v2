@@ -66,7 +66,7 @@ interface ImagePreparationActions {
   rotateImageRight: () => Promise<void>;
   flipHorizontal: () => Promise<void>;
   flipVertical: () => Promise<void>;
-  initializeFromHistory: (item: HistoryItem) => Promise<void>;
+  initializeFromHistory: (item: Pick<HistoryItem, 'id'>) => Promise<void>;
   initializeFromUrl: (url: string) => Promise<void>;
 }
 

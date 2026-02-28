@@ -2,12 +2,13 @@
 "use client";
 
 import React, { useState, useEffect, useId } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { m, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Download, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import Image from 'next/image';
 
 // Define the glass styles constant to reuse here without importing the Card component
 // This ensures visual consistency with the Card variant defined in step 3
@@ -53,11 +54,16 @@ export function UnifiedMediaModal({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  useEffect(() => {
+  // Sync index with props during render (avoids setState in effect)
+  const [prevOpen, setPrevOpen] = useState(isOpen);
+  const [prevInitialIndex, setPrevInitialIndex] = useState(initialIndex);
+  if (isOpen !== prevOpen || initialIndex !== prevInitialIndex) {
+    setPrevOpen(isOpen);
+    setPrevInitialIndex(initialIndex);
     if (isOpen) {
       setCurrentIndex(initialIndex);
     }
-  }, [isOpen, initialIndex]);
+  }
 
   const handleNext = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -96,6 +102,7 @@ export function UnifiedMediaModal({
       <Button
         variant="ghost"
         size="icon"
+        aria-label="Download"
         onClick={() => onDownload(currentItem)}
         className="h-8 w-8 hover:bg-white/10"
       >
@@ -104,6 +111,7 @@ export function UnifiedMediaModal({
       <Button
         variant="ghost"
         size="icon"
+        aria-label="Delete"
         onClick={() => onDelete(currentItem.id)}
         className="h-8 w-8 hover:bg-red-500/20 hover:text-red-500"
       >
@@ -154,11 +162,16 @@ export function UnifiedMediaModal({
                 className="max-w-full max-h-full rounded-lg shadow-2xl"
               />
             ) : (
-              <img
-                src={currentItem.url}
-                alt={currentItem.prompt}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              />
+              <div className="relative w-full h-full">
+                <Image
+                  src={currentItem.url}
+                  alt={currentItem.prompt || 'Generated image'}
+                  fill
+                  className="object-contain rounded-lg shadow-2xl"
+                  sizes="(max-width: 768px) 100vw, 80vw"
+                  unoptimized
+                />
+              </div>
             )}
           </m.div>
         </AnimatePresence>
@@ -168,6 +181,7 @@ export function UnifiedMediaModal({
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Previous image"
             className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity z-10"
             onClick={handlePrev}
           >
@@ -178,6 +192,7 @@ export function UnifiedMediaModal({
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Next image"
             className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity z-10"
             onClick={handleNext}
           >
@@ -208,6 +223,7 @@ export function UnifiedMediaModal({
           GLASS_STYLES,
           "lg:grid lg:grid-rows-[auto_1fr_auto] lg:grid-cols-[1fr,minmax(350px,400px)] lg:gap-x-6"
         )}>
+          <DialogTitle className="sr-only">Media Viewer</DialogTitle>
           {ModalContent}
         </DialogContent>
       </Dialog>

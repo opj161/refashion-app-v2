@@ -1,7 +1,7 @@
 // src/components/GenerationProgressIndicator.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, Sparkles, CheckCircle2 } from "lucide-react";
@@ -46,48 +46,47 @@ export function GenerationProgressIndicator({
   message,
   imageCount = 3,
 }: GenerationProgressIndicatorProps) {
-  const [estimatedProgress, setEstimatedProgress] = useState(0);
-  const [currentStage, setCurrentStage] = useState<typeof stage>(stage);
+  const [simulatedProgress, setSimulatedProgress] = useState(0);
+
+  // Reset simulation during render when generation stops (avoids setState in effect)
+  const [prevIsGenerating, setPrevIsGenerating] = useState(false);
+  if (isGenerating !== prevIsGenerating) {
+    setPrevIsGenerating(isGenerating);
+    if (!isGenerating) {
+      setSimulatedProgress(0);
+    }
+  }
+
+  // Derive display progress: real progress takes precedence, then simulation, then 0
+  const estimatedProgress = !isGenerating ? 0 : progress > 0 ? progress : simulatedProgress;
+
+  // Derive stage from progress and isGenerating — no useEffect cycle
+  const currentStage = useMemo((): typeof stage => {
+    if (!isGenerating) return "preparing";
+    if (progress >= 100) return "complete";
+    if (progress >= 90) return "finalizing";
+    if (progress >= 30) return "processing";
+    if (progress > 0) return "processing";
+    return "preparing";
+  }, [isGenerating, progress]);
 
   const Icon = STAGE_ICONS[currentStage];
   const displayMessage = message || STAGE_MESSAGES[currentStage];
   const isComplete = currentStage === "complete";
 
-  // Simulate progress estimation when actual progress is not provided
+  // Simulate gradual progress when no real progress data is available
   useEffect(() => {
-    if (!isGenerating) {
-      setEstimatedProgress(0);
-      return;
-    }
+    if (!isGenerating || progress > 0) return;
 
-    // Auto-advance stages based on progress
-    if (progress === 0 && currentStage !== "preparing") {
-      setCurrentStage("preparing");
-    } else if (progress > 0 && progress < 30 && currentStage === "preparing") {
-      setCurrentStage("processing");
-    } else if (progress >= 30 && progress < 90 && currentStage !== "processing") {
-      setCurrentStage("processing");
-    } else if (progress >= 90 && progress < 100) {
-      setCurrentStage("finalizing");
-    } else if (progress >= 100) {
-      setCurrentStage("complete");
-    }
-
-    if (progress > 0) {
-      setEstimatedProgress(progress);
-      return;
-    }
-
-    // Gradual progress simulation for better UX when no real progress data
     const interval = setInterval(() => {
-      setEstimatedProgress((prev) => {
-        if (prev >= 95) return prev; // Cap at 95% until actual completion
-        return prev + Math.random() * 2; // Increment by 0-2%
+      setSimulatedProgress((prev) => {
+        if (prev >= 95) return prev;
+        return prev + Math.random() * 2;
       });
     }, 500);
 
     return () => clearInterval(interval);
-  }, [isGenerating, progress, currentStage]);
+  }, [isGenerating, progress]);
 
   if (!isGenerating && estimatedProgress === 0) {
     return null;
@@ -103,7 +102,7 @@ export function GenerationProgressIndicator({
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
           <Card className="border-primary/20 bg-card/50 backdrop-blur-sm">
-            <CardContent className="space-y-4 pb-6 pt-6">
+            <CardContent className="space-y-4 pb-6 pt-6" aria-live="polite">
               {/* Header with icon and message */}
               <div className="flex items-center gap-3">
                 <Icon

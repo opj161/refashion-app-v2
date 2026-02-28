@@ -57,7 +57,7 @@ function Button({ className, variant, size, asChild = false, ref, ...props }: Bu
     )
   }
   // Remove onDrag from props to avoid type conflict with motion.button
-  const { onDrag, ...rest } = props as any
+  const { onDrag, ...rest } = props as Record<string, unknown>
   return (
     <m.button
       className={cn(buttonVariants({ variant, size, className }))}
@@ -73,6 +73,5 @@ function Button({ className, variant, size, asChild = false, ref, ...props }: Bu
     />
   )
 }
-Button.displayName = "Button"
 
 export { Button, buttonVariants }

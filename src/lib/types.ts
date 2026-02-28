@@ -43,6 +43,9 @@ export interface HistoryItem {
     cameraFixed: boolean;
     // Webhook-related fields
     localVideoUrl?: string | null;
+    // Persisted UI state
+    selectedPredefinedPrompt?: string;
+    aspect_ratio?: string;
   };
   status?: 'processing' | 'completed' | 'failed';
   error?: string;
@@ -70,6 +73,7 @@ export interface ModelAttributes {
   // Studio Mode Attributes
   studioFit?: StudioFitValue;
   aspectRatio?: AspectRatioValue;
+  studioAspectRatio?: string;
 }
 
 export interface PixelCrop {

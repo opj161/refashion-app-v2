@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { LazyMotion, domMax } from 'motion/react';
 import { AuthStoreInitializer } from '@/stores/AuthStoreInitializer';
@@ -12,17 +12,17 @@ import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { cn } from '@/lib/utils';
 import type { SessionUser } from '@/lib/types';
 
+const emptySubscribe = () => () => {};
+const returnTrue = () => true;
+const returnFalse = () => false;
+
 interface AppBodyProps {
   children: ReactNode;
   initialUser: SessionUser | null;
 }
 
 export function AppBody({ children, initialUser }: AppBodyProps) {
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useSyncExternalStore(emptySubscribe, returnTrue, returnFalse);
 
   return (
     <LazyMotion features={domMax}>

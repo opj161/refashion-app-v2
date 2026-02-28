@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -79,11 +79,11 @@ export default function ImagePreparationContainer({
 
   // Refactored: Only handles Aspect Ratio logic now
   // Dimensions are handled internally by ImageEditorCanvas
-  const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     if (aspect) {
       setAspect(aspect);
     }
-  }, [setAspect, aspect]);
+  }
 
   const handleCropChange = (pixelCrop: PixelCrop, percentCrop: Crop) => {
     setCrop(percentCrop);

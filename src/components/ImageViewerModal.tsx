@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -125,7 +125,7 @@ export function ImageViewerModal({
   const [showMobileInfo, setShowMobileInfo] = useState(false);
 
   // Aggregate all images: Original + Generated (filtering out nulls)
-  const images = useMemo(() => {
+  const images = (() => {
     if (!item) return [];
     // Only include generated images, not the original
     const imgs = item.editedImageUrls.map((url, i) => ({
@@ -135,7 +135,7 @@ export function ImageViewerModal({
       index: i // Keep track of the real slot index for actions
     })).filter((img): img is { type: string; url: string; isGenerated: boolean; index: number } => !!img.url); // Filter out failed generations
     return imgs;
-  }, [item]);
+  })();
 
   // Set initial index based on passed URL
   useEffect(() => {
@@ -153,8 +153,10 @@ export function ImageViewerModal({
   const hasNext = selectedIndex < images.length - 1;
   const hasPrev = selectedIndex > 0;
 
-  const handleNext = useCallback(() => hasNext && setSelectedIndex(prev => prev + 1), [hasNext]);
-  const handlePrev = useCallback(() => hasPrev && setSelectedIndex(prev => prev - 1), [hasPrev]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler auto-memoizes these functions
+  function handleNext() { hasNext && setSelectedIndex(prev => prev + 1); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler auto-memoizes these functions
+  function handlePrev() { hasPrev && setSelectedIndex(prev => prev - 1); }
 
   // Keyboard Navigation
   useEffect(() => {

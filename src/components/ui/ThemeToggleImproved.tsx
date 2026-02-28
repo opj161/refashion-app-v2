@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { Moon, Sun, Monitor, Check, ChevronDown, Settings } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
+function subscribeToColorScheme(callback: () => void) {
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  mediaQuery.addEventListener('change', callback);
+  return () => mediaQuery.removeEventListener('change', callback);
+}
+
+function getColorSchemeSnapshot(): 'light' | 'dark' {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function getColorSchemeServerSnapshot(): 'light' | 'dark' {
+  return 'light';
+}
+
 interface ThemeToggleProps {
   variant?: 'icon' | 'button' | 'compact';
   showLabel?: boolean;
@@ -20,21 +34,12 @@ interface ThemeToggleProps {
 
 export function ThemeToggleImproved({ variant = 'button', showLabel = true }: ThemeToggleProps) {
   const { theme, setTheme, isHydrated } = useTheme();
-  const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>('light');
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      setEffectiveTheme(mediaQuery.matches ? 'dark' : 'light');
-      const handler = (e: MediaQueryListEvent) => setEffectiveTheme(e.matches ? 'dark' : 'light');
-      mediaQuery.addEventListener('change', handler);
-      return () => mediaQuery.removeEventListener('change', handler);
-    } else {
-      setEffectiveTheme(theme);
-    }
-  }, [theme]);
+  const systemTheme = useSyncExternalStore(
+    subscribeToColorScheme,
+    getColorSchemeSnapshot,
+    getColorSchemeServerSnapshot
+  );
+  const effectiveTheme: 'light' | 'dark' = theme === 'system' ? systemTheme : (theme as 'light' | 'dark');
 
   const getIcon = () => {
     if (!isHydrated) {

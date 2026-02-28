@@ -1,5 +1,7 @@
+'use client'
+
 // src/hooks/usePromptManager.ts
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { buildAIPrompt, BaseGenerationParams, ImageDetails } from '@/lib/prompt-builder';
 
 interface UsePromptManagerProps {
@@ -18,13 +20,14 @@ export function usePromptManager({
   const [currentPrompt, setCurrentPrompt] = useState<string>(initialPrompt);
   const [isPromptManuallyEdited, setIsPromptManuallyEdited] = useState<boolean>(false);
 
-  const generatePromptFromParams = useCallback(() => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler auto-memoizes this function
+  function generatePromptFromParams() {
     return buildAIPrompt({
       type: generationType,
       params: generationParams,
       imageDetails: imageDetails,
     });
-  }, [generationType, generationParams, imageDetails]);
+  }
 
   useEffect(() => {
     if (!isPromptManuallyEdited) {
@@ -32,25 +35,24 @@ export function usePromptManager({
     }
   }, [isPromptManuallyEdited, generatePromptFromParams]);
 
-  const handlePromptChange = useCallback((newPrompt: string) => {
+  function handlePromptChange(newPrompt: string) {
     setCurrentPrompt(newPrompt);
     setIsPromptManuallyEdited(true);
-  }, []);
+  }
 
-  const resetPromptToAuto = useCallback(() => {
+  function resetPromptToAuto() {
     setIsPromptManuallyEdited(false);
     // The useEffect above will trigger a regeneration of the prompt
     // and update currentPrompt if isPromptManuallyEdited was true.
     // If it was already false, explicitly set it to ensure re-render if params changed meanwhile.
     setCurrentPrompt(generatePromptFromParams());
-  }, [generatePromptFromParams]);
+  }
 
-  // This function checks if the current manual prompt is out of sync with what would be auto-generated.
-  // Memoized to prevent unnecessary recalculations
-  const isManualPromptOutOfSync = useMemo(() : boolean => {
+  // This checks if the current manual prompt is out of sync with what would be auto-generated.
+  const isManualPromptOutOfSync: boolean = (() => {
     if (!isPromptManuallyEdited) return false;
     return currentPrompt !== generatePromptFromParams();
-  }, [isPromptManuallyEdited, currentPrompt, generatePromptFromParams]);
+  })();
 
   return {
     currentPrompt,

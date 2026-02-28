@@ -1,15 +1,17 @@
+'use client'
+
 import { useActionState, useEffect, useRef, startTransition } from 'react';
 import { useGenerationSettingsStore } from '@/stores/generationSettingsStore';
 import { useImageStore } from '@/stores/imageStore';
 import { useToast } from '@/hooks/use-toast';
 
 // Type definition for the Server Action
-type ActionFunction = (prevState: any, formData: FormData) => Promise<any>;
+type ActionFunction<S> = (prevState: Awaited<S>, formData: FormData) => S | Promise<S>;
 
 export function useStoreSubmission<T extends { message: string; error?: string; newHistoryId?: string; historyItemId?: string; editedImageUrls?: (string | null)[]; errors?: (string | null)[] }>(
-    serverAction: ActionFunction,
+    serverAction: ActionFunction<T>,
     submissionType: 'image' | 'video',
-    initialState: T
+    initialState: Awaited<T>
 ) {
     const { toast } = useToast();
 
@@ -18,7 +20,7 @@ export function useStoreSubmission<T extends { message: string; error?: string; 
     const setCurrentResultId = useGenerationSettingsStore(state => state.setCurrentResultId);
 
     // React 19 Action State
-    const [state, formAction, isPending] = useActionState(serverAction, initialState as any);
+    const [state, formAction, isPending] = useActionState(serverAction, initialState);
     const prevResultId = useRef<string | undefined>(undefined);
 
     // Helper to construct FormData from Stores dynamically

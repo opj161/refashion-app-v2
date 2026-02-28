@@ -1,8 +1,9 @@
 // src/components/creation-hub.tsx
 "use client";
 
-import React, { useCallback, useState, useEffect, Suspense } from "react";
+import React, { useCallback, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import type { Route } from 'next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/SegmentedControl";
 import { m, AnimatePresence } from "motion/react";
@@ -12,7 +13,6 @@ import VideoParameters from "./video-parameters";
 import { useToast } from "@/hooks/use-toast";
 import { useGenerationSettingsStore } from "@/stores/generationSettingsStore";
 import { useShallow } from 'zustand/react/shallow';
-import type { HistoryItem } from '@/lib/types';
 import { useImageStore } from '@/stores/imageStore';
 import { Sparkles, Camera, Grid3x3, Image as ImageIcon, Video } from 'lucide-react';
 import { COMMON_VARIANTS } from "@/lib/motion-constants";
@@ -42,9 +42,9 @@ function CreationHubContent({
   // Sync Store with URL
   const modeFromUrl = searchParams.get('mode');
 
-  // State for initialization from history
-  const [initHistoryItem, setInitHistoryItem] = useState<HistoryItem | null>(null);
-  const [initImageUrl, setInitImageUrl] = useState<string | null>(null);
+  // Get actions from image store
+  const { initializeFromHistory, initializeFromUrl, reset } = useImageStore();
+  const initializedParamsRef = useRef<string | null>(null);
 
   // Get generationMode and historyFilter state and actions from the store
   const { 
@@ -69,66 +69,34 @@ function CreationHubContent({
     }
   }, [modeFromUrl, setGenerationMode]);
 
-  // Effect to read query params on initial load
+  // Initialize from URL params (history ID or image URL) on load
   useEffect(() => {
     const historyId = searchParams.get('init_history_id');
     const imageUrl = searchParams.get('init_image_url');
-    // const tab = searchParams.get('target_tab'); // Handled by derived state now
+    const paramsKey = `${historyId || ''}-${imageUrl || ''}`;
+    if (paramsKey === initializedParamsRef.current || (!historyId && !imageUrl)) return;
+    initializedParamsRef.current = paramsKey;
 
     if (historyId) {
-      // We pass a "fake" history item with just the ID to the context
-      setInitHistoryItem({ id: historyId } as HistoryItem);
-      // if (tab) setCurrentTab(tab); // Handled by URL
-      
-      // We do NOT clear URL anymore, we want it to persist
+      initializeFromHistory({ id: historyId });
     } else if (imageUrl) {
-      setInitImageUrl(imageUrl);
-      
-      // IMPROVEMENT: Capture prompt context for Video Generation if provided
+      initializeFromUrl(imageUrl);
       const prompt = searchParams.get('init_prompt');
       if (prompt) {
         setActiveVideoPrompt(prompt);
       }
-      // setCurrentTab('image'); // Handled by URL if we update it
-      // setGenerationMode('studio'); // Handled by URL if we update it
-      
-      // We do NOT clear URL anymore
     }
-  }, [searchParams, setGenerationMode, setActiveVideoPrompt]);
+  }, [searchParams, initializeFromHistory, initializeFromUrl, setActiveVideoPrompt]);
 
   // Handler to load from image URL - will be passed to components that need it
   const handleLoadFromImageUrl = useCallback((imageUrl: string) => {
-    setInitImageUrl(imageUrl);
+    initializeFromUrl(imageUrl);
     // Update URL
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', 'image');
     params.set('mode', 'studio');
-    router.replace(`${pathname}?${params.toString()}` as any, { scroll: false });
-  }, [pathname, router, searchParams]);
-
-  // Reset initialization state after it's consumed
-  const handleInitializationComplete = useCallback(() => {
-    setInitHistoryItem(null);
-    setInitImageUrl(null);
-  }, []);
-
-  // Get actions from store
-  const { initializeFromHistory, initializeFromUrl, reset } = useImageStore();
-
-  // Effect to handle initialization
-  useEffect(() => {
-    if (initHistoryItem) {
-      // Only initialize if we have a valid item and it's for the current tab (or we just switched)
-      // Actually, since the store is global, we just initialize.
-      // But we should check if we are already initialized to avoid loops?
-      // The store actions are async but we don't await them here.
-      initializeFromHistory(initHistoryItem);
-      handleInitializationComplete();
-    } else if (initImageUrl) {
-      initializeFromUrl(initImageUrl);
-      handleInitializationComplete();
-    }
-  }, [initHistoryItem, initImageUrl, initializeFromHistory, initializeFromUrl, handleInitializationComplete]);
+    router.replace(`${pathname}?${params.toString()}` as Route, { scroll: false });
+  }, [pathname, router, searchParams, initializeFromUrl]);
 
   // Pure client-side reset - calls the store reset
   const handleReset = useCallback(() => {
@@ -143,7 +111,7 @@ function CreationHubContent({
   const handleTabChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', value);
-    router.replace(`${pathname}?${params.toString()}` as any, { scroll: false });
+    router.replace(`${pathname}?${params.toString()}` as Route, { scroll: false });
   };
 
   return (
@@ -157,19 +125,19 @@ function CreationHubContent({
               value="image" 
               className="flex-1 text-base font-medium h-full rounded-lg"
             >
-              🖼️ Image
+              <span aria-hidden="true">🖼️</span> Image
             </TabsTrigger>
             <TabsTrigger 
               value="video" 
               className="flex-1 text-base font-medium h-full rounded-lg"
             >
-              🎥 Video
+              <span aria-hidden="true">🎥</span> Video
             </TabsTrigger>
             <TabsTrigger 
               value="history" 
               className="flex-1 text-base font-medium h-full rounded-lg"
             >
-              📃 History
+              <span aria-hidden="true">📃</span> History
             </TabsTrigger>
           </TabsList>
 
@@ -191,7 +159,7 @@ function CreationHubContent({
                       if (mode) {
                         const params = new URLSearchParams(searchParams.toString());
                         params.set('mode', mode);
-                        router.replace(`${pathname}?${params.toString()}` as any, { scroll: false });
+                        router.replace(`${pathname}?${params.toString()}` as Route, { scroll: false });
                       }
                     }}
                     className="w-auto min-w-[300px] p-1 bg-muted/30 rounded-xl border border-white/5"
@@ -244,7 +212,6 @@ function CreationHubContent({
 
           {/* Unified workspace with both modes and results display */}
           <ImageGenerationWorkspace
-            setCurrentTab={handleTabChange}
             onLoadImageUrl={handleLoadFromImageUrl}
             maxImages={maxImages}
             userModel={userModel} // NEW

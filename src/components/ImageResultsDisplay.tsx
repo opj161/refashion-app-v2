@@ -13,11 +13,28 @@ import { useGenerationSettingsStore } from '@/stores/generationSettingsStore';
 import { useImageStore } from '@/stores/imageStore';
 import { useSmartPolling } from '@/hooks/useSmartPolling';
 import { useShallow } from 'zustand/react/shallow';
+import type { ModelAttributes } from '@/lib/types';
+
+/** Shape of polling response from /api/history/[id]/status */
+interface PollingResultData {
+  status?: 'processing' | 'completed' | 'failed';
+  error?: string;
+  editedImageUrls?: (string | null)[];
+  videoUrl?: string;
+  localVideoUrl?: string;
+}
 
 interface ImageResultsDisplayProps {
-  setCurrentTab?: (tab: string) => void;
   onLoadImageUrl?: (imageUrl: string) => void;
   maxImages?: number;
+}
+
+/** Download an image via programmatic anchor click (module-level to satisfy purity) */
+function triggerImageDownload(url: string, index: number) {
+  const link = document.createElement('a');
+  link.href = getDisplayableImageUrl(url) || '';
+  link.download = `Refashion_${index}_${Date.now()}.png`;
+  link.click();
 }
 
 export function ImageResultsDisplay({
@@ -44,7 +61,7 @@ export function ImageResultsDisplay({
   }[studioAspectRatio] || 'aspect-[2/3]';
 
   // Local State
-  const [resultData, setResultData] = useState<any>(null);
+  const [resultData, setResultData] = useState<PollingResultData | null>(null);
   const [pollingStatus, setPollingStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle');
   const [localErrors, setLocalErrors] = useState<string[]>([]);
 
@@ -52,17 +69,19 @@ export function ImageResultsDisplay({
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
 
-  // 2. Reset state when ID changes
-  useEffect(() => {
+  // 2. Reset state when ID changes (render-phase adjustment)
+  const [prevResultId, setPrevResultId] = useState(currentResultId);
+  if (currentResultId !== prevResultId) {
+    setPrevResultId(currentResultId);
     if (currentResultId) {
       setPollingStatus('processing');
       setResultData(null);
       setLocalErrors([]);
     }
-  }, [currentResultId]);
+  }
 
   // 3. Smart Polling
-  const { data: pollingData } = useSmartPolling(
+  const { data: pollingData } = useSmartPolling<PollingResultData>(
     currentResultId ? `/api/history/${currentResultId}/status` : null,
     !!currentResultId && pollingStatus === 'processing',
     {
@@ -82,25 +101,22 @@ export function ImageResultsDisplay({
     }
   );
 
-  // Sync polling data for intermediate updates (e.g. 1 of 3 images done)
-  useEffect(() => {
+  // Sync polling data for intermediate updates (render-phase adjustment)
+  const [prevPollingData, setPrevPollingData] = useState(pollingData);
+  if (pollingData !== prevPollingData) {
+    setPrevPollingData(pollingData);
     if (pollingData) {
       setResultData(pollingData);
       if (pollingData.error) setLocalErrors([pollingData.error]);
     }
-  }, [pollingData]);
+  }
 
   const handleImageClick = (url: string) => {
     setSelectedImageUrl(url);
     setIsImageViewerOpen(true);
   };
 
-  const handleDownload = (url: string, index: number) => {
-    const link = document.createElement('a');
-    link.href = getDisplayableImageUrl(url) || '';
-    link.download = `Refashion_${index}_${Date.now()}.png`;
-    link.click();
-  };
+  const handleDownload = triggerImageDownload;
 
   const handleUseAsInput = (url: string) => {
     initializeFromUrl(url);
@@ -180,9 +196,9 @@ export function ImageResultsDisplay({
               sizes={isSingleImage ? '(max-width: 640px) 100vw, 384px' : '(max-width: 768px) 100vw, 33vw'}
             />
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-xs">
-              <Button size="icon" variant="secondary" onClick={() => handleImageClick(url)}><Maximize2 className="h-4 w-4" /></Button>
-              <Button size="icon" variant="secondary" onClick={() => handleDownload(url, index)}><Download className="h-4 w-4" /></Button>
-              <Button size="icon" variant="secondary" onClick={() => handleUseAsInput(url)}><RefreshCw className="h-4 w-4" /></Button>
+              <Button size="icon" variant="secondary" aria-label="Expand image" onClick={() => handleImageClick(url)}><Maximize2 className="h-4 w-4" /></Button>
+              <Button size="icon" variant="secondary" aria-label="Download image" onClick={() => handleDownload(url, index)}><Download className="h-4 w-4" /></Button>
+              <Button size="icon" variant="secondary" aria-label="Use as input" onClick={() => handleUseAsInput(url)}><RefreshCw className="h-4 w-4" /></Button>
             </div>
           </>
         )}
@@ -220,7 +236,7 @@ export function ImageResultsDisplay({
           isOpen={isImageViewerOpen}
           onClose={() => setIsImageViewerOpen(false)}
           initialImageUrl={selectedImageUrl}
-          item={{ id: currentResultId || 'preview', timestamp: Date.now(), constructedPrompt: '', originalClothingUrl: '', editedImageUrls: urls, attributes: {} as any, username: '' } as any}
+          item={{ id: currentResultId || 'preview', timestamp: 0, constructedPrompt: '', originalClothingUrl: '', editedImageUrls: urls, attributes: {} as ModelAttributes, username: '' }}
         />
       )}
     </>

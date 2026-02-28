@@ -1,7 +1,7 @@
 // src/components/ImageUploader.tsx
 "use client";
 
-import React, { useRef, useState, useCallback, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,7 +62,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
   };
 
   // --- File Processing ---
-  const processFile = useCallback(async (file: File | null | undefined) => {
+  async function processFile(file: File | null | undefined) {
     if (!file) return;
     
     // Validate file
@@ -107,7 +107,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
     } finally {
       setIsUploading(false);
     }
-  }, [toast, uploadOriginalImage, router]);
+  }
 
   // --- Recent Asset Handling ---
   const handleRecentSelect = async (url: string) => {
@@ -155,7 +155,8 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
     processFile(e.target.files?.[0]);
   };
   
-  const handleDragAction = useCallback((e: React.DragEvent, action: 'enter' | 'leave' | 'over' | 'drop') => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler auto-memoizes this function
+  function handleDragAction(e: React.DragEvent, action: 'enter' | 'leave' | 'over' | 'drop') {
     e.preventDefault();
     e.stopPropagation();
     
@@ -175,7 +176,7 @@ export default function ImageUploader({ recentUploads = [] }: ImageUploaderProps
       setIsDraggingOverPage(false);
       processFile(e.dataTransfer.files[0]);
     }
-  }, [processFile, isUploading]);
+  }
 
   // Modify handleDragAction to set state for the drop zone specifically
   const handleDropZoneDrag = (e: React.DragEvent, action: 'enter' | 'leave') => {

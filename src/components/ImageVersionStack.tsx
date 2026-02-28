@@ -66,6 +66,9 @@ export default function ImageVersionStack() {
           return (
             <div
               key={version.id}
+              role="button"
+              tabIndex={isProcessing || isProcessingOptimistic ? -1 : 0}
+              aria-label={`Select version: ${version.label || version.id}`}
               className={cn(
                 "flex items-center justify-between rounded-lg border p-3 transition-all",
                 // Different style for an active, processing item
@@ -78,6 +81,12 @@ export default function ImageVersionStack() {
                 isProcessing || isProcessingOptimistic ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
               )}
               onClick={() => !(isProcessing || isProcessingOptimistic) && setActiveVersion(version.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  if (!(isProcessing || isProcessingOptimistic)) setActiveVersion(version.id);
+                }
+              }}
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <div

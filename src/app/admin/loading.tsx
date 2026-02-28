@@ -1,6 +1,6 @@
 export default function AdminLoading() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" role="status" aria-label="Loading">
       {/* KPI cards skeleton */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (

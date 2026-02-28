@@ -11,12 +11,10 @@ import { GenerationProgressIndicator } from './GenerationProgressIndicator';
 import { useStoreSubmission } from '@/hooks/useStoreSubmission';
 
 export function ImageGenerationWorkspace({
-  setCurrentTab,
   onLoadImageUrl,
   maxImages = 3,
   userModel,
 }: {
-  setCurrentTab?: (tab: string) => void;
   onLoadImageUrl?: (imageUrl: string) => void;
   maxImages?: number;
   userModel?: string;
@@ -84,7 +82,6 @@ export function ImageGenerationWorkspace({
         )}
 
         <ImageResultsDisplay
-          setCurrentTab={setCurrentTab}
           onLoadImageUrl={onLoadImageUrl}
           maxImages={maxImages}
         />

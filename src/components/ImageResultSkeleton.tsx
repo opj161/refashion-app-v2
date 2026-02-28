@@ -1,6 +1,4 @@
 // src/components/ImageResultSkeleton.tsx
-"use client";
-
 import React from 'react';
 
 /**
@@ -10,7 +8,7 @@ import React from 'react';
  */
 export function ImageResultSkeleton() {
   return (
-    <div className="w-full h-full bg-muted/40 rounded-lg overflow-hidden animate-pulse flex flex-col items-center justify-center gap-3">
+    <div className="w-full h-full bg-muted/40 rounded-lg overflow-hidden animate-pulse flex flex-col items-center justify-center gap-3" role="status" aria-label="Loading image result">
       {/* Shimmer overlay */}
       <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" />
       {/* Centered icon placeholder */}

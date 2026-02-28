@@ -15,6 +15,7 @@ export interface VideoParameters {
   duration: '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
   seed: string;
   cameraFixed: boolean;
+  aspect_ratio?: string;
 }
 
 export interface GenerationSettingsState {
@@ -168,15 +169,15 @@ export const useGenerationSettingsStore = create<GenerationSettingsState & Gener
           };
           if (item.settingsMode) newState.settingsMode = item.settingsMode;
           newState.generationMode = item.generation_mode || 'creative';
-          if (item.generation_mode === 'studio' && (item.attributes as any).studioFit) {
-            newState.studioFit = (item.attributes as any).studioFit;
+          if (item.generation_mode === 'studio' && item.attributes.studioFit) {
+            newState.studioFit = item.attributes.studioFit;
           }
-          if (item.generation_mode === 'studio' && (item.attributes as any).studioAspectRatio) {
-            newState.studioAspectRatio = (item.attributes as any).studioAspectRatio;
+          if (item.generation_mode === 'studio' && item.attributes.studioAspectRatio) {
+            newState.studioAspectRatio = item.attributes.studioAspectRatio;
           }
           if (item.videoGenerationParams) {
             newState.videoSettings = {
-              selectedPredefinedPrompt: (item.videoGenerationParams as any).selectedPredefinedPrompt || defaultVideoSettings.selectedPredefinedPrompt,
+              selectedPredefinedPrompt: item.videoGenerationParams.selectedPredefinedPrompt || defaultVideoSettings.selectedPredefinedPrompt,
               modelMovement: item.videoGenerationParams.modelMovement || defaultVideoSettings.modelMovement,
               fabricMotion: item.videoGenerationParams.fabricMotion || defaultVideoSettings.fabricMotion,
               cameraAction: item.videoGenerationParams.cameraAction || defaultVideoSettings.cameraAction,

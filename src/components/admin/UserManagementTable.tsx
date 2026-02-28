@@ -123,7 +123,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
 
   const handleConfigChange = (field: keyof User, value: string) => {
     if (editedUserConfig) {
-      setEditedUserConfig({ ...editedUserConfig, [field]: value as any });
+      setEditedUserConfig({ ...editedUserConfig, [field]: value } as User);
     }
   };
 
@@ -236,7 +236,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                     <Button variant="ghost" size="icon" onClick={() => setUserToEdit(user)} disabled={isSubmitting} aria-label={`Edit ${user.username}`}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={isSubmitting}>
+                    <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={isSubmitting} aria-label={`Delete ${user.username}`}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>
@@ -262,7 +262,7 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                 <Button variant="ghost" size="icon" onClick={() => setUserToEdit(user)} disabled={isSubmitting} aria-label={`Edit ${user.username}`}>
                   <Edit className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={isSubmitting}>
+                <Button variant="ghost" size="icon" onClick={() => setUserToDelete(user)} disabled={isSubmitting} aria-label={`Delete ${user.username}`}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
@@ -316,14 +316,14 @@ export function UserManagementTable({ initialUsers, maskedGlobalKeys }: UserMana
                     <AccordionContent className="space-y-4 pt-4">
                       <div className="space-y-2">
                         <Label htmlFor={`gemini_api_key_${i}_mode`}>Mode</Label>
-                        <Select name={`gemini_api_key_${i}_mode`} value={(editedUserConfig as any)?.[`gemini_api_key_${i}_mode`] || 'global'} onValueChange={(value) => handleConfigChange(`gemini_api_key_${i}_mode` as keyof User, value)}>
+                        <Select name={`gemini_api_key_${i}_mode`} value={editedUserConfig?.[`gemini_api_key_${i}_mode` as keyof User] as string || 'global'} onValueChange={(value) => handleConfigChange(`gemini_api_key_${i}_mode` as keyof User, value)}>
                           <SelectTrigger id={`gemini_api_key_${i}_mode`}><SelectValue /></SelectTrigger>
                           <SelectContent><SelectItem value="global">Global</SelectItem><SelectItem value="user_specific">User-Specific</SelectItem></SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor={`gemini_api_key_${i}`}>User-Specific Key (Optional)</Label>
-                        {(editedUserConfig as any)?.[`gemini_api_key_${i}_mode`] === 'user_specific' ? (
+                        {editedUserConfig?.[`gemini_api_key_${i}_mode` as keyof User] === 'user_specific' ? (
                           <Input id={`gemini_api_key_${i}`} name={`gemini_api_key_${i}`} type="password" placeholder="Enter a new key, or leave blank to clear" />
                         ) : (
                           <Input id={`gemini_api_key_${i}_global`} name={`gemini_api_key_${i}_global`} disabled value={maskedGlobalKeys?.[`gemini${i}` as keyof typeof maskedGlobalKeys] || 'Global Key Not Set'} />

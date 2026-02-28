@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function HistoryLoading() {
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-10 space-y-8">
+    <div className="container mx-auto max-w-7xl px-4 py-10 space-y-8" role="status" aria-label="Loading">
       {/* Page header skeleton */}
       <header className="text-center py-4">
         <div className="flex items-center justify-center gap-3 sm:gap-4">

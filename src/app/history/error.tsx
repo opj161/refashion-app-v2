@@ -25,9 +25,15 @@ export default function HistoryError({
           <p>
             We couldn&apos;t load your creation history. This might be a temporary issue.
           </p>
-          <div className="bg-background/10 p-2 rounded text-xs font-mono break-all">
-            {error.message || 'Unknown error'}
-          </div>
+          {process.env.NODE_ENV === 'development' ? (
+            <div className="bg-background/10 p-2 rounded text-xs font-mono break-all">
+              {error.message || 'Unknown error'}
+            </div>
+          ) : error.digest ? (
+            <div className="bg-background/10 p-2 rounded text-xs font-mono break-all">
+              Error ID: {error.digest}
+            </div>
+          ) : null}
           <Button
             variant="outline"
             onClick={() => reset()}

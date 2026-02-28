@@ -29,7 +29,7 @@ export function UserMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         {/* REFACTOR: h-8 w-8 -> size-8 */}
-        <Button variant="ghost" className="relative size-8 rounded-full bg-gradient-to-r from-primary to-primary-gradient-end text-white text-sm font-semibold">
+        <Button variant="ghost" aria-label="User menu" className="relative size-8 rounded-full bg-gradient-to-r from-primary to-primary-gradient-end text-white text-sm font-semibold">
           {user.username.charAt(0).toUpperCase()}
         </Button>
       </DropdownMenuTrigger>
@@ -46,14 +46,13 @@ export function UserMenu() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <form action={logoutUser} className="w-full">
-            <button type="submit" className="flex items-center w-full h-full text-left cursor-default">
-              {/* REFACTOR: h-4 w-4 -> size-4 */}
-              <LogOut className="mr-2 size-4" />
-              <span>Log out</span>
-            </button>
-          </form>
+        <DropdownMenuItem
+          onSelect={() => {
+            logoutUser();
+          }}
+        >
+          <LogOut className="mr-2 size-4" />
+          Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
