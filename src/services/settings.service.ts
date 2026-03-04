@@ -70,7 +70,7 @@ export function getAllSettings(): Record<SettingKey, string> {
     
     // Override with values from DB
     for (const row of rows) {
-        if (Object.keys(DEFAULTS).includes(row.key)) {
+        if (Object.prototype.hasOwnProperty.call(DEFAULTS, row.key)) {
             allSettings[row.key] = row.value;
         }
     }
