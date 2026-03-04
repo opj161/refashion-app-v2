@@ -104,6 +104,7 @@ describe('Database Migration System', () => {
         timestamp INTEGER NOT NULL,
         generation_mode TEXT NOT NULL DEFAULT 'creative'
       );
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
     `);
 
     // Set version to 1 (latest)
@@ -137,6 +138,7 @@ describe('Database Migration System', () => {
         error TEXT,
         image_generation_model TEXT
       );
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
     `);
 
     // Explicitly set version to 0
@@ -180,6 +182,7 @@ describe('Database Migration System', () => {
         timestamp INTEGER NOT NULL,
         generation_mode TEXT NOT NULL DEFAULT 'creative'
       );
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
     `);
 
     testDb.prepare('PRAGMA user_version = 0').run();
@@ -216,6 +219,7 @@ describe('Database Migration System', () => {
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL
       );
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
     `);
 
     testDb.prepare('PRAGMA user_version = 0').run();
@@ -256,6 +260,7 @@ describe('Database Migration System', () => {
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL
       );
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
     `);
 
     // Insert test data
@@ -300,6 +305,7 @@ describe('Database Migration System', () => {
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL
       );
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
     `);
 
     testDb.prepare('PRAGMA user_version = 0').run();
