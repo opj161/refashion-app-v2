@@ -107,6 +107,14 @@ function runMigrations() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_user_uploads_timestamp ON user_uploads(username, timestamp DESC);
+
+    -- ⚡ Bolt Performance Optimization:
+    -- Eliminates O(N) full table scans when querying user history lists by user and timestamp.
+    CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
+
+    -- ⚡ Bolt Performance Optimization:
+    -- Eliminates O(N) full table scans when fetching correlated history_images per history_id.
+    CREATE INDEX IF NOT EXISTS idx_history_images_lookup ON history_images(history_id, type, slot_index);
   `);
 
   // Initialize Admin User if not exists
