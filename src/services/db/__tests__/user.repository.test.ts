@@ -1,4 +1,4 @@
-import { hashApiKey } from '../hash.ts';
+import { hashApiKey } from '../hash';
 import crypto from 'crypto';
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
