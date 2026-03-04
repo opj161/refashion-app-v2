@@ -1,9 +1,9 @@
 import 'server-only';
 
 import { cache } from 'react';
-import crypto from 'crypto';
 
 import type { SessionUser } from '@/lib/types';
+import { hashApiKey } from './hash';
 import { getDb } from './connection';
 
 export type FullUser = SessionUser & {
@@ -40,10 +40,7 @@ export const findUserByUsername = cache((username: string): FullUser | null => {
   };
 });
 
-/** Hash an API key with SHA-256 for secure storage and comparison. */
-export function hashApiKey(apiKey: string): string {
-  return crypto.createHash('sha256').update(apiKey).digest('hex');
-}
+export { hashApiKey } from './hash';
 
 export const findUserByApiKey = cache((apiKey: string): FullUser | null => {
   const db = getDb();
