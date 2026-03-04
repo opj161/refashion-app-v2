@@ -9,27 +9,25 @@ interface WebhookPayload {
 }
 
 
-function getWebhookSecret(): string {
+const WEBHOOK_SECRET = (() => {
   const secret = process.env.WEBHOOK_SECRET;
   if (!secret) {
-    // This warning/error will now only happen at runtime.
     console.warn('CRITICAL: WEBHOOK_SECRET is not set in environment variables. Webhook calls will be insecure and likely fail.');
     throw new Error('WEBHOOK_SECRET is not configured.');
   }
   return secret;
-}
+})();
 
 export async function sendWebhook(url: string, payload: WebhookPayload): Promise<void> {
   const sendRequest = async (attempt: number) => {
     console.log(`[Webhook] Attempt ${attempt}: Sending webhook to: ${url}`);
     try {
-      const secret = getWebhookSecret(); // Get the secret just-in-time
       // CACHE-STRATEGY: Policy: Dynamic - This POST request sends a notification and must never be cached.
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Refashion-Secret': secret,
+          'X-Refashion-Secret': WEBHOOK_SECRET,
         },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(15000),
