@@ -1,6 +1,7 @@
 import { hashApiKey } from '../hash';
 import crypto from 'crypto';
 import { describe, it, expect } from '@jest/globals';
+import assert from 'node:assert';
 
 describe('user.repository', () => {
   describe('hashApiKey', () => {

@@ -48,15 +48,18 @@ async function getDirectorySize(dirPath: string): Promise<number> {
     let size = 0;
     try {
         const files = await fs.readdir(dirPath, { withFileTypes: true });
-        for (const file of files) {
-            const filePath = path.join(dirPath, file.name);
-            if (file.isDirectory()) {
-                size += await getDirectorySize(filePath);
-            } else {
-                const stats = await fs.stat(filePath);
-                size += stats.size;
-            }
-        }
+        const sizes = await Promise.all(
+            files.map(async (file) => {
+                const filePath = path.join(dirPath, file.name);
+                if (file.isDirectory()) {
+                    return await getDirectorySize(filePath);
+                } else {
+                    const stats = await fs.stat(filePath);
+                    return stats.size;
+                }
+            })
+        );
+        size = sizes.reduce((acc, val) => acc + val, 0);
     } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
             console.error(`Could not read directory ${dirPath}:`, err);
