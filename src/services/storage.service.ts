@@ -11,7 +11,7 @@ import 'server-only';
  * with proper permissions and naming conventions. It eliminates code duplication across
  * different actions that need to save files.
  *
- * SECURITY: All filename inputs are sanitized to prevent path traversal and command injection.
+ * SECURITY: All filename inputs are sanitized * SECURITY: Sanitizes a filename/prefix to prevent path traversal and command injection.
  */
 
 import { promises as fs } from 'fs';
@@ -42,6 +42,48 @@ async function setFilePermissions(filePath: string): Promise<void> {
     } catch (chownError) {
       console.warn(`Warning: Could not set file ownership for ${filePath}:`, chownError);
     }
+  }
+}
+
+
+/**
+ * In-memory cache for file hashes to avoid expensive re-computation.
+ * Key: absolute file path
+ * Value: { hash: string, mtimeMs: number }
+ */
+const fileHashCache = new Map<string, { hash: string; mtimeMs: number }>();
+const MAX_CACHE_SIZE = 1000;
+
+/**
+ * Gets the SHA-256 hash of a file. Uses an in-memory cache to avoid reading and
+ * hashing the file if it hasn't been modified since the last hash computation.
+ * @param filePath The absolute path to the file
+ * @returns The SHA-256 hash of the file
+ */
+async function getCachedFileHash(filePath: string): Promise<string> {
+  try {
+    const stats = await fs.stat(filePath);
+    const cached = fileHashCache.get(filePath);
+
+    if (cached && cached.mtimeMs === stats.mtimeMs) {
+      return cached.hash;
+    }
+
+    const buffer = await fs.readFile(filePath);
+    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+
+    // FIFO eviction if cache is too large
+    if (fileHashCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = fileHashCache.keys().next().value;
+      if (firstKey) fileHashCache.delete(firstKey);
+    }
+
+    fileHashCache.set(filePath, { hash, mtimeMs: stats.mtimeMs });
+    return hash;
+  } catch (error) {
+    // Fallback if stat fails (e.g. file doesn't exist yet, though it should at this point)
+    const buffer = await fs.readFile(filePath);
+    return crypto.createHash('sha256').update(buffer).digest('hex');
   }
 }
 
@@ -115,8 +157,7 @@ export async function saveFileFromUrl(
       // SECURITY: Validate the path is within uploads
       validateUploadPath(abs);
 
-      const buffer = await fs.readFile(abs);
-      const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
+      const fileHash = await getCachedFileHash(abs);
       // Return the existing relative URL (no copy). If you prefer to copy into subfolder,
       // replace this return with a copy flow using fs.copyFile -> new relativeUrl.
       return { relativeUrl: uploadsPath, hash: fileHash };
