@@ -460,6 +460,7 @@ export const getRecentUploadsForUser = cache((username: string): string[] => {
 });
 
 export const trackUserUpload = (username: string, fileUrl: string) => {
-  const stmt = getPreparedStatements().trackUpload;
-  stmt?.run(username, fileUrl, Date.now());
+  const db = getDb();
+  const stmt = db.prepare('INSERT INTO user_uploads (username, file_url, timestamp) VALUES (?, ?, ?)');
+  stmt.run(username, fileUrl, Date.now());
 };
