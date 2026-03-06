@@ -44,8 +44,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Add a dummy secret to satisfy validation during the build phase
+# Add dummy secrets to satisfy validation during the build phase
 ENV SESSION_SECRET="5EOMvZFLRGCAjkVS1I5Z3FanDnCLNOzG"
+ENV ENCRYPTION_SECRET="0123456789abcdef0123456789abcdef"
+ENV WEBHOOK_SECRET="dummy_webhook_secret_for_build"
 
 RUN npm run build
 
