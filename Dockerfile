@@ -45,7 +45,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Add a dummy secret to satisfy validation during the build phase
-ENV SESSION_SECRET="5EOMvZFLRGCAjkVS1I5Z3FanDnCLNOzG
+ENV SESSION_SECRET="5EOMvZFLRGCAjkVS1I5Z3FanDnCLNOzG"
 
 RUN npm run build
 
