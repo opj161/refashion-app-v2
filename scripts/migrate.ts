@@ -108,6 +108,10 @@ function runMigrations() {
 
     CREATE INDEX IF NOT EXISTS idx_user_uploads_timestamp ON user_uploads(username, timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images(history_id, type, slot_index);
+
+    -- Performance Optimization: Prevents O(N log N) full table scans and temporary B-tree
+    -- sorts when fetching paginated user history (ordered by timestamp).
+    CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
   `);
 
   // Initialize Admin User if not exists

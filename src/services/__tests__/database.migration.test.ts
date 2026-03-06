@@ -46,6 +46,9 @@ function runTestMigrations(db: Database.Database) {
 
       db.exec(`CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images(history_id, type, slot_index);`);
 
+      // Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);`);
+
       db.prepare(`PRAGMA user_version = 1`).run();
     });
 
@@ -114,6 +117,9 @@ describe('Database Migration System', () => {
         slot_index INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images(history_id, type, slot_index);
+
+      -- Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
     `);
 
     // Set version to 1 (latest)
@@ -131,6 +137,10 @@ describe('Database Migration System', () => {
     const indexes = testDb.prepare('PRAGMA index_list(history_images)').all() as { name: string }[];
     const hasIndex = indexes.some(idx => idx.name === 'idx_history_images_history_id');
     expect(hasIndex).toBe(true);
+
+    const historyIndexes = testDb.prepare('PRAGMA index_list(history)').all() as { name: string }[];
+    const hasHistoryIndex = historyIndexes.some(idx => idx.name === 'idx_history_username_timestamp');
+    expect(hasHistoryIndex).toBe(true);
   });
 
   test('should migrate a version 0 database to version 1', () => {
