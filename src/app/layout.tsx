@@ -14,8 +14,8 @@ import { AppBody } from '@/components/AppBody';
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false, // Prevents zooming issues on input focus on iOS
+  maximumScale: 5,
+
 };
 
 export const metadata: Metadata = {

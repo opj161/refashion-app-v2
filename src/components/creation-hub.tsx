@@ -203,7 +203,7 @@ function CreationHubContent({
             </AnimatePresence>
           </div>
         </div>
-        {/* === END: INTEGRATED LAYOUT === */}        <TabsContent value="image" className="space-y-6 mt-8" forceMount>
+        {/* === END: INTEGRATED LAYOUT === */}        <TabsContent value="image" className="space-y-6 mt-8">
           <ImagePreparationContainer
             preparationMode="image"
             onReset={handleReset}
@@ -218,7 +218,7 @@ function CreationHubContent({
           />
         </TabsContent>
 
-        <TabsContent value="video" className="space-y-6 mt-8" forceMount>
+        <TabsContent value="video" className="space-y-6 mt-8">
           <ImagePreparationContainer
             preparationMode="video"
             onReset={handleReset}
@@ -227,7 +227,7 @@ function CreationHubContent({
           <VideoParameters />
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-6 mt-8" forceMount>
+        <TabsContent value="history" className="space-y-6 mt-8">
           {children}
         </TabsContent>
       </Tabs>
