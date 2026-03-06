@@ -43,6 +43,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Add a dummy secret to satisfy validation during the build phase
+ENV SESSION_SECRET="G^Ew!VWds<V)nVgPoW86C;$tmHguL2e6"
+
 RUN npm run build
 
 # Stage 6: Final production image
