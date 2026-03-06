@@ -107,6 +107,7 @@ function runMigrations() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_user_uploads_timestamp ON user_uploads(username, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images(history_id, type, slot_index);
   `);
 
   // Initialize Admin User if not exists

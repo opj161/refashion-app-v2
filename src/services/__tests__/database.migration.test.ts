@@ -44,6 +44,8 @@ function runTestMigrations(db: Database.Database) {
         `);
       }
 
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images(history_id, type, slot_index);`);
+
       db.prepare(`PRAGMA user_version = 1`).run();
     });
 
@@ -104,6 +106,14 @@ describe('Database Migration System', () => {
         timestamp INTEGER NOT NULL,
         generation_mode TEXT NOT NULL DEFAULT 'creative'
       );
+      CREATE TABLE history_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        history_id TEXT NOT NULL,
+        url TEXT NOT NULL,
+        type TEXT NOT NULL,
+        slot_index INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images(history_id, type, slot_index);
     `);
 
     // Set version to 1 (latest)
@@ -116,6 +126,11 @@ describe('Database Migration System', () => {
     const columns = testDb.prepare('PRAGMA table_info(history)').all() as { name: string }[];
     const hasGenerationMode = columns.some(col => col.name === 'generation_mode');
     expect(hasGenerationMode).toBe(true);
+
+    // Verify index exists
+    const indexes = testDb.prepare('PRAGMA index_list(history_images)').all() as { name: string }[];
+    const hasIndex = indexes.some(idx => idx.name === 'idx_history_images_history_id');
+    expect(hasIndex).toBe(true);
   });
 
   test('should migrate a version 0 database to version 1', () => {
@@ -136,6 +151,13 @@ describe('Database Migration System', () => {
         status TEXT DEFAULT 'completed',
         error TEXT,
         image_generation_model TEXT
+      );
+      CREATE TABLE history_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        history_id TEXT NOT NULL,
+        url TEXT NOT NULL,
+        type TEXT NOT NULL,
+        slot_index INTEGER NOT NULL
       );
     `);
 
@@ -180,6 +202,13 @@ describe('Database Migration System', () => {
         timestamp INTEGER NOT NULL,
         generation_mode TEXT NOT NULL DEFAULT 'creative'
       );
+      CREATE TABLE history_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        history_id TEXT NOT NULL,
+        url TEXT NOT NULL,
+        type TEXT NOT NULL,
+        slot_index INTEGER NOT NULL
+      );
     `);
 
     testDb.prepare('PRAGMA user_version = 0').run();
@@ -215,6 +244,13 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL
+      );
+      CREATE TABLE history_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        history_id TEXT NOT NULL,
+        url TEXT NOT NULL,
+        type TEXT NOT NULL,
+        slot_index INTEGER NOT NULL
       );
     `);
 
@@ -255,6 +291,13 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL
+      );
+      CREATE TABLE history_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        history_id TEXT NOT NULL,
+        url TEXT NOT NULL,
+        type TEXT NOT NULL,
+        slot_index INTEGER NOT NULL
       );
     `);
 
@@ -299,6 +342,13 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL
+      );
+      CREATE TABLE history_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        history_id TEXT NOT NULL,
+        url TEXT NOT NULL,
+        type TEXT NOT NULL,
+        slot_index INTEGER NOT NULL
       );
     `);
 
