@@ -64,6 +64,8 @@ let preparedStatements: {
   findHistoryPaginatedWithImageFilter?: Database.Statement;
   findRecentUploads?: Database.Statement;
   trackUpload?: Database.Statement;
+  countAllUsersHistory?: Database.Statement;
+  getAllUsersHistoryPaginated?: Database.Statement;
 } = {};
 
 function getPreparedStatements() {
@@ -154,6 +156,20 @@ function getPreparedStatements() {
     preparedStatements.trackUpload = db.prepare(`
       INSERT OR REPLACE INTO user_uploads (username, file_url, timestamp)
       VALUES (?, ?, ?)
+    `);
+
+    preparedStatements.countAllUsersHistory = db.prepare(`
+      SELECT COUNT(*) as count FROM history
+    `);
+
+    preparedStatements.getAllUsersHistoryPaginated = db.prepare(`
+      SELECT h.*,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
+      FROM history h
+      ORDER BY h.timestamp DESC
+      LIMIT ? OFFSET ?
     `);
   }
   
@@ -377,20 +393,14 @@ export const getPaginatedHistoryForUser = cache((
 });
 
 export const getAllUsersHistoryPaginated = cache((page: number = 1, limit: number = 10): PaginationResult => {
-  const db = getDb();
+  const statements = getPreparedStatements();
   
-  const totalCount = db.prepare('SELECT COUNT(*) as count FROM history').get() as { count: number };
+  // Performance optimization: Using cached prepared statement instead of compiling inline
+  const totalCount = statements.countAllUsersHistory?.get() as { count: number };
   const offset = (page - 1) * limit;
   
-  const rows = db.prepare(`
-    SELECT h.*, 
-           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
-           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
-           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
-    FROM history h
-    ORDER BY h.timestamp DESC
-    LIMIT ? OFFSET ?
-  `).all(limit, offset) as any[];
+  // Performance optimization: Using cached prepared statement for expensive correlated subquery
+  const rows = statements.getAllUsersHistoryPaginated?.all(limit, offset) as any[];
   
   const items = rows.map(rowToHistoryItem);
   const hasMore = offset + limit < totalCount.count;
