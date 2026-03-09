@@ -62,7 +62,7 @@ describe('history.repository', () => {
 
       // `getPreparedStatements` calls `getDb().prepare(...)` for several statements, including trackUpload
       expect(mockPrepare).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO user_uploads')
+        expect.stringContaining('INSERT OR REPLACE INTO user_uploads')
       );
 
       // We expect run to have been called with the correct parameters
