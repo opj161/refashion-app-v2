@@ -49,6 +49,9 @@ function runTestMigrations(db: Database.Database) {
       // Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);`);
 
+      // Performance Optimization: Prevents full table scan when sorting all users' history paginated
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);`);
+
       db.prepare(`PRAGMA user_version = 1`).run();
     });
 
@@ -120,6 +123,9 @@ describe('Database Migration System', () => {
 
       -- Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
+
+      -- Performance Optimization: Prevents full table scan when sorting all users' history paginated
+      CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
     `);
 
     // Set version to 1 (latest)
@@ -141,6 +147,8 @@ describe('Database Migration System', () => {
     const historyIndexes = testDb.prepare('PRAGMA index_list(history)').all() as { name: string }[];
     const hasHistoryIndex = historyIndexes.some(idx => idx.name === 'idx_history_username_timestamp');
     expect(hasHistoryIndex).toBe(true);
+    const hasHistoryTimestampIndex = historyIndexes.some(idx => idx.name === 'idx_history_timestamp');
+    expect(hasHistoryTimestampIndex).toBe(true);
   });
 
   test('should migrate a version 0 database to version 1', () => {
