@@ -64,6 +64,11 @@ let preparedStatements: {
   findHistoryPaginatedWithImageFilter?: Database.Statement;
   findRecentUploads?: Database.Statement;
   trackUpload?: Database.Statement;
+  updateHistoryImageSlot?: Database.Statement;
+  countAllHistory?: Database.Statement;
+  findAllHistoryPaginated?: Database.Statement;
+  getHistoryItemStatus?: Database.Statement;
+  deleteHistoryItemById?: Database.Statement;
 } = {};
 
 function getPreparedStatements() {
@@ -155,6 +160,33 @@ function getPreparedStatements() {
       INSERT OR REPLACE INTO user_uploads (username, file_url, timestamp)
       VALUES (?, ?, ?)
     `);
+
+    preparedStatements.updateHistoryImageSlot = db.prepare(`
+      INSERT OR REPLACE INTO history_images (history_id, url, type, slot_index)
+      VALUES (?, ?, 'edited', ?)
+    `);
+
+    preparedStatements.countAllHistory = db.prepare('SELECT COUNT(*) as count FROM history');
+
+    preparedStatements.findAllHistoryPaginated = db.prepare(`
+      SELECT h.*,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
+      FROM history h
+      ORDER BY h.timestamp DESC
+      LIMIT ? OFFSET ?
+    `);
+
+    preparedStatements.getHistoryItemStatus = db.prepare(`
+      SELECT h.status, h.error, h.videoGenerationParams,
+             (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' LIMIT 1) as video_url,
+             (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images
+      FROM history h
+      WHERE h.id = ? AND h.username = ?
+    `);
+
+    preparedStatements.deleteHistoryItemById = db.prepare('DELETE FROM history WHERE id = ?');
   }
   
   return preparedStatements;
@@ -321,12 +353,8 @@ export const updateHistoryItem = (id: string, updates: Partial<HistoryItem>): vo
  * Uses the normalized history_images table to avoid race conditions.
  */
 export const updateHistoryImageSlot = (historyId: string, slotIndex: number, url: string): void => {
-  const db = getDb();
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO history_images (history_id, url, type, slot_index)
-    VALUES (?, ?, 'edited', ?)
-  `);
-  stmt.run(historyId, url, slotIndex);
+  const statements = getPreparedStatements();
+  statements.updateHistoryImageSlot?.run(historyId, url, slotIndex);
 };
 
 
@@ -377,20 +405,12 @@ export const getPaginatedHistoryForUser = cache((
 });
 
 export const getAllUsersHistoryPaginated = cache((page: number = 1, limit: number = 10): PaginationResult => {
-  const db = getDb();
+  const statements = getPreparedStatements();
   
-  const totalCount = db.prepare('SELECT COUNT(*) as count FROM history').get() as { count: number };
+  const totalCount = statements.countAllHistory?.get() as { count: number };
   const offset = (page - 1) * limit;
   
-  const rows = db.prepare(`
-    SELECT h.*, 
-           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images,
-           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'original_for_comparison' ORDER BY slot_index)) as original_images,
-           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' ORDER BY slot_index)) as video_urls
-    FROM history h
-    ORDER BY h.timestamp DESC
-    LIMIT ? OFFSET ?
-  `).all(limit, offset) as any[];
+  const rows = statements.findAllHistoryPaginated?.all(limit, offset) as any[];
   
   const items = rows.map(rowToHistoryItem);
   const hasMore = offset + limit < totalCount.count;
@@ -404,16 +424,8 @@ export const getAllUsersHistoryPaginated = cache((page: number = 1, limit: numbe
 });
 
 export const getHistoryItemStatus = cache((id: string, username: string): HistoryStatusPayload | null => {
-  const db = getDb();
-  const stmt = db.prepare(`
-    SELECT h.status, h.error, h.videoGenerationParams,
-           (SELECT url FROM history_images WHERE history_id = h.id AND type = 'generated_video' LIMIT 1) as video_url,
-           (SELECT JSON_GROUP_ARRAY(url) FROM (SELECT url FROM history_images WHERE history_id = h.id AND type = 'edited' ORDER BY slot_index)) as edited_images
-    FROM history h
-    WHERE h.id = ? AND h.username = ?
-  `);
-
-  const row: any = stmt.get(id, username);
+  const statements = getPreparedStatements();
+  const row: any = statements.getHistoryItemStatus?.get(id, username);
 
   if (!row) {
     return null; // Item not found or does not belong to the user
@@ -446,8 +458,8 @@ export const getHistoryItemStatus = cache((id: string, username: string): Histor
 });
 
 export const deleteHistoryItemById = (id: string): void => {
-  const db = getDb();
-  db.prepare('DELETE FROM history WHERE id = ?').run(id);
+  const statements = getPreparedStatements();
+  statements.deleteHistoryItemById?.run(id);
 };
 
 /**
@@ -460,7 +472,6 @@ export const getRecentUploadsForUser = cache((username: string): string[] => {
 });
 
 export const trackUserUpload = (username: string, fileUrl: string) => {
-  const db = getDb();
-  const stmt = db.prepare('INSERT INTO user_uploads (username, file_url, timestamp) VALUES (?, ?, ?)');
-  stmt.run(username, fileUrl, Date.now());
+  const statements = getPreparedStatements();
+  statements.trackUpload?.run(username, fileUrl, Date.now());
 };
