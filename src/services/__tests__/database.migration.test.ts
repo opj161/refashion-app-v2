@@ -120,6 +120,7 @@ describe('Database Migration System', () => {
 
       -- Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
     `);
 
     // Set version to 1 (latest)
@@ -141,6 +142,9 @@ describe('Database Migration System', () => {
     const historyIndexes = testDb.prepare('PRAGMA index_list(history)').all() as { name: string }[];
     const hasHistoryIndex = historyIndexes.some(idx => idx.name === 'idx_history_username_timestamp');
     expect(hasHistoryIndex).toBe(true);
+
+    const hasGlobalHistoryIndex = historyIndexes.some(idx => idx.name === 'idx_history_timestamp');
+    expect(hasGlobalHistoryIndex).toBe(true);
   });
 
   test('should migrate a version 0 database to version 1', () => {
