@@ -14,7 +14,7 @@ interface SegmentedControlContextType {
 const SegmentedControlContext = React.createContext<SegmentedControlContextType | undefined>(undefined);
 
 const useSegmentedControl = () => {
-  const context = React.useContext(SegmentedControlContext);
+  const context = React.use(SegmentedControlContext);
   if (!context) {
     throw new Error("useSegmentedControl must be used within a SegmentedControl");
   }
