@@ -42,7 +42,7 @@ function TabsList({ className, children, ref, ...props }: React.ComponentPropsWi
 
 // 4. TabsTrigger uses context to determine if it's active and renders the indicator
 function TabsTrigger({ className, children, value, ref, ...props }: React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> & { ref?: React.Ref<React.ComponentRef<typeof TabsPrimitive.Trigger>> }) {
-  const { activeTab } = React.useContext(TabsContext)
+  const { activeTab } = React.use(TabsContext)
   const isActive = activeTab === value
 
   return (

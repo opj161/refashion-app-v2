@@ -1,7 +1,7 @@
 "use client";
 
 import type React from 'react';
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, use, useState, useEffect } from 'react';
 import { setThemeCookie } from '@/actions/themeActions';
 
 // 1. Define Types
@@ -115,7 +115,7 @@ export function ThemeProvider({
 
 // 4. useTheme Hook
 export const useTheme = () => {
-  const context = useContext(ThemeContext);
+  const context = use(ThemeContext);
   if (context === undefined) {
     throw new Error('useTheme must be used within a ThemeProvider');
   }

@@ -70,7 +70,7 @@ function ToggleGroupItem({
   VariantProps<typeof toggleGroupVariants> & {
     ref?: React.Ref<React.ComponentRef<typeof ToggleGroupPrimitive.Item>>
   }) {
-  const context = React.useContext(ToggleGroupContext)
+  const context = React.use(ToggleGroupContext)
 
   return (
     <ToggleGroupPrimitive.Item
