@@ -9,3 +9,7 @@
 ## 2026-03-11 - Missing Database Index Causes Full Table Scans for Global History Pagination
 **Learning:** SQLite's `ORDER BY timestamp DESC` triggers a full table scan and a temporary B-Tree for sorting without an index on `(timestamp DESC)`. This O(N log N) penalty becomes a severe backend bottleneck when paginating through all users' history globally.
 **Action:** Always ensure that frequently paginated or ordered queries have a corresponding index defined in both the migration scripts (`scripts/migrate.ts`) and replicated exactly in testing schema files.
+
+## 2024-03-14 - SQLite SUM() Returns NULL on Empty Sets
+**Learning:** When combining multiple `COUNT(*)` queries into a single query using conditional aggregation (e.g. `SUM(CASE WHEN condition THEN 1 ELSE 0 END)`), SQLite's `SUM()` function returns `NULL` if the dataset is completely empty, unlike `COUNT()` which correctly returns `0`. This can lead to unexpected `null` values propagating through the application.
+**Action:** Always add a fallback (e.g., `result.failedJobs24h || 0`) when using `SUM()` for conditional counting in SQLite to ensure a valid number is always returned.
