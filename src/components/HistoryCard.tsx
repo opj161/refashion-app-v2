@@ -29,8 +29,7 @@ interface HistoryCardProps {
 }
 
 // Memoize HistoryCard to prevent unnecessary re-renders when gallery updates
-// REMOVED: React.memo wrapper.
-export default function HistoryCard({
+const HistoryCard = React.memo(function HistoryCard({
   item,
   onViewDetails,
   onDeleteItem,
@@ -97,8 +96,7 @@ export default function HistoryCard({
     }
   };
 
-  // REMOVED: useCallback
-  const handleDownload = (e: React.MouseEvent) => {
+  const handleDownload = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     const triggerDownload = (url: string, filename: string) => {
       const link = document.createElement('a');
@@ -127,10 +125,9 @@ export default function HistoryCard({
         toast({ title: "No images to download", variant: "destructive" });
       }
     }
-  };
+  }, [isVideoItem, item, toast]);
 
-  // REMOVED: useCallback
-  const handleReload = async (e: React.MouseEvent) => {
+  const handleReload = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
 
     setIsLoadingAction('reload');
@@ -158,16 +155,14 @@ export default function HistoryCard({
     } finally {
       setIsLoadingAction(null);
     }
-  };
+  }, [item, router, onLoadFromHistory, loadFromHistory, toast]);
 
-  // REMOVED: useCallback
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onDeleteItem(item);
-  };
+  }, [item, onDeleteItem]);
 
-  // REMOVED: useCallback
-  const handleSendToCreative = async (e: React.MouseEvent) => {
+  const handleSendToCreative = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
 
     // Find the first valid generated image to send
@@ -198,7 +193,7 @@ export default function HistoryCard({
     } finally {
       setIsLoadingAction(null);
     }
-  };
+  }, [item, router, onLoadFromImageUrl, setGenerationMode, toast]);
 
   return (
     <m.div
@@ -349,4 +344,6 @@ export default function HistoryCard({
       </Card>
     </m.div>
   );
-}
+});
+
+export default HistoryCard;
