@@ -74,15 +74,25 @@ export function getDashboardKpis(): Omit<KpiData, 'totalStorageUsed'> {
   const db = getDb();
   const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
 
-  const stmtGenerations = db.prepare(`SELECT COUNT(*) as count FROM history WHERE timestamp >= ?`);
-  const stmtFailed = db.prepare(`SELECT COUNT(*) as count FROM history WHERE status = 'failed' AND timestamp >= ?`);
-  const stmtActiveUsers = db.prepare(`SELECT COUNT(DISTINCT username) as count FROM history WHERE timestamp >= ?`);
+  // Performance Optimization: Combine 3 separate COUNT queries into a single query
+  // using conditional aggregation. This prevents SQLite from making 3 separate
+  // passes over the history table, improving performance for large datasets.
+  const stmt = db.prepare(`
+    SELECT
+      COUNT(*) as generations24h,
+      COUNT(CASE WHEN status = 'failed' THEN 1 END) as failedJobs24h,
+      COUNT(DISTINCT username) as activeUsers24h
+    FROM history
+    WHERE timestamp >= ?
+  `);
 
-  const generations24h = (stmtGenerations.get(twentyFourHoursAgo) as { count: number }).count;
-  const failedJobs24h = (stmtFailed.get(twentyFourHoursAgo) as { count: number }).count;
-  const activeUsers24h = (stmtActiveUsers.get(twentyFourHoursAgo) as { count: number }).count;
+  const result = stmt.get(twentyFourHoursAgo) as {
+    generations24h: number;
+    failedJobs24h: number;
+    activeUsers24h: number;
+  };
   
-  return { generations24h, failedJobs24h, activeUsers24h };
+  return result;
 }
 
 export async function getTotalMediaStorage(): Promise<string> {
