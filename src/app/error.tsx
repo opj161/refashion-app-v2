@@ -26,11 +26,15 @@ export default function RootError({
           <p>
             An unexpected error occurred. Please try again or refresh the page.
           </p>
-          {error.digest && (
-            <p className="text-xs text-muted-foreground">
+          {process.env.NODE_ENV === 'development' ? (
+            <div className="bg-background/10 p-2 rounded text-xs font-mono break-all">
+              {error.message || 'Unknown error'}
+            </div>
+          ) : error.digest ? (
+            <div className="bg-background/10 p-2 rounded text-xs font-mono break-all">
               Error ID: {error.digest}
-            </p>
-          )}
+            </div>
+          ) : null}
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
