@@ -70,28 +70,9 @@ export default function HistoryGallery({
   // Subscribe to generation counter from Zustand store
   const generationCount = useGenerationSettingsStore(state => state.generationCount);
 
-  // Function to refresh the history (can be called internally)
-  const refreshHistory = useCallback(async () => {
-    try {
-      const result = await getHistoryPaginated(1, 9, historyFilter);
-      setHistoryItems(result.items);
-      setCurrentPage(result.currentPage + 1);
-      setHasMore(result.hasMore);
-    } catch (err) {
-      console.error('Failed to refresh history:', err);
-    }
-  }, [historyFilter]);
-
-  // Listen for generation count changes and refresh history
-  useEffect(() => {
-    if (generationCount > 0) {
-      refreshHistory();
-    }
-  }, [generationCount, refreshHistory]);
-
   const isInitialRender = useRef(true);
 
-  // Data fetching is now handled by this function, called on filter change
+  // Single effect to handle data fetching based on filter and generationCount changes
   useEffect(() => {
     const loadFilteredHistory = async () => {
       setIsLoadingMore(true);
@@ -112,14 +93,13 @@ export default function HistoryGallery({
     };
     
     // Skip on initial render (we already have initialHistory prop)
-    // But run whenever historyFilter changes after that
     if (isInitialRender.current) {
       isInitialRender.current = false;
       return;
     }
     
     loadFilteredHistory();
-  }, [historyFilter, toast]);
+  }, [historyFilter, generationCount, toast]);
 
   const handleLoadMore = useCallback(async () => {
     if (!hasMore || isLoadingMore) return;
