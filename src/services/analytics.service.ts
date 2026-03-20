@@ -1,9 +1,9 @@
 // src/services/analytics.service.ts
 
-import 'server-only'; // Ensures this module is never included in client bundles
-import path from 'path';
-import { promises as fs } from 'fs';
-import { getDb } from './db';
+import "server-only"; // Ensures this module is never included in client bundles
+import path from "path";
+import { promises as fs } from "fs";
+import { getDb } from "./db";
 
 // --- Type Definitions for Analytics Data ---
 
@@ -36,65 +36,79 @@ export interface UserActivityData {
 // --- Helper Functions ---
 
 function formatBytes(bytes: number, decimals = 2): string {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) return "0 Bytes";
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 }
 
 async function getDirectorySize(dirPath: string): Promise<number> {
-    let size = 0;
-    try {
-        const files = await fs.readdir(dirPath, { withFileTypes: true });
-        const sizes = await Promise.all(
-            files.map(async (file) => {
-                const filePath = path.join(dirPath, file.name);
-                if (file.isDirectory()) {
-                    return await getDirectorySize(filePath);
-                } else {
-                    const stats = await fs.stat(filePath);
-                    return stats.size;
-                }
-            })
-        );
-        size = sizes.reduce((acc, val) => acc + val, 0);
-    } catch (err) {
-        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-            console.error(`Could not read directory ${dirPath}:`, err);
+  let size = 0;
+  try {
+    const files = await fs.readdir(dirPath, { withFileTypes: true });
+    const sizes = await Promise.all(
+      files.map(async (file) => {
+        const filePath = path.join(dirPath, file.name);
+        if (file.isDirectory()) {
+          return await getDirectorySize(filePath);
+        } else {
+          const stats = await fs.stat(filePath);
+          return stats.size;
         }
+      })
+    );
+    size = sizes.reduce((acc, val) => acc + val, 0);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.error(`Could not read directory ${dirPath}:`, err);
     }
-    return size;
+  }
+  return size;
 }
 
 // --- Core Analytics Functions ---
 
-export function getDashboardKpis(): Omit<KpiData, 'totalStorageUsed'> {
+export function getDashboardKpis(): Omit<KpiData, "totalStorageUsed"> {
   const db = getDb();
   const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
 
-  const stmtGenerations = db.prepare(`SELECT COUNT(*) as count FROM history WHERE timestamp >= ?`);
-  const stmtFailed = db.prepare(`SELECT COUNT(*) as count FROM history WHERE status = 'failed' AND timestamp >= ?`);
-  const stmtActiveUsers = db.prepare(`SELECT COUNT(DISTINCT username) as count FROM history WHERE timestamp >= ?`);
+  // Optimized: Single pass aggregation instead of 3 separate queries.
+  // We use COUNT(DISTINCT) for users, and conditional counts (SUM) for the rest.
+  // SQLite evaluates the WHERE clause once and does a single scan of the index/table.
+  const stmt = db.prepare(`
+    SELECT
+      COUNT(*) as total_count,
+      COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed_count,
+      COUNT(DISTINCT username) as active_users
+    FROM history
+    WHERE timestamp >= ?
+  `);
 
-  const generations24h = (stmtGenerations.get(twentyFourHoursAgo) as { count: number }).count;
-  const failedJobs24h = (stmtFailed.get(twentyFourHoursAgo) as { count: number }).count;
-  const activeUsers24h = (stmtActiveUsers.get(twentyFourHoursAgo) as { count: number }).count;
-  
-  return { generations24h, failedJobs24h, activeUsers24h };
+  const result = stmt.get(twentyFourHoursAgo) as {
+    total_count: number;
+    failed_count: number;
+    active_users: number;
+  };
+
+  return {
+    generations24h: result.total_count,
+    failedJobs24h: result.failed_count,
+    activeUsers24h: result.active_users,
+  };
 }
 
 export async function getTotalMediaStorage(): Promise<string> {
-    const uploadsPath = path.join(process.cwd(), 'uploads');
-    const totalSize = await getDirectorySize(uploadsPath);
-    return formatBytes(totalSize);
+  const uploadsPath = path.join(process.cwd(), "uploads");
+  const totalSize = await getDirectorySize(uploadsPath);
+  return formatBytes(totalSize);
 }
 
 export function getGenerationActivity(days: 7 | 30): GenerationActivityData[] {
   const db = getDb();
   const sinceTimestamp = Date.now() - days * 24 * 60 * 60 * 1000;
-  
+
   const stmt = db.prepare(`
     SELECT 
       strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch') as day,
@@ -105,15 +119,18 @@ export function getGenerationActivity(days: 7 | 30): GenerationActivityData[] {
     GROUP BY day
     ORDER BY day ASC
   `);
-  
+
   return stmt.all(sinceTimestamp) as GenerationActivityData[];
 }
 
-export function getTopParameterUsage(parameter: 'fashionStyle' | 'background', limit: number = 5): TopParameterUsageData[] {
+export function getTopParameterUsage(
+  parameter: "fashionStyle" | "background",
+  limit: number = 5
+): TopParameterUsageData[] {
   // Security: Validate the parameter against an allowlist to prevent SQL injection.
-  const allowedParameters = ['fashionStyle', 'background', 'poseStyle', 'gender'];
+  const allowedParameters = ["fashionStyle", "background", "poseStyle", "gender"];
   if (!allowedParameters.includes(parameter)) {
-    throw new Error('Invalid parameter for analytics query.');
+    throw new Error("Invalid parameter for analytics query.");
   }
 
   const db = getDb();
@@ -128,7 +145,7 @@ export function getTopParameterUsage(parameter: 'fashionStyle' | 'background', l
     ORDER BY count DESC
     LIMIT ?
   `);
-  
+
   return stmt.all(limit) as TopParameterUsageData[];
 }
 
@@ -144,17 +161,23 @@ export function getUserActivity(): UserActivityData[] {
     GROUP BY username
     ORDER BY total_generations DESC
   `);
-  
-  const results = stmt.all() as { username: string; total_generations: number; last_active_timestamp: number; failed_count: number }[];
 
-  return results.map(row => {
-    const failureRate = row.total_generations > 0 ? (row.failed_count / row.total_generations) * 100 : 0;
+  const results = stmt.all() as {
+    username: string;
+    total_generations: number;
+    last_active_timestamp: number;
+    failed_count: number;
+  }[];
+
+  return results.map((row) => {
+    const failureRate =
+      row.total_generations > 0 ? (row.failed_count / row.total_generations) * 100 : 0;
     return {
       username: row.username,
       total_generations: row.total_generations,
       last_active: new Date(row.last_active_timestamp).toLocaleString(),
       failed_count: row.failed_count,
-      failureRate: `${failureRate.toFixed(1)}%`
+      failureRate: `${failureRate.toFixed(1)}%`,
     };
   });
 }
