@@ -9,3 +9,7 @@
 ## 2026-03-11 - Missing Database Index Causes Full Table Scans for Global History Pagination
 **Learning:** SQLite's `ORDER BY timestamp DESC` triggers a full table scan and a temporary B-Tree for sorting without an index on `(timestamp DESC)`. This O(N log N) penalty becomes a severe backend bottleneck when paginating through all users' history globally.
 **Action:** Always ensure that frequently paginated or ordered queries have a corresponding index defined in both the migration scripts (`scripts/migrate.ts`) and replicated exactly in testing schema files.
+
+## 2024-05-24 - Multiple COUNT queries on same time range cause redundant table scans
+**Learning:** When generating analytics KPIs, making separate `COUNT(*)` queries with different conditions (like `status = 'failed'` and `DISTINCT username`) on the same `timestamp >= ?` data range forces SQLite to perform multiple full table or index scans for the exact same rows. This is an unnecessary backend performance bottleneck.
+**Action:** Always combine multiple `COUNT()` aggregations over the same data set into a single query using conditional aggregation `COALESCE(SUM(CASE WHEN condition THEN 1 ELSE 0 END), 0)`.
