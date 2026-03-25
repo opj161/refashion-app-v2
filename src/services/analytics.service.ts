@@ -74,15 +74,26 @@ export function getDashboardKpis(): Omit<KpiData, 'totalStorageUsed'> {
   const db = getDb();
   const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
 
-  const stmtGenerations = db.prepare(`SELECT COUNT(*) as count FROM history WHERE timestamp >= ?`);
-  const stmtFailed = db.prepare(`SELECT COUNT(*) as count FROM history WHERE status = 'failed' AND timestamp >= ?`);
-  const stmtActiveUsers = db.prepare(`SELECT COUNT(DISTINCT username) as count FROM history WHERE timestamp >= ?`);
+  const stmt = db.prepare(`
+    SELECT
+      COUNT(*) as count_generations,
+      COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as count_failed,
+      COUNT(DISTINCT username) as count_active_users
+    FROM history
+    WHERE timestamp >= ?
+  `);
 
-  const generations24h = (stmtGenerations.get(twentyFourHoursAgo) as { count: number }).count;
-  const failedJobs24h = (stmtFailed.get(twentyFourHoursAgo) as { count: number }).count;
-  const activeUsers24h = (stmtActiveUsers.get(twentyFourHoursAgo) as { count: number }).count;
+  const result = stmt.get(twentyFourHoursAgo) as {
+    count_generations: number;
+    count_failed: number;
+    count_active_users: number;
+  };
   
-  return { generations24h, failedJobs24h, activeUsers24h };
+  return {
+    generations24h: result.count_generations,
+    failedJobs24h: result.count_failed,
+    activeUsers24h: result.count_active_users
+  };
 }
 
 export async function getTotalMediaStorage(): Promise<string> {
