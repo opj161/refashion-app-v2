@@ -74,15 +74,26 @@ export function getDashboardKpis(): Omit<KpiData, 'totalStorageUsed'> {
   const db = getDb();
   const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
 
-  const stmtGenerations = db.prepare(`SELECT COUNT(*) as count FROM history WHERE timestamp >= ?`);
-  const stmtFailed = db.prepare(`SELECT COUNT(*) as count FROM history WHERE status = 'failed' AND timestamp >= ?`);
+  // ⚡ Bolt: Combined COUNT(*) and status filter into a single query to reduce database trips
+  // and context switching. We keep COUNT(DISTINCT) separate because combining it would force
+  // SQLite to use a TEMP B-TREE, which abandons the covering index and degrades performance.
+  const stmtStats = db.prepare(`
+    SELECT
+      COUNT(*) as generations24h,
+      COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failedJobs24h
+    FROM history
+    WHERE timestamp >= ?
+  `);
   const stmtActiveUsers = db.prepare(`SELECT COUNT(DISTINCT username) as count FROM history WHERE timestamp >= ?`);
 
-  const generations24h = (stmtGenerations.get(twentyFourHoursAgo) as { count: number }).count;
-  const failedJobs24h = (stmtFailed.get(twentyFourHoursAgo) as { count: number }).count;
+  const stats = stmtStats.get(twentyFourHoursAgo) as { generations24h: number; failedJobs24h: number };
   const activeUsers24h = (stmtActiveUsers.get(twentyFourHoursAgo) as { count: number }).count;
   
-  return { generations24h, failedJobs24h, activeUsers24h };
+  return {
+    generations24h: stats.generations24h,
+    failedJobs24h: stats.failedJobs24h,
+    activeUsers24h
+  };
 }
 
 export async function getTotalMediaStorage(): Promise<string> {
