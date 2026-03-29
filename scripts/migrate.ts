@@ -113,6 +113,11 @@ function runMigrations() {
     -- sorts when fetching paginated user history (ordered by timestamp).
     CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
 
+    -- Performance Optimization: Partial indexes to prevent full table scans when fetching
+    -- paginated user history filtered by media type (video vs image).
+    CREATE INDEX IF NOT EXISTS idx_history_user_video_timestamp ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_history_user_image_timestamp ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
+
     -- Performance Optimization: Index to prevent full table scan + temporary B-tree
     -- for global history pagination
     CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
