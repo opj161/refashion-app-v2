@@ -1,11 +1,11 @@
-import 'dotenv/config';
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
-import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
+import "dotenv/config";
+import Database from "better-sqlite3";
+import path from "path";
+import fs from "fs";
+import { randomBytes, createCipheriv, createDecipheriv } from "crypto";
 
 // --- Encryption Logic (Inlined) ---
-const ALGORITHM = 'aes-256-gcm';
+const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16; // Changed from 12 to 16 to match service
 const AUTH_TAG_LENGTH = 16;
 
@@ -13,41 +13,43 @@ const AUTH_TAG_LENGTH = 16;
 const SECRET_KEY = process.env.ENCRYPTION_SECRET;
 
 if (!SECRET_KEY || SECRET_KEY.length !== 32) {
-  console.warn('WARNING: ENCRYPTION_SECRET is not set or invalid (must be 32 chars). API keys will not be encrypted correctly.');
+  console.warn(
+    "WARNING: ENCRYPTION_SECRET is not set or invalid (must be 32 chars). API keys will not be encrypted correctly."
+  );
 }
 
-const ENCRYPTION_KEY = SECRET_KEY ? Buffer.from(SECRET_KEY, 'utf-8') : Buffer.alloc(32);
+const ENCRYPTION_KEY = SECRET_KEY ? Buffer.from(SECRET_KEY, "utf-8") : Buffer.alloc(32);
 
 function encrypt(text: string): string {
   try {
     const iv = randomBytes(IV_LENGTH);
     const cipher = createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
-    const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+    const encrypted = Buffer.concat([cipher.update(text, "utf8"), cipher.final()]);
     const authTag = cipher.getAuthTag();
     // Concatenate iv, authTag, and encrypted data, then encode as base64
-    return Buffer.concat([iv, authTag, encrypted]).toString('base64');
+    return Buffer.concat([iv, authTag, encrypted]).toString("base64");
   } catch (error) {
-    console.error('Encryption failed:', error);
-    throw new Error('Encryption failed');
+    console.error("Encryption failed:", error);
+    throw new Error("Encryption failed");
   }
 }
 // ----------------------------------
 
-const DB_DIR = path.join(process.cwd(), 'user_data', 'history');
-const DB_PATH = path.join(DB_DIR, 'history.db');
+const DB_DIR = path.join(process.cwd(), "user_data", "history");
+const DB_PATH = path.join(DB_DIR, "history.db");
 
 function runMigrations() {
-  console.log('Running database migrations...');
-  
+  console.log("Running database migrations...");
+
   // Ensure directory exists
   if (!fs.existsSync(DB_DIR)) {
     fs.mkdirSync(DB_DIR, { recursive: true });
   }
 
   const db = new Database(DB_PATH);
-  
+
   // Enable WAL mode
-  db.pragma('journal_mode = WAL');
+  db.pragma("journal_mode = WAL");
 
   // Create tables
   db.exec(`
@@ -116,19 +118,28 @@ function runMigrations() {
     -- Performance Optimization: Index to prevent full table scan + temporary B-tree
     -- for global history pagination
     CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
+
+  `);
+
+  // Apply performance optimization indexes regardless of version
+  // (using IF NOT EXISTS makes this safe to run on every startup)
+  db.exec(`
+    -- Performance Optimization: Partial indexes to prevent full row evaluation during filtered pagination
+    CREATE INDEX IF NOT EXISTS idx_history_username_video_timestamp ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_history_username_image_timestamp ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
   `);
 
   // Initialize Admin User if not exists
-  const adminUser = db.prepare('SELECT * FROM users WHERE username = ?').get('admin');
+  const adminUser = db.prepare("SELECT * FROM users WHERE username = ?").get("admin");
   if (!adminUser) {
     // Default password: 'admin' (bcrypt hash)
-    const defaultHash = '$2b$10$8.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1'; 
+    const defaultHash = "$2b$10$8.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1";
     // Note: In a real scenario, generate a proper hash. This is a placeholder.
-    // Actually, let's use a known hash for "password" or similar if possible, 
-    // or just rely on the user changing it. 
+    // Actually, let's use a known hash for "password" or similar if possible,
+    // or just rely on the user changing it.
     // For this script, we'll assume the hash is pre-calculated or handled elsewhere.
     // Let's use a placeholder hash for "admin"
-    const adminHash = '$2b$10$X7.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1'; // INVALID HASH, user must reset or we use a real one.
+    const adminHash = "$2b$10$X7.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1.1"; // INVALID HASH, user must reset or we use a real one.
     // Better: Check if we have an env var for initial admin password, otherwise skip or warn.
     // For now, we will NOT create the admin user here to avoid security risks with hardcoded hashes.
     // The application likely handles user creation or has a separate seed script.
@@ -137,28 +148,28 @@ function runMigrations() {
   }
 
   // Initialize API Keys from Env if Admin exists
-  const admin = db.prepare('SELECT * FROM users WHERE role = ?').get('admin') as any;
+  const admin = db.prepare("SELECT * FROM users WHERE role = ?").get("admin") as any;
   if (admin) {
     const updates: string[] = [];
     const params: any[] = [];
 
     if (process.env.GEMINI_API_KEY && !admin.gemini_api_key_1) {
-      updates.push('gemini_api_key_1 = ?');
+      updates.push("gemini_api_key_1 = ?");
       params.push(encrypt(process.env.GEMINI_API_KEY));
     }
     if (process.env.FAL_KEY && !admin.fal_api_key) {
-      updates.push('fal_api_key = ?');
+      updates.push("fal_api_key = ?");
       params.push(encrypt(process.env.FAL_KEY));
     }
 
     if (updates.length > 0) {
-      params.push('admin');
-      db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE username = ?`).run(...params);
-      console.log('Updated admin API keys from environment variables.');
+      params.push("admin");
+      db.prepare(`UPDATE users SET ${updates.join(", ")} WHERE username = ?`).run(...params);
+      console.log("Updated admin API keys from environment variables.");
     }
   }
 
-  console.log('Database migrations completed successfully.');
+  console.log("Database migrations completed successfully.");
   db.close();
 }
 
