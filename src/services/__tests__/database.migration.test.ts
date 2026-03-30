@@ -1,20 +1,20 @@
 /**
  * Database Migration Tests
- * 
+ *
  * These tests verify that the database migration system works correctly,
  * including idempotency, version tracking, and proper schema updates.
- * 
+ *
  * Note: We cannot directly test the database.service.ts due to 'server-only' directive,
  * but we can test the migration logic independently.
  */
 
-import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
+import Database from "better-sqlite3";
+import fs from "fs";
+import path from "path";
 
 // Mock paths for testing
-const TEST_DB_DIR = path.join(process.cwd(), 'user_data', 'history', 'test');
-const TEST_DB_PATH = path.join(TEST_DB_DIR, 'test_migration.db');
+const TEST_DB_DIR = path.join(process.cwd(), "user_data", "history", "test");
+const TEST_DB_PATH = path.join(TEST_DB_DIR, "test_migration.db");
 
 // Replicate the migration logic for testing purposes
 function runTestMigrations(db: Database.Database) {
@@ -35,7 +35,7 @@ function runTestMigrations(db: Database.Database) {
   if (currentVersion < 1) {
     const migration_v1 = db.transaction(() => {
       const columns = db.prepare("PRAGMA table_info(history)").all() as { name: string }[];
-      const hasColumn = columns.some(col => col.name === 'generation_mode');
+      const hasColumn = columns.some((col) => col.name === "generation_mode");
 
       if (!hasColumn) {
         db.exec(`
@@ -44,19 +44,32 @@ function runTestMigrations(db: Database.Database) {
         `);
       }
 
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images(history_id, type, slot_index);`);
+      db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images(history_id, type, slot_index);`
+      );
 
       // Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);`);
+      db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);`
+      );
 
       db.prepare(`PRAGMA user_version = 1`).run();
     });
 
     migration_v1();
   }
+
+  // Apply performance optimization indexes regardless of version
+  // (using IF NOT EXISTS makes this safe to run on every startup)
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_history_username_video_timestamp ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;`
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_history_username_image_timestamp ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;`
+  );
 }
 
-describe('Database Migration System', () => {
+describe("Database Migration System", () => {
   let testDb: Database.Database;
 
   beforeEach(() => {
@@ -98,15 +111,16 @@ describe('Database Migration System', () => {
     }
   });
 
-  test('should create a new database with the latest schema version', () => {
+  test("should create a new database with the latest schema version", () => {
     testDb = new Database(TEST_DB_PATH);
-    
+
     // Create a minimal schema with generation_mode column
     testDb.exec(`
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT,
         generation_mode TEXT NOT NULL DEFAULT 'creative'
       );
       CREATE TABLE history_images (
@@ -121,35 +135,51 @@ describe('Database Migration System', () => {
       -- Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
       CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_history_username_video_timestamp ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_history_username_image_timestamp ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
     `);
 
     // Set version to 1 (latest)
-    testDb.prepare('PRAGMA user_version = 1').run();
+    testDb.prepare("PRAGMA user_version = 1").run();
 
-    const version = testDb.prepare('PRAGMA user_version').get() as { user_version: number };
+    const version = testDb.prepare("PRAGMA user_version").get() as { user_version: number };
     expect(version.user_version).toBe(1);
 
     // Verify generation_mode column exists
-    const columns = testDb.prepare('PRAGMA table_info(history)').all() as { name: string }[];
-    const hasGenerationMode = columns.some(col => col.name === 'generation_mode');
+    const columns = testDb.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+    const hasGenerationMode = columns.some((col) => col.name === "generation_mode");
     expect(hasGenerationMode).toBe(true);
 
     // Verify index exists
-    const indexes = testDb.prepare('PRAGMA index_list(history_images)').all() as { name: string }[];
-    const hasIndex = indexes.some(idx => idx.name === 'idx_history_images_history_id');
+    const indexes = testDb.prepare("PRAGMA index_list(history_images)").all() as { name: string }[];
+    const hasIndex = indexes.some((idx) => idx.name === "idx_history_images_history_id");
     expect(hasIndex).toBe(true);
 
-    const historyIndexes = testDb.prepare('PRAGMA index_list(history)').all() as { name: string }[];
-    const hasHistoryIndex = historyIndexes.some(idx => idx.name === 'idx_history_username_timestamp');
+    const historyIndexes = testDb.prepare("PRAGMA index_list(history)").all() as { name: string }[];
+    const hasHistoryIndex = historyIndexes.some(
+      (idx) => idx.name === "idx_history_username_timestamp"
+    );
     expect(hasHistoryIndex).toBe(true);
 
-    const hasGlobalHistoryIndex = historyIndexes.some(idx => idx.name === 'idx_history_timestamp');
+    const hasGlobalHistoryIndex = historyIndexes.some(
+      (idx) => idx.name === "idx_history_timestamp"
+    );
     expect(hasGlobalHistoryIndex).toBe(true);
+
+    const hasVideoHistoryIndex = historyIndexes.some(
+      (idx) => idx.name === "idx_history_username_video_timestamp"
+    );
+    expect(hasVideoHistoryIndex).toBe(true);
+
+    const hasImageHistoryIndex = historyIndexes.some(
+      (idx) => idx.name === "idx_history_username_image_timestamp"
+    );
+    expect(hasImageHistoryIndex).toBe(true);
   });
 
-  test('should migrate a version 0 database to version 1', () => {
+  test("should migrate a version 0 database to version 1", () => {
     testDb = new Database(TEST_DB_PATH);
-    
+
     // Create an old schema WITHOUT generation_mode column (simulating version 0)
     testDb.exec(`
       CREATE TABLE history (
@@ -176,14 +206,14 @@ describe('Database Migration System', () => {
     `);
 
     // Explicitly set version to 0
-    testDb.prepare('PRAGMA user_version = 0').run();
+    testDb.prepare("PRAGMA user_version = 0").run();
 
     // Verify initial state
-    let version = testDb.prepare('PRAGMA user_version').get() as { user_version: number };
+    let version = testDb.prepare("PRAGMA user_version").get() as { user_version: number };
     expect(version.user_version).toBe(0);
 
-    let columns = testDb.prepare('PRAGMA table_info(history)').all() as { name: string }[];
-    let hasGenerationMode = columns.some(col => col.name === 'generation_mode');
+    let columns = testDb.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+    let hasGenerationMode = columns.some((col) => col.name === "generation_mode");
     expect(hasGenerationMode).toBe(false);
 
     // Apply migration manually (simulating what runMigrations does)
@@ -192,28 +222,29 @@ describe('Database Migration System', () => {
         ALTER TABLE history 
         ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'creative'
       `);
-      testDb.prepare('PRAGMA user_version = 1').run();
+      testDb.prepare("PRAGMA user_version = 1").run();
     });
     migration();
 
     // Verify migration was successful
-    version = testDb.prepare('PRAGMA user_version').get() as { user_version: number };
+    version = testDb.prepare("PRAGMA user_version").get() as { user_version: number };
     expect(version.user_version).toBe(1);
 
-    columns = testDb.prepare('PRAGMA table_info(history)').all() as { name: string }[];
-    hasGenerationMode = columns.some(col => col.name === 'generation_mode');
+    columns = testDb.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+    hasGenerationMode = columns.some((col) => col.name === "generation_mode");
     expect(hasGenerationMode).toBe(true);
   });
 
-  test('should handle migration idempotency (running migration twice should not fail)', () => {
+  test("should handle migration idempotency (running migration twice should not fail)", () => {
     testDb = new Database(TEST_DB_PATH);
-    
+
     // Create schema with generation_mode but version 0
     testDb.exec(`
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT,
         generation_mode TEXT NOT NULL DEFAULT 'creative'
       );
       CREATE TABLE history_images (
@@ -225,39 +256,40 @@ describe('Database Migration System', () => {
       );
     `);
 
-    testDb.prepare('PRAGMA user_version = 0').run();
+    testDb.prepare("PRAGMA user_version = 0").run();
 
     // First migration attempt - should check and skip ALTER TABLE
     const migration1 = testDb.transaction(() => {
-      const columns = testDb.prepare('PRAGMA table_info(history)').all() as { name: string }[];
-      const hasColumn = columns.some(col => col.name === 'generation_mode');
-      
+      const columns = testDb.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+      const hasColumn = columns.some((col) => col.name === "generation_mode");
+
       if (!hasColumn) {
         testDb.exec(`
           ALTER TABLE history 
           ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'creative'
         `);
       }
-      
-      testDb.prepare('PRAGMA user_version = 1').run();
+
+      testDb.prepare("PRAGMA user_version = 1").run();
     });
-    
+
     expect(() => migration1()).not.toThrow();
 
     // Verify version was updated
-    const version = testDb.prepare('PRAGMA user_version').get() as { user_version: number };
+    const version = testDb.prepare("PRAGMA user_version").get() as { user_version: number };
     expect(version.user_version).toBe(1);
   });
 
-  test('should rollback migration on error', () => {
+  test("should rollback migration on error", () => {
     testDb = new Database(TEST_DB_PATH);
-    
+
     // Create a valid schema
     testDb.exec(`
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -268,7 +300,7 @@ describe('Database Migration System', () => {
       );
     `);
 
-    testDb.prepare('PRAGMA user_version = 0').run();
+    testDb.prepare("PRAGMA user_version = 0").run();
 
     // Attempt a migration that will fail (invalid SQL)
     const badMigration = testDb.transaction(() => {
@@ -276,35 +308,36 @@ describe('Database Migration System', () => {
         ALTER TABLE history 
         ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'creative'
       `);
-      
+
       // This will cause an error - intentionally invalid
-      testDb.exec('INVALID SQL STATEMENT');
-      
-      testDb.prepare('PRAGMA user_version = 1').run();
+      testDb.exec("INVALID SQL STATEMENT");
+
+      testDb.prepare("PRAGMA user_version = 1").run();
     });
 
     // Migration should fail
     expect(() => badMigration()).toThrow();
 
     // Version should still be 0 (rollback successful)
-    const version = testDb.prepare('PRAGMA user_version').get() as { user_version: number };
+    const version = testDb.prepare("PRAGMA user_version").get() as { user_version: number };
     expect(version.user_version).toBe(0);
 
     // Column should NOT have been added (rollback successful)
-    const columns = testDb.prepare('PRAGMA table_info(history)').all() as { name: string }[];
-    const hasGenerationMode = columns.some(col => col.name === 'generation_mode');
+    const columns = testDb.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+    const hasGenerationMode = columns.some((col) => col.name === "generation_mode");
     expect(hasGenerationMode).toBe(false);
   });
 
-  test('should preserve existing data during migration', () => {
+  test("should preserve existing data during migration", () => {
     testDb = new Database(TEST_DB_PATH);
-    
+
     // Create old schema
     testDb.exec(`
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -316,12 +349,16 @@ describe('Database Migration System', () => {
     `);
 
     // Insert test data
-    testDb.prepare(`
+    testDb
+      .prepare(
+        `
       INSERT INTO history (id, username, timestamp)
       VALUES ('test-1', 'testuser', 1234567890)
-    `).run();
+    `
+      )
+      .run();
 
-    testDb.prepare('PRAGMA user_version = 0').run();
+    testDb.prepare("PRAGMA user_version = 0").run();
 
     // Run migration
     const migration = testDb.transaction(() => {
@@ -329,33 +366,38 @@ describe('Database Migration System', () => {
         ALTER TABLE history 
         ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'creative'
       `);
-      testDb.prepare('PRAGMA user_version = 1').run();
+      testDb.prepare("PRAGMA user_version = 1").run();
     });
     migration();
 
     // Verify data still exists with new column having default value
-    const row = testDb.prepare(`
+    const row = testDb
+      .prepare(
+        `
       SELECT id, username, timestamp, generation_mode 
       FROM history 
       WHERE id = 'test-1'
-    `).get() as { id: string; username: string; timestamp: number; generation_mode: string };
+    `
+      )
+      .get() as { id: string; username: string; timestamp: number; generation_mode: string };
 
     expect(row).toBeDefined();
-    expect(row.id).toBe('test-1');
-    expect(row.username).toBe('testuser');
+    expect(row.id).toBe("test-1");
+    expect(row.username).toBe("testuser");
     expect(row.timestamp).toBe(1234567890);
-    expect(row.generation_mode).toBe('creative'); // Default value
+    expect(row.generation_mode).toBe("creative"); // Default value
   });
 
-  test('should handle multiple sequential migrations', () => {
+  test("should handle multiple sequential migrations", () => {
     testDb = new Database(TEST_DB_PATH);
-    
+
     // Create base schema
     testDb.exec(`
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -366,28 +408,28 @@ describe('Database Migration System', () => {
       );
     `);
 
-    testDb.prepare('PRAGMA user_version = 0').run();
+    testDb.prepare("PRAGMA user_version = 0").run();
 
     // Run migration to version 1
     runTestMigrations(testDb);
 
     // Verify version and column
-    let version = testDb.prepare('PRAGMA user_version').get() as { user_version: number };
+    let version = testDb.prepare("PRAGMA user_version").get() as { user_version: number };
     expect(version.user_version).toBe(1);
 
-    let columns = testDb.prepare('PRAGMA table_info(history)').all() as { name: string }[];
-    let hasGenerationMode = columns.some(col => col.name === 'generation_mode');
+    let columns = testDb.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+    let hasGenerationMode = columns.some((col) => col.name === "generation_mode");
     expect(hasGenerationMode).toBe(true);
 
     // Run migration again - should be idempotent
     runTestMigrations(testDb);
 
-    version = testDb.prepare('PRAGMA user_version').get() as { user_version: number };
+    version = testDb.prepare("PRAGMA user_version").get() as { user_version: number };
     expect(version.user_version).toBe(1); // Still version 1
 
     // Column should still exist and only exist once
-    columns = testDb.prepare('PRAGMA table_info(history)').all() as { name: string }[];
-    const generationModeColumns = columns.filter(col => col.name === 'generation_mode');
+    columns = testDb.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+    const generationModeColumns = columns.filter((col) => col.name === "generation_mode");
     expect(generationModeColumns.length).toBe(1);
   });
 });
