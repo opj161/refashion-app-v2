@@ -49,6 +49,9 @@ function runTestMigrations(db: Database.Database) {
       // Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);`);
 
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_video ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_image ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;`);
+
       db.prepare(`PRAGMA user_version = 1`).run();
     });
 
@@ -107,6 +110,7 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT,
         generation_mode TEXT NOT NULL DEFAULT 'creative'
       );
       CREATE TABLE history_images (
@@ -121,6 +125,8 @@ describe('Database Migration System', () => {
       -- Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
       CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_video ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_image ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
     `);
 
     // Set version to 1 (latest)
@@ -145,6 +151,12 @@ describe('Database Migration System', () => {
 
     const hasGlobalHistoryIndex = historyIndexes.some(idx => idx.name === 'idx_history_timestamp');
     expect(hasGlobalHistoryIndex).toBe(true);
+
+    const hasVideoIndex = historyIndexes.some(idx => idx.name === 'idx_history_username_timestamp_video');
+    expect(hasVideoIndex).toBe(true);
+
+    const hasImageIndex = historyIndexes.some(idx => idx.name === 'idx_history_username_timestamp_image');
+    expect(hasImageIndex).toBe(true);
   });
 
   test('should migrate a version 0 database to version 1', () => {
@@ -214,6 +226,7 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT,
         generation_mode TEXT NOT NULL DEFAULT 'creative'
       );
       CREATE TABLE history_images (
@@ -257,7 +270,8 @@ describe('Database Migration System', () => {
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -304,7 +318,8 @@ describe('Database Migration System', () => {
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -355,7 +370,8 @@ describe('Database Migration System', () => {
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
