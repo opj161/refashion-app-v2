@@ -49,6 +49,10 @@ function runTestMigrations(db: Database.Database) {
       // Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);`);
 
+      // Performance Optimization: Partial indexes for filtered pagination
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_video ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_image ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;`);
+
       db.prepare(`PRAGMA user_version = 1`).run();
     });
 
@@ -107,7 +111,8 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
-        generation_mode TEXT NOT NULL DEFAULT 'creative'
+        generation_mode TEXT NOT NULL DEFAULT 'creative',
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,6 +125,8 @@ describe('Database Migration System', () => {
 
       -- Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_video ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_image ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
       CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
     `);
 
@@ -214,7 +221,8 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
-        generation_mode TEXT NOT NULL DEFAULT 'creative'
+        generation_mode TEXT NOT NULL DEFAULT 'creative',
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -257,7 +265,8 @@ describe('Database Migration System', () => {
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -304,7 +313,8 @@ describe('Database Migration System', () => {
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -355,7 +365,8 @@ describe('Database Migration System', () => {
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
