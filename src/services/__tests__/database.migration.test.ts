@@ -35,12 +35,20 @@ function runTestMigrations(db: Database.Database) {
   if (currentVersion < 1) {
     const migration_v1 = db.transaction(() => {
       const columns = db.prepare("PRAGMA table_info(history)").all() as { name: string }[];
-      const hasColumn = columns.some(col => col.name === 'generation_mode');
+      const hasGenerationMode = columns.some(col => col.name === 'generation_mode');
+      const hasVideoParams = columns.some(col => col.name === 'videoGenerationParams');
 
-      if (!hasColumn) {
+      if (!hasGenerationMode) {
         db.exec(`
           ALTER TABLE history 
           ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'creative'
+        `);
+      }
+
+      if (!hasVideoParams) {
+          db.exec(`
+          ALTER TABLE history
+          ADD COLUMN videoGenerationParams TEXT
         `);
       }
 
@@ -48,6 +56,10 @@ function runTestMigrations(db: Database.Database) {
 
       // Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);`);
+
+      // Performance Optimization: Partial indexes for filtering paginated history
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_user_time_image ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_user_time_video ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;`);
 
       db.prepare(`PRAGMA user_version = 1`).run();
     });
@@ -107,7 +119,8 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
-        generation_mode TEXT NOT NULL DEFAULT 'creative'
+        generation_mode TEXT NOT NULL DEFAULT 'creative',
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,6 +134,10 @@ describe('Database Migration System', () => {
       -- Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
       CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
+
+      -- Performance Optimization: Partial indexes for filtering paginated history
+      CREATE INDEX IF NOT EXISTS idx_history_user_time_image ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_history_user_time_video ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
     `);
 
     // Set version to 1 (latest)
@@ -145,12 +162,19 @@ describe('Database Migration System', () => {
 
     const hasGlobalHistoryIndex = historyIndexes.some(idx => idx.name === 'idx_history_timestamp');
     expect(hasGlobalHistoryIndex).toBe(true);
+
+    const hasImageIndex = historyIndexes.some(idx => idx.name === 'idx_history_user_time_image');
+    expect(hasImageIndex).toBe(true);
+
+    const hasVideoIndex = historyIndexes.some(idx => idx.name === 'idx_history_user_time_video');
+    expect(hasVideoIndex).toBe(true);
   });
 
   test('should migrate a version 0 database to version 1', () => {
     testDb = new Database(TEST_DB_PATH);
     
     // Create an old schema WITHOUT generation_mode column (simulating version 0)
+    // Memory rule: Do NOT retroactively add new columns to historical mock schemas (e.g., version 0) in database.migration.test.ts
     testDb.exec(`
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
@@ -160,7 +184,6 @@ describe('Database Migration System', () => {
         originalClothingUrl TEXT,
         settingsMode TEXT,
         attributes TEXT,
-        videoGenerationParams TEXT,
         webhook_url TEXT,
         status TEXT DEFAULT 'completed',
         error TEXT,
@@ -187,14 +210,7 @@ describe('Database Migration System', () => {
     expect(hasGenerationMode).toBe(false);
 
     // Apply migration manually (simulating what runMigrations does)
-    const migration = testDb.transaction(() => {
-      testDb.exec(`
-        ALTER TABLE history 
-        ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'creative'
-      `);
-      testDb.prepare('PRAGMA user_version = 1').run();
-    });
-    migration();
+    runTestMigrations(testDb);
 
     // Verify migration was successful
     version = testDb.prepare('PRAGMA user_version').get() as { user_version: number };
@@ -203,6 +219,9 @@ describe('Database Migration System', () => {
     columns = testDb.prepare('PRAGMA table_info(history)').all() as { name: string }[];
     hasGenerationMode = columns.some(col => col.name === 'generation_mode');
     expect(hasGenerationMode).toBe(true);
+
+    const hasVideoParams = columns.some(col => col.name === 'videoGenerationParams');
+    expect(hasVideoParams).toBe(true);
   });
 
   test('should handle migration idempotency (running migration twice should not fail)', () => {
@@ -228,21 +247,7 @@ describe('Database Migration System', () => {
     testDb.prepare('PRAGMA user_version = 0').run();
 
     // First migration attempt - should check and skip ALTER TABLE
-    const migration1 = testDb.transaction(() => {
-      const columns = testDb.prepare('PRAGMA table_info(history)').all() as { name: string }[];
-      const hasColumn = columns.some(col => col.name === 'generation_mode');
-      
-      if (!hasColumn) {
-        testDb.exec(`
-          ALTER TABLE history 
-          ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'creative'
-        `);
-      }
-      
-      testDb.prepare('PRAGMA user_version = 1').run();
-    });
-    
-    expect(() => migration1()).not.toThrow();
+    expect(() => runTestMigrations(testDb)).not.toThrow();
 
     // Verify version was updated
     const version = testDb.prepare('PRAGMA user_version').get() as { user_version: number };
@@ -257,7 +262,8 @@ describe('Database Migration System', () => {
       CREATE TABLE history (
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -324,14 +330,7 @@ describe('Database Migration System', () => {
     testDb.prepare('PRAGMA user_version = 0').run();
 
     // Run migration
-    const migration = testDb.transaction(() => {
-      testDb.exec(`
-        ALTER TABLE history 
-        ADD COLUMN generation_mode TEXT NOT NULL DEFAULT 'creative'
-      `);
-      testDb.prepare('PRAGMA user_version = 1').run();
-    });
-    migration();
+    runTestMigrations(testDb);
 
     // Verify data still exists with new column having default value
     const row = testDb.prepare(`
