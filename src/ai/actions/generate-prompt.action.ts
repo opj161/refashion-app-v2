@@ -19,13 +19,30 @@ import { getSystemPrompt } from '@/services/systemPrompt.service';
 import { createApiLogger } from '@/lib/api-logger';
 import { imageToGenerativePart } from '@/lib/ai-utils';
 
+const GENDER_MAP = new Map(GENDER_OPTIONS.map(opt => [opt.value, opt]));
+const AGE_RANGE_MAP = new Map(AGE_RANGE_OPTIONS.map(opt => [opt.value, opt]));
+const ETHNICITY_MAP = new Map(ETHNICITY_OPTIONS.map(opt => [opt.value, opt]));
+const BODY_SHAPE_AND_SIZE_MAP = new Map(BODY_SHAPE_AND_SIZE_OPTIONS.map(opt => [opt.value, opt]));
+const HAIR_STYLE_MAP = new Map(HAIR_STYLE_OPTIONS.map(opt => [opt.value, opt]));
+const MODEL_EXPRESSION_MAP = new Map(MODEL_EXPRESSION_OPTIONS.map(opt => [opt.value, opt]));
+const POSE_STYLE_MAP = new Map(POSE_STYLE_OPTIONS.map(opt => [opt.value, opt]));
+const BACKGROUND_MAP = new Map(BACKGROUND_OPTIONS.map(opt => [opt.value, opt]));
+const TIME_OF_DAY_MAP = new Map(TIME_OF_DAY_OPTIONS.map(opt => [opt.value, opt]));
+const LIGHTING_TYPE_MAP = new Map(LIGHTING_TYPE_OPTIONS.map(opt => [opt.value, opt]));
+const LIGHT_QUALITY_MAP = new Map(LIGHT_QUALITY_OPTIONS.map(opt => [opt.value, opt]));
+const MODEL_ANGLE_MAP = new Map(MODEL_ANGLE_OPTIONS.map(opt => [opt.value, opt]));
+const LENS_EFFECT_MAP = new Map(LENS_EFFECT_OPTIONS.map(opt => [opt.value, opt]));
+const DEPTH_OF_FIELD_MAP = new Map(DEPTH_OF_FIELD_OPTIONS.map(opt => [opt.value, opt]));
+const OVERALL_MOOD_MAP = new Map(OVERALL_MOOD_OPTIONS.map(opt => [opt.value, opt]));
+const FASHION_STYLE_MAP = new Map(FASHION_STYLE_OPTIONS.map(opt => [opt.value, opt]));
+
 
 // Helper to format user parameters into natural conversational request for the AI
 // Uses the actual option values and prompt segments from prompt-builder.ts
 function formatParametersForAI(params: ModelAttributes): string {
   // Helper function to get natural language from option values
-  const getOptionText = (options: readonly OptionWithPromptSegment[], value: string): string => {
-    const option = options.find(opt => opt.value === value);
+  const getOptionText = (optionsMap: Map<string, OptionWithPromptSegment>, value: string): string => {
+    const option = optionsMap.get(value);
     if (option && option.value !== 'default' && option.promptSegment) {
       return option.promptSegment;
     }
@@ -36,27 +53,27 @@ function formatParametersForAI(params: ModelAttributes): string {
   const lines: string[] = [];
   
   // Model description line using actual option constants
-  const genderOption = GENDER_OPTIONS.find(opt => opt.value === params.gender);
+  const genderOption = GENDER_MAP.get(params.gender);
   let modelLine = 'a stunning ' + (genderOption?.promptSegment || 'fashion') + ' fashion model';
 
   // Add model attributes
-  const ageText = getOptionText(AGE_RANGE_OPTIONS, params.ageRange);
+  const ageText = getOptionText(AGE_RANGE_MAP, params.ageRange);
   if (ageText) modelLine += ', ' + ageText;
 
-  const ethnicityText = getOptionText(ETHNICITY_OPTIONS, params.ethnicity);
+  const ethnicityText = getOptionText(ETHNICITY_MAP, params.ethnicity);
   if (ethnicityText) modelLine += ', ' + ethnicityText;
 
-  const bodyShapeAndSizeText = getOptionText(BODY_SHAPE_AND_SIZE_OPTIONS, params.bodyShapeAndSize);
+  const bodyShapeAndSizeText = getOptionText(BODY_SHAPE_AND_SIZE_MAP, params.bodyShapeAndSize);
   if (bodyShapeAndSizeText) modelLine += ', ' + bodyShapeAndSizeText;
 
-  const hairStyleText = getOptionText(HAIR_STYLE_OPTIONS, params.hairStyle);
+  const hairStyleText = getOptionText(HAIR_STYLE_MAP, params.hairStyle);
   if (hairStyleText) modelLine += ', ' + hairStyleText;
 
   lines.push(modelLine);
 
   // Pose and expression line using actual options
-  const poseText = getOptionText(POSE_STYLE_OPTIONS, params.poseStyle);
-  const expressionText = getOptionText(MODEL_EXPRESSION_OPTIONS, params.modelExpression);
+  const poseText = getOptionText(POSE_STYLE_MAP, params.poseStyle);
+  const expressionText = getOptionText(MODEL_EXPRESSION_MAP, params.modelExpression);
   
   // Only add pose/expression line if we have actual values
   if (poseText || expressionText) {
@@ -70,7 +87,7 @@ function formatParametersForAI(params: ModelAttributes): string {
   }
 
   // Setting line - only create if background is chosen or other setting elements exist
-  const backgroundText = getOptionText(BACKGROUND_OPTIONS, params.background);
+  const backgroundText = getOptionText(BACKGROUND_MAP, params.background);
   let settingElements: string[] = [];
   
   // Only add background if it's actually set
@@ -79,17 +96,17 @@ function formatParametersForAI(params: ModelAttributes): string {
   }
 
   // Add other setting elements only if they exist
-  const timeText = getOptionText(TIME_OF_DAY_OPTIONS, params.timeOfDay);
+  const timeText = getOptionText(TIME_OF_DAY_MAP, params.timeOfDay);
   if (timeText) settingElements.push(timeText);
 
-  const lightingText = getOptionText(LIGHTING_TYPE_OPTIONS, params.lightingType);
+  const lightingText = getOptionText(LIGHTING_TYPE_MAP, params.lightingType);
   if (lightingText) settingElements.push(lightingText);
 
-  const moodText = getOptionText(OVERALL_MOOD_OPTIONS, params.overallMood);
+  const moodText = getOptionText(OVERALL_MOOD_MAP, params.overallMood);
   if (moodText) settingElements.push(moodText);
 
   // Add fashion style to setting
-  const fashionStyleOption = FASHION_STYLE_OPTIONS.find(opt => opt.value === params.fashionStyle);
+  const fashionStyleOption = FASHION_STYLE_MAP.get(params.fashionStyle);
   if (fashionStyleOption && fashionStyleOption.value !== 'default_style' && fashionStyleOption.promptSegment) {
     settingElements.push('in ' + fashionStyleOption.displayLabel.toLowerCase() + ' style');
   }
@@ -102,16 +119,16 @@ function formatParametersForAI(params: ModelAttributes): string {
   // Technical details with actual options only
   const technicalEnhancements: string[] = [];
   
-  const lightQualityText = getOptionText(LIGHT_QUALITY_OPTIONS, params.lightQuality);
+  const lightQualityText = getOptionText(LIGHT_QUALITY_MAP, params.lightQuality);
   if (lightQualityText) technicalEnhancements.push(lightQualityText);
 
-  const modelAngleText = getOptionText(MODEL_ANGLE_OPTIONS, params.modelAngle);
+  const modelAngleText = getOptionText(MODEL_ANGLE_MAP, params.modelAngle);
   if (modelAngleText) technicalEnhancements.push(modelAngleText);
 
-  const lensEffectText = getOptionText(LENS_EFFECT_OPTIONS, params.lensEffect);
+  const lensEffectText = getOptionText(LENS_EFFECT_MAP, params.lensEffect);
   if (lensEffectText) technicalEnhancements.push(lensEffectText);
 
-  const depthOfFieldText = getOptionText(DEPTH_OF_FIELD_OPTIONS, params.depthOfField);
+  const depthOfFieldText = getOptionText(DEPTH_OF_FIELD_MAP, params.depthOfField);
   if (depthOfFieldText) technicalEnhancements.push(depthOfFieldText);
 
   // Only add technical enhancements if there are any
