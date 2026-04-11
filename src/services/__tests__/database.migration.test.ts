@@ -49,6 +49,19 @@ function runTestMigrations(db: Database.Database) {
       // Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);`);
 
+      // Verify and add videoGenerationParams column if missing before creating partial indexes
+      const historyColumns = db.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+      const hasVideoParams = historyColumns.some(col => col.name === 'videoGenerationParams');
+      if (!hasVideoParams) {
+        db.exec(`ALTER TABLE history ADD COLUMN videoGenerationParams TEXT`);
+      }
+
+      // Performance Optimization: Partial indexes to prevent full table scan + temporary B-tree for history pagination with filters
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_history_username_image ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_history_username_video ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
+      `);
+
       db.prepare(`PRAGMA user_version = 1`).run();
     });
 
@@ -107,7 +120,8 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
-        generation_mode TEXT NOT NULL DEFAULT 'creative'
+        generation_mode TEXT NOT NULL DEFAULT 'creative',
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,6 +135,8 @@ describe('Database Migration System', () => {
       -- Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
       CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_history_username_image ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_history_username_video ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
     `);
 
     // Set version to 1 (latest)
@@ -145,6 +161,12 @@ describe('Database Migration System', () => {
 
     const hasGlobalHistoryIndex = historyIndexes.some(idx => idx.name === 'idx_history_timestamp');
     expect(hasGlobalHistoryIndex).toBe(true);
+
+    const hasImagePaginationIndex = historyIndexes.some(idx => idx.name === 'idx_history_username_image');
+    expect(hasImagePaginationIndex).toBe(true);
+
+    const hasVideoPaginationIndex = historyIndexes.some(idx => idx.name === 'idx_history_username_video');
+    expect(hasVideoPaginationIndex).toBe(true);
   });
 
   test('should migrate a version 0 database to version 1', () => {
@@ -214,7 +236,8 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
-        generation_mode TEXT NOT NULL DEFAULT 'creative'
+        generation_mode TEXT NOT NULL DEFAULT 'creative',
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
