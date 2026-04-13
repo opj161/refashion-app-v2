@@ -118,6 +118,20 @@ function runMigrations() {
     CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
   `);
 
+  // Ensure videoGenerationParams exists before creating partial indexes on it
+  // This prevents SqliteError: no such column on older databases during upgrades
+  const columns = db.prepare("PRAGMA table_info(history)").all() as { name: string }[];
+  if (!columns.some(col => col.name === 'videoGenerationParams')) {
+    db.exec(`ALTER TABLE history ADD COLUMN videoGenerationParams TEXT`);
+  }
+
+  db.exec(`
+    -- Performance Optimization: Partial indexes to prevent full row evaluation
+    -- and significantly improve paginated query performance for image/video filtering.
+    CREATE INDEX IF NOT EXISTS idx_history_username_video_null ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_history_username_video_not_null ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
+  `);
+
   // Initialize Admin User if not exists
   const adminUser = db.prepare('SELECT * FROM users WHERE username = ?').get('admin');
   if (!adminUser) {
