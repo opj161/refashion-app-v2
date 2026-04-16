@@ -9,3 +9,7 @@
 ## 2026-03-11 - Missing Database Index Causes Full Table Scans for Global History Pagination
 **Learning:** SQLite's `ORDER BY timestamp DESC` triggers a full table scan and a temporary B-Tree for sorting without an index on `(timestamp DESC)`. This O(N log N) penalty becomes a severe backend bottleneck when paginating through all users' history globally.
 **Action:** Always ensure that frequently paginated or ordered queries have a corresponding index defined in both the migration scripts (`scripts/migrate.ts`) and replicated exactly in testing schema files.
+
+## 2024-05-25 - Partial Indexes for SQLite Conditional Pagination
+**Learning:** In SQLite, when paginating with conditions that check `IS NULL` or `IS NOT NULL` on a column (e.g., distinguishing between image and video generation types), using a partial index (e.g., `CREATE INDEX ... WHERE column IS NULL`) prevents full table scans for those specific subsets of data. This heavily optimizes filtering large histories.
+**Action:** When adding partial indexes to production migrations (`scripts/migrate.ts`), always explicitly check if the necessary column exists using `PRAGMA table_info` and add it via `ALTER TABLE` if missing, before attempting to create the index. Replicate this exact fallback logic in migration tests to ensure backwards compatibility.
