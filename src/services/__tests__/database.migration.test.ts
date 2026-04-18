@@ -49,6 +49,16 @@ function runTestMigrations(db: Database.Database) {
       // Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);`);
 
+      // Ensure videoGenerationParams exists before creating indexes that depend on it
+      const hasVideoGenerationParams = columns.some(col => col.name === 'videoGenerationParams');
+      if (!hasVideoGenerationParams) {
+        db.exec(`ALTER TABLE history ADD COLUMN videoGenerationParams TEXT`);
+      }
+
+      // Partial indexes
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_image ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_video ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;`);
+
       db.prepare(`PRAGMA user_version = 1`).run();
     });
 
@@ -107,7 +117,8 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
-        generation_mode TEXT NOT NULL DEFAULT 'creative'
+        generation_mode TEXT NOT NULL DEFAULT 'creative',
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,6 +132,8 @@ describe('Database Migration System', () => {
       -- Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
       CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_image ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_video ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
     `);
 
     // Set version to 1 (latest)
@@ -145,6 +158,12 @@ describe('Database Migration System', () => {
 
     const hasGlobalHistoryIndex = historyIndexes.some(idx => idx.name === 'idx_history_timestamp');
     expect(hasGlobalHistoryIndex).toBe(true);
+
+    const hasImageIndex = historyIndexes.some(idx => idx.name === 'idx_history_username_timestamp_image');
+    expect(hasImageIndex).toBe(true);
+
+    const hasVideoIndex = historyIndexes.some(idx => idx.name === 'idx_history_username_timestamp_video');
+    expect(hasVideoIndex).toBe(true);
   });
 
   test('should migrate a version 0 database to version 1', () => {
