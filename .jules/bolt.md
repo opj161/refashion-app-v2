@@ -9,3 +9,7 @@
 ## 2026-03-11 - Missing Database Index Causes Full Table Scans for Global History Pagination
 **Learning:** SQLite's `ORDER BY timestamp DESC` triggers a full table scan and a temporary B-Tree for sorting without an index on `(timestamp DESC)`. This O(N log N) penalty becomes a severe backend bottleneck when paginating through all users' history globally.
 **Action:** Always ensure that frequently paginated or ordered queries have a corresponding index defined in both the migration scripts (`scripts/migrate.ts`) and replicated exactly in testing schema files.
+
+## 2024-05-25 - Partial Indexes for JSON Columns Prevent Full Table Scans
+**Learning:** SQLite queries filtering on the nullness of JSON strings (e.g. `videoGenerationParams IS NULL` or `IS NOT NULL`) can trigger full table evaluations. Even with an index on `(username, timestamp DESC)`, the DB engine still evaluates every row for the condition. Creating *partial* indexes `WHERE videoGenerationParams IS NULL` completely avoids this and allows O(1) matching for specific subsets.
+**Action:** When filtering paginated lists in SQLite with conditions that evaluate JSON columns or perform NULL checks, use partial indexes (e.g. `CREATE INDEX ... WHERE condition`) to drastically improve query performance.

@@ -107,6 +107,7 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT,
         generation_mode TEXT NOT NULL DEFAULT 'creative'
       );
       CREATE TABLE history_images (
@@ -121,6 +122,8 @@ describe('Database Migration System', () => {
       -- Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
       CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_history_image_filter ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
+      CREATE INDEX IF NOT EXISTS idx_history_video_filter ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
     `);
 
     // Set version to 1 (latest)
@@ -214,6 +217,7 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
+        videoGenerationParams TEXT,
         generation_mode TEXT NOT NULL DEFAULT 'creative'
       );
       CREATE TABLE history_images (
