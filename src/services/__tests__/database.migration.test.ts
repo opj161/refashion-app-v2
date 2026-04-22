@@ -44,10 +44,22 @@ function runTestMigrations(db: Database.Database) {
         `);
       }
 
+      const hasVideoParamsColumn = columns.some(col => col.name === 'videoGenerationParams');
+      if (!hasVideoParamsColumn) {
+        db.exec(`
+          ALTER TABLE history
+          ADD COLUMN videoGenerationParams TEXT
+        `);
+      }
+
       db.exec(`CREATE INDEX IF NOT EXISTS idx_history_images_history_id ON history_images(history_id, type, slot_index);`);
 
       // Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       db.exec(`CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);`);
+
+      // Performance Optimization: Partial indexes to prevent full row evaluation and JSON deserialization
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_video_filter ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_history_image_filter ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;`);
 
       db.prepare(`PRAGMA user_version = 1`).run();
     });
@@ -107,7 +119,8 @@ describe('Database Migration System', () => {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
-        generation_mode TEXT NOT NULL DEFAULT 'creative'
+        generation_mode TEXT NOT NULL DEFAULT 'creative',
+        videoGenerationParams TEXT
       );
       CREATE TABLE history_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,6 +134,10 @@ describe('Database Migration System', () => {
       -- Performance Optimization: Index to prevent full table scan + temporary B-tree for history pagination
       CREATE INDEX IF NOT EXISTS idx_history_username_timestamp ON history(username, timestamp DESC);
       CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
+
+      -- Performance Optimization: Partial indexes to prevent full row evaluation and JSON deserialization
+      CREATE INDEX IF NOT EXISTS idx_history_video_filter ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_history_image_filter ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
     `);
 
     // Set version to 1 (latest)
