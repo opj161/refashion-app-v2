@@ -116,6 +116,11 @@ function runMigrations() {
     -- Performance Optimization: Index to prevent full table scan + temporary B-tree
     -- for global history pagination
     CREATE INDEX IF NOT EXISTS idx_history_timestamp ON history(timestamp DESC);
+
+    -- Performance Optimization: Partial indexes for filtering by video vs image
+    -- Prevents full table scan + temporary B-tree when filtering by video/image
+    CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_video ON history(username, timestamp DESC) WHERE videoGenerationParams IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_history_username_timestamp_image ON history(username, timestamp DESC) WHERE videoGenerationParams IS NULL;
   `);
 
   // Initialize Admin User if not exists

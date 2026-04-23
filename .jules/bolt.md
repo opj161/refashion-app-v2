@@ -9,3 +9,7 @@
 ## 2026-03-11 - Missing Database Index Causes Full Table Scans for Global History Pagination
 **Learning:** SQLite's `ORDER BY timestamp DESC` triggers a full table scan and a temporary B-Tree for sorting without an index on `(timestamp DESC)`. This O(N log N) penalty becomes a severe backend bottleneck when paginating through all users' history globally.
 **Action:** Always ensure that frequently paginated or ordered queries have a corresponding index defined in both the migration scripts (`scripts/migrate.ts`) and replicated exactly in testing schema files.
+
+## 2026-03-11 - Missing Database Index Causes Full Table Scans for History Pagination
+**Learning:** SQLite's `ORDER BY timestamp DESC` triggers a full table scan and a temporary B-Tree for sorting without an index on `(username, timestamp DESC)`. However, when fetching a paginated list of ONLY images (or ONLY videos) via an `IS NULL` (or `IS NOT NULL`) clause, it triggers a full table scan against the entire history. This O(N) penalty becomes a severe backend bottleneck when paginating through user history.
+**Action:** Always ensure that frequently paginated or ordered queries have a corresponding index defined in both the migration scripts (`scripts/migrate.ts`) and replicated exactly in testing schema files. Specifically, for queries using `IS NULL` or `IS NOT NULL`, use partial indexes (`WHERE col IS NULL`) to avoid evaluating these expressions across the whole table.
